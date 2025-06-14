@@ -33,7 +33,7 @@ Copy `.env.example` to `.env.local` and fill in `OPENAI_KEY` to enable real Open
 To run evaluation with the real model:
 
 ```bash
-OPENAI_KEY=your-key agentry --mode=eval --use-real --config my.agentry.yaml
+OPENAI_KEY=your-key agentry --mode=eval --config my.agentry.yaml
 ```
 
 When the real model is active, the CLI uses `tests/openai_eval_suite.json` so the

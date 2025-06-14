@@ -1,4 +1,3 @@
-openai_key: sk-...
 models:
   - name: mock
     provider: mock

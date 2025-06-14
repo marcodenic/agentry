@@ -27,10 +27,9 @@ type RouteRule struct {
 }
 
 type File struct {
-	OpenAIKey string          `yaml:"openai_key"`
-	Models    []ModelManifest `yaml:"models"`
-	Routes    []RouteRule     `yaml:"routes"`
-	Tools     []ToolManifest  `yaml:"tools"`
+	Models []ModelManifest `yaml:"models"`
+	Routes []RouteRule     `yaml:"routes"`
+	Tools  []ToolManifest  `yaml:"tools"`
 }
 
 func Load(path string) (*File, error) {
