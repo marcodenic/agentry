@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/eval"
 	"github.com/marcodenic/agentry/internal/server"
-	"github.com/marcodenic/agentry/internal/tui"
+	cobra_ui "github.com/sabouaram/cobra_ui"
 	"github.com/spf13/cobra"
 )
 
@@ -126,8 +125,25 @@ func main() {
 			if err != nil {
 				return err
 			}
-			p := tea.NewProgram(tui.New(ag))
-			return p.Start()
+
+			ui := cobra_ui.New()
+			for {
+				var msg string
+				ui.SetQuestions([]cobra_ui.Question{
+					{Text: "Enter message (blank to quit):", Handler: func(in string) error { msg = in; return nil }},
+				})
+				ui.RunInteractiveUI()
+				if msg == "" {
+					break
+				}
+				out, err := ag.Run(context.Background(), msg)
+				if err != nil {
+					fmt.Println("ERR:", err)
+					continue
+				}
+				fmt.Println("AI:", out)
+			}
+			return nil
 		},
 	})
 
