@@ -26,6 +26,18 @@ agentry serve --config .agentry.yaml
 npm i @marcodenic/agentry
 ```
 
+### Try it live
+
+```bash
+# one-off REPL (OpenAI key picked up from .env.local)
+agentry dev               # type messages, see responses
+
+# HTTP + TS SDK
+agentry serve --config examples/.agentry.yaml &
+npm --prefix ts-sdk run build
+node -e "const {invoke}=require('./ts-sdk/dist');invoke('hi',{stream:false}).then(console.log)"
+```
+
 ## Environment Configuration
 
 Copy `.env.example` to `.env.local` and fill in `OPENAI_KEY` to enable real OpenAI calls. The file is loaded automatically on startup and during tests.

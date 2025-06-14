@@ -15,23 +15,24 @@ func Serve(agents map[string]*core.Agent) error {
 			Input   string `json:"input"`
 			Stream  bool   `json:"stream"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&in)
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			http.Error(w, "bad json", http.StatusBadRequest)
+			return
+		}
 		ag := agents[in.AgentID]
 		if ag == nil {
 			http.Error(w, "unknown agent", http.StatusBadRequest)
 			return
 		}
 		if in.Stream {
-			flusher, ok := w.(http.Flusher)
-			if !ok {
-				http.Error(w, "no stream", http.StatusInternalServerError)
-				return
-			}
-			tr := trace.NewJSONL(w)
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.Header().Set("Cache-Control", "no-cache")
+			tr := trace.NewSSE(w)
 			ag.Tracer = tr
 			go ag.Run(r.Context(), in.Input)
-			w.Header().Set("Content-Type", "text/event-stream")
-			flusher.Flush()
+			if fl, ok := w.(http.Flusher); ok {
+				fl.Flush()
+			}
 			return
 		}
 		out, err := ag.Run(r.Context(), in.Input)

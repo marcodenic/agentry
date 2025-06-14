@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/marcodenic/agentry/internal/config"
 )
@@ -15,6 +16,10 @@ func FromManifest(m config.ModelManifest) (Client, error) {
 		key := m.Options["key"]
 		if key == "" {
 			key = m.Options["api_key"]
+		}
+		// Final fall-back so secrets can live in .env.local or CI secrets
+		if key == "" {
+			key = os.Getenv("OPENAI_KEY")
 		}
 		return NewOpenAI(key), nil
 	default:

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
@@ -25,7 +26,59 @@ func main() {
 
 	switch *mode {
 	case "dev":
-		// start REPL (omitted for brevity)
+		cfg, err := config.Load("examples/.agentry.yaml")
+		if err != nil {
+			panic(err)
+		}
+		// Re-use the build logic from the "serve" branch -----------------
+		reg := tool.Registry{"echo": tool.New("echo", "Repeats the input", func(ctx context.Context, args map[string]any) (string, error) {
+			txt, _ := args["text"].(string)
+			return txt, nil
+		})}
+		for _, m := range cfg.Tools {
+			if m.Name == "echo" {
+				continue
+			}
+			tl, _ := tool.FromManifest(m)
+			reg[m.Name] = tl
+		}
+		clients := map[string]model.Client{}
+		for _, m := range cfg.Models {
+			c, err := model.FromManifest(m)
+			if err != nil {
+				panic(err)
+			}
+			clients[m.Name] = c
+		}
+		var rules router.Rules
+		for _, rr := range cfg.Routes {
+			rules = append(rules, router.Rule{
+				IfContains: rr.IfContains,
+				Client:     clients[rr.Model],
+			})
+		}
+		if len(rules) == 0 {
+			rules = router.Rules{{IfContains: []string{""}, Client: model.NewMock()}}
+		}
+		ag := core.New(rules, reg, memory.NewInMemory(), nil)
+		// ---------------------------------------------------------------
+
+		// tiny REPL
+		sc := bufio.NewScanner(os.Stdin)
+		fmt.Println("Agentry REPL – Ctrl-D to quit")
+		for {
+			fmt.Print("> ")
+			if !sc.Scan() {
+				break
+			}
+			line := sc.Text()
+			out, err := ag.Run(context.Background(), line)
+			if err != nil {
+				fmt.Println("ERR:", err)
+				continue
+			}
+			fmt.Println(out)
+		}
 	case "serve":
 		if *conf == "" {
 			fmt.Println("need --config")

@@ -38,5 +38,8 @@ func Load(path string) (*File, error) {
 		return nil, err
 	}
 	var f File
-	return &f, yaml.Unmarshal(b, &f)
+	if err := yaml.Unmarshal(b, &f); err != nil {
+		return nil, err
+	}
+	return &f, nil
 }
