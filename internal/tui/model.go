@@ -27,6 +27,8 @@ type Model struct {
 	input textinput.Model
 	tools list.Model
 
+	history string
+
 	activeTab int
 	width     int
 	height    int
@@ -51,7 +53,7 @@ func New(ag *core.Agent) Model {
 
 	vp := viewport.New(0, 0)
 
-	return Model{agent: ag, vp: vp, input: ti, tools: l}
+	return Model{agent: ag, vp: vp, input: ti, tools: l, history: ""}
 }
 
 type listItem struct{ name, desc string }
@@ -129,7 +131,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.input.Focused() {
 				txt := m.input.Value()
 				m.input.SetValue("")
-				m.vp.SetContent(m.vp.View() + "You: " + txt + "\n")
+				m.history += "You: " + txt + "\n"
+				m.vp.SetContent(m.history)
 
 				pr, pw := io.Pipe()
 				m.agent.Tracer = trace.NewJSONL(pw)
@@ -148,10 +151,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.tools.CursorDown()
 		}
 	case tokenMsg:
-		m.vp.SetContent(m.vp.View() + string(msg))
+		m.history += string(msg)
+		m.vp.SetContent(m.history)
 		m.vp.GotoBottom()
 	case finalMsg:
-		m.vp.SetContent(m.vp.View() + "AI: ")
+		m.history += "AI: "
+		m.vp.SetContent(m.history)
 		m.vp.GotoBottom()
 		return m, streamTokens(string(msg) + "\n")
 	case errMsg:
