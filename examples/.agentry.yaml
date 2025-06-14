@@ -1,0 +1,5 @@
+openai_key: sk-...
+tools:
+  - name: echo
+    description: returns the given text
+    command: "bash -c 'echo $INPUT'"

@@ -1,0 +1,45 @@
+package server
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/yourname/agentry/internal/core"
+	"github.com/yourname/agentry/internal/trace"
+)
+
+func Serve(agents map[string]*core.Agent) error {
+	http.HandleFunc("/invoke", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			AgentID string `json:"agent_id"`
+			Input   string `json:"input"`
+			Stream  bool   `json:"stream"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&in)
+		ag := agents[in.AgentID]
+		if ag == nil {
+			http.Error(w, "unknown agent", http.StatusBadRequest)
+			return
+		}
+		if in.Stream {
+			flusher, ok := w.(http.Flusher)
+			if !ok {
+				http.Error(w, "no stream", http.StatusInternalServerError)
+				return
+			}
+			tr := trace.NewJSONL(w)
+			ag.Tracer = tr
+			go ag.Run(r.Context(), in.Input)
+			w.Header().Set("Content-Type", "text/event-stream")
+			flusher.Flush()
+			return
+		}
+		out, err := ag.Run(r.Context(), in.Input)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"output": out})
+	})
+	return http.ListenAndServe(":8080", nil)
+}
