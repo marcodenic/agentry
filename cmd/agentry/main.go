@@ -7,16 +7,18 @@ import (
 	"fmt"
 	"os"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/eval"
 	"github.com/marcodenic/agentry/internal/server"
+	"github.com/marcodenic/agentry/internal/tui"
 )
 
 func main() {
 	env.Load()
-	mode := flag.String("mode", "dev", "dev|serve|eval")
+	mode := flag.String("mode", "dev", "dev|serve|eval|tui")
 	conf := flag.String("config", "", "path to .agentry.yaml")
 	flag.Parse()
 
@@ -91,6 +93,23 @@ func main() {
 			suite = "tests/openai_eval_suite.json"
 		}
 		eval.Run(nil, ag, suite)
+	case "tui":
+		if *conf == "" {
+			fmt.Println("need --config")
+			os.Exit(1)
+		}
+		cfg, err := config.Load(*conf)
+		if err != nil {
+			panic(err)
+		}
+		ag, err := buildAgent(cfg)
+		if err != nil {
+			panic(err)
+		}
+		p := tea.NewProgram(tui.New(ag))
+		if err := p.Start(); err != nil {
+			panic(err)
+		}
 	default:
 		fmt.Println("unknown mode")
 	}
