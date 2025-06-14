@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
@@ -10,23 +11,42 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/eval"
-	"github.com/marcodenic/agentry/internal/memory"
-	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/server"
-	"github.com/marcodenic/agentry/internal/tool"
 )
 
 func main() {
 	env.Load()
 	mode := flag.String("mode", "dev", "dev|serve|eval")
 	conf := flag.String("config", "", "path to .agentry.yaml")
-	useReal := flag.Bool("use-real", false, "use real OpenAI model")
 	flag.Parse()
 
 	switch *mode {
 	case "dev":
-		// start REPL (omitted for brevity)
+		cfg, err := config.Load("examples/.agentry.yaml")
+		if err != nil {
+			panic(err)
+		}
+		ag, err := buildAgent(cfg)
+		if err != nil {
+			panic(err)
+		}
+
+		// tiny REPL
+		sc := bufio.NewScanner(os.Stdin)
+		fmt.Println("Agentry REPL – Ctrl-D to quit")
+		for {
+			fmt.Print("> ")
+			if !sc.Scan() {
+				break
+			}
+			line := sc.Text()
+			out, err := ag.Run(context.Background(), line)
+			if err != nil {
+				fmt.Println("ERR:", err)
+				continue
+			}
+			fmt.Println(out)
+		}
 	case "serve":
 		if *conf == "" {
 			fmt.Println("need --config")
@@ -36,25 +56,10 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		reg := tool.Registry{}
-		// Register inline Go echo tool
-		reg["echo"] = tool.New("echo", "Repeats the input string", func(ctx context.Context, args map[string]any) (string, error) {
-			input, ok := args["text"].(string)
-			if !ok {
-				return "", fmt.Errorf("missing or invalid 'text' arg")
-			}
-			return input, nil
-		})
-		// Register other tools from manifest, skipping echo if present
-		for _, m := range cfg.Tools {
-			if m.Name == "echo" {
-				continue
-			}
-			tl, _ := tool.FromManifest(m)
-			reg[m.Name] = tl
+		ag, err := buildAgent(cfg)
+		if err != nil {
+			panic(err)
 		}
-		r := router.Rules{{IfContains: []string{""}, Client: model.NewMock()}}
-		ag := core.New(r, reg, memory.NewInMemory(), nil)
 		agents := map[string]*core.Agent{"default": ag}
 		server.Serve(agents)
 	case "eval":
@@ -66,30 +71,25 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		reg := tool.Registry{}
-		for _, m := range cfg.Tools {
-			tl, _ := tool.FromManifest(m)
-			reg[m.Name] = tl
-		}
-		var (
-			client model.Client
-			suite  = "tests/eval_suite.json"
-			key    = os.Getenv("OPENAI_KEY")
-		)
-		if *useReal || key != "" {
-			if key == "" {
-				fmt.Println("OPENAI_KEY not set, falling back to mock")
-				client = model.NewMock()
-			} else {
-				fmt.Println("Using real OpenAI model")
-				client = model.NewOpenAI(key)
-				suite = "tests/openai_eval_suite.json"
+		key := os.Getenv("OPENAI_KEY")
+		if key != "" {
+			for i, m := range cfg.Models {
+				if m.Name == "openai" {
+					if m.Options == nil {
+						m.Options = map[string]string{}
+					}
+					cfg.Models[i].Options["key"] = key
+				}
 			}
-		} else {
-			client = model.NewMock()
 		}
-		r := router.Rules{{IfContains: []string{""}, Client: client}}
-		ag := core.New(r, reg, memory.NewInMemory(), nil)
+		ag, err := buildAgent(cfg)
+		if err != nil {
+			panic(err)
+		}
+		suite := "tests/eval_suite.json"
+		if key != "" {
+			suite = "tests/openai_eval_suite.json"
+		}
 		eval.Run(nil, ag, suite)
 	default:
 		fmt.Println("unknown mode")

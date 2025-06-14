@@ -3,7 +3,10 @@ package trace
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
+	"net/http"
 	"time"
 )
 
@@ -31,6 +34,31 @@ type JSONLWriter struct{ w io.Writer }
 func NewJSONL(w io.Writer) *JSONLWriter { return &JSONLWriter{w} }
 func (j *JSONLWriter) Write(_ context.Context, e Event) {
 	_ = json.NewEncoder(j.w).Encode(e)
+}
+
+type SSEWriter struct {
+	w  http.ResponseWriter
+	fl http.Flusher
+}
+
+func NewSSE(w http.ResponseWriter) *SSEWriter {
+	fl, _ := w.(http.Flusher)
+	return &SSEWriter{w: w, fl: fl}
+}
+
+func (s *SSEWriter) Write(_ context.Context, e Event) {
+	b, err := json.Marshal(e)
+	if err != nil {
+		log.Printf("trace marshal error: %v", err)
+		return
+	}
+	if _, err := fmt.Fprintf(s.w, "data: %s\n\n", b); err != nil {
+		log.Printf("trace write error: %v", err)
+		return
+	}
+	if s.fl != nil {
+		s.fl.Flush()
+	}
 }
 
 func Now() time.Time { return time.Now().UTC() }
