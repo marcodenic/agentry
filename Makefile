@@ -8,7 +8,7 @@ build:
 	go install ./cmd/agentry
 
 serve: build
-	agentry serve --config examples/.agentry.yaml
+	agentry --mode=serve --config examples/.agentry.yaml
 
 dev: test build
-	agentry serve --config examples/.agentry.yaml
+	agentry --mode=serve --config examples/.agentry.yaml

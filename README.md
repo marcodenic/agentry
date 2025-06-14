@@ -22,9 +22,11 @@ go install github.com/marcodenic/agentry/cmd/agentry@latest
 agentry dev
 
 # HTTP server + JS client
-agentry serve --config .agentry.yaml
+agentry --mode=serve --config .agentry.yaml
 npm i @marcodenic/agentry
 ```
+
+The `--mode` flag selects between `dev`, `serve`, and `eval`.
 
 ### Try it live
 
@@ -33,7 +35,7 @@ npm i @marcodenic/agentry
 agentry dev               # type messages, see responses
 
 # HTTP + TS SDK
-agentry serve --config examples/.agentry.yaml &
+agentry --mode=serve --config examples/.agentry.yaml &
 npm --prefix ts-sdk install
 npm --prefix ts-sdk run build
 node -e "const {invoke}=require('./ts-sdk/dist');invoke('hi',{stream:false}).then(console.log)"
@@ -64,7 +66,7 @@ Run all tests and start a REPL with one command:
 make dev
 ```
 
-This target executes Go and TypeScript tests, builds the CLI, and launches `agentry serve` using the example config. You can also run the steps manually:
+This target executes Go and TypeScript tests, builds the CLI, and launches `agentry --mode=serve` using the example config. You can also run the steps manually:
 
 ```bash
 go test ./...
