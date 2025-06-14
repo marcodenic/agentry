@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yourname/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/core"
 )
 
 type Case struct {

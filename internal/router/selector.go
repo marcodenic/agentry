@@ -3,7 +3,7 @@ package router
 import (
 	"strings"
 
-	"github.com/yourname/agentry/internal/model"
+	"github.com/marcodenic/agentry/internal/model"
 )
 
 type Selector interface {

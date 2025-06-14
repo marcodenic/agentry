@@ -5,7 +5,7 @@ import (
 	"errors"
 	"os/exec"
 
-	"github.com/yourname/agentry/internal/config"
+	"github.com/marcodenic/agentry/internal/config"
 )
 
 var ErrUnknownManifest = errors.New("unknown tool manifest")

@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/yourname/agentry/internal/memory"
-	"github.com/yourname/agentry/internal/router"
-	"github.com/yourname/agentry/internal/tool"
-	"github.com/yourname/agentry/internal/trace"
+	"github.com/marcodenic/agentry/internal/memory"
+	"github.com/marcodenic/agentry/internal/router"
+	"github.com/marcodenic/agentry/internal/tool"
+	"github.com/marcodenic/agentry/internal/trace"
 )
 
 type Agent struct {

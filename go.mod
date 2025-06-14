@@ -1,4 +1,4 @@
-module github.com/yourname/agentry
+module github.com/marcodenic/agentry
 
 go 1.22
 

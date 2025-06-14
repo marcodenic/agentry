@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/yourname/agentry/internal/core"
-	"github.com/yourname/agentry/internal/trace"
+	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/trace"
 )
 
 func Serve(agents map[string]*core.Agent) error {
