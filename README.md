@@ -22,18 +22,18 @@ go install github.com/marcodenic/agentry/cmd/agentry@latest
 agentry dev
 
 # HTTP server + JS client
-agentry --mode=serve --config .agentry.yaml
+agentry serve --config .agentry.yaml
 npm i @marcodenic/agentry
 ```
 
-The `--mode` flag selects between `dev`, `serve`, `eval`, and `tui`.
+Use subcommands `dev`, `serve`, `eval`, and `tui`.
 The new `tui` mode launches a split-screen interface:
 
 +-------+-----------------------------+
 | Tools | Chat / Memory              |
 +-------+-----------------------------+
 
-Run `agentry --mode=tui --config examples/.agentry.yaml` to try.
+Run `agentry tui --config examples/.agentry.yaml` to try.
 
 
 ### Try it live
@@ -43,7 +43,7 @@ Run `agentry --mode=tui --config examples/.agentry.yaml` to try.
 agentry dev               # type messages, see responses
 
 # HTTP + TS SDK
-agentry --mode=serve --config examples/.agentry.yaml &
+agentry serve --config examples/.agentry.yaml &
 npm --prefix ts-sdk install
 npm --prefix ts-sdk run build
 node -e "const {invoke}=require('./ts-sdk/dist');invoke('hi',{stream:false}).then(console.log)"
@@ -56,7 +56,7 @@ Copy `.env.example` to `.env.local` and fill in `OPENAI_KEY` to enable real Open
 To run evaluation with the real model:
 
 ```bash
-OPENAI_KEY=your-key agentry --mode=eval --config my.agentry.yaml
+OPENAI_KEY=your-key agentry eval --config my.agentry.yaml
 ```
 
 When the real model is active, the CLI uses `tests/openai_eval_suite.json` so the
@@ -74,7 +74,7 @@ Run all tests and start a REPL with one command:
 make dev
 ```
 
-This target executes Go and TypeScript tests, builds the CLI, and launches `agentry --mode=serve` using the example config. You can also run the steps manually:
+This target executes Go and TypeScript tests, builds the CLI, and launches `agentry serve` using the example config. You can also run the steps manually:
 
 ```bash
 go test ./...
