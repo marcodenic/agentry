@@ -12,9 +12,9 @@ tools:
   - name: echo
     type: builtin
     description: Repeat a string
-  - name: ping_api
-    http: https://example.com/ping
-    description: POSTs to API
+  - name: ping
+    type: builtin
+    description: Ping a host
   - name: local_shell
     command: echo hello
     description: Uses shell (optional, advanced)

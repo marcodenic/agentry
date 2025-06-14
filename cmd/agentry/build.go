@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/marcodenic/agentry/internal/config"
@@ -14,16 +13,8 @@ import (
 
 // buildAgent constructs an Agent from configuration.
 func buildAgent(cfg *config.File) (*core.Agent, error) {
-	reg := tool.Registry{
-		"echo": tool.New("echo", "Repeats the input", func(ctx context.Context, args map[string]any) (string, error) {
-			txt, _ := args["text"].(string)
-			return txt, nil
-		}),
-	}
+	reg := tool.Registry{}
 	for _, m := range cfg.Tools {
-		if m.Name == "echo" {
-			continue
-		}
 		tl, err := tool.FromManifest(m)
 		if err != nil {
 			return nil, err
