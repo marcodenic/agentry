@@ -71,8 +71,11 @@ func main() {
 			tl, _ := tool.FromManifest(m)
 			reg[m.Name] = tl
 		}
-		var client model.Client
-		key := os.Getenv("OPENAI_KEY")
+		var (
+			client model.Client
+			suite  = "tests/eval_suite.json"
+			key    = os.Getenv("OPENAI_KEY")
+		)
 		if *useReal || key != "" {
 			if key == "" {
 				fmt.Println("OPENAI_KEY not set, falling back to mock")
@@ -80,13 +83,14 @@ func main() {
 			} else {
 				fmt.Println("Using real OpenAI model")
 				client = model.NewOpenAI(key)
+				suite = "tests/openai_eval_suite.json"
 			}
 		} else {
 			client = model.NewMock()
 		}
 		r := router.Rules{{IfContains: []string{""}, Client: client}}
 		ag := core.New(r, reg, memory.NewInMemory(), nil)
-		eval.Run(nil, ag, "tests/eval_suite.json")
+		eval.Run(nil, ag, suite)
 	default:
 		fmt.Println("unknown mode")
 	}
