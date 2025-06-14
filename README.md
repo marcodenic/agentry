@@ -26,7 +26,15 @@ agentry --mode=serve --config .agentry.yaml
 npm i @marcodenic/agentry
 ```
 
-The `--mode` flag selects between `dev`, `serve`, and `eval`.
+The `--mode` flag selects between `dev`, `serve`, `eval`, and `tui`.
+The new `tui` mode launches a split-screen interface:
+
++-------+-----------------------------+
+| Tools | Chat / Memory              |
++-------+-----------------------------+
+
+Run `agentry --mode=tui --config examples/.agentry.yaml` to try.
+
 
 ### Try it live
 
