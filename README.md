@@ -39,4 +39,6 @@ OPENAI_KEY=your-key agentry --mode=eval --use-real --config my.agentry.yaml
 When the real model is active, the CLI uses `tests/openai_eval_suite.json` so the
 assertions match ChatGPT's typical response.
 
+Evaluation results are printed to the console when using this mode.
+
 If no key is present, the built-in mock model is used.
