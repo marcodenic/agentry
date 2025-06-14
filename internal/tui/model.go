@@ -42,10 +42,12 @@ func New(ag *core.Agent) Model {
 	}
 	l := list.New(items, listItemDelegate{}, 0, 0)
 	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(false)
 	l.Title = "Tools"
 
 	ti := textinput.New()
 	ti.Placeholder = "Message"
+	ti.Focus()
 
 	vp := viewport.New(0, 0)
 
