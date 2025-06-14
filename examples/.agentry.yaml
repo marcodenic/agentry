@@ -1,4 +1,14 @@
 openai_key: sk-...
+models:
+  - name: mock
+    provider: mock
+  - name: openai
+    provider: openai
+    options:
+      key: sk-...
+routes:
+  - if_contains: [""]
+    model: mock
 tools:
   - name: echo
     type: builtin

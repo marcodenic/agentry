@@ -21,7 +21,6 @@ func main() {
 	env.Load()
 	mode := flag.String("mode", "dev", "dev|serve|eval")
 	conf := flag.String("config", "", "path to .agentry.yaml")
-	useReal := flag.Bool("use-real", false, "use real OpenAI model")
 	flag.Parse()
 
 	switch *mode {
@@ -53,8 +52,28 @@ func main() {
 			tl, _ := tool.FromManifest(m)
 			reg[m.Name] = tl
 		}
-		r := router.Rules{{IfContains: []string{""}, Client: model.NewMock()}}
-		ag := core.New(r, reg, memory.NewInMemory(), nil)
+
+		clients := map[string]model.Client{}
+		for _, m := range cfg.Models {
+			c, err := model.FromManifest(m)
+			if err != nil {
+				panic(err)
+			}
+			clients[m.Name] = c
+		}
+
+		var rules router.Rules
+		for _, rr := range cfg.Routes {
+			c, ok := clients[rr.Model]
+			if !ok {
+				panic(fmt.Errorf("model %s not found", rr.Model))
+			}
+			rules = append(rules, router.Rule{IfContains: rr.IfContains, Client: c})
+		}
+		if len(rules) == 0 {
+			rules = router.Rules{{IfContains: []string{""}, Client: model.NewMock()}}
+		}
+		ag := core.New(rules, reg, memory.NewInMemory(), nil)
 		agents := map[string]*core.Agent{"default": ag}
 		server.Serve(agents)
 	case "eval":
@@ -71,25 +90,40 @@ func main() {
 			tl, _ := tool.FromManifest(m)
 			reg[m.Name] = tl
 		}
-		var (
-			client model.Client
-			suite  = "tests/eval_suite.json"
-			key    = os.Getenv("OPENAI_KEY")
-		)
-		if *useReal || key != "" {
-			if key == "" {
-				fmt.Println("OPENAI_KEY not set, falling back to mock")
-				client = model.NewMock()
-			} else {
-				fmt.Println("Using real OpenAI model")
-				client = model.NewOpenAI(key)
-				suite = "tests/openai_eval_suite.json"
+
+		clients := map[string]model.Client{}
+		for _, m := range cfg.Models {
+			c, err := model.FromManifest(m)
+			if err != nil {
+				panic(err)
 			}
-		} else {
-			client = model.NewMock()
+			clients[m.Name] = c
 		}
-		r := router.Rules{{IfContains: []string{""}, Client: client}}
-		ag := core.New(r, reg, memory.NewInMemory(), nil)
+
+		var (
+			suite = "tests/eval_suite.json"
+			key   = os.Getenv("OPENAI_KEY")
+		)
+		if key != "" {
+			if c, ok := clients["openai"]; ok {
+				clients["openai"] = model.NewOpenAI(key)
+				suite = "tests/openai_eval_suite.json"
+				_ = c
+			}
+		}
+
+		var rules router.Rules
+		for _, rr := range cfg.Routes {
+			c, ok := clients[rr.Model]
+			if !ok {
+				panic(fmt.Errorf("model %s not found", rr.Model))
+			}
+			rules = append(rules, router.Rule{IfContains: rr.IfContains, Client: c})
+		}
+		if len(rules) == 0 {
+			rules = router.Rules{{IfContains: []string{""}, Client: model.NewMock()}}
+		}
+		ag := core.New(rules, reg, memory.NewInMemory(), nil)
 		eval.Run(nil, ag, suite)
 	default:
 		fmt.Println("unknown mode")
