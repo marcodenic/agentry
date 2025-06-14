@@ -25,3 +25,20 @@ agentry dev
 agentry serve --config .agentry.yaml
 npm i @marcodenic/agentry
 ```
+
+## Environment Configuration
+
+Copy `.env.example` to `.env.local` and fill in `OPENAI_KEY` to enable real OpenAI calls. The file is loaded automatically on startup and during tests.
+
+To run evaluation with the real model:
+
+```bash
+OPENAI_KEY=your-key agentry --mode=eval --use-real --config my.agentry.yaml
+```
+
+When the real model is active, the CLI uses `tests/openai_eval_suite.json` so the
+assertions match ChatGPT's typical response.
+
+Evaluation results are printed to the console when using this mode.
+
+If no key is present, the built-in mock model is used.

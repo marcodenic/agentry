@@ -8,17 +8,20 @@ import (
 
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/env"
+	"github.com/marcodenic/agentry/internal/eval"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/server"
 	"github.com/marcodenic/agentry/internal/tool"
-	"github.com/marcodenic/agentry/internal/eval"
 )
 
 func main() {
+	env.Load()
 	mode := flag.String("mode", "dev", "dev|serve|eval")
 	conf := flag.String("config", "", "path to .agentry.yaml")
+	useReal := flag.Bool("use-real", false, "use real OpenAI model")
 	flag.Parse()
 
 	switch *mode {
@@ -68,9 +71,26 @@ func main() {
 			tl, _ := tool.FromManifest(m)
 			reg[m.Name] = tl
 		}
-		r := router.Rules{{IfContains: []string{""}, Client: model.NewMock()}}
+		var (
+			client model.Client
+			suite  = "tests/eval_suite.json"
+			key    = os.Getenv("OPENAI_KEY")
+		)
+		if *useReal || key != "" {
+			if key == "" {
+				fmt.Println("OPENAI_KEY not set, falling back to mock")
+				client = model.NewMock()
+			} else {
+				fmt.Println("Using real OpenAI model")
+				client = model.NewOpenAI(key)
+				suite = "tests/openai_eval_suite.json"
+			}
+		} else {
+			client = model.NewMock()
+		}
+		r := router.Rules{{IfContains: []string{""}, Client: client}}
 		ag := core.New(r, reg, memory.NewInMemory(), nil)
-		eval.Run(nil, ag, "tests/eval_suite.json")
+		eval.Run(nil, ag, suite)
 	default:
 		fmt.Println("unknown mode")
 	}
