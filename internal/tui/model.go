@@ -84,12 +84,16 @@ type finalMsg string
 
 func streamTokens(out string) tea.Cmd {
 	runes := []rune(out)
-	cmds := make([]tea.Cmd, len(runes))
+	cmds := make([]tea.Cmd, len(runes)+1)
 	for i, r := range runes {
 		tok := string(r)
 		delay := time.Duration(i*30) * time.Millisecond
 		cmds[i] = tea.Tick(delay, func(t time.Time) tea.Msg { return tokenMsg(tok) })
 	}
+	// emit newline at the end so AI response appears on its own line
+	cmds[len(runes)] = tea.Tick(time.Duration(len(runes)*30)*time.Millisecond, func(t time.Time) tea.Msg {
+		return tokenMsg("\n")
+	})
 	return tea.Batch(cmds...)
 }
 
@@ -150,6 +154,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tokenMsg:
 		m.vp.SetContent(m.vp.View() + string(msg))
 	case finalMsg:
+		m.vp.SetContent(m.vp.View() + "AI: ")
 		return m, streamTokens(string(msg))
 	case errMsg:
 		m.err = msg
