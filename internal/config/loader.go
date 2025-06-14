@@ -9,6 +9,7 @@ import (
 type ToolManifest struct {
 	Name        string         `yaml:"name"`
 	Description string         `yaml:"description"`
+	Type        string         `yaml:"type,omitempty"`
 	Command     string         `yaml:"command,omitempty"`
 	HTTP        string         `yaml:"http,omitempty"`
 	Args        map[string]any `yaml:"args,omitempty"`

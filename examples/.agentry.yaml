@@ -1,5 +1,11 @@
 openai_key: sk-...
 tools:
   - name: echo
-    description: returns the given text
-    command: "bash -c 'echo $INPUT'"
+    type: builtin
+    description: Repeat a string
+  - name: ping_api
+    http: https://example.com/ping
+    description: POSTs to API
+  - name: local_shell
+    command: echo hello
+    description: Uses shell (optional, advanced)
