@@ -34,6 +34,7 @@ agentry dev               # type messages, see responses
 
 # HTTP + TS SDK
 agentry serve --config examples/.agentry.yaml &
+npm --prefix ts-sdk install
 npm --prefix ts-sdk run build
 node -e "const {invoke}=require('./ts-sdk/dist');invoke('hi',{stream:false}).then(console.log)"
 ```
@@ -54,3 +55,20 @@ assertions match ChatGPT's typical response.
 Evaluation results are printed to the console when using this mode.
 
 If no key is present, the built-in mock model is used.
+
+## Testing & Development
+
+Run all tests and start a REPL with one command:
+
+```bash
+make dev
+```
+
+This target executes Go and TypeScript tests, builds the CLI, and launches `agentry serve` using the example config. You can also run the steps manually:
+
+```bash
+go test ./...
+cd ts-sdk && npm install && npm test
+go install ./cmd/agentry
+agentry dev
+```

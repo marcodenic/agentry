@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -46,10 +47,16 @@ func NewSSE(w http.ResponseWriter) *SSEWriter {
 }
 
 func (s *SSEWriter) Write(_ context.Context, e Event) {
-	b, _ := json.Marshal(e)
-	fmt.Fprintf(s.w, "data: %s\n\n", b)
+	b, err := json.Marshal(e)
+	if err != nil {
+		log.Printf("trace marshal error: %v", err)
+		return
+	}
+	if _, err := fmt.Fprintf(s.w, "data: %s\n\n", b); err != nil {
+		log.Printf("trace write error: %v", err)
+		return
+	}
 	if s.fl != nil {
-		defer func() { recover() }()
 		s.fl.Flush()
 	}
 }
