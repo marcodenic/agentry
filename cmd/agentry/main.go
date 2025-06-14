@@ -1,10 +1,10 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
-	"context"
 
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/core"
@@ -13,6 +13,7 @@ import (
 	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/server"
 	"github.com/marcodenic/agentry/internal/tool"
+	"github.com/marcodenic/agentry/internal/eval"
 )
 
 func main() {
@@ -54,7 +55,22 @@ func main() {
 		agents := map[string]*core.Agent{"default": ag}
 		server.Serve(agents)
 	case "eval":
-		// load suite and run eval on default agent
+		if *conf == "" {
+			fmt.Println("need --config")
+			os.Exit(1)
+		}
+		cfg, err := config.Load(*conf)
+		if err != nil {
+			panic(err)
+		}
+		reg := tool.Registry{}
+		for _, m := range cfg.Tools {
+			tl, _ := tool.FromManifest(m)
+			reg[m.Name] = tl
+		}
+		r := router.Rules{{IfContains: []string{""}, Client: model.NewMock()}}
+		ag := core.New(r, reg, memory.NewInMemory(), nil)
+		eval.Run(nil, ag, "tests/eval_suite.json")
 	default:
 		fmt.Println("unknown mode")
 	}
