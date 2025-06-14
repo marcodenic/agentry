@@ -4,10 +4,10 @@ models:
   - name: openai
     provider: openai
     options:
-      key: sk-...
+      env_key: OPENAI_KEY
 routes:
   - if_contains: [""]
-    model: mock
+    model: openai
 tools:
   - name: echo
     type: builtin

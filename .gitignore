@@ -4,3 +4,6 @@ node_modules/
 # Environment files
 .env
 .env.local
+
+# Built files
+ts-sdk/dist/

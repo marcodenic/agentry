@@ -13,12 +13,10 @@ func FromManifest(m config.ModelManifest) (Client, error) {
 	case "mock":
 		return NewMock(), nil
 	case "openai":
-		key := m.Options["key"]
-		if key == "" {
-			key = m.Options["api_key"]
-		}
-		// Final fall-back so secrets can live in .env.local or CI secrets
-		if key == "" {
+		key := ""
+		if envVar, ok := m.Options["env_key"]; ok && envVar != "" {
+			key = os.Getenv(envVar)
+		} else {
 			key = os.Getenv("OPENAI_KEY")
 		}
 		return NewOpenAI(key), nil
