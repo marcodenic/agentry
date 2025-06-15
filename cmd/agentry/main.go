@@ -15,6 +15,8 @@ import (
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/eval"
 	"github.com/marcodenic/agentry/internal/memory"
+	"github.com/marcodenic/agentry/internal/model"
+	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/server"
 	"github.com/marcodenic/agentry/internal/tui"
 )
@@ -67,11 +69,23 @@ func main() {
 				}
 
 				ctx := context.Background()
+				// Copy router rules so we can raise temperature only for this session
+				orig := ag.Route.(router.Rules)
+				conv := make(router.Rules, len(orig))
+				for i, r := range orig {
+					conv[i] = r
+					if oa, ok := r.Client.(*model.OpenAI); ok {
+						cpy := *oa
+						cpy.SetTemperature(1.3)
+						conv[i].Client = &cpy
+					}
+				}
+
 				shared := memory.NewInMemory()
 				agents := make([]*core.Agent, n)
 				names := make([]string, n)
 				for i := 0; i < n; i++ {
-					agents[i] = core.New(ag.Route, ag.Tools, shared, ag.Tracer)
+					agents[i] = core.New(conv, ag.Tools, shared, ag.Tracer)
 					names[i] = fmt.Sprintf("Agent%d", i+1)
 				}
 				msg := topic
