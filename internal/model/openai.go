@@ -108,6 +108,16 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 		body, _ := io.ReadAll(resp.Body)
 		return Completion{}, errors.New(string(body))
 	}
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return Completion{}, err
+	}
+	clean := bytes.Map(func(r rune) rune {
+		if r == 0 {
+			return -1
+		}
+		return r
+	}, raw)
 	var res struct {
 		Choices []struct {
 			Message struct {
@@ -122,7 +132,7 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 			} `json:"message"`
 		} `json:"choices"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+	if err := json.Unmarshal(clean, &res); err != nil {
 		return Completion{}, err
 	}
 	if len(res.Choices) == 0 {
