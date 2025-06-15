@@ -136,8 +136,9 @@ func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
 	}
 }
 
-// BuildMessages constructs the chat transcript sent to the model.
-const maxHistoryMsgs = 30
+// BuildMessages constructs the transcript sent to the model. The system prompt
+// encourages short, witty banter between agents.
+const maxHistoryMsgs = 12
 
 func BuildMessages(hist []memory.Step, input, speaker string, peerNames []string, topic string) []model.ChatMessage {
 	input = cleanInput(input)
@@ -145,7 +146,12 @@ func BuildMessages(hist []memory.Step, input, speaker string, peerNames []string
 		hist = hist[len(hist)-maxHistoryMsgs:]
 	}
 	sys := fmt.Sprintf(
-		"You are %s participating in a spicy round-robin debate between AI agents (%s).  Each turn contribute ONE fresh idea, do NOT just praise or repeat.  You must address at least one other agent by name.  No topic is taboo.  Return plain text unless calling a tool; tool calls must have valid JSON `arguments` (use {} when no args).  Control characters are forbidden.",
+		`You are %s chatting with fellow AIs (%s).
+• Keep replies ≤50 words (2–3 quirky sentences).
+• Feel free to riff or joke; formal greetings are optional.
+• Do not repeat or summarise prior messages; add one fresh angle.
+• Mention another agent by name only if it feels natural.
+• Plain text only unless calling a tool (JSON arguments required).`,
 		speaker, strings.Join(peerNames, ", "))
 	msgs := []model.ChatMessage{{Role: "system", Content: sys}}
 	for _, h := range hist {

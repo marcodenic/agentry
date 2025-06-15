@@ -14,17 +14,22 @@ import (
 )
 
 // OpenAI client uses OpenAI's chat completion API.
+const defaultMaxTokens = 120
+
 type OpenAI struct {
 	key         string
 	temperature float64
+	maxTokens   int
 	client      *http.Client
 }
 
 func NewOpenAI(key string) *OpenAI {
-	return &OpenAI{key: key, temperature: 0.7, client: http.DefaultClient}
+	return &OpenAI{key: key, temperature: 0.7, maxTokens: defaultMaxTokens, client: http.DefaultClient}
 }
 
 func (o *OpenAI) SetTemperature(t float64) { o.temperature = t }
+
+func (o *OpenAI) SetMaxTokens(t int) { o.maxTokens = t }
 
 func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (Completion, error) {
 	if o.key == "" {
@@ -97,6 +102,7 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 		"tools":       oaTools,
 		"tool_choice": "auto",
 		"temperature": o.temperature,
+		"max_tokens":  o.maxTokens,
 		"stream":      true,
 	}
 
