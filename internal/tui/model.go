@@ -198,9 +198,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				pr, pw := io.Pipe()
 				errCh := make(chan error, 1)
 				m.agent.Tracer = trace.NewJSONL(pw)
-				m.sc = bufio.NewScanner(pr)
 				const maxBuf = 1024 * 1024
+				m.scMu.Lock()
+				m.sc = bufio.NewScanner(pr)
 				m.sc.Buffer(make([]byte, 0, 64*1024), maxBuf)
+				m.scMu.Unlock()
 				go func() {
 					_, err := m.agent.Run(context.Background(), txt)
 					pw.Close()
@@ -218,7 +220,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.history += aiBar() + " "
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
-		return m, tea.Batch(streamTokens(string(msg)+"\n"), m.readCmd())
+		m.scMu.Lock()
+		m.sc = nil
+		m.scMu.Unlock()
+		return m, tea.Batch(streamTokens(string(msg)+"\n"), nil)
 	case toolUseMsg:
 		idx := -1
 		for i, it := range m.tools.Items() {
@@ -236,6 +241,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.readCmd()
 	case errMsg:
 		m.err = msg
+		m.scMu.Lock()
+		m.sc = nil
+		m.scMu.Unlock()
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
