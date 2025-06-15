@@ -82,7 +82,10 @@ func main() {
 						fmt.Println("ERR:", err)
 					}
 					fmt.Printf("[%s]: %s\n", names[idx], out)
-					msg = out
+					// forward only the conversation history
+					// to avoid repeating the last line as
+					// "user" input for the next agent
+					msg = ""
 				}
 				continue
 			}
