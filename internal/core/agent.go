@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -22,6 +23,8 @@ type Agent struct {
 	Tracer trace.Writer
 }
 
+const maxSteps = 32
+
 func New(sel router.Selector, reg tool.Registry, mem memory.Store, tr trace.Writer) *Agent {
 	return &Agent{uuid.New(), reg, mem, sel, tr}
 }
@@ -35,7 +38,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	a.Trace(ctx, trace.EventModelStart, name)
 	msgs := buildMessages(a.Mem.History(), input)
 	specs := buildToolSpecs(a.Tools)
-	for i := 0; i < 8; i++ {
+	for i := 0; i < maxSteps; i++ {
 		res, err := client.Complete(ctx, msgs, specs)
 		if err != nil {
 			return "", err
@@ -48,14 +51,28 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			a.Trace(ctx, trace.EventFinal, res.Content)
 			return res.Content, nil
 		}
+		seen := map[string]bool{}
 		for _, tc := range res.ToolCalls {
+			key := tc.Name + string(tc.Arguments)
+			if seen[key] {
+				return "", fmt.Errorf("model is looping on tool %s", tc.Name)
+			}
+			seen[key] = true
 			t, ok := a.Tools.Use(tc.Name)
 			if !ok {
 				return "", fmt.Errorf("unknown tool: %s", tc.Name)
 			}
 			var args map[string]any
-			if err := json.Unmarshal(tc.Arguments, &args); err != nil {
-				return "", err
+			clean := bytes.Map(func(r rune) rune {
+				if r < 0x20 {
+					return -1
+				}
+				return r
+			}, tc.Arguments)
+			if len(bytes.TrimSpace(clean)) == 0 {
+				args = map[string]any{}
+			} else if err := json.Unmarshal(clean, &args); err != nil {
+				args = map[string]any{"_raw": string(clean)}
 			}
 			r, err := t.Execute(ctx, args)
 			if err != nil {
@@ -83,7 +100,7 @@ func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
 
 func buildMessages(hist []memory.Step, input string) []model.ChatMessage {
 	msgs := []model.ChatMessage{
-		{Role: "system", Content: "You are an agent."},
+		{Role: "system", Content: "You are an agent. When you call a tool, `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden."},
 	}
 	for _, h := range hist {
 		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: h.Output, ToolCalls: h.ToolCalls})
