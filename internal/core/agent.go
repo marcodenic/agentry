@@ -19,6 +19,7 @@ import (
 type Agent struct {
 	ID     uuid.UUID
 	Name   string
+	Topic  string
 	Tools  tool.Registry
 	Mem    memory.Store
 	Route  router.Selector
@@ -49,6 +50,7 @@ func NewNamed(name string, sel router.Selector, reg tool.Registry, mem memory.St
 func (a *Agent) Spawn() *Agent {
 	child := New(a.Route, a.Tools, memory.NewInMemory(), a.Tracer)
 	child.Name = a.Name
+	child.Topic = a.Topic
 	return child
 }
 
@@ -64,7 +66,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	if a.Name != "" {
 		speaker = a.Name
 	}
-	msgs := buildMessages(a.Mem.History(), input, speaker)
+	msgs := buildMessages(a.Mem.History(), input, speaker, a.Topic)
 	specs := buildToolSpecs(a.Tools)
 	for i := 0; i < maxSteps; i++ {
 		res, err := client.Complete(ctx, msgs, specs)
@@ -130,9 +132,9 @@ func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
 	}
 }
 
-func buildMessages(hist []memory.Step, input, speaker string) []model.ChatMessage {
+func buildMessages(hist []memory.Step, input, speaker, topic string) []model.ChatMessage {
 	input = cleanInput(input)
-	sys := fmt.Sprintf("You are %s, one of several agents in a discussion. Read the conversation so far and add something new. When you call a tool, `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden.", speaker)
+	sys := fmt.Sprintf("You are %s, one of several agents discussing %s. Read the conversation so far and contribute something new. Address the other agents by name. When you call a tool, `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden.", speaker, topic)
 	msgs := []model.ChatMessage{{Role: "system", Content: sys}}
 	for _, h := range hist {
 		// Treat messages from other agents as user turns so the
