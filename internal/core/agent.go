@@ -59,7 +59,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			a.Trace(ctx, trace.EventToolEnd, r)
+			a.Trace(ctx, trace.EventToolEnd, map[string]any{"name": tc.Name, "result": r})
 			a.Mem.AddStep(res.Content, tc.Name, r, tc.ID)
 			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})
 		}

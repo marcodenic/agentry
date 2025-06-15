@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"time"
 
@@ -26,6 +28,11 @@ type Model struct {
 	vp    viewport.Model
 	input textinput.Model
 	tools list.Model
+
+	cwd        string
+	tokenCount int
+	modelName  string
+	selected   string
 
 	history string
 
@@ -52,8 +59,9 @@ func New(ag *core.Agent) Model {
 	ti.Focus()
 
 	vp := viewport.New(0, 0)
+	cwd, _ := os.Getwd()
 
-	return Model{agent: ag, vp: vp, input: ti, tools: l, history: ""}
+	return Model{agent: ag, vp: vp, input: ti, tools: l, history: "", cwd: cwd, modelName: "unknown"}
 }
 
 type listItem struct{ name, desc string }
@@ -79,6 +87,7 @@ func (d listItemDelegate) Render(w io.Writer, m list.Model, index int, item list
 }
 
 type tokenMsg string
+type toolUseMsg string
 
 type errMsg struct{ error }
 
@@ -106,9 +115,16 @@ func readEvents(r io.Reader) tea.Cmd {
 				}
 				return errMsg{err}
 			}
-			if ev.Type == trace.EventFinal {
+			switch ev.Type {
+			case trace.EventFinal:
 				if s, ok := ev.Data.(string); ok {
 					return finalMsg(s)
+				}
+			case trace.EventToolEnd:
+				if m, ok := ev.Data.(map[string]any); ok {
+					if name, ok := m["name"].(string); ok {
+						return toolUseMsg(name)
+					}
 				}
 			}
 		}
@@ -141,7 +157,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				txt := m.input.Value()
 				m.input.SetValue("")
 				m.history += "You: " + txt + "\n"
-				m.vp.SetContent(m.history)
+				m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 
 				pr, pw := io.Pipe()
 				errCh := make(chan error, 1)
@@ -153,20 +169,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}()
 				return m, tea.Batch(readEvents(pr), waitErr(errCh))
 			}
-		case "up", "k":
-			m.tools.CursorUp()
-		case "down", "j":
-			m.tools.CursorDown()
 		}
 	case tokenMsg:
 		m.history += string(msg)
-		m.vp.SetContent(m.history)
+		m.tokenCount++
+		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
 	case finalMsg:
 		m.history += "AI: "
-		m.vp.SetContent(m.history)
+		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
 		return m, streamTokens(string(msg) + "\n")
+	case toolUseMsg:
+		idx := -1
+		for i, it := range m.tools.Items() {
+			if li, ok := it.(listItem); ok && li.name == string(msg) {
+				idx = i
+				break
+			}
+		}
+		if idx >= 0 {
+			m.tools.Select(idx)
+		}
 	case errMsg:
 		m.err = msg
 	case tea.WindowSizeMsg:
@@ -176,6 +200,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.vp.Width = int(float64(msg.Width)*0.75) - 2
 		m.vp.Height = msg.Height - 5
 		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, msg.Height-2)
+		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 	}
 
 	m.input, _ = m.input.Update(msg)
@@ -197,8 +222,10 @@ func (m Model) View() string {
 		rightContent += "\nERR: " + m.err.Error()
 	}
 	right := lipgloss.NewStyle().Width(int(float64(m.width) * 0.75)).Render(rightContent)
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+	footer := fmt.Sprintf("cwd: %s | tokens: %d | model: %s", m.cwd, m.tokenCount, m.modelName)
+	footer = lipgloss.NewStyle().Width(m.width).Render(footer)
+	return lipgloss.JoinVertical(lipgloss.Left, main, footer)
 }
 
 func renderMemory(ag *core.Agent) string {
