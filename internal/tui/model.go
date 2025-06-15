@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -34,7 +35,8 @@ type Model struct {
 	modelName  string
 	selected   string
 
-	sc *bufio.Scanner
+	sc   *bufio.Scanner
+	scMu sync.Mutex
 
 	history string
 
@@ -127,6 +129,8 @@ func (m *Model) readEvent() tea.Msg {
 	if m.sc == nil {
 		return nil
 	}
+	m.scMu.Lock()
+	defer m.scMu.Unlock()
 	for {
 		if !m.sc.Scan() {
 			if err := m.sc.Err(); err != nil {
