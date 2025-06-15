@@ -34,6 +34,8 @@ type Model struct {
 	modelName  string
 	selected   string
 
+	dec *json.Decoder
+
 	history string
 
 	activeTab int
@@ -105,35 +107,38 @@ func streamTokens(out string) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-func readEvents(r io.Reader) tea.Cmd {
-	return func() tea.Msg {
-		dec := json.NewDecoder(bufio.NewReader(r))
-		for {
-			var ev trace.Event
-			if err := dec.Decode(&ev); err != nil {
-				if err == io.EOF {
-					return nil
-				}
-				return errMsg{err}
-			}
-			switch ev.Type {
-			case trace.EventFinal:
-				if s, ok := ev.Data.(string); ok {
-					return finalMsg(s)
-				}
-			case trace.EventModelStart:
-				if name, ok := ev.Data.(string); ok {
-					return modelMsg(name)
-				}
-			case trace.EventToolEnd:
-				if m, ok := ev.Data.(map[string]any); ok {
-					if name, ok := m["name"].(string); ok {
-						return toolUseMsg(name)
-					}
-				}
+func (m *Model) readEvent() tea.Msg {
+	if m.dec == nil {
+		return nil
+	}
+	var ev trace.Event
+	if err := m.dec.Decode(&ev); err != nil {
+		if err == io.EOF {
+			return nil
+		}
+		return errMsg{err}
+	}
+	switch ev.Type {
+	case trace.EventFinal:
+		if s, ok := ev.Data.(string); ok {
+			return finalMsg(s)
+		}
+	case trace.EventModelStart:
+		if name, ok := ev.Data.(string); ok {
+			return modelMsg(name)
+		}
+	case trace.EventToolEnd:
+		if m2, ok := ev.Data.(map[string]any); ok {
+			if name, ok := m2["name"].(string); ok {
+				return toolUseMsg(name)
 			}
 		}
 	}
+	return nil
+}
+
+func (m *Model) readCmd() tea.Cmd {
+	return func() tea.Msg { return m.readEvent() }
 }
 
 func waitErr(ch <-chan error) tea.Cmd {
@@ -167,12 +172,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				pr, pw := io.Pipe()
 				errCh := make(chan error, 1)
 				m.agent.Tracer = trace.NewJSONL(pw)
+				m.dec = json.NewDecoder(bufio.NewReader(pr))
 				go func() {
 					_, err := m.agent.Run(context.Background(), txt)
 					pw.Close()
 					errCh <- err
 				}()
-				return m, tea.Batch(readEvents(pr), waitErr(errCh))
+				return m, tea.Batch(m.readCmd(), waitErr(errCh))
 			}
 		}
 	case tokenMsg:
@@ -184,7 +190,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.history += "AI: "
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
-		return m, streamTokens(string(msg) + "\n")
+		return m, tea.Batch(streamTokens(string(msg)+"\n"), m.readCmd())
 	case toolUseMsg:
 		idx := -1
 		for i, it := range m.tools.Items() {
@@ -196,8 +202,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if idx >= 0 {
 			m.tools.Select(idx)
 		}
+		return m, m.readCmd()
 	case modelMsg:
 		m.modelName = string(msg)
+		return m, m.readCmd()
 	case errMsg:
 		m.err = msg
 	case tea.WindowSizeMsg:
