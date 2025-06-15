@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/memory"
@@ -24,6 +25,15 @@ type Agent struct {
 }
 
 const maxSteps = 32
+
+func cleanInput(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 && r != '\n' && r != '\t' && r != '\r' {
+			return -1
+		}
+		return r
+	}, s)
+}
 
 func New(sel router.Selector, reg tool.Registry, mem memory.Store, tr trace.Writer) *Agent {
 	return &Agent{uuid.New(), reg, mem, sel, tr}
@@ -99,6 +109,7 @@ func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
 }
 
 func buildMessages(hist []memory.Step, input string) []model.ChatMessage {
+	input = cleanInput(input)
 	msgs := []model.ChatMessage{
 		{Role: "system", Content: "You are an agent. When you call a tool, `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden."},
 	}
