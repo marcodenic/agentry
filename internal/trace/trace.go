@@ -17,6 +17,7 @@ const (
 	EventToolEnd    EventType = "tool_end"
 	EventFinal      EventType = "final"
 	EventModelStart EventType = "model_start"
+	EventToken      EventType = "token"
 )
 
 type Event struct {
@@ -28,6 +29,24 @@ type Event struct {
 
 type Writer interface {
 	Write(ctx context.Context, e Event)
+}
+
+type ctxKey int
+
+const writerKey ctxKey = iota
+
+// WithWriter attaches a Writer to the context so downstream components can
+// emit trace events.
+func WithWriter(ctx context.Context, w Writer) context.Context {
+	return context.WithValue(ctx, writerKey, w)
+}
+
+// WriterFrom retrieves a Writer from the context, if any.
+func WriterFrom(ctx context.Context) Writer {
+	if w, ok := ctx.Value(writerKey).(Writer); ok {
+		return w
+	}
+	return nil
 }
 
 type JSONLWriter struct{ w io.Writer }

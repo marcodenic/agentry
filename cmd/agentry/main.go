@@ -88,7 +88,7 @@ func main() {
 					conv[i] = r
 					if oa, ok := r.Client.(*model.OpenAI); ok {
 						cpy := *oa
-						cpy.SetTemperature(1.3)
+						cpy.SetTemperature(0.7)
 						conv[i].Client = &cpy
 					}
 				}
