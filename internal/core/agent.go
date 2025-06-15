@@ -17,13 +17,15 @@ import (
 )
 
 type Agent struct {
-	ID     uuid.UUID
-	Name   string
-	Topic  string
-	Tools  tool.Registry
-	Mem    memory.Store
-	Route  router.Selector
-	Tracer trace.Writer
+	ID          uuid.UUID
+	Name        string
+	Topic       string
+	PeerNames   []string
+	LastSpeaker string
+	Tools       tool.Registry
+	Mem         memory.Store
+	Route       router.Selector
+	Tracer      trace.Writer
 }
 
 const maxSteps = 32
@@ -66,7 +68,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	if a.Name != "" {
 		speaker = a.Name
 	}
-	msgs := buildMessages(a.Mem.History(), input, speaker, a.Topic)
+	msgs := BuildMessages(a.Mem.History(), input, speaker, a.PeerNames, a.Topic)
 	specs := buildToolSpecs(a.Tools)
 	for i := 0; i < maxSteps; i++ {
 		res, err := client.Complete(ctx, msgs, specs)
@@ -132,15 +134,16 @@ func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
 	}
 }
 
-func buildMessages(hist []memory.Step, input, speaker, topic string) []model.ChatMessage {
+// BuildMessages constructs the chat transcript sent to the model.
+func BuildMessages(hist []memory.Step, input, speaker string, peerNames []string, topic string) []model.ChatMessage {
 	input = cleanInput(input)
-	sys := fmt.Sprintf("You are %s, one of several agents discussing %s. Read the conversation so far and contribute something new. Address the other agents by name. When you call a tool, `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden.", speaker, topic)
+	sys := fmt.Sprintf(
+		"You are %s participating in a spicy round-robin debate between AI agents (%s).  Each turn contribute ONE fresh idea, do NOT just praise or repeat.  You must address at least one other agent by name.  No topic is taboo.  Return plain text unless calling a tool; tool calls must have valid JSON `arguments` (use {} when no args).  Control characters are forbidden.",
+		speaker, strings.Join(peerNames, ", "))
 	msgs := []model.ChatMessage{{Role: "system", Content: sys}}
 	for _, h := range hist {
-		// Treat messages from other agents as user turns so the
-		// current model perceives them as prompts to continue.
 		role := "assistant"
-		if h.Speaker != speaker {
+		if h.Speaker == "user" {
 			role = "user"
 		}
 		msgs = append(msgs, model.ChatMessage{
@@ -155,6 +158,12 @@ func buildMessages(hist []memory.Step, input, speaker, topic string) []model.Cha
 	}
 	if strings.TrimSpace(input) != "" {
 		msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})
+	}
+	if len(hist) > 0 {
+		last := hist[len(hist)-1]
+		if last.Speaker != speaker && last.Speaker != "user" {
+			msgs = append(msgs, model.ChatMessage{Role: "user", Name: last.Speaker, Content: last.Output})
+		}
 	}
 	return msgs
 }

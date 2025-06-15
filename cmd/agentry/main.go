@@ -21,6 +21,18 @@ import (
 	"github.com/marcodenic/agentry/internal/tui"
 )
 
+var agentColors = []string{
+	"\033[38;5;81m",
+	"\033[38;5;118m",
+	"\033[38;5;214m",
+	"\033[38;5;135m",
+	"\033[38;5;203m",
+}
+
+const colorReset = "\033[0m"
+
+func colorFor(i int) string { return agentColors[i%len(agentColors)] }
+
 func main() {
 	env.Load()
 	mode := flag.String("mode", "dev", "dev|serve|eval|tui")
@@ -85,10 +97,12 @@ func main() {
 				agents := make([]*core.Agent, n)
 				names := make([]string, n)
 				for i := 0; i < n; i++ {
-					name := fmt.Sprintf("Agent%d", i+1)
-					agents[i] = core.NewNamed(name, conv, ag.Tools, shared, ag.Tracer)
+					names[i] = fmt.Sprintf("Agent%d", i+1)
+				}
+				for i := 0; i < n; i++ {
+					agents[i] = core.NewNamed(names[i], conv, ag.Tools, shared, ag.Tracer)
 					agents[i].Topic = topic
-					names[i] = name
+					agents[i].PeerNames = names
 				}
 				msg := topic
 				for i := 0; i < 10; i++ {
@@ -97,9 +111,9 @@ func main() {
 					if err != nil {
 						fmt.Println("ERR:", err)
 					}
-					fmt.Printf("[%s]: %s\n", names[idx], out)
-					// Clear msg so the next agent sees the previous
-					// reply as a user message via shared memory
+					col := colorFor(idx)
+					fmt.Printf("%s[%s]%s: %s\n", col, names[idx], colorReset, out)
+					agents[idx].LastSpeaker = names[idx]
 					msg = ""
 				}
 				continue
