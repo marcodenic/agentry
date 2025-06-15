@@ -82,9 +82,9 @@ func main() {
 						fmt.Println("ERR:", err)
 					}
 					fmt.Printf("[%s]: %s\n", names[idx], out)
-					// hand over the turn with a short cue so
-					// the next agent knows to continue
-					msg = fmt.Sprintf("Please respond to the previous assistant, %s.", names[idx])
+					// Clear msg so the next agent sees the previous
+					// reply as a user message via shared memory
+					msg = ""
 				}
 				continue
 			}
