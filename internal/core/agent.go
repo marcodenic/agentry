@@ -63,6 +63,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		}
 		seen := map[string]bool{}
 		for _, tc := range res.ToolCalls {
+			a.Trace(ctx, trace.EventToolStart, map[string]any{"name": tc.Name, "args": string(tc.Arguments)})
 			key := tc.Name + string(tc.Arguments)
 			if seen[key] {
 				return "", fmt.Errorf("model is looping on tool %s", tc.Name)

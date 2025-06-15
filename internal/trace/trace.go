@@ -14,6 +14,7 @@ type EventType string
 
 const (
 	EventStepStart  EventType = "step_start"
+	EventToolStart  EventType = "tool_start"
 	EventToolEnd    EventType = "tool_end"
 	EventFinal      EventType = "final"
 	EventModelStart EventType = "model_start"

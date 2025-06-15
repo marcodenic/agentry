@@ -108,6 +108,7 @@ func (d listItemDelegate) Render(w io.Writer, m list.Model, index int, item list
 
 type tokenMsg string
 type toolUseMsg string
+type stepMsg string
 type modelMsg string
 
 type errMsg struct{ error }
@@ -155,6 +156,19 @@ func (m *Model) readEvent() tea.Msg {
 			if m2, ok := ev.Data.(map[string]any); ok {
 				if name, ok := m2["name"].(string); ok {
 					return toolUseMsg(name)
+				}
+			}
+		case trace.EventStepStart:
+			if m2, ok := ev.Data.(map[string]any); ok {
+				if s, ok := m2["Content"].(string); ok && s != "" {
+					return stepMsg(s)
+				}
+				if calls, ok := m2["ToolCalls"].([]interface{}); ok && len(calls) > 0 {
+					if call, ok := calls[0].(map[string]any); ok {
+						if name, ok := call["Name"].(string); ok {
+							return stepMsg("calling " + name)
+						}
+					}
 				}
 			}
 		default:
@@ -214,6 +228,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tokenMsg:
 		m.history += string(msg)
 		m.tokenCount++
+		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
+		m.vp.GotoBottom()
+	case stepMsg:
+		m.history += aiBar() + " " + string(msg) + "\n"
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
 	case finalMsg:
