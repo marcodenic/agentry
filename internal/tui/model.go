@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -35,8 +34,7 @@ type Model struct {
 	modelName  string
 	selected   string
 
-	dec   *json.Decoder
-	decMu sync.Mutex
+	sc *bufio.Scanner
 
 	history string
 
@@ -126,18 +124,18 @@ func streamTokens(out string) tea.Cmd {
 }
 
 func (m *Model) readEvent() tea.Msg {
-	if m.dec == nil {
+	if m.sc == nil {
 		return nil
 	}
 	for {
-		var ev trace.Event
-		m.decMu.Lock()
-		err := m.dec.Decode(&ev)
-		m.decMu.Unlock()
-		if err != nil {
-			if err == io.EOF {
-				return nil
+		if !m.sc.Scan() {
+			if err := m.sc.Err(); err != nil {
+				return errMsg{err}
 			}
+			return nil
+		}
+		var ev trace.Event
+		if err := json.Unmarshal(m.sc.Bytes(), &ev); err != nil {
 			return errMsg{err}
 		}
 		switch ev.Type {
@@ -196,7 +194,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				pr, pw := io.Pipe()
 				errCh := make(chan error, 1)
 				m.agent.Tracer = trace.NewJSONL(pw)
-				m.dec = json.NewDecoder(bufio.NewReader(pr))
+				m.sc = bufio.NewScanner(pr)
 				go func() {
 					_, err := m.agent.Run(context.Background(), txt)
 					pw.Close()

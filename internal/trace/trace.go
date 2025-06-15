@@ -34,7 +34,11 @@ type JSONLWriter struct{ w io.Writer }
 
 func NewJSONL(w io.Writer) *JSONLWriter { return &JSONLWriter{w} }
 func (j *JSONLWriter) Write(_ context.Context, e Event) {
-	_ = json.NewEncoder(j.w).Encode(e)
+	enc := json.NewEncoder(j.w)
+	_ = enc.Encode(e)
+	if fl, ok := j.w.(http.Flusher); ok {
+		fl.Flush()
+	}
 }
 
 type SSEWriter struct {
