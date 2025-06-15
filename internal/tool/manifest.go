@@ -369,7 +369,7 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 
 	// HTTP tools
 	if m.HTTP != "" {
-		return NewWithSchema(m.Name, m.Description, map[string]any{"type": "object"}, func(ctx context.Context, args map[string]any) (string, error) {
+		return NewWithSchema(m.Name, m.Description, map[string]any{"type": "object", "properties": map[string]any{}}, func(ctx context.Context, args map[string]any) (string, error) {
 			b, err := json.Marshal(args)
 			if err != nil {
 				return "", err
@@ -394,7 +394,7 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 
 	// Shell command tools (advanced use, may behave differently across OSes)
 	if m.Command != "" {
-		return NewWithSchema(m.Name, m.Description, map[string]any{"type": "object"}, func(ctx context.Context, args map[string]any) (string, error) {
+		return NewWithSchema(m.Name, m.Description, map[string]any{"type": "object", "properties": map[string]any{}}, func(ctx context.Context, args map[string]any) (string, error) {
 			var cmd *exec.Cmd
 			if runtime.GOOS == "windows" {
 				cmd = exec.CommandContext(ctx, "cmd", "/C", m.Command)

@@ -40,7 +40,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			return "", err
 		}
 		a.Trace(ctx, trace.EventStepStart, res)
-		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content})
+		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
 		if len(res.ToolCalls) == 0 {
 			a.Mem.AddStep(res.Content, "", "", "")
 			a.Trace(ctx, trace.EventFinal, res.Content)
@@ -61,7 +61,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			}
 			a.Trace(ctx, trace.EventToolEnd, r)
 			a.Mem.AddStep(res.Content, tc.Name, r, tc.ID)
-			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Name: tc.Name, Content: r})
+			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})
 		}
 	}
 	return "", errors.New("max iterations")
@@ -85,7 +85,7 @@ func buildMessages(hist []memory.Step, input string) []model.ChatMessage {
 	for _, h := range hist {
 		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: h.Output})
 		if h.ToolName != "" {
-			msgs = append(msgs, model.ChatMessage{Role: "tool", Name: h.ToolName, Content: h.ToolResult})
+			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: h.CallID, Content: h.ToolResult})
 		}
 	}
 	msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})

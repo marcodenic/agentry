@@ -4,10 +4,11 @@ import "context"
 
 // ChatMessage represents a message sent to or received from the model.
 type ChatMessage struct {
-	Role       string `json:"role"`
-	Content    string `json:"content,omitempty"`
-	Name       string `json:"name,omitempty"`
-	ToolCallID string `json:"tool_call_id,omitempty"`
+	Role       string     `json:"role"`
+	Content    string     `json:"content,omitempty"`
+	Name       string     `json:"name,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
 }
 
 // ToolSpec describes a callable tool for the model.

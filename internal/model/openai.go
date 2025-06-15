@@ -38,16 +38,55 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 		oaTools[i].Type = "function"
 		oaTools[i].Function.Name = t.Name
 		oaTools[i].Function.Description = t.Description
-		if t.Parameters != nil {
+		if t.Parameters != nil && len(t.Parameters) > 0 {
 			oaTools[i].Function.Parameters = t.Parameters
 		} else {
-			oaTools[i].Function.Parameters = map[string]any{"type": "object"}
+			oaTools[i].Function.Parameters = map[string]any{"type": "object", "properties": map[string]any{}}
+		}
+	}
+
+	type oaMessage struct {
+		Role       string `json:"role"`
+		Content    string `json:"content,omitempty"`
+		Name       string `json:"name,omitempty"`
+		ToolCallID string `json:"tool_call_id,omitempty"`
+		ToolCalls  []struct {
+			ID       string `json:"id"`
+			Type     string `json:"type"`
+			Function struct {
+				Name      string `json:"name"`
+				Arguments string `json:"arguments"`
+			} `json:"function"`
+		} `json:"tool_calls,omitempty"`
+	}
+
+	oaMsgs := make([]oaMessage, len(msgs))
+	for i, m := range msgs {
+		oaMsgs[i].Role = m.Role
+		oaMsgs[i].Content = m.Content
+		oaMsgs[i].Name = m.Name
+		oaMsgs[i].ToolCallID = m.ToolCallID
+		if len(m.ToolCalls) > 0 {
+			oaMsgs[i].ToolCalls = make([]struct {
+				ID       string `json:"id"`
+				Type     string `json:"type"`
+				Function struct {
+					Name      string `json:"name"`
+					Arguments string `json:"arguments"`
+				} `json:"function"`
+			}, len(m.ToolCalls))
+			for j, tc := range m.ToolCalls {
+				oaMsgs[i].ToolCalls[j].ID = tc.ID
+				oaMsgs[i].ToolCalls[j].Type = "function"
+				oaMsgs[i].ToolCalls[j].Function.Name = tc.Name
+				oaMsgs[i].ToolCalls[j].Function.Arguments = string(tc.Arguments)
+			}
 		}
 	}
 
 	reqBody := map[string]any{
 		"model":       "gpt-4o",
-		"messages":    msgs,
+		"messages":    oaMsgs,
 		"tools":       oaTools,
 		"tool_choice": "auto",
 		"temperature": 0,
