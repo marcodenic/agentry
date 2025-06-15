@@ -118,7 +118,9 @@ func buildMessages(hist []memory.Step, input, speaker string) []model.ChatMessag
 			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: id, Content: res})
 		}
 	}
-	msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})
+	if strings.TrimSpace(input) != "" {
+		msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})
+	}
 	return msgs
 }
 

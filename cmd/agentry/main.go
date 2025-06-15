@@ -82,10 +82,9 @@ func main() {
 						fmt.Println("ERR:", err)
 					}
 					fmt.Printf("[%s]: %s\n", names[idx], out)
-					// forward only the conversation history
-					// to avoid repeating the last line as
-					// "user" input for the next agent
-					msg = ""
+					// hand over the turn with a short cue so
+					// the next agent knows to continue
+					msg = fmt.Sprintf("Please respond to the previous assistant, %s.", names[idx])
 				}
 				continue
 			}
