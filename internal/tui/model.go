@@ -247,11 +247,11 @@ func (m Model) View() string {
 }
 
 func userBar() string {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color("#8B5CF6")).Render("│")
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("#8B5CF6")).Render("┃")
 }
 
 func aiBar() string {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")).Render("│")
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")).Render("┃")
 }
 
 func renderMemory(ag *core.Agent) string {
