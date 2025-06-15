@@ -2,17 +2,20 @@ package memory
 
 // Simple conversation memory.
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/marcodenic/agentry/internal/model"
+)
 
 type Step struct {
-	Output     string
-	ToolName   string
-	ToolResult string
-	CallID     string
+	Output      string
+	ToolCalls   []model.ToolCall
+	ToolResults map[string]string
 }
 
 type Store interface {
-	AddStep(out, tool, result, callID string)
+	AddStep(step Step)
 	History() []Step
 }
 
@@ -24,10 +27,10 @@ type InMemory struct {
 
 func NewInMemory() *InMemory { return &InMemory{} }
 
-func (m *InMemory) AddStep(out, tool, result, callID string) {
+func (m *InMemory) AddStep(step Step) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.steps = append(m.steps, Step{Output: out, ToolName: tool, ToolResult: result, CallID: callID})
+	m.steps = append(m.steps, step)
 }
 
 func (m *InMemory) History() []Step {

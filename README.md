@@ -76,6 +76,8 @@ The example configuration already lists these tools so they appear in the TUI's
 `OPENAI_KEY` is provided, the mock model only exercises the `echo` tool. To
 leverage the rest, set your key in `.env.local`.
 
+**Windows users:** Agentry works out-of-the-box on Windows 10+ with PowerShell installed. Built-ins that require external Unix tools (`patch`) are disabled automatically. Install Git for Windows and run under Git Bash if you need them.
+
 
 ### Try it live
 

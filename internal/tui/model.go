@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -34,7 +35,8 @@ type Model struct {
 	modelName  string
 	selected   string
 
-	dec *json.Decoder
+	sc   *bufio.Scanner
+	scMu sync.Mutex
 
 	history string
 
@@ -124,15 +126,20 @@ func streamTokens(out string) tea.Cmd {
 }
 
 func (m *Model) readEvent() tea.Msg {
-	if m.dec == nil {
+	if m.sc == nil {
 		return nil
 	}
+	m.scMu.Lock()
+	defer m.scMu.Unlock()
 	for {
-		var ev trace.Event
-		if err := m.dec.Decode(&ev); err != nil {
-			if err == io.EOF {
-				return nil
+		if !m.sc.Scan() {
+			if err := m.sc.Err(); err != nil {
+				return errMsg{err}
 			}
+			return nil
+		}
+		var ev trace.Event
+		if err := json.Unmarshal(m.sc.Bytes(), &ev); err != nil {
 			return errMsg{err}
 		}
 		switch ev.Type {
@@ -191,7 +198,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				pr, pw := io.Pipe()
 				errCh := make(chan error, 1)
 				m.agent.Tracer = trace.NewJSONL(pw)
-				m.dec = json.NewDecoder(bufio.NewReader(pr))
+				const maxBuf = 1024 * 1024
+				m.scMu.Lock()
+				m.sc = bufio.NewScanner(pr)
+				m.sc.Buffer(make([]byte, 0, 64*1024), maxBuf)
+				m.scMu.Unlock()
 				go func() {
 					_, err := m.agent.Run(context.Background(), txt)
 					pw.Close()
@@ -209,7 +220,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.history += aiBar() + " "
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
-		return m, tea.Batch(streamTokens(string(msg)+"\n"), m.readCmd())
+		m.scMu.Lock()
+		m.sc = nil
+		m.scMu.Unlock()
+		return m, tea.Batch(streamTokens(string(msg)+"\n"), nil)
 	case toolUseMsg:
 		idx := -1
 		for i, it := range m.tools.Items() {
@@ -227,6 +241,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.readCmd()
 	case errMsg:
 		m.err = msg
+		m.scMu.Lock()
+		m.sc = nil
+		m.scMu.Unlock()
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -278,11 +295,13 @@ func renderMemory(ag *core.Agent) string {
 		b.WriteString(strconv.Itoa(i))
 		b.WriteString(": ")
 		b.WriteString(s.Output)
-		if s.ToolName != "" {
-			b.WriteString(" -> ")
-			b.WriteString(s.ToolName)
-			b.WriteString(": ")
-			b.WriteString(s.ToolResult)
+		for _, tc := range s.ToolCalls {
+			if r, ok := s.ToolResults[tc.ID]; ok {
+				b.WriteString(" -> ")
+				b.WriteString(tc.Name)
+				b.WriteString(": ")
+				b.WriteString(r)
+			}
 		}
 		b.WriteString("\n")
 	}

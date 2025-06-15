@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -13,11 +15,34 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/marcodenic/agentry/internal/config"
 )
 
+var osType = runtime.GOOS
+var shellCmd, shellFlag string
+
+func init() {
+	if osType == "windows" {
+		shellCmd = "powershell.exe"
+		shellFlag = "-Command"
+	} else {
+		shellCmd = "bash"
+		shellFlag = "-c"
+	}
+}
+
+func absPath(p string) string {
+	if filepath.IsAbs(p) {
+		return p
+	}
+	wd, _ := os.Getwd()
+	return filepath.Join(wd, p)
+}
+
 var ErrUnknownManifest = errors.New("unknown tool manifest")
+var ErrUnknownBuiltin = errors.New("unknown builtin tool")
 
 type Tool interface {
 	Name() string
@@ -85,20 +110,21 @@ var builtinMap = map[string]builtinSpec{
 			"type":       "object",
 			"properties": map[string]any{"host": map[string]any{"type": "string"}},
 			"required":   []string{"host"},
+			"example":    map[string]any{"host": "example.com"},
 		},
 		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			host, _ := args["host"].(string)
 			if host == "" {
 				return "", errors.New("missing host")
 			}
-			var cmd *exec.Cmd
-			if runtime.GOOS == "windows" {
-				cmd = exec.CommandContext(ctx, "ping", "-n", "4", host)
-			} else {
-				cmd = exec.CommandContext(ctx, "ping", "-c", "4", host)
+			d := net.Dialer{Timeout: 3 * time.Second}
+			start := time.Now()
+			conn, err := d.DialContext(ctx, "tcp", host+":80")
+			if err != nil {
+				return "", err
 			}
-			out, err := cmd.CombinedOutput()
-			return string(out), err
+			_ = conn.Close()
+			return fmt.Sprintf("pong in %v", time.Since(start)), nil
 		},
 	},
 	"bash": {
@@ -107,18 +133,17 @@ var builtinMap = map[string]builtinSpec{
 			"type":       "object",
 			"properties": map[string]any{"cmd": map[string]any{"type": "string"}},
 			"required":   []string{"cmd"},
+			"example":    map[string]any{"cmd": "echo hi"},
 		},
 		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			cmdStr, _ := args["cmd"].(string)
 			if cmdStr == "" {
 				return "", errors.New("missing cmd")
 			}
-			var cmd *exec.Cmd
-			if runtime.GOOS == "windows" {
-				cmd = exec.CommandContext(ctx, "cmd", "/C", cmdStr)
-			} else {
-				cmd = exec.CommandContext(ctx, "bash", "-c", cmdStr)
+			if _, err := exec.LookPath(shellCmd); err != nil {
+				return "", fmt.Errorf("%s not found – install or use another tool", shellCmd)
 			}
+			cmd := exec.CommandContext(ctx, shellCmd, shellFlag, cmdStr)
 			out, err := cmd.CombinedOutput()
 			return string(out), err
 		},
@@ -129,6 +154,7 @@ var builtinMap = map[string]builtinSpec{
 			"type":       "object",
 			"properties": map[string]any{"url": map[string]any{"type": "string"}},
 			"required":   []string{"url"},
+			"example":    map[string]any{"url": "https://example.com"},
 		},
 		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			u, _ := args["url"].(string)
@@ -152,12 +178,14 @@ var builtinMap = map[string]builtinSpec{
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{"path": map[string]any{"type": "string"}},
+			"example":    map[string]any{"path": "."},
 		},
 		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			path, _ := args["path"].(string)
 			if path == "" {
 				path = "."
 			}
+			path = absPath(path)
 			entries, err := os.ReadDir(path)
 			if err != nil {
 				return "", err
@@ -175,11 +203,16 @@ var builtinMap = map[string]builtinSpec{
 			"type":       "object",
 			"properties": map[string]any{"path": map[string]any{"type": "string"}},
 			"required":   []string{"path"},
+			"example":    map[string]any{"path": "go.mod"},
 		},
 		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			path, _ := args["path"].(string)
 			if path == "" {
 				return "", errors.New("missing path")
+			}
+			path = absPath(path)
+			if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+				return "", fmt.Errorf("file %s does not exist – create it first", path)
 			}
 			b, err := os.ReadFile(path)
 			if err != nil {
@@ -197,6 +230,7 @@ var builtinMap = map[string]builtinSpec{
 				"text": map[string]any{"type": "string"},
 			},
 			"required": []string{"path", "text"},
+			"example":  map[string]any{"path": "tmp.txt", "text": "hi"},
 		},
 		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			path, _ := args["path"].(string)
@@ -204,6 +238,7 @@ var builtinMap = map[string]builtinSpec{
 			if path == "" {
 				return "", errors.New("missing path")
 			}
+			path = absPath(path)
 			if err := os.WriteFile(path, []byte(text), 0644); err != nil {
 				return "", err
 			}
@@ -216,6 +251,7 @@ var builtinMap = map[string]builtinSpec{
 			"type":       "object",
 			"properties": map[string]any{"pattern": map[string]any{"type": "string"}},
 			"required":   []string{"pattern"},
+			"example":    map[string]any{"pattern": "*.go"},
 		},
 		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			pattern, _ := args["pattern"].(string)
@@ -238,12 +274,17 @@ var builtinMap = map[string]builtinSpec{
 				"path":    map[string]any{"type": "string"},
 			},
 			"required": []string{"pattern", "path"},
+			"example":  map[string]any{"pattern": "hello", "path": "go.mod"},
 		},
 		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			pattern, _ := args["pattern"].(string)
 			path, _ := args["path"].(string)
 			if path == "" || pattern == "" {
 				return "", errors.New("missing args")
+			}
+			path = absPath(path)
+			if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+				return "", fmt.Errorf("file %s does not exist – create it first", path)
 			}
 			b, err := os.ReadFile(path)
 			if err != nil {
@@ -268,6 +309,7 @@ var builtinMap = map[string]builtinSpec{
 				"text": map[string]any{"type": "string"},
 			},
 			"required": []string{"path", "text"},
+			"example":  map[string]any{"path": "tmp.txt", "text": "bye"},
 		},
 		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			path, _ := args["path"].(string)
@@ -275,6 +317,7 @@ var builtinMap = map[string]builtinSpec{
 			if path == "" {
 				return "", errors.New("missing path")
 			}
+			path = absPath(path)
 			if err := os.WriteFile(path, []byte(text), 0644); err != nil {
 				return "", err
 			}
@@ -287,6 +330,7 @@ var builtinMap = map[string]builtinSpec{
 			"type":       "object",
 			"properties": map[string]any{"query": map[string]any{"type": "string"}},
 			"required":   []string{"query"},
+			"example":    map[string]any{"query": "grpc"},
 		},
 		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			q, _ := args["query"].(string)
@@ -306,24 +350,6 @@ var builtinMap = map[string]builtinSpec{
 			return string(b), nil
 		},
 	},
-	"patch": {
-		Desc: "Apply a unified diff patch",
-		Schema: map[string]any{
-			"type":       "object",
-			"properties": map[string]any{"patch": map[string]any{"type": "string"}},
-			"required":   []string{"patch"},
-		},
-		Exec: func(ctx context.Context, args map[string]any) (string, error) {
-			patchStr, _ := args["patch"].(string)
-			if patchStr == "" {
-				return "", errors.New("missing patch")
-			}
-			cmd := exec.CommandContext(ctx, "patch", "-p0")
-			cmd.Stdin = strings.NewReader(patchStr)
-			out, err := cmd.CombinedOutput()
-			return string(out), err
-		},
-	},
 	"agent": {
 		Desc: "Launch a search agent",
 		Schema: map[string]any{
@@ -336,6 +362,39 @@ var builtinMap = map[string]builtinSpec{
 			return "agent searched: " + query, nil
 		},
 	},
+}
+
+func init() {
+	if osType != "windows" {
+		builtinMap["patch"] = builtinSpec{
+			Desc: "Apply a unified diff patch",
+			Schema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{"patch": map[string]any{"type": "string"}},
+				"required":   []string{"patch"},
+				"example":    map[string]any{"patch": ""},
+			},
+			Exec: func(ctx context.Context, args map[string]any) (string, error) {
+				patchStr, _ := args["patch"].(string)
+				if patchStr == "" {
+					return "", errors.New("missing patch")
+				}
+				cmd := exec.CommandContext(ctx, "patch", "-p0")
+				cmd.Stdin = strings.NewReader(patchStr)
+				out, err := cmd.CombinedOutput()
+				return string(out), err
+			},
+		}
+	}
+}
+
+// DefaultRegistry returns all builtin tools.
+func DefaultRegistry() Registry {
+	r := make(Registry, len(builtinMap))
+	for n, s := range builtinMap {
+		r[n] = NewWithSchema(n, s.Desc, s.Schema, s.Exec)
+	}
+	return r
 }
 
 func FromManifest(m config.ToolManifest) (Tool, error) {
@@ -358,7 +417,7 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 	if m.Type == "builtin" {
 		spec, ok := builtinMap[m.Name]
 		if !ok {
-			return nil, errors.New("unknown builtin tool")
+			return nil, ErrUnknownBuiltin
 		}
 		desc := m.Description
 		if desc == "" {
