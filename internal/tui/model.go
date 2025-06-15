@@ -169,7 +169,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.input.Focused() {
 				txt := m.input.Value()
 				m.input.SetValue("")
-				m.history += "You: " + txt + "\n"
+				m.history += userBar() + " " + txt + "\n"
 				m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 
 				pr, pw := io.Pipe()
@@ -190,7 +190,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
 	case finalMsg:
-		m.history += "AI: "
+		m.history += aiBar() + " "
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
 		return m, tea.Batch(streamTokens(string(msg)+"\n"), m.readCmd())
@@ -244,6 +244,14 @@ func (m Model) View() string {
 	footer := fmt.Sprintf("cwd: %s | tokens: %d | model: %s", m.cwd, m.tokenCount, m.modelName)
 	footer = lipgloss.NewStyle().Width(m.width).Render(footer)
 	return lipgloss.JoinVertical(lipgloss.Left, main, footer)
+}
+
+func userBar() string {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("#8B5CF6")).Render("│")
+}
+
+func aiBar() string {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")).Render("│")
 }
 
 func renderMemory(ag *core.Agent) string {
