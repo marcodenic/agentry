@@ -13,9 +13,10 @@ import (
 type EventType string
 
 const (
-	EventStepStart EventType = "step_start"
-	EventToolEnd   EventType = "tool_end"
-	EventFinal     EventType = "final"
+	EventStepStart  EventType = "step_start"
+	EventToolEnd    EventType = "tool_end"
+	EventFinal      EventType = "final"
+	EventModelStart EventType = "model_start"
 )
 
 type Event struct {

@@ -42,7 +42,7 @@ func TestConfigBootAndEval(t *testing.T) {
 	// Mock model
 	mock := &cyclingMock{}
 
-	route := router.Rules{{IfContains: []string{""}, Client: mock}}
+	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: mock}}
 	agent := core.New(route, tools, memory.NewInMemory(), nil)
 
 	out, err := agent.Run(context.TODO(), "hello")

@@ -31,7 +31,8 @@ func (a *Agent) Spawn() *Agent {
 }
 
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
-	client := a.Route.Select(input)
+	client, name := a.Route.Select(input)
+	a.Trace(ctx, trace.EventModelStart, name)
 	msgs := buildMessages(a.Mem.History(), input)
 	specs := buildToolSpecs(a.Tools)
 	for i := 0; i < 8; i++ {

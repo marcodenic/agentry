@@ -88,6 +88,7 @@ func (d listItemDelegate) Render(w io.Writer, m list.Model, index int, item list
 
 type tokenMsg string
 type toolUseMsg string
+type modelMsg string
 
 type errMsg struct{ error }
 
@@ -119,6 +120,10 @@ func readEvents(r io.Reader) tea.Cmd {
 			case trace.EventFinal:
 				if s, ok := ev.Data.(string); ok {
 					return finalMsg(s)
+				}
+			case trace.EventModelStart:
+				if name, ok := ev.Data.(string); ok {
+					return modelMsg(name)
 				}
 			case trace.EventToolEnd:
 				if m, ok := ev.Data.(map[string]any); ok {
@@ -191,6 +196,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if idx >= 0 {
 			m.tools.Select(idx)
 		}
+	case modelMsg:
+		m.modelName = string(msg)
 	case errMsg:
 		m.err = msg
 	case tea.WindowSizeMsg:
