@@ -30,6 +30,13 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		if os.Getenv("OPENAI_KEY") == "" {
+			for i, r := range cfg.Routes {
+				if r.Model == "openai" {
+					cfg.Routes[i].Model = "mock"
+				}
+			}
+		}
 		ag, err := buildAgent(cfg)
 		if err != nil {
 			panic(err)
