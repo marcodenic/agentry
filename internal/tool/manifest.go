@@ -7,8 +7,12 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/marcodenic/agentry/internal/config"
 )
@@ -18,21 +22,28 @@ var ErrUnknownManifest = errors.New("unknown tool manifest")
 type Tool interface {
 	Name() string
 	Description() string
+	JSONSchema() map[string]any
 	Execute(ctx context.Context, args map[string]any) (string, error)
 }
 
 type simpleTool struct {
-	name string
-	desc string
-	fn   func(context.Context, map[string]any) (string, error)
+	name   string
+	desc   string
+	schema map[string]any
+	fn     func(context.Context, map[string]any) (string, error)
 }
 
 func New(name, desc string, fn func(context.Context, map[string]any) (string, error)) Tool {
-	return &simpleTool{name: name, desc: desc, fn: fn}
+	return &simpleTool{name: name, desc: desc, fn: fn, schema: map[string]any{"type": "object"}}
 }
 
-func (t *simpleTool) Name() string        { return t.name }
-func (t *simpleTool) Description() string { return t.desc }
+func NewWithSchema(name, desc string, schema map[string]any, fn func(context.Context, map[string]any) (string, error)) Tool {
+	return &simpleTool{name: name, desc: desc, fn: fn, schema: schema}
+}
+
+func (t *simpleTool) Name() string               { return t.name }
+func (t *simpleTool) Description() string        { return t.desc }
+func (t *simpleTool) JSONSchema() map[string]any { return t.schema }
 func (t *simpleTool) Execute(ctx context.Context, args map[string]any) (string, error) {
 	return t.fn(ctx, args)
 }
@@ -47,11 +58,283 @@ func (r Registry) Use(name string) (Tool, bool) {
 // ExecFn defines the signature for tool execution functions.
 type ExecFn func(context.Context, map[string]any) (string, error)
 
+// builtinSpec defines builtin schema and execution.
+type builtinSpec struct {
+	Desc   string
+	Schema map[string]any
+	Exec   ExecFn
+}
+
 // builtinMap holds safe builtin tools keyed by name.
-var builtinMap = map[string]ExecFn{
-	"echo": func(ctx context.Context, args map[string]any) (string, error) {
-		txt, _ := args["text"].(string)
-		return txt, nil
+var builtinMap = map[string]builtinSpec{
+	"echo": {
+		Desc: "Repeat a string",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"text": map[string]any{"type": "string"}},
+			"required":   []string{"text"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			txt, _ := args["text"].(string)
+			return txt, nil
+		},
+	},
+	"ping": {
+		Desc: "Ping a host",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"host": map[string]any{"type": "string"}},
+			"required":   []string{"host"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			host, _ := args["host"].(string)
+			if host == "" {
+				return "", errors.New("missing host")
+			}
+			var cmd *exec.Cmd
+			if runtime.GOOS == "windows" {
+				cmd = exec.CommandContext(ctx, "ping", "-n", "4", host)
+			} else {
+				cmd = exec.CommandContext(ctx, "ping", "-c", "4", host)
+			}
+			out, err := cmd.CombinedOutput()
+			return string(out), err
+		},
+	},
+	"bash": {
+		Desc: "Execute a bash command",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"cmd": map[string]any{"type": "string"}},
+			"required":   []string{"cmd"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			cmdStr, _ := args["cmd"].(string)
+			if cmdStr == "" {
+				return "", errors.New("missing cmd")
+			}
+			var cmd *exec.Cmd
+			if runtime.GOOS == "windows" {
+				cmd = exec.CommandContext(ctx, "cmd", "/C", cmdStr)
+			} else {
+				cmd = exec.CommandContext(ctx, "bash", "-c", cmdStr)
+			}
+			out, err := cmd.CombinedOutput()
+			return string(out), err
+		},
+	},
+	"fetch": {
+		Desc: "Download content from a URL",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"url": map[string]any{"type": "string"}},
+			"required":   []string{"url"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			u, _ := args["url"].(string)
+			if u == "" {
+				return "", errors.New("missing url")
+			}
+			resp, err := http.Get(u)
+			if err != nil {
+				return "", err
+			}
+			defer resp.Body.Close()
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return "", err
+			}
+			return string(b), nil
+		},
+	},
+	"ls": {
+		Desc: "List directory contents",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"path": map[string]any{"type": "string"}},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			path, _ := args["path"].(string)
+			if path == "" {
+				path = "."
+			}
+			entries, err := os.ReadDir(path)
+			if err != nil {
+				return "", err
+			}
+			names := make([]string, len(entries))
+			for i, e := range entries {
+				names[i] = e.Name()
+			}
+			return strings.Join(names, "\n"), nil
+		},
+	},
+	"view": {
+		Desc: "Read a file",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"path": map[string]any{"type": "string"}},
+			"required":   []string{"path"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			path, _ := args["path"].(string)
+			if path == "" {
+				return "", errors.New("missing path")
+			}
+			b, err := os.ReadFile(path)
+			if err != nil {
+				return "", err
+			}
+			return string(b), nil
+		},
+	},
+	"write": {
+		Desc: "Create or overwrite a file",
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"path": map[string]any{"type": "string"},
+				"text": map[string]any{"type": "string"},
+			},
+			"required": []string{"path", "text"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			path, _ := args["path"].(string)
+			text, _ := args["text"].(string)
+			if path == "" {
+				return "", errors.New("missing path")
+			}
+			if err := os.WriteFile(path, []byte(text), 0644); err != nil {
+				return "", err
+			}
+			return "written", nil
+		},
+	},
+	"glob": {
+		Desc: "Find files by pattern",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"pattern": map[string]any{"type": "string"}},
+			"required":   []string{"pattern"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			pattern, _ := args["pattern"].(string)
+			if pattern == "" {
+				return "", errors.New("missing pattern")
+			}
+			files, err := filepath.Glob(pattern)
+			if err != nil {
+				return "", err
+			}
+			return strings.Join(files, "\n"), nil
+		},
+	},
+	"grep": {
+		Desc: "Search file contents",
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"pattern": map[string]any{"type": "string"},
+				"path":    map[string]any{"type": "string"},
+			},
+			"required": []string{"pattern", "path"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			pattern, _ := args["pattern"].(string)
+			path, _ := args["path"].(string)
+			if path == "" || pattern == "" {
+				return "", errors.New("missing args")
+			}
+			b, err := os.ReadFile(path)
+			if err != nil {
+				return "", err
+			}
+			lines := strings.Split(string(b), "\n")
+			var out []string
+			for _, l := range lines {
+				if strings.Contains(l, pattern) {
+					out = append(out, l)
+				}
+			}
+			return strings.Join(out, "\n"), nil
+		},
+	},
+	"edit": {
+		Desc: "Update an existing file",
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"path": map[string]any{"type": "string"},
+				"text": map[string]any{"type": "string"},
+			},
+			"required": []string{"path", "text"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			path, _ := args["path"].(string)
+			text, _ := args["text"].(string)
+			if path == "" {
+				return "", errors.New("missing path")
+			}
+			if err := os.WriteFile(path, []byte(text), 0644); err != nil {
+				return "", err
+			}
+			return "edited", nil
+		},
+	},
+	"sourcegraph": {
+		Desc: "Search public repositories",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"query": map[string]any{"type": "string"}},
+			"required":   []string{"query"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			q, _ := args["query"].(string)
+			if q == "" {
+				return "", errors.New("missing query")
+			}
+			url := "https://sourcegraph.com/search?q=" + url.QueryEscape(q) + "&format=json"
+			resp, err := http.Get(url)
+			if err != nil {
+				return "", err
+			}
+			defer resp.Body.Close()
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return "", err
+			}
+			return string(b), nil
+		},
+	},
+	"patch": {
+		Desc: "Apply a unified diff patch",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"patch": map[string]any{"type": "string"}},
+			"required":   []string{"patch"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			patchStr, _ := args["patch"].(string)
+			if patchStr == "" {
+				return "", errors.New("missing patch")
+			}
+			cmd := exec.CommandContext(ctx, "patch", "-p0")
+			cmd.Stdin = strings.NewReader(patchStr)
+			out, err := cmd.CombinedOutput()
+			return string(out), err
+		},
+	},
+	"agent": {
+		Desc: "Launch a search agent",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"query": map[string]any{"type": "string"}},
+			"required":   []string{"query"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			query, _ := args["query"].(string)
+			return "agent searched: " + query, nil
+		},
 	},
 }
 
@@ -73,16 +356,20 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 
 	// Builtin Go tools
 	if m.Type == "builtin" {
-		fn, ok := builtinMap[m.Name]
+		spec, ok := builtinMap[m.Name]
 		if !ok {
 			return nil, errors.New("unknown builtin tool")
 		}
-		return New(m.Name, m.Description, fn), nil
+		desc := m.Description
+		if desc == "" {
+			desc = spec.Desc
+		}
+		return NewWithSchema(m.Name, desc, spec.Schema, spec.Exec), nil
 	}
 
 	// HTTP tools
 	if m.HTTP != "" {
-		return New(m.Name, m.Description, func(ctx context.Context, args map[string]any) (string, error) {
+		return NewWithSchema(m.Name, m.Description, map[string]any{"type": "object", "properties": map[string]any{}}, func(ctx context.Context, args map[string]any) (string, error) {
 			b, err := json.Marshal(args)
 			if err != nil {
 				return "", err
@@ -107,7 +394,7 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 
 	// Shell command tools (advanced use, may behave differently across OSes)
 	if m.Command != "" {
-		return New(m.Name, m.Description, func(ctx context.Context, args map[string]any) (string, error) {
+		return NewWithSchema(m.Name, m.Description, map[string]any{"type": "object", "properties": map[string]any{}}, func(ctx context.Context, args map[string]any) (string, error) {
 			var cmd *exec.Cmd
 			if runtime.GOOS == "windows" {
 				cmd = exec.CommandContext(ctx, "cmd", "/C", m.Command)

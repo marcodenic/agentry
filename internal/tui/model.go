@@ -115,6 +115,15 @@ func readEvents(r io.Reader) tea.Cmd {
 	}
 }
 
+func waitErr(ch <-chan error) tea.Cmd {
+	return func() tea.Msg {
+		if err := <-ch; err != nil {
+			return errMsg{err}
+		}
+		return nil
+	}
+}
+
 func (m Model) Init() tea.Cmd { return nil }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -135,15 +144,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.vp.SetContent(m.history)
 
 				pr, pw := io.Pipe()
+				errCh := make(chan error, 1)
 				m.agent.Tracer = trace.NewJSONL(pw)
 				go func() {
 					_, err := m.agent.Run(context.Background(), txt)
 					pw.Close()
-					if err != nil {
-						cmds = append(cmds, func() tea.Msg { return errMsg{err} })
-					}
+					errCh <- err
 				}()
-				return m, readEvents(pr)
+				return m, tea.Batch(readEvents(pr), waitErr(errCh))
 			}
 		case "up", "k":
 			m.tools.CursorUp()
@@ -184,6 +192,9 @@ func (m Model) View() string {
 		rightContent = m.vp.View() + "\n" + m.input.View()
 	} else {
 		rightContent = renderMemory(m.agent)
+	}
+	if m.err != nil {
+		rightContent += "\nERR: " + m.err.Error()
 	}
 	right := lipgloss.NewStyle().Width(int(float64(m.width) * 0.75)).Render(rightContent)
 

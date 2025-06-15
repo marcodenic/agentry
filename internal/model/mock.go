@@ -2,18 +2,20 @@ package model
 
 import (
 	"context"
-	"strings"
+	"encoding/json"
 )
 
-// Mock model that echoes prompt or returns JSON for tool call.
-type Mock struct{}
+// Mock model that cycles through one tool call then returns a final message.
+type Mock struct {
+	call int
+}
 
 func NewMock() *Mock { return &Mock{} }
-
-func (m *Mock) Complete(ctx context.Context, prompt string) (string, error) {
-	if strings.Contains(prompt, "\"tool\":\"echo\"") {
-		return "final output", nil
+func (m *Mock) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (Completion, error) {
+	m.call++
+	if m.call == 1 {
+		args, _ := json.Marshal(map[string]string{"text": "hello"})
+		return Completion{ToolCalls: []ToolCall{{ID: "1", Name: "echo", Arguments: args}}}, nil
 	}
-	// call echo tool
-	return `{"tool":"echo","args":{}}`, nil
+	return Completion{Content: "hello"}, nil
 }

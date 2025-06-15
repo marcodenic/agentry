@@ -9,12 +9,46 @@ routes:
   - if_contains: [""]
     model: openai
 tools:
+  # Built-in tools available in Agentry. Add or remove as needed.
   - name: echo
     type: builtin
     description: Repeat a string
-  - name: ping_api
-    http: https://example.com/ping
-    description: POSTs to API
+  - name: ping
+    type: builtin
+    description: Ping a host
+  - name: bash
+    type: builtin
+    description: Execute a bash command
+  - name: fetch
+    type: builtin
+    description: Download content from a URL
+  - name: glob
+    type: builtin
+    description: Find files by pattern
+  - name: grep
+    type: builtin
+    description: Search file contents
+  - name: ls
+    type: builtin
+    description: List directory contents
+  - name: view
+    type: builtin
+    description: View file contents
+  - name: write
+    type: builtin
+    description: Create or overwrite a file
+  - name: edit
+    type: builtin
+    description: Update an existing file
+  - name: patch
+    type: builtin
+    description: Apply a unified diff patch
+  - name: sourcegraph
+    type: builtin
+    description: Search public repositories via Sourcegraph
+  - name: agent
+    type: builtin
+    description: Launch a search agent
   - name: local_shell
     command: echo hello
     description: Uses shell (optional, advanced)

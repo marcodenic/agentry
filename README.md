@@ -36,6 +36,47 @@ The new `tui` mode launches a split-screen interface:
 Run `agentry --mode=tui --config examples/.agentry.yaml` to try.
 
 
+### Built-in tools
+
+Agentry ships with a collection of safe builtin tools. They become available to
+the agent when listed in your `.agentry.yaml` file:
+
+```yaml
+tools:
+  - name: echo        # repeat a string
+    type: builtin
+  - name: ping        # ping a host
+    type: builtin
+  - name: bash        # run a bash command
+    type: builtin
+  - name: fetch       # download content from a URL
+    type: builtin
+  - name: glob        # find files by pattern
+    type: builtin
+  - name: grep        # search file contents
+    type: builtin
+  - name: ls          # list directory contents
+    type: builtin
+  - name: view        # read a file
+    type: builtin
+  - name: write       # create or overwrite a file
+    type: builtin
+  - name: edit        # update an existing file
+    type: builtin
+  - name: patch       # apply a unified diff
+    type: builtin
+  - name: sourcegraph # search public repositories
+    type: builtin
+  - name: agent       # launch a search agent
+    type: builtin
+```
+
+The example configuration already lists these tools so they appear in the TUI's
+"Tools" panel. The agent decides when to use them based on model output. When no
+`OPENAI_KEY` is provided, the mock model only exercises the `echo` tool. To
+leverage the rest, set your key in `.env.local`.
+
+
 ### Try it live
 
 ```bash
