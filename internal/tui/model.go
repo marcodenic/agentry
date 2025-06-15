@@ -234,6 +234,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.history += aiBar() + " " + string(msg) + "\n"
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
+		return m, m.readCmd()
 	case finalMsg:
 		m.history += aiBar() + " "
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
