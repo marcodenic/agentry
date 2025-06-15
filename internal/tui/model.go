@@ -199,6 +199,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				errCh := make(chan error, 1)
 				m.agent.Tracer = trace.NewJSONL(pw)
 				m.sc = bufio.NewScanner(pr)
+				const maxBuf = 1024 * 1024
+				m.sc.Buffer(make([]byte, 0, 64*1024), maxBuf)
 				go func() {
 					_, err := m.agent.Run(context.Background(), txt)
 					pw.Close()
