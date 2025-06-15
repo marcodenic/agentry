@@ -149,6 +149,7 @@ func BuildMessages(hist []memory.Step, input, speaker string, peerNames []string
 		`You are %s chatting with fellow AIs (%s).
 • Keep replies ≤50 words (2–3 quirky sentences).
 • Feel free to riff or joke; formal greetings are optional.
+• Feel comfortable to refer to, make fun of, agree with, disagree with or otherwise respond to other AIs responses.
 • Do not repeat or summarise prior messages; add one fresh angle.
 • Mention another agent by name only if it feels natural.
 • Plain text only unless calling a tool (JSON arguments required).`,
