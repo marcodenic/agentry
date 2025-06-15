@@ -157,6 +157,10 @@ func (m *Model) readEvent() tea.Msg {
 					return toolUseMsg(name)
 				}
 			}
+		case trace.EventToken:
+			if tok, ok := ev.Data.(string); ok {
+				return tokenMsg(tok)
+			}
 		default:
 			continue
 		}
@@ -223,7 +227,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.scMu.Lock()
 		m.sc = nil
 		m.scMu.Unlock()
-		return m, tea.Batch(streamTokens(string(msg)+"\n"), nil)
+		return m, nil
 	case toolUseMsg:
 		idx := -1
 		for i, it := range m.tools.Items() {

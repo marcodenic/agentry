@@ -61,6 +61,8 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		a.Mem.AddStep(memory.Step{Speaker: "user", Output: input})
 	}
 
+	ctx = trace.WithWriter(ctx, a.Tracer)
+
 	client, name := a.Route.Select(input)
 	a.Trace(ctx, trace.EventModelStart, name)
 	input = ""
@@ -135,8 +137,13 @@ func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
 }
 
 // BuildMessages constructs the chat transcript sent to the model.
+const maxHistoryMsgs = 30
+
 func BuildMessages(hist []memory.Step, input, speaker string, peerNames []string, topic string) []model.ChatMessage {
 	input = cleanInput(input)
+	if len(hist) > maxHistoryMsgs {
+		hist = hist[len(hist)-maxHistoryMsgs:]
+	}
 	sys := fmt.Sprintf(
 		"You are %s participating in a spicy round-robin debate between AI agents (%s).  Each turn contribute ONE fresh idea, do NOT just praise or repeat.  You must address at least one other agent by name.  No topic is taboo.  Return plain text unless calling a tool; tool calls must have valid JSON `arguments` (use {} when no args).  Control characters are forbidden.",
 		speaker, strings.Join(peerNames, ", "))
@@ -158,12 +165,6 @@ func BuildMessages(hist []memory.Step, input, speaker string, peerNames []string
 	}
 	if strings.TrimSpace(input) != "" {
 		msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})
-	}
-	if len(hist) > 0 {
-		last := hist[len(hist)-1]
-		if last.Speaker != speaker && last.Speaker != "user" {
-			msgs = append(msgs, model.ChatMessage{Role: "user", Name: last.Speaker, Content: last.Output})
-		}
 	}
 	return msgs
 }
