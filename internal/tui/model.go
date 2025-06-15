@@ -55,6 +55,22 @@ func New(ag *core.Agent) Model {
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.Title = "Tools"
+	l.SetShowHelp(false) // Hide help bar with navigation hints
+	// Assign custom keymap to disable navigation keys
+	l.KeyMap.CursorUp = NoNavKeyMap.CursorUp
+	l.KeyMap.CursorDown = NoNavKeyMap.CursorDown
+	l.KeyMap.PrevPage = NoNavKeyMap.PrevPage
+	l.KeyMap.NextPage = NoNavKeyMap.NextPage
+	l.KeyMap.GoToStart = NoNavKeyMap.GoToStart
+	l.KeyMap.GoToEnd = NoNavKeyMap.GoToEnd
+	l.KeyMap.Filter = NoNavKeyMap.Filter
+	l.KeyMap.ClearFilter = NoNavKeyMap.ClearFilter
+	l.KeyMap.CancelWhileFiltering = NoNavKeyMap.CancelWhileFiltering
+	l.KeyMap.AcceptWhileFiltering = NoNavKeyMap.AcceptWhileFiltering
+	l.KeyMap.ShowFullHelp = NoNavKeyMap.ShowFullHelp
+	l.KeyMap.CloseFullHelp = NoNavKeyMap.CloseFullHelp
+	l.KeyMap.Quit = NoNavKeyMap.Quit
+	l.KeyMap.ForceQuit = NoNavKeyMap.ForceQuit
 
 	ti := textinput.New()
 	ti.Placeholder = "Message"
@@ -169,7 +185,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.input.Focused() {
 				txt := m.input.Value()
 				m.input.SetValue("")
-				m.history += "You: " + txt + "\n"
+				m.history += userBar() + " " + txt + "\n"
 				m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 
 				pr, pw := io.Pipe()
@@ -190,7 +206,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
 	case finalMsg:
-		m.history += "AI: "
+		m.history += aiBar() + " "
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
 		return m, tea.Batch(streamTokens(string(msg)+"\n"), m.readCmd())
@@ -244,6 +260,14 @@ func (m Model) View() string {
 	footer := fmt.Sprintf("cwd: %s | tokens: %d | model: %s", m.cwd, m.tokenCount, m.modelName)
 	footer = lipgloss.NewStyle().Width(m.width).Render(footer)
 	return lipgloss.JoinVertical(lipgloss.Left, main, footer)
+}
+
+func userBar() string {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("#8B5CF6")).Render("┃")
+}
+
+func aiBar() string {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")).Render("┃")
 }
 
 func renderMemory(ag *core.Agent) string {
