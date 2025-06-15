@@ -145,15 +145,7 @@ func BuildMessages(hist []memory.Step, input, speaker string, peerNames []string
 	if len(hist) > maxHistoryMsgs {
 		hist = hist[len(hist)-maxHistoryMsgs:]
 	}
-	sys := fmt.Sprintf(
-		`You are %s chatting with fellow AIs (%s).
-• Keep replies ≤50 words (2–3 quirky sentences).
-• Feel free to riff or joke; formal greetings are optional.
-• Feel comfortable to refer to, make fun of, agree with, disagree with or otherwise respond to other AIs responses.
-• Do not repeat or summarise prior messages; add one fresh angle.
-• Mention another agent by name only if it feels natural.
-• Plain text only unless calling a tool (JSON arguments required).`,
-		speaker, strings.Join(peerNames, ", "))
+	sys := buildSystemPrompt(speaker, peerNames)
 	msgs := []model.ChatMessage{{Role: "system", Content: sys}}
 	for _, h := range hist {
 		role := "assistant"
@@ -174,6 +166,18 @@ func BuildMessages(hist []memory.Step, input, speaker string, peerNames []string
 		msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})
 	}
 	return msgs
+}
+
+func buildSystemPrompt(speaker string, peerNames []string) string {
+	if len(peerNames) > 1 {
+		return fmt.Sprintf(
+			`You are %s chatting with fellow AIs (%s).
+• Keep replies ≤50 words (2-3 punchy sentences).
+• Feel free to riff or joke.
+• Plain text only unless calling a tool.`,
+			speaker, strings.Join(peerNames, ", "))
+	}
+	return "You are a helpful AI assistant. Answer naturally and as helpfully as you can. Use tools when relevant to achieve the users goals. Plain text only unless calling a tool. When you call a tool: `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden."
 }
 
 func buildToolSpecs(reg tool.Registry) []model.ToolSpec {

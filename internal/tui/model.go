@@ -45,6 +45,8 @@ type Model struct {
 	height    int
 
 	err error
+
+	streamingNewMsg bool
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -216,12 +218,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case tokenMsg:
+		if !m.streamingNewMsg {
+			m.history += aiBar() + " "
+			m.streamingNewMsg = true
+		}
 		m.history += string(msg)
 		m.tokenCount++
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
 	case finalMsg:
-		m.history += aiBar() + " "
+		m.history += "\n"
+		m.streamingNewMsg = false
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
 		m.scMu.Lock()
