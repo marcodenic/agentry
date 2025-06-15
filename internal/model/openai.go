@@ -89,7 +89,7 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 		"messages":    oaMsgs,
 		"tools":       oaTools,
 		"tool_choice": "auto",
-		"temperature": 0,
+		"temperature": 0.7,
 	}
 
 	b, _ := json.Marshal(reqBody)

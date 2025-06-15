@@ -14,6 +14,7 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/eval"
+	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/server"
 	"github.com/marcodenic/agentry/internal/tui"
 )
@@ -66,10 +67,11 @@ func main() {
 				}
 
 				ctx := context.Background()
+				shared := memory.NewInMemory()
 				agents := make([]*core.Agent, n)
 				names := make([]string, n)
 				for i := 0; i < n; i++ {
-					agents[i] = ag.Spawn()
+					agents[i] = core.New(ag.Route, ag.Tools, shared, ag.Tracer)
 					names[i] = fmt.Sprintf("Agent%d", i+1)
 				}
 				msg := topic

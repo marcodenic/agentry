@@ -46,7 +46,7 @@ func (a *Agent) Spawn() *Agent {
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	client, name := a.Route.Select(input)
 	a.Trace(ctx, trace.EventModelStart, name)
-	msgs := buildMessages(a.Mem.History(), input)
+	msgs := buildMessages(a.Mem.History(), input, a.ID.String())
 	specs := buildToolSpecs(a.Tools)
 	for i := 0; i < maxSteps; i++ {
 		res, err := client.Complete(ctx, msgs, specs)
@@ -54,8 +54,8 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			return "", err
 		}
 		a.Trace(ctx, trace.EventStepStart, res)
-		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
-		step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
+		msgs = append(msgs, model.ChatMessage{Role: "assistant", Name: a.ID.String(), Content: res.Content, ToolCalls: res.ToolCalls})
+		step := memory.Step{Speaker: a.ID.String(), Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
 		if len(res.ToolCalls) == 0 {
 			a.Mem.AddStep(step)
 			a.Trace(ctx, trace.EventFinal, res.Content)
@@ -108,13 +108,12 @@ func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
 	}
 }
 
-func buildMessages(hist []memory.Step, input string) []model.ChatMessage {
+func buildMessages(hist []memory.Step, input, speaker string) []model.ChatMessage {
 	input = cleanInput(input)
-	msgs := []model.ChatMessage{
-		{Role: "system", Content: "You are an agent. When you call a tool, `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden."},
-	}
+	sys := fmt.Sprintf("You are %s. When you call a tool, `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden.", speaker)
+	msgs := []model.ChatMessage{{Role: "system", Content: sys}}
 	for _, h := range hist {
-		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: h.Output, ToolCalls: h.ToolCalls})
+		msgs = append(msgs, model.ChatMessage{Role: "assistant", Name: h.Speaker, Content: h.Output, ToolCalls: h.ToolCalls})
 		for id, res := range h.ToolResults {
 			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: id, Content: res})
 		}

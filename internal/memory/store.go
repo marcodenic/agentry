@@ -9,6 +9,7 @@ import (
 )
 
 type Step struct {
+	Speaker     string
 	Output      string
 	ToolCalls   []model.ToolCall
 	ToolResults map[string]string

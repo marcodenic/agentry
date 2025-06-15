@@ -100,6 +100,7 @@ converse 3 Is God real?
 
 The first argument sets how many sub-agents are spawned. Any remaining text
 becomes the initial message. If omitted, they start with a generic greeting.
+All spawned agents share the same memory so they can build on each other's replies.
 
 ## Environment Configuration
 
