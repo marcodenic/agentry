@@ -278,11 +278,13 @@ func renderMemory(ag *core.Agent) string {
 		b.WriteString(strconv.Itoa(i))
 		b.WriteString(": ")
 		b.WriteString(s.Output)
-		if s.ToolName != "" {
-			b.WriteString(" -> ")
-			b.WriteString(s.ToolName)
-			b.WriteString(": ")
-			b.WriteString(s.ToolResult)
+		for _, tc := range s.ToolCalls {
+			if r, ok := s.ToolResults[tc.ID]; ok {
+				b.WriteString(" -> ")
+				b.WriteString(tc.Name)
+				b.WriteString(": ")
+				b.WriteString(r)
+			}
 		}
 		b.WriteString("\n")
 	}
