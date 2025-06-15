@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/marcodenic/agentry/internal/config"
@@ -17,6 +18,10 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	for _, m := range cfg.Tools {
 		tl, err := tool.FromManifest(m)
 		if err != nil {
+			if errors.Is(err, tool.ErrUnknownBuiltin) {
+				fmt.Printf("skipping builtin %s: not available\n", m.Name)
+				continue
+			}
 			return nil, err
 		}
 		reg[m.Name] = tl

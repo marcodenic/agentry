@@ -42,6 +42,7 @@ func absPath(p string) string {
 }
 
 var ErrUnknownManifest = errors.New("unknown tool manifest")
+var ErrUnknownBuiltin = errors.New("unknown builtin tool")
 
 type Tool interface {
 	Name() string
@@ -416,7 +417,7 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 	if m.Type == "builtin" {
 		spec, ok := builtinMap[m.Name]
 		if !ok {
-			return nil, errors.New("unknown builtin tool")
+			return nil, ErrUnknownBuiltin
 		}
 		desc := m.Description
 		if desc == "" {
