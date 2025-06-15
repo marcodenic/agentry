@@ -45,13 +45,26 @@ func main() {
 			}
 			line := sc.Text()
 			if strings.HasPrefix(line, "converse") {
-				parts := strings.Fields(line)
+				rest := strings.TrimSpace(strings.TrimPrefix(line, "converse"))
 				n := 2
-				if len(parts) > 1 {
-					if v, err := strconv.Atoi(parts[1]); err == nil && v > 0 {
-						n = v
+				topic := ""
+				if rest != "" {
+					fields := strings.Fields(rest)
+					if len(fields) > 0 {
+						if v, err := strconv.Atoi(fields[0]); err == nil && v > 0 {
+							n = v
+							rest = strings.TrimSpace(rest[len(fields[0]):])
+						}
 					}
+					topic = strings.TrimSpace(rest)
 				}
+				if topic == "" {
+					topic = "Hello agents, let's chat!"
+				} else if (strings.HasPrefix(topic, "\"") && strings.HasSuffix(topic, "\"")) ||
+					(strings.HasPrefix(topic, "'") && strings.HasSuffix(topic, "'")) {
+					topic = strings.Trim(topic, "'\"")
+				}
+
 				ctx := context.Background()
 				agents := make([]*core.Agent, n)
 				names := make([]string, n)
@@ -59,7 +72,7 @@ func main() {
 					agents[i] = ag.Spawn()
 					names[i] = fmt.Sprintf("Agent%d", i+1)
 				}
-				msg := "Hello agents, let's chat!"
+				msg := topic
 				for i := 0; i < 10; i++ {
 					idx := i % n
 					out, err := agents[idx].Run(ctx, msg)

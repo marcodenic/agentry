@@ -90,6 +90,17 @@ npm --prefix ts-sdk run build
 node -e "const {invoke}=require('./ts-sdk/dist');invoke('hi',{stream:false}).then(console.log)"
 ```
 
+### Multi-agent conversations
+
+Inside the REPL you can spawn several agents that talk to each other:
+
+```bash
+converse 3 Is God real?
+```
+
+The first argument sets how many sub-agents are spawned. Any remaining text
+becomes the initial message. If omitted, they start with a generic greeting.
+
 ## Environment Configuration
 
 Copy `.env.example` to `.env.local` and fill in `OPENAI_KEY` to enable real OpenAI calls. The file is loaded automatically on startup and during tests.
