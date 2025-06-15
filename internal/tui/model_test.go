@@ -19,3 +19,16 @@ func TestNew(t *testing.T) {
 		t.Fatalf("expected no tools")
 	}
 }
+
+func TestAssistantBarOnFirstToken(t *testing.T) {
+	ag := core.New(router.Rules{{IfContains: []string{""}, Client: nil}}, tool.Registry{}, memory.NewInMemory(), nil)
+	m := New(ag)
+	m.history = userBar() + " hi\n"
+	m.awaitingAssistant = true
+	nm, _ := m.Update(tokenMsg("H"))
+	m = nm.(Model)
+	exp := userBar() + " hi\n" + aiBar() + " H"
+	if m.history != exp {
+		t.Fatalf("expected %q got %q", exp, m.history)
+	}
+}

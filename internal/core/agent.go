@@ -136,24 +136,35 @@ func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
 	}
 }
 
-// BuildMessages constructs the transcript sent to the model. The system prompt
-// encourages short, witty banter between agents.
+// BuildMessages constructs the transcript sent to the model.
 const maxHistoryMsgs = 12
+
+func baseSystemPrompt() string {
+	return "You are an agent. When you call a tool, arguments must be a valid JSON object (use {} if no parameters). Control characters are forbidden."
+}
+
+func multiAgentPrompt(speaker string, peerNames []string) string {
+	return fmt.Sprintf(`You are %s chatting with fellow AIs (%s).
+• Keep replies ≤50 words (or 2–3 sentences).
+• Feel free to riff or joke; formal greetings are optional.
+• Feel comfortable to refer to, make fun of, agree with, disagree with or otherwise respond to other AIs responses.
+• Do not repeat or summarise prior messages; add one fresh angle. Don't sound like an AI.
+• Mention another agent by name only if it feels natural.
+• Plain text only unless calling a tool (JSON arguments required).`,
+		speaker, strings.Join(peerNames, ", "))
+}
 
 func BuildMessages(hist []memory.Step, input, speaker string, peerNames []string, topic string) []model.ChatMessage {
 	input = cleanInput(input)
 	if len(hist) > maxHistoryMsgs {
 		hist = hist[len(hist)-maxHistoryMsgs:]
 	}
-	sys := fmt.Sprintf(
-		`You are %s chatting with fellow AIs (%s).
-• Keep replies ≤50 words (2–3 quirky sentences).
-• Feel free to riff or joke; formal greetings are optional.
-• Feel comfortable to refer to, make fun of, agree with, disagree with or otherwise respond to other AIs responses.
-• Do not repeat or summarise prior messages; add one fresh angle.
-• Mention another agent by name only if it feels natural.
-• Plain text only unless calling a tool (JSON arguments required).`,
-		speaker, strings.Join(peerNames, ", "))
+	var sys string
+	if len(peerNames) > 1 {
+		sys = multiAgentPrompt(speaker, peerNames)
+	} else {
+		sys = baseSystemPrompt()
+	}
 	msgs := []model.ChatMessage{{Role: "system", Content: sys}}
 	for _, h := range hist {
 		role := "assistant"

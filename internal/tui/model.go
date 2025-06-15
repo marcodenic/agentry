@@ -45,6 +45,8 @@ type Model struct {
 	height    int
 
 	err error
+
+	awaitingAssistant bool
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -198,6 +200,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.input.SetValue("")
 				m.history += userBar() + " " + txt + "\n"
 				m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
+				m.awaitingAssistant = true
 
 				pr, pw := io.Pipe()
 				errCh := make(chan error, 1)
@@ -216,14 +219,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case tokenMsg:
+		if m.awaitingAssistant {
+			m.history += aiBar() + " "
+			m.awaitingAssistant = false
+		}
 		m.history += string(msg)
 		m.tokenCount++
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
 	case finalMsg:
-		m.history += aiBar() + " "
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
+		m.awaitingAssistant = false
 		m.scMu.Lock()
 		m.sc = nil
 		m.scMu.Unlock()
