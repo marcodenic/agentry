@@ -108,6 +108,10 @@ func (d listItemDelegate) Render(w io.Writer, m list.Model, index int, item list
 
 type tokenMsg string
 type toolUseMsg string
+type toolStartMsg struct {
+	name string
+	args string
+}
 type stepMsg string
 type modelMsg string
 
@@ -151,6 +155,12 @@ func (m *Model) readEvent() tea.Msg {
 		case trace.EventModelStart:
 			if name, ok := ev.Data.(string); ok {
 				return modelMsg(name)
+			}
+		case trace.EventToolStart:
+			if m2, ok := ev.Data.(map[string]any); ok {
+				name, _ := m2["name"].(string)
+				args, _ := m2["args"].(string)
+				return toolStartMsg{name: name, args: args}
 			}
 		case trace.EventToolEnd:
 			if m2, ok := ev.Data.(map[string]any); ok {
@@ -234,6 +244,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.history += aiBar() + " " + string(msg) + "\n"
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
+		return m, m.readCmd()
+	case toolStartMsg:
+		m.history += aiBar() + " -> " + msg.name
+		if msg.args != "" {
+			m.history += " " + msg.args
+		}
+		m.history += "\n"
+		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
+		m.vp.GotoBottom()
+		idx := -1
+		for i, it := range m.tools.Items() {
+			if li, ok := it.(listItem); ok && li.name == msg.name {
+				idx = i
+				break
+			}
+		}
+		if idx >= 0 {
+			m.tools.Select(idx)
+		}
 		return m, m.readCmd()
 	case finalMsg:
 		m.history += aiBar() + " "
