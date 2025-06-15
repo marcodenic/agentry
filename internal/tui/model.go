@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -34,7 +35,8 @@ type Model struct {
 	modelName  string
 	selected   string
 
-	dec *json.Decoder
+	dec   *json.Decoder
+	decMu sync.Mutex
 
 	history string
 
@@ -129,7 +131,10 @@ func (m *Model) readEvent() tea.Msg {
 	}
 	for {
 		var ev trace.Event
-		if err := m.dec.Decode(&ev); err != nil {
+		m.decMu.Lock()
+		err := m.dec.Decode(&ev)
+		m.decMu.Unlock()
+		if err != nil {
 			if err == io.EOF {
 				return nil
 			}
