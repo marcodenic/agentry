@@ -118,10 +118,10 @@ func buildMessages(hist []memory.Step, input, speaker string) []model.ChatMessag
 	sys := fmt.Sprintf("You are %s. When you call a tool, `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden.", speaker)
 	msgs := []model.ChatMessage{{Role: "system", Content: sys}}
 	for _, h := range hist {
-		// Preserve roles: only real human turns are labelled as user
-		// so agents see a consistent transcript.
+		// Treat messages from other agents as user turns so the
+		// current model perceives them as prompts to continue.
 		role := "assistant"
-		if h.Speaker == "user" {
+		if h.Speaker != speaker {
 			role = "user"
 		}
 		msgs = append(msgs, model.ChatMessage{
