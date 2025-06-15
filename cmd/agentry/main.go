@@ -85,8 +85,9 @@ func main() {
 				agents := make([]*core.Agent, n)
 				names := make([]string, n)
 				for i := 0; i < n; i++ {
-					agents[i] = core.New(conv, ag.Tools, shared, ag.Tracer)
-					names[i] = fmt.Sprintf("Agent%d", i+1)
+					name := fmt.Sprintf("Agent%d", i+1)
+					agents[i] = core.NewNamed(name, conv, ag.Tools, shared, ag.Tracer)
+					names[i] = name
 				}
 				msg := topic
 				for i := 0; i < 10; i++ {

@@ -18,6 +18,7 @@ import (
 
 type Agent struct {
 	ID     uuid.UUID
+	Name   string
 	Tools  tool.Registry
 	Mem    memory.Store
 	Route  router.Selector
@@ -36,11 +37,19 @@ func cleanInput(s string) string {
 }
 
 func New(sel router.Selector, reg tool.Registry, mem memory.Store, tr trace.Writer) *Agent {
-	return &Agent{uuid.New(), reg, mem, sel, tr}
+	return &Agent{ID: uuid.New(), Tools: reg, Mem: mem, Route: sel, Tracer: tr}
+}
+
+func NewNamed(name string, sel router.Selector, reg tool.Registry, mem memory.Store, tr trace.Writer) *Agent {
+	a := New(sel, reg, mem, tr)
+	a.Name = name
+	return a
 }
 
 func (a *Agent) Spawn() *Agent {
-	return New(a.Route, a.Tools, memory.NewInMemory(), a.Tracer)
+	child := New(a.Route, a.Tools, memory.NewInMemory(), a.Tracer)
+	child.Name = a.Name
+	return child
 }
 
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
@@ -51,7 +60,11 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	client, name := a.Route.Select(input)
 	a.Trace(ctx, trace.EventModelStart, name)
 	input = ""
-	msgs := buildMessages(a.Mem.History(), input, a.ID.String())
+	speaker := a.ID.String()
+	if a.Name != "" {
+		speaker = a.Name
+	}
+	msgs := buildMessages(a.Mem.History(), input, speaker)
 	specs := buildToolSpecs(a.Tools)
 	for i := 0; i < maxSteps; i++ {
 		res, err := client.Complete(ctx, msgs, specs)
@@ -59,8 +72,12 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			return "", err
 		}
 		a.Trace(ctx, trace.EventStepStart, res)
-		msgs = append(msgs, model.ChatMessage{Role: "assistant", Name: a.ID.String(), Content: res.Content, ToolCalls: res.ToolCalls})
-		step := memory.Step{Speaker: a.ID.String(), Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
+		name := a.ID.String()
+		if a.Name != "" {
+			name = a.Name
+		}
+		msgs = append(msgs, model.ChatMessage{Role: "assistant", Name: name, Content: res.Content, ToolCalls: res.ToolCalls})
+		step := memory.Step{Speaker: name, Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
 		if len(res.ToolCalls) == 0 {
 			a.Mem.AddStep(step)
 			a.Trace(ctx, trace.EventFinal, res.Content)
@@ -115,7 +132,7 @@ func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
 
 func buildMessages(hist []memory.Step, input, speaker string) []model.ChatMessage {
 	input = cleanInput(input)
-	sys := fmt.Sprintf("You are %s. When you call a tool, `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden.", speaker)
+	sys := fmt.Sprintf("You are %s, one of several agents in a discussion. Read the conversation so far and add something new. When you call a tool, `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden.", speaker)
 	msgs := []model.ChatMessage{{Role: "system", Content: sys}}
 	for _, h := range hist {
 		// Treat messages from other agents as user turns so the
