@@ -11,13 +11,16 @@ import (
 
 // OpenAI client uses OpenAI's chat completion API.
 type OpenAI struct {
-	key    string
-	client *http.Client
+	key         string
+	temperature float64
+	client      *http.Client
 }
 
 func NewOpenAI(key string) *OpenAI {
-	return &OpenAI{key: key, client: http.DefaultClient}
+	return &OpenAI{key: key, temperature: 0.7, client: http.DefaultClient}
 }
+
+func (o *OpenAI) SetTemperature(t float64) { o.temperature = t }
 
 func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (Completion, error) {
 	if o.key == "" {
@@ -89,7 +92,7 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 		"messages":    oaMsgs,
 		"tools":       oaTools,
 		"tool_choice": "auto",
-		"temperature": 0,
+		"temperature": o.temperature,
 	}
 
 	b, _ := json.Marshal(reqBody)

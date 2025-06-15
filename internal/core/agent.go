@@ -17,11 +17,15 @@ import (
 )
 
 type Agent struct {
-	ID     uuid.UUID
-	Tools  tool.Registry
-	Mem    memory.Store
-	Route  router.Selector
-	Tracer trace.Writer
+	ID          uuid.UUID
+	Name        string
+	Topic       string
+	PeerNames   []string
+	LastSpeaker string
+	Tools       tool.Registry
+	Mem         memory.Store
+	Route       router.Selector
+	Tracer      trace.Writer
 }
 
 const maxSteps = 32
@@ -36,17 +40,35 @@ func cleanInput(s string) string {
 }
 
 func New(sel router.Selector, reg tool.Registry, mem memory.Store, tr trace.Writer) *Agent {
-	return &Agent{uuid.New(), reg, mem, sel, tr}
+	return &Agent{ID: uuid.New(), Tools: reg, Mem: mem, Route: sel, Tracer: tr}
+}
+
+func NewNamed(name string, sel router.Selector, reg tool.Registry, mem memory.Store, tr trace.Writer) *Agent {
+	a := New(sel, reg, mem, tr)
+	a.Name = name
+	return a
 }
 
 func (a *Agent) Spawn() *Agent {
-	return New(a.Route, a.Tools, memory.NewInMemory(), a.Tracer)
+	child := New(a.Route, a.Tools, memory.NewInMemory(), a.Tracer)
+	child.Name = a.Name
+	child.Topic = a.Topic
+	return child
 }
 
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
+	if strings.TrimSpace(input) != "" {
+		a.Mem.AddStep(memory.Step{Speaker: "user", Output: input})
+	}
+
 	client, name := a.Route.Select(input)
 	a.Trace(ctx, trace.EventModelStart, name)
-	msgs := buildMessages(a.Mem.History(), input)
+	input = ""
+	speaker := a.ID.String()
+	if a.Name != "" {
+		speaker = a.Name
+	}
+	msgs := BuildMessages(a.Mem.History(), input, speaker, a.PeerNames, a.Topic)
 	specs := buildToolSpecs(a.Tools)
 	for i := 0; i < maxSteps; i++ {
 		res, err := client.Complete(ctx, msgs, specs)
@@ -54,8 +76,12 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			return "", err
 		}
 		a.Trace(ctx, trace.EventStepStart, res)
-		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
-		step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
+		name := a.ID.String()
+		if a.Name != "" {
+			name = a.Name
+		}
+		msgs = append(msgs, model.ChatMessage{Role: "assistant", Name: name, Content: res.Content, ToolCalls: res.ToolCalls})
+		step := memory.Step{Speaker: name, Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
 		if len(res.ToolCalls) == 0 {
 			a.Mem.AddStep(step)
 			a.Trace(ctx, trace.EventFinal, res.Content)
@@ -108,18 +134,37 @@ func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
 	}
 }
 
-func buildMessages(hist []memory.Step, input string) []model.ChatMessage {
+// BuildMessages constructs the chat transcript sent to the model.
+func BuildMessages(hist []memory.Step, input, speaker string, peerNames []string, topic string) []model.ChatMessage {
 	input = cleanInput(input)
-	msgs := []model.ChatMessage{
-		{Role: "system", Content: "You are an agent. When you call a tool, `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden."},
-	}
+	sys := fmt.Sprintf(
+		"You are %s participating in a spicy round-robin debate between AI agents (%s).  Each turn contribute ONE fresh idea, do NOT just praise or repeat.  You must address at least one other agent by name.  No topic is taboo.  Return plain text unless calling a tool; tool calls must have valid JSON `arguments` (use {} when no args).  Control characters are forbidden.",
+		speaker, strings.Join(peerNames, ", "))
+	msgs := []model.ChatMessage{{Role: "system", Content: sys}}
 	for _, h := range hist {
-		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: h.Output, ToolCalls: h.ToolCalls})
+		role := "assistant"
+		if h.Speaker == "user" {
+			role = "user"
+		}
+		msgs = append(msgs, model.ChatMessage{
+			Role:      role,
+			Name:      h.Speaker,
+			Content:   h.Output,
+			ToolCalls: h.ToolCalls,
+		})
 		for id, res := range h.ToolResults {
 			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: id, Content: res})
 		}
 	}
-	msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})
+	if strings.TrimSpace(input) != "" {
+		msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})
+	}
+	if len(hist) > 0 {
+		last := hist[len(hist)-1]
+		if last.Speaker != speaker && last.Speaker != "user" {
+			msgs = append(msgs, model.ChatMessage{Role: "user", Name: last.Speaker, Content: last.Output})
+		}
+	}
 	return msgs
 }
 
