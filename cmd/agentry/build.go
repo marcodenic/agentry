@@ -37,10 +37,10 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		if !ok {
 			return nil, fmt.Errorf("model %s not found", rr.Model)
 		}
-		rules = append(rules, router.Rule{IfContains: rr.IfContains, Client: c})
+		rules = append(rules, router.Rule{Name: rr.Model, IfContains: rr.IfContains, Client: c})
 	}
 	if len(rules) == 0 {
-		rules = router.Rules{{IfContains: []string{""}, Client: model.NewMock()}}
+		rules = router.Rules{{Name: "mock", IfContains: []string{""}, Client: model.NewMock()}}
 	}
 
 	ag := core.New(rules, reg, memory.NewInMemory(), nil)

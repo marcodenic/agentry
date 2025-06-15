@@ -47,7 +47,7 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 
 	type oaMessage struct {
 		Role       string `json:"role"`
-		Content    string `json:"content,omitempty"`
+		Content    string `json:"content"`
 		Name       string `json:"name,omitempty"`
 		ToolCallID string `json:"tool_call_id,omitempty"`
 		ToolCalls  []struct {
