@@ -111,30 +111,33 @@ func (m *Model) readEvent() tea.Msg {
 	if m.dec == nil {
 		return nil
 	}
-	var ev trace.Event
-	if err := m.dec.Decode(&ev); err != nil {
-		if err == io.EOF {
-			return nil
-		}
-		return errMsg{err}
-	}
-	switch ev.Type {
-	case trace.EventFinal:
-		if s, ok := ev.Data.(string); ok {
-			return finalMsg(s)
-		}
-	case trace.EventModelStart:
-		if name, ok := ev.Data.(string); ok {
-			return modelMsg(name)
-		}
-	case trace.EventToolEnd:
-		if m2, ok := ev.Data.(map[string]any); ok {
-			if name, ok := m2["name"].(string); ok {
-				return toolUseMsg(name)
+	for {
+		var ev trace.Event
+		if err := m.dec.Decode(&ev); err != nil {
+			if err == io.EOF {
+				return nil
 			}
+			return errMsg{err}
+		}
+		switch ev.Type {
+		case trace.EventFinal:
+			if s, ok := ev.Data.(string); ok {
+				return finalMsg(s)
+			}
+		case trace.EventModelStart:
+			if name, ok := ev.Data.(string); ok {
+				return modelMsg(name)
+			}
+		case trace.EventToolEnd:
+			if m2, ok := ev.Data.(map[string]any); ok {
+				if name, ok := m2["name"].(string); ok {
+					return toolUseMsg(name)
+				}
+			}
+		default:
+			continue
 		}
 	}
-	return nil
 }
 
 func (m *Model) readCmd() tea.Cmd {
