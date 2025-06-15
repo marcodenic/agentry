@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/memory"
+	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
@@ -30,35 +31,38 @@ func (a *Agent) Spawn() *Agent {
 }
 
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
-	model := a.Route.Select(input)
-	prompt := buildPrompt(a.Mem.History(), input, a.Tools)
+	client := a.Route.Select(input)
+	msgs := buildMessages(a.Mem.History(), input)
+	specs := buildToolSpecs(a.Tools)
 	for i := 0; i < 8; i++ {
-		out, err := model.Complete(ctx, prompt)
+		res, err := client.Complete(ctx, msgs, specs)
 		if err != nil {
 			return "", err
 		}
-		a.Trace(ctx, trace.EventStepStart, out)
-		var call struct {
-			Tool string         `json:"tool"`
-			Args map[string]any `json:"args"`
+		a.Trace(ctx, trace.EventStepStart, res)
+		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content})
+		if len(res.ToolCalls) == 0 {
+			a.Mem.AddStep(res.Content, "", "", "")
+			a.Trace(ctx, trace.EventFinal, res.Content)
+			return res.Content, nil
 		}
-		if json.Unmarshal([]byte(out), &call) == nil && call.Tool != "" {
-			t, ok := a.Tools.Use(call.Tool)
+		for _, tc := range res.ToolCalls {
+			t, ok := a.Tools.Use(tc.Name)
 			if !ok {
-				return "", errors.New("unknown tool")
+				return "", fmt.Errorf("unknown tool: %s", tc.Name)
 			}
-			r, err := t.Execute(ctx, call.Args)
+			var args map[string]any
+			if err := json.Unmarshal(tc.Arguments, &args); err != nil {
+				return "", err
+			}
+			r, err := t.Execute(ctx, args)
 			if err != nil {
 				return "", err
 			}
 			a.Trace(ctx, trace.EventToolEnd, r)
-			a.Mem.AddStep(out, call.Tool, r)
-			prompt = buildPrompt(a.Mem.History(), input, a.Tools)
-			continue
+			a.Mem.AddStep(res.Content, tc.Name, r, tc.ID)
+			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Name: tc.Name, Content: r})
 		}
-		a.Mem.AddStep(out, "", "")
-		a.Trace(ctx, trace.EventFinal, out)
-		return out, nil
 	}
 	return "", errors.New("max iterations")
 }
@@ -74,16 +78,28 @@ func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
 	}
 }
 
-func buildPrompt(hist []memory.Step, input string, reg tool.Registry) string {
-	var sb strings.Builder
+func buildMessages(hist []memory.Step, input string) []model.ChatMessage {
+	msgs := []model.ChatMessage{
+		{Role: "system", Content: "You are an agent."},
+	}
 	for _, h := range hist {
-		sb.WriteString(h.Output)
-		sb.WriteString("\n")
+		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: h.Output})
 		if h.ToolName != "" {
-			sb.WriteString(h.ToolResult)
-			sb.WriteString("\n")
+			msgs = append(msgs, model.ChatMessage{Role: "tool", Name: h.ToolName, Content: h.ToolResult})
 		}
 	}
-	sb.WriteString(input)
-	return sb.String()
+	msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})
+	return msgs
+}
+
+func buildToolSpecs(reg tool.Registry) []model.ToolSpec {
+	specs := make([]model.ToolSpec, 0, len(reg))
+	for _, t := range reg {
+		specs = append(specs, model.ToolSpec{
+			Name:        t.Name(),
+			Description: t.Description(),
+			Parameters:  t.JSONSchema(),
+		})
+	}
+	return specs
 }

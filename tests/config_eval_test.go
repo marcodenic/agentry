@@ -2,11 +2,13 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
+	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/tool"
 )
@@ -16,12 +18,13 @@ type cyclingMock struct {
 	callCount int
 }
 
-func (m *cyclingMock) Complete(ctx context.Context, prompt string) (string, error) {
+func (m *cyclingMock) Complete(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (model.Completion, error) {
 	m.callCount++
 	if m.callCount == 1 {
-		return `{"tool":"echo","args":{"text":"hello"}}`, nil
+		args, _ := json.Marshal(map[string]string{"text": "hello"})
+		return model.Completion{ToolCalls: []model.ToolCall{{ID: "1", Name: "echo", Arguments: args}}}, nil
 	}
-	return "hello", nil
+	return model.Completion{Content: "hello"}, nil
 }
 
 func TestConfigBootAndEval(t *testing.T) {

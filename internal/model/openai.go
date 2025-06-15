@@ -19,45 +19,85 @@ func NewOpenAI(key string) *OpenAI {
 	return &OpenAI{key: key, client: http.DefaultClient}
 }
 
-func (o *OpenAI) Complete(ctx context.Context, prompt string) (string, error) {
+func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (Completion, error) {
 	if o.key == "" {
-		return "", errors.New("missing api key")
+		return Completion{}, errors.New("missing api key")
+	}
+
+	type openAITool struct {
+		Type     string `json:"type"`
+		Function struct {
+			Name        string         `json:"name"`
+			Description string         `json:"description,omitempty"`
+			Parameters  map[string]any `json:"parameters"`
+		} `json:"function"`
+	}
+
+	oaTools := make([]openAITool, len(tools))
+	for i, t := range tools {
+		oaTools[i].Type = "function"
+		oaTools[i].Function.Name = t.Name
+		oaTools[i].Function.Description = t.Description
+		if t.Parameters != nil {
+			oaTools[i].Function.Parameters = t.Parameters
+		} else {
+			oaTools[i].Function.Parameters = map[string]any{"type": "object"}
+		}
 	}
 
 	reqBody := map[string]any{
 		"model":       "gpt-4o",
-		"messages":    []map[string]string{{"role": "user", "content": prompt}},
-		"max_tokens":  64,
+		"messages":    msgs,
+		"tools":       oaTools,
+		"tool_choice": "auto",
 		"temperature": 0,
 	}
+
 	b, _ := json.Marshal(reqBody)
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewReader(b))
 	if err != nil {
-		return "", err
+		return Completion{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+o.key)
 	resp, err := o.client.Do(req)
 	if err != nil {
-		return "", err
+		return Completion{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
-		return "", errors.New(string(body))
+		return Completion{}, errors.New(string(body))
 	}
 	var res struct {
 		Choices []struct {
 			Message struct {
-				Content string `json:"content"`
+				Content   string `json:"content"`
+				ToolCalls []struct {
+					ID       string `json:"id"`
+					Function struct {
+						Name      string `json:"name"`
+						Arguments string `json:"arguments"`
+					} `json:"function"`
+				} `json:"tool_calls"`
 			} `json:"message"`
 		} `json:"choices"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
-		return "", err
+		return Completion{}, err
 	}
 	if len(res.Choices) == 0 {
-		return "", errors.New("no choices")
+		return Completion{}, errors.New("no choices")
 	}
-	return res.Choices[0].Message.Content, nil
+
+	choice := res.Choices[0].Message
+	comp := Completion{Content: choice.Content}
+	for _, tc := range choice.ToolCalls {
+		comp.ToolCalls = append(comp.ToolCalls, ToolCall{
+			ID:        tc.ID,
+			Name:      tc.Function.Name,
+			Arguments: []byte(tc.Function.Arguments),
+		})
+	}
+	return comp, nil
 }

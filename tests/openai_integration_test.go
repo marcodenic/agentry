@@ -14,11 +14,12 @@ func TestOpenAIClient(t *testing.T) {
 		t.Skip("OPENAI_KEY not set")
 	}
 	c := model.NewOpenAI(key)
-	out, err := c.Complete(context.Background(), "Hello")
+	msgs := []model.ChatMessage{{Role: "user", Content: "Hello"}}
+	comp, err := c.Complete(context.Background(), msgs, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out == "" {
+	if comp.Content == "" {
 		t.Errorf("empty response")
 	}
 }

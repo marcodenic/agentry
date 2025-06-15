@@ -8,10 +8,11 @@ type Step struct {
 	Output     string
 	ToolName   string
 	ToolResult string
+	CallID     string
 }
 
 type Store interface {
-	AddStep(out, tool, result string)
+	AddStep(out, tool, result, callID string)
 	History() []Step
 }
 
@@ -23,10 +24,10 @@ type InMemory struct {
 
 func NewInMemory() *InMemory { return &InMemory{} }
 
-func (m *InMemory) AddStep(out, tool, result string) {
+func (m *InMemory) AddStep(out, tool, result, callID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.steps = append(m.steps, Step{Output: out, ToolName: tool, ToolResult: result})
+	m.steps = append(m.steps, Step{Output: out, ToolName: tool, ToolResult: result, CallID: callID})
 }
 
 func (m *InMemory) History() []Step {
