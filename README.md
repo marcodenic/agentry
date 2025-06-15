@@ -1,10 +1,10 @@
-# Agentry\u00a0\u2013 Minimal, Performant AI-Agent Framework (Go core + TS SDK)
+# Agentry – Minimal, Performant AI-Agent Framework (Go core + TS SDK)
 
 Agentry is a production-ready **agent runtime** written in Go with an optional TypeScript client.
 
-| Pillar            | v\u00a01.0 Features                                      |
+| Pillar            | v 1.0 Features                                           |
 | ----------------- | -------------------------------------------------------- |
-| **Minimal core**  | ~200\u00a0LOC run loop, zero heavy deps                  |
+| **Minimal core**  | ~200 LOC run loop, zero heavy deps                       |
 | **Plugins**       | JSON/YAML tool manifests; Go or external processes       |
 | **Sub-agents**    | `Spawn()` + `RunParallel()` helper                       |
 | **Model routing** | Rule-based selector, multi-LLM support                   |
@@ -30,11 +30,10 @@ The `--mode` flag selects between `dev`, `serve`, `eval`, and `tui`.
 The new `tui` mode launches a split-screen interface:
 
 +-------+-----------------------------+
-| Tools | Chat / Memory              |
+| Tools | Chat / Memory |
 +-------+-----------------------------+
 
 Run `agentry --mode=tui --config examples/.agentry.yaml` to try.
-
 
 ### Built-in tools
 
@@ -43,31 +42,31 @@ the agent when listed in your `.agentry.yaml` file:
 
 ```yaml
 tools:
-  - name: echo        # repeat a string
+  - name: echo # repeat a string
     type: builtin
-  - name: ping        # ping a host
+  - name: ping # ping a host
     type: builtin
-  - name: bash        # run a bash command
+  - name: bash # run a bash command
     type: builtin
-  - name: fetch       # download content from a URL
+  - name: fetch # download content from a URL
     type: builtin
-  - name: glob        # find files by pattern
+  - name: glob # find files by pattern
     type: builtin
-  - name: grep        # search file contents
+  - name: grep # search file contents
     type: builtin
-  - name: ls          # list directory contents
+  - name: ls # list directory contents
     type: builtin
-  - name: view        # read a file
+  - name: view # read a file
     type: builtin
-  - name: write       # create or overwrite a file
+  - name: write # create or overwrite a file
     type: builtin
-  - name: edit        # update an existing file
+  - name: edit # update an existing file
     type: builtin
-  - name: patch       # apply a unified diff
+  - name: patch # apply a unified diff
     type: builtin
   - name: sourcegraph # search public repositories
     type: builtin
-  - name: agent       # launch a search agent
+  - name: agent # launch a search agent
     type: builtin
 ```
 
@@ -77,7 +76,6 @@ The example configuration already lists these tools so they appear in the TUI's
 leverage the rest, set your key in `.env.local`.
 
 **Windows users:** Agentry works out-of-the-box on Windows 10+ with PowerShell installed. Built-ins that require external Unix tools (`patch`) are disabled automatically. Install Git for Windows and run under Git Bash if you need them.
-
 
 ### Try it live
 
