@@ -44,8 +44,13 @@ func (a *Agent) Spawn() *Agent {
 }
 
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
+	if strings.TrimSpace(input) != "" {
+		a.Mem.AddStep(memory.Step{Speaker: "user", Output: input})
+	}
+
 	client, name := a.Route.Select(input)
 	a.Trace(ctx, trace.EventModelStart, name)
+	input = ""
 	msgs := buildMessages(a.Mem.History(), input, a.ID.String())
 	specs := buildToolSpecs(a.Tools)
 	for i := 0; i < maxSteps; i++ {
