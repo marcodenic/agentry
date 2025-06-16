@@ -14,24 +14,9 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/eval"
-	"github.com/marcodenic/agentry/internal/memory"
-	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/server"
 	"github.com/marcodenic/agentry/internal/tui"
 )
-
-var agentColors = []string{
-	"\033[38;5;81m",
-	"\033[38;5;118m",
-	"\033[38;5;214m",
-	"\033[38;5;135m",
-	"\033[38;5;203m",
-}
-
-const colorReset = "\033[0m"
-
-func colorFor(i int) string { return agentColors[i%len(agentColors)] }
 
 func main() {
 	env.Load()
@@ -60,61 +45,29 @@ func main() {
 			}
 			line := sc.Text()
 			if strings.HasPrefix(line, "converse") {
-				rest := strings.TrimSpace(strings.TrimPrefix(line, "converse"))
+				parts := strings.Fields(line)
 				n := 2
-				topic := ""
-				if rest != "" {
-					fields := strings.Fields(rest)
-					if len(fields) > 0 {
-						if v, err := strconv.Atoi(fields[0]); err == nil && v > 0 {
-							n = v
-							rest = strings.TrimSpace(rest[len(fields[0]):])
-						}
+				if len(parts) > 1 {
+					if v, err := strconv.Atoi(parts[1]); err == nil && v > 0 {
+						n = v
 					}
-					topic = strings.TrimSpace(rest)
 				}
-				if topic == "" {
-					topic = "Hello agents, let's chat!"
-				} else if (strings.HasPrefix(topic, "\"") && strings.HasSuffix(topic, "\"")) ||
-					(strings.HasPrefix(topic, "'") && strings.HasSuffix(topic, "'")) {
-					topic = strings.Trim(topic, "'\"")
-				}
-
 				ctx := context.Background()
-				// Copy router rules so we can raise temperature only for this session
-				orig := ag.Route.(router.Rules)
-				conv := make(router.Rules, len(orig))
-				for i, r := range orig {
-					conv[i] = r
-					if oa, ok := r.Client.(*model.OpenAI); ok {
-						cpy := *oa
-						cpy.SetTemperature(0.7)
-						conv[i].Client = &cpy
-					}
-				}
-
-				shared := memory.NewInMemory()
 				agents := make([]*core.Agent, n)
 				names := make([]string, n)
 				for i := 0; i < n; i++ {
+					agents[i] = ag.Spawn()
 					names[i] = fmt.Sprintf("Agent%d", i+1)
 				}
-				for i := 0; i < n; i++ {
-					agents[i] = core.NewNamed(names[i], conv, ag.Tools, shared, ag.Tracer)
-					agents[i].Topic = topic
-					agents[i].PeerNames = names
-				}
-				msg := topic
+				msg := "Hello agents, let's chat!"
 				for i := 0; i < 10; i++ {
 					idx := i % n
 					out, err := agents[idx].Run(ctx, msg)
 					if err != nil {
 						fmt.Println("ERR:", err)
 					}
-					col := colorFor(idx)
-					fmt.Printf("%s[%s]%s: %s\n", col, names[idx], colorReset, out)
-					agents[idx].LastSpeaker = names[idx]
-					msg = ""
+					fmt.Printf("[%s]: %s\n", names[idx], out)
+					msg = out
 				}
 				continue
 			}
