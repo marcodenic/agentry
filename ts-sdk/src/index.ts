@@ -10,7 +10,12 @@ export interface InvokeOpts {
 
 export async function invoke(
   input: string,
-  { agentId, stream, serverUrl = "http://localhost:8080", onToken }: InvokeOpts = {},
+  {
+    agentId,
+    stream,
+    serverUrl = "http://localhost:8080",
+    onToken,
+  }: InvokeOpts = {}
 ): Promise<string> {
   let res;
   try {
@@ -22,7 +27,7 @@ export async function invoke(
   } catch (err: any) {
     const reason = err.message || err.toString();
     throw new Error(
-      `❌ Could not connect to Agentry server at ${serverUrl}.\nReason: ${reason}\n\n➡️ To fix: Make sure the server is running (try 'agentry serve') and accessible at this address.`,
+      `❌ Could not connect to Agentry server at ${serverUrl}.\nReason: ${reason}\n\n➡️ To fix: Make sure the server is running (try 'agentry serve') and accessible at this address.`
     );
   }
 
@@ -32,7 +37,7 @@ export async function invoke(
   }
 
   let final = "";
-  const parser = createParser(evt => {
+  const parser = createParser((evt) => {
     if (evt.type === "event") {
       final += evt.data;
       onToken?.(evt.data);
@@ -43,4 +48,3 @@ export async function invoke(
   }
   return final;
 }
-

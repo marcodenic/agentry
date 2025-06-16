@@ -1,5 +1,7 @@
 # 🤖 Agentry — Minimal, Performant AI-Agent Framework (Go core + TS SDK)
 
+![Demo](agentry.gif)
+
 Agentry is a production-ready **agent runtime** written in Go with an optional TypeScript client.
 
 ---
@@ -115,7 +117,7 @@ node -e "const {invoke}=require('./dist/index.js');invoke('hi',{stream:false}).t
 ## 🦾 Full End-to-End Example (Two Terminals)
 
 > **You must use two terminals for this demo.**
-> 
+>
 > - **Terminal 1:** Start the Agentry server from the project root.
 > - **Terminal 2:** Run the TypeScript SDK example from the `ts-sdk` directory.
 
@@ -134,6 +136,7 @@ agentry serve --config examples/.agentry.yaml
 **From the `ts-sdk` directory:**
 
 If you are not already in the `ts-sdk` directory, run:
+
 ```bash
 cd ts-sdk
 ```
