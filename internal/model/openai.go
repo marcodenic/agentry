@@ -11,8 +11,9 @@ import (
 
 // OpenAI client uses OpenAI's chat completion API.
 type OpenAI struct {
-	key    string
-	client *http.Client
+	key         string
+	Temperature float64
+	client      *http.Client
 }
 
 func NewOpenAI(key string) *OpenAI {
@@ -89,7 +90,7 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 		"messages":    oaMsgs,
 		"tools":       oaTools,
 		"tool_choice": "auto",
-		"temperature": 0,
+		"temperature": o.Temperature,
 	}
 
 	b, _ := json.Marshal(reqBody)

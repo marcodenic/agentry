@@ -3,18 +3,14 @@ package tests
 import (
 	"testing"
 
-	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/memory"
-	"github.com/marcodenic/agentry/internal/router"
 )
 
 func TestRolesStayAssistant(t *testing.T) {
 	mem := memory.NewInMemory()
-	rules := router.Rules{{IfContains: []string{""}}}
-	ag := core.NewNamed("Agent1", rules, nil, mem, nil)
-	ag.PeerNames = []string{"Agent1", "Agent2"}
-	mem.AddStep(memory.Step{Speaker: "Agent2", Output: "hi"})
-	msgs := core.BuildMessages(mem.History(), "", "Agent1", ag.PeerNames, "")
+	mem.AddStep(memory.Step{Output: "hi"})
+	msgs := converse.BuildMessages(mem.History(), "", "Agent1", []string{"Agent1", "Agent2"})
 	if len(msgs) < 2 {
 		t.Fatalf("expected at least two messages")
 	}
