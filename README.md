@@ -99,10 +99,58 @@ agentry dev               # type messages, see responses
 
 # 🌐 HTTP + TS SDK
 agentry serve --config examples/.agentry.yaml &
-npm --prefix ts-sdk install
-npm --prefix ts-sdk run build
-node -e "const {invoke}=require('./ts-sdk/dist');invoke('hi',{stream:false}).then(console.log)"
+
+# In a new terminal, run the following from the ts-sdk directory:
+cd ts-sdk
+npm install  # (if you get dependency errors, use: npm install --legacy-peer-deps)
+npm run build
+npm test
+
+# Make sure the agentry server is running, then:
+node -e "const {invoke}=require('./dist/index.js');invoke('hi',{stream:false}).then(console.log)"
 ```
+
+---
+
+## 🦾 Full End-to-End Example (Two Terminals)
+
+> **You must use two terminals for this demo.**
+> 
+> - **Terminal 1:** Start the Agentry server from the project root.
+> - **Terminal 2:** Run the TypeScript SDK example from the `ts-sdk` directory.
+
+### 🖥️ Terminal 1: Start the Agentry server
+
+**From the project root directory (`agentry`):**
+
+```bash
+agentry serve --config examples/.agentry.yaml
+```
+
+- This will start the server and take over the terminal. Leave it running.
+
+### 🖥️ Terminal 2: Use the TypeScript SDK
+
+**From the `ts-sdk` directory:**
+
+If you are not already in the `ts-sdk` directory, run:
+```bash
+cd ts-sdk
+```
+
+Then, from inside `ts-sdk`, run each command one at a time:
+
+```bash
+npm install  # (if you get dependency errors, use: npm install --legacy-peer-deps)
+npm run build
+npm test
+node -e "const {invoke}=require('./dist/index.js');invoke('hi',{stream:false,agentId:'default'}).then(console.log).catch(e=>console.error(e.message))"
+```
+
+- **Do not run `cd ts-sdk` if you are already in the `ts-sdk` directory.**
+- All npm commands and the Node.js example must be run from inside `ts-sdk`.
+- Make sure the server in Terminal 1 is running before running the Node.js command above.
+- If you see a connection error, check that Terminal 1 is still running and listening on port 8080.
 
 ---
 
