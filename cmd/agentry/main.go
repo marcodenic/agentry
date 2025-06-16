@@ -11,6 +11,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/marcodenic/agentry/internal/config"
+	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/eval"
@@ -45,30 +46,26 @@ func main() {
 			}
 			line := sc.Text()
 			if strings.HasPrefix(line, "converse") {
-				parts := strings.Fields(line)
+				rest := strings.TrimSpace(strings.TrimPrefix(line, "converse"))
 				n := 2
-				if len(parts) > 1 {
-					if v, err := strconv.Atoi(parts[1]); err == nil && v > 0 {
-						n = v
+				topic := ""
+				if rest != "" {
+					fields := strings.Fields(rest)
+					if len(fields) > 0 {
+						if v, err := strconv.Atoi(fields[0]); err == nil && v > 0 {
+							n = v
+							rest = strings.TrimSpace(rest[len(fields[0]):])
+						}
 					}
+					topic = strings.TrimSpace(rest)
 				}
-				ctx := context.Background()
-				agents := make([]*core.Agent, n)
-				names := make([]string, n)
-				for i := 0; i < n; i++ {
-					agents[i] = ag.Spawn()
-					names[i] = fmt.Sprintf("Agent%d", i+1)
+				if topic == "" {
+					topic = "Hello agents, let's chat!"
+				} else if (strings.HasPrefix(topic, "\"") && strings.HasSuffix(topic, "\"")) ||
+					(strings.HasPrefix(topic, "'") && strings.HasSuffix(topic, "'")) {
+					topic = strings.Trim(topic, "'\"")
 				}
-				msg := "Hello agents, let's chat!"
-				for i := 0; i < 10; i++ {
-					idx := i % n
-					out, err := agents[idx].Run(ctx, msg)
-					if err != nil {
-						fmt.Println("ERR:", err)
-					}
-					fmt.Printf("[%s]: %s\n", names[idx], out)
-					msg = out
-				}
+				converse.Repl(ag, n, topic)
 				continue
 			}
 			out, err := ag.Run(context.Background(), line)

@@ -92,6 +92,18 @@ npm --prefix ts-sdk run build
 node -e "const {invoke}=require('./ts-sdk/dist');invoke('hi',{stream:false}).then(console.log)"
 ```
 
+### Dev REPL tricks
+
+#### Multi-agent conversations
+
+The `converse` command spawns multiple sub-agents that riff off one another. This feature is for the dev REPL only and is not available in the TUI.
+
+```bash
+converse 3 Is God real?
+```
+
+The first number selects how many agents join the chat. Any remaining text becomes the opening message. If omitted, a generic greeting is used.
+
 ## Environment Configuration
 
 Copy `.env.example` to `.env.local` and fill in `OPENAI_KEY` to enable real OpenAI calls. The file is loaded automatically on startup and during tests.
