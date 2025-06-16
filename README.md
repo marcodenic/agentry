@@ -1,10 +1,10 @@
-# Agentry\u00a0\u2013 Minimal, Performant AI-Agent Framework (Go core + TS SDK)
+# Agentry - Minimal, Performant AI-Agent Framework (Go core + TS SDK)
 
 Agentry is a production-ready **agent runtime** written in Go with an optional TypeScript client.
 
-| Pillar            | v\u00a01.0 Features                                      |
+| Pillar            | v1.0 Features                                            |
 | ----------------- | -------------------------------------------------------- |
-| **Minimal core**  | ~200\u00a0LOC run loop, zero heavy deps                  |
+| **Minimal core**  | ~200 LOC run loop, zero heavy deps                       |
 | **Plugins**       | JSON/YAML tool manifests; Go or external processes       |
 | **Sub-agents**    | `Spawn()` + `RunParallel()` helper                       |
 | **Model routing** | Rule-based selector, multi-LLM support                   |
@@ -22,19 +22,23 @@ go install github.com/marcodenic/agentry/cmd/agentry@latest
 agentry dev
 
 # HTTP server + JS client
-agentry --mode=serve --config .agentry.yaml
+agentry serve --config .agentry.yaml
 npm i @marcodenic/agentry
 ```
 
-The `--mode` flag selects between `dev`, `serve`, `eval`, and `tui`.
-The new `tui` mode launches a split-screen interface:
+You can now use subcommands instead of the --mode flag:
+- `agentry dev` (REPL)
+- `agentry serve` (HTTP server)
+- `agentry tui` (TUI interface)
+- `agentry eval` (evaluation)
+
+The new `tui` command launches a split-screen interface:
 
 +-------+-----------------------------+
-| Tools | Chat / Memory              |
+| Tools | Chat / Memory |
 +-------+-----------------------------+
 
-Run `agentry --mode=tui --config examples/.agentry.yaml` to try.
-
+Run `agentry tui --config examples/.agentry.yaml` to try.
 
 ### Built-in tools
 
@@ -43,31 +47,31 @@ the agent when listed in your `.agentry.yaml` file:
 
 ```yaml
 tools:
-  - name: echo        # repeat a string
+  - name: echo # repeat a string
     type: builtin
-  - name: ping        # ping a host
+  - name: ping # ping a host
     type: builtin
-  - name: bash        # run a bash command
+  - name: bash # run a bash command
     type: builtin
-  - name: fetch       # download content from a URL
+  - name: fetch # download content from a URL
     type: builtin
-  - name: glob        # find files by pattern
+  - name: glob # find files by pattern
     type: builtin
-  - name: grep        # search file contents
+  - name: grep # search file contents
     type: builtin
-  - name: ls          # list directory contents
+  - name: ls # list directory contents
     type: builtin
-  - name: view        # read a file
+  - name: view # read a file
     type: builtin
-  - name: write       # create or overwrite a file
+  - name: write # create or overwrite a file
     type: builtin
-  - name: edit        # update an existing file
+  - name: edit # update an existing file
     type: builtin
-  - name: patch       # apply a unified diff
+  - name: patch # apply a unified diff
     type: builtin
   - name: sourcegraph # search public repositories
     type: builtin
-  - name: agent       # launch a search agent
+  - name: agent # launch a search agent
     type: builtin
 ```
 
@@ -78,7 +82,6 @@ leverage the rest, set your key in `.env.local`.
 
 **Windows users:** Agentry works out-of-the-box on Windows 10+ with PowerShell installed. Built-ins that require external Unix tools (`patch`) are disabled automatically. Install Git for Windows and run under Git Bash if you need them.
 
-
 ### Try it live
 
 ```bash
@@ -86,7 +89,7 @@ leverage the rest, set your key in `.env.local`.
 agentry dev               # type messages, see responses
 
 # HTTP + TS SDK
-agentry --mode=serve --config examples/.agentry.yaml &
+agentry serve --config examples/.agentry.yaml &
 npm --prefix ts-sdk install
 npm --prefix ts-sdk run build
 node -e "const {invoke}=require('./ts-sdk/dist');invoke('hi',{stream:false}).then(console.log)"
@@ -111,7 +114,7 @@ Copy `.env.example` to `.env.local` and fill in `OPENAI_KEY` to enable real Open
 To run evaluation with the real model:
 
 ```bash
-OPENAI_KEY=your-key agentry --mode=eval --config my.agentry.yaml
+OPENAI_KEY=your-key agentry eval --config my.agentry.yaml
 ```
 
 When the real model is active, the CLI uses `tests/openai_eval_suite.json` so the
@@ -129,7 +132,7 @@ Run all tests and start a REPL with one command:
 make dev
 ```
 
-This target executes Go and TypeScript tests, builds the CLI, and launches `agentry --mode=serve` using the example config. You can also run the steps manually:
+This target executes Go and TypeScript tests, builds the CLI, and launches `agentry serve` using the example config. You can also run the steps manually:
 
 ```bash
 go test ./...
