@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -35,8 +34,7 @@ type Model struct {
 	modelName  string
 	selected   string
 
-	sc   *bufio.Scanner
-	scMu sync.Mutex
+	sc *bufio.Scanner
 
 	history string
 
@@ -129,8 +127,6 @@ func (m *Model) readEvent() tea.Msg {
 	if m.sc == nil {
 		return nil
 	}
-	m.scMu.Lock()
-	defer m.scMu.Unlock()
 	for {
 		if !m.sc.Scan() {
 			if err := m.sc.Err(); err != nil {
@@ -156,10 +152,6 @@ func (m *Model) readEvent() tea.Msg {
 				if name, ok := m2["name"].(string); ok {
 					return toolUseMsg(name)
 				}
-			}
-		case trace.EventToken:
-			if tok, ok := ev.Data.(string); ok {
-				return tokenMsg(tok)
 			}
 		default:
 			continue
@@ -202,11 +194,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				pr, pw := io.Pipe()
 				errCh := make(chan error, 1)
 				m.agent.Tracer = trace.NewJSONL(pw)
-				const maxBuf = 1024 * 1024
-				m.scMu.Lock()
 				m.sc = bufio.NewScanner(pr)
-				m.sc.Buffer(make([]byte, 0, 64*1024), maxBuf)
-				m.scMu.Unlock()
 				go func() {
 					_, err := m.agent.Run(context.Background(), txt)
 					pw.Close()
@@ -224,10 +212,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.history += aiBar() + " "
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
-		m.scMu.Lock()
-		m.sc = nil
-		m.scMu.Unlock()
-		return m, nil
+		return m, tea.Batch(streamTokens(string(msg)+"\n"), m.readCmd())
 	case toolUseMsg:
 		idx := -1
 		for i, it := range m.tools.Items() {
@@ -245,9 +230,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.readCmd()
 	case errMsg:
 		m.err = msg
-		m.scMu.Lock()
-		m.sc = nil
-		m.scMu.Unlock()
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
