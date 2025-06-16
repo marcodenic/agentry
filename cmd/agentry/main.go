@@ -21,11 +21,26 @@ import (
 
 func main() {
 	env.Load()
-	mode := flag.String("mode", "dev", "dev|serve|eval|tui")
-	conf := flag.String("config", "", "path to .agentry.yaml")
-	flag.Parse()
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: agentry [dev|serve|tui|eval] [--config path/to/config.yaml]")
+		os.Exit(1)
+	}
 
-	switch *mode {
+	cmd := os.Args[1]
+	args := os.Args[2:]
+	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
+	conf := fs.String("config", "", "path to .agentry.yaml")
+	_ = fs.Parse(args)
+	var configPath string
+	if *conf != "" {
+		configPath = *conf
+	} else if fs.NArg() > 0 {
+		configPath = fs.Arg(0)
+	} else {
+		configPath = "examples/.agentry.yaml"
+	}
+
+	switch cmd {
 	case "dev":
 		cfg, err := config.Load("examples/.agentry.yaml")
 		if err != nil {
@@ -76,28 +91,23 @@ func main() {
 			fmt.Println(out)
 		}
 	case "serve":
-		if *conf == "" {
-			fmt.Println("need --config")
-			os.Exit(1)
-		}
-		cfg, err := config.Load(*conf)
+		cfg, err := config.Load(configPath)
 		if err != nil {
-			panic(err)
+			fmt.Printf("failed to load config: %v\n", err)
+			os.Exit(1)
 		}
 		ag, err := buildAgent(cfg)
 		if err != nil {
 			panic(err)
 		}
 		agents := map[string]*core.Agent{"default": ag}
+		fmt.Println("Serving HTTP on :8080")
 		server.Serve(agents)
 	case "eval":
-		if *conf == "" {
-			fmt.Println("need --config")
-			os.Exit(1)
-		}
-		cfg, err := config.Load(*conf)
+		cfg, err := config.Load(configPath)
 		if err != nil {
-			panic(err)
+			fmt.Printf("failed to load config: %v\n", err)
+			os.Exit(1)
 		}
 		key := os.Getenv("OPENAI_KEY")
 		if key != "" {
@@ -120,13 +130,10 @@ func main() {
 		}
 		eval.Run(nil, ag, suite)
 	case "tui":
-		if *conf == "" {
-			fmt.Println("need --config")
-			os.Exit(1)
-		}
-		cfg, err := config.Load(*conf)
+		cfg, err := config.Load(configPath)
 		if err != nil {
-			panic(err)
+			fmt.Printf("failed to load config: %v\n", err)
+			os.Exit(1)
 		}
 		ag, err := buildAgent(cfg)
 		if err != nil {
@@ -137,6 +144,7 @@ func main() {
 			panic(err)
 		}
 	default:
-		fmt.Println("unknown mode")
+		fmt.Println("unknown command. Usage: agentry [dev|serve|tui|eval] [--config path/to/config.yaml]")
+		os.Exit(1)
 	}
 }
