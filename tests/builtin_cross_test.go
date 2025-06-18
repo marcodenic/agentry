@@ -19,7 +19,7 @@ func TestBuiltinsCrossPlatform(t *testing.T) {
 			ex["path"] = filepath.Join("..", p)
 		}
 		t.Run(name, func(t *testing.T) {
-			if name == "patch" || name == "ping" || name == "fetch" || name == "sourcegraph" {
+			if name == "patch" || name == "ping" || name == "fetch" || name == "sourcegraph" || name == "mcp" {
 				t.Skip("skip network-dependent tool")
 			}
 			_, err := tl.Execute(ctx, ex)
