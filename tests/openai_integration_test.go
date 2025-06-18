@@ -13,7 +13,7 @@ func TestOpenAIClient(t *testing.T) {
 	if key == "" {
 		t.Skip("OPENAI_KEY not set")
 	}
-	c := model.NewOpenAI(key)
+	c := model.NewOpenAI(key, "gpt-4o")
 	msgs := []model.ChatMessage{{Role: "user", Content: "Hello"}}
 	comp, err := c.Complete(context.Background(), msgs, nil)
 	if err != nil {
