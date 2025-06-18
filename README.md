@@ -85,9 +85,16 @@ tools:
     type: builtin
   - name: agent # 🤖 launch a search agent
     type: builtin
+  - name: mcp # 🎮 connect to MCP servers
+    type: builtin
 ```
 
 The example configuration already lists these tools so they appear in the TUI's "Tools" panel. The agent decides when to use them based on model output. When no `OPENAI_KEY` is provided, the mock model only exercises the `echo` tool. To leverage the rest, set your key in `.env.local`.
+
+Use the `mcp` tool to connect to Multi-User Connection Protocol servers. Set its
+address in your YAML config and the agent can send MCP commands and read the
+responses.
+
 
 > **🪟 Windows users:** Agentry works out-of-the-box on Windows 10+ with PowerShell installed. Built-ins that require external Unix tools (`patch`) are disabled automatically. Install Git for Windows and run under Git Bash if you need them.
 
