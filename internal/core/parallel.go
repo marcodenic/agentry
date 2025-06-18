@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"sync"
 )
 
@@ -17,6 +18,5 @@ func RunParallel(ctx context.Context, agents []*Agent, inputs []string) ([]strin
 		}(i, ag, inputs[i])
 	}
 	wg.Wait()
-	// TODO: aggregate errors properly
-	return out, nil
+	return out, errors.Join(errs...)
 }
