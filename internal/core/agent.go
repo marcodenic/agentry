@@ -34,7 +34,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	client, name := a.Route.Select(input)
 	a.Trace(ctx, trace.EventModelStart, name)
 	msgs := buildMessages(a.Mem.History(), input)
-	specs := buildToolSpecs(a.Tools)
+	specs := tool.BuildSpecs(a.Tools)
 	for i := 0; i < 8; i++ {
 		res, err := client.Complete(ctx, msgs, specs)
 		if err != nil {
@@ -93,16 +93,4 @@ func buildMessages(hist []memory.Step, input string) []model.ChatMessage {
 	}
 	msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})
 	return msgs
-}
-
-func buildToolSpecs(reg tool.Registry) []model.ToolSpec {
-	specs := make([]model.ToolSpec, 0, len(reg))
-	for _, t := range reg {
-		specs = append(specs, model.ToolSpec{
-			Name:        t.Name(),
-			Description: t.Description(),
-			Parameters:  t.JSONSchema(),
-		})
-	}
-	return specs
 }
