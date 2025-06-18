@@ -12,12 +12,13 @@ import (
 // OpenAI client uses OpenAI's chat completion API.
 type OpenAI struct {
 	key         string
+	model       string
 	Temperature float64
 	client      *http.Client
 }
 
-func NewOpenAI(key string) *OpenAI {
-	return &OpenAI{key: key, client: http.DefaultClient}
+func NewOpenAI(key, model string) *OpenAI {
+	return &OpenAI{key: key, model: model, client: http.DefaultClient}
 }
 
 func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (Completion, error) {
@@ -86,7 +87,7 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 	}
 
 	reqBody := map[string]any{
-		"model":       "gpt-4o",
+		"model":       o.model,
 		"messages":    oaMsgs,
 		"tools":       oaTools,
 		"tool_choice": "auto",

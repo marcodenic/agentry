@@ -13,13 +13,15 @@ func FromManifest(m config.ModelManifest) (Client, error) {
 	case "mock":
 		return NewMock(), nil
 	case "openai":
-		key := ""
-		if envVar, ok := m.Options["env_key"]; ok && envVar != "" {
-			key = os.Getenv(envVar)
-		} else {
+		key := m.Options["key"]
+		if key == "" {
 			key = os.Getenv("OPENAI_KEY")
 		}
-		return NewOpenAI(key), nil
+		modelName := m.Options["model"]
+		if modelName == "" {
+			modelName = "gpt-4o"
+		}
+		return NewOpenAI(key, modelName), nil
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", m.Provider)
 	}

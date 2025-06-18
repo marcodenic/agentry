@@ -4,7 +4,10 @@ models:
   - name: openai
     provider: openai
     options:
-      env_key: OPENAI_KEY
+      # API key; defaults to $OPENAI_KEY if omitted
+      key: ""
+      # Model name; defaults to gpt-4o if omitted
+      model: gpt-4o
 routes:
   - if_contains: [""]
     model: openai
