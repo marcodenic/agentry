@@ -49,6 +49,10 @@ tools:
   - name: agent
     type: builtin
     description: Launch a search agent
+  - name: mcp
+    type: builtin
+    description: Connect to an MCP server
+    address: mcp.example.net:7777
   - name: local_shell
     command: echo hello
     description: Uses shell (optional, advanced)
