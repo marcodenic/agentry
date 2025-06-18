@@ -90,7 +90,7 @@ func Repl(parent *core.Agent, n int, topic string) {
 func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []string) (string, error) {
 	client, _ := ag.Route.Select(input)
 	msgs := BuildMessages(ag.Mem.History(), input, name, peers)
-	specs := buildToolSpecs(ag.Tools)
+	specs := tool.BuildSpecs(ag.Tools)
 	for i := 0; i < 8; i++ {
 		res, err := client.Complete(ctx, msgs, specs)
 		if err != nil {
@@ -121,16 +121,4 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 		ag.Mem.AddStep(step)
 	}
 	return "", errors.New("max iterations")
-}
-
-func buildToolSpecs(reg tool.Registry) []model.ToolSpec {
-	specs := make([]model.ToolSpec, 0, len(reg))
-	for _, t := range reg {
-		specs = append(specs, model.ToolSpec{
-			Name:        t.Name(),
-			Description: t.Description(),
-			Parameters:  t.JSONSchema(),
-		})
-	}
-	return specs
 }
