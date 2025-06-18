@@ -18,7 +18,7 @@ test:
 run: - go test ./... - cd ts-sdk && npm install && npm test
 
 tools:
-go: "1.22"
+go: "1.23"
 node: "22"
 
 filetypes:
