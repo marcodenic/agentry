@@ -29,9 +29,11 @@ func Serve(agents map[string]*core.Agent) error {
 			w.Header().Set("Cache-Control", "no-cache")
 			tr := trace.NewSSE(w)
 			ag.Tracer = tr
-			go ag.Run(r.Context(), in.Input)
 			if fl, ok := w.(http.Flusher); ok {
 				fl.Flush()
+			}
+			if _, err := ag.Run(r.Context(), in.Input); err != nil {
+				http.Error(w, err.Error(), 500)
 			}
 			return
 		}
