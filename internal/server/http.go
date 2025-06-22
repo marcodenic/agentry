@@ -25,11 +25,12 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 			http.Error(w, "bad json", http.StatusBadRequest)
 			return
 		}
-		ag := agents[in.AgentID]
-		if ag == nil {
+		base := agents[in.AgentID]
+		if base == nil {
 			http.Error(w, "unknown agent", http.StatusBadRequest)
 			return
 		}
+		ag := base.Spawn()
 		if in.Stream {
 			w.Header().Set("Content-Type", "text/event-stream")
 			w.Header().Set("Cache-Control", "no-cache")

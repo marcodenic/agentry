@@ -252,6 +252,8 @@ func main() {
 		if *saveID != "" {
 			_ = ag.SaveState(context.Background(), *saveID)
 		}
+	case "plugin":
+		runPluginCmd(args)
 	default:
 		fmt.Println("unknown command. Usage: agentry [dev|serve|tui|eval] [--config path/to/config.yaml]")
 		os.Exit(1)

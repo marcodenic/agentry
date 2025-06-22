@@ -21,6 +21,7 @@ import (
 
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/patch"
+	"github.com/marcodenic/agentry/pkg/sbox"
 )
 
 var osType = runtime.GOOS
@@ -565,9 +566,16 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 		}), nil
 	}
 
-	// Shell command tools (advanced use, may behave differently across OSes)
+	// Shell command tools
 	if m.Command != "" {
 		return NewWithSchema(m.Name, m.Description, map[string]any{"type": "object", "properties": map[string]any{}}, func(ctx context.Context, args map[string]any) (string, error) {
+			if !m.Privileged {
+				return sbox.Exec(ctx, m.Command, sbox.Options{
+					Net:      m.Net,
+					CPULimit: m.CPULimit,
+					MemLimit: m.MemLimit,
+				})
+			}
 			var cmd *exec.Cmd
 			if runtime.GOOS == "windows" {
 				cmd = exec.CommandContext(ctx, "cmd", "/C", m.Command)
