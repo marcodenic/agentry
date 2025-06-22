@@ -22,8 +22,6 @@ Agentry is a production-ready **agent runtime** written in Go with an optional T
 
 ## 🚀 Quick Start
 
-See `docs/` for full guides.
-
 ```bash
 # 🖥️ CLI dev REPL with tracing
 go install github.com/marcodenic/agentry/cmd/agentry@latest
@@ -114,7 +112,6 @@ The example configuration already lists these tools so they appear in the TUI's 
 Use the `mcp` tool to connect to Multi-User Connection Protocol servers. Set its
 address in your YAML config and the agent can send MCP commands and read the
 responses.
-
 
 > **🪟 Windows users:** Agentry works out-of-the-box on Windows 10+ with PowerShell installed.
 
