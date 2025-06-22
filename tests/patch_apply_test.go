@@ -8,31 +8,44 @@ import (
 	"github.com/marcodenic/agentry/internal/patch"
 )
 
-func TestApplyPatch(t *testing.T) {
+func TestApplyPatchModify(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "foo.txt")
-	if err := os.WriteFile(path, []byte("hello\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello\nworld\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	patchStr := "--- a/foo.txt\n+++ b/foo.txt\n@@ -1 +1 @@\n-hello\n+hello world\n"
+	patchStr := "--- a/a.txt\n+++ b/a.txt\n@@ -1,2 +1,2 @@\n-hello\n+hi\n world\n"
 	cwd, _ := os.Getwd()
 	os.Chdir(dir)
 	defer os.Chdir(cwd)
-	stats, err := patch.Apply([]byte(patchStr))
+	res, err := patch.Apply(patchStr)
 	if err != nil {
 		t.Fatalf("apply failed: %v", err)
 	}
-	if len(stats) != 1 {
-		t.Fatalf("expected 1 stat, got %d", len(stats))
+	out, _ := os.ReadFile("a.txt")
+	if string(out) != "hi\nworld\n" {
+		t.Fatalf("unexpected result: %q", out)
 	}
-	if stats[0].Additions != 1 || stats[0].Deletions != 1 {
-		t.Fatalf("unexpected stats: %#v", stats[0])
+	if len(res.Files) != 1 || res.Files[0].Path != "a.txt" {
+		t.Fatalf("unexpected metadata: %#v", res)
 	}
-	b, err := os.ReadFile(path)
+}
+
+func TestApplyPatchNewDelete(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "old.txt"), []byte("bye\n"), 0644)
+	patchStr := "--- /dev/null\n+++ b/new.txt\n@@ -0,0 +1 @@\n+new\n" +
+		"--- a/old.txt\n+++ /dev/null\n@@ -1 +0,0 @@\n-bye\n"
+	cwd, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(cwd)
+	_, err := patch.Apply(patchStr)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("apply failed: %v", err)
 	}
-	if string(b) != "hello world\n" {
-		t.Fatalf("patch not applied: %q", string(b))
+	if b, err := os.ReadFile("new.txt"); err != nil || string(b) != "new\n" {
+		t.Fatalf("new file: %v %q", err, b)
+	}
+	if _, err := os.Stat("old.txt"); !os.IsNotExist(err) {
+		t.Fatalf("old file not removed")
 	}
 }

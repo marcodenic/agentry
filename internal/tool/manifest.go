@@ -427,15 +427,11 @@ func init() {
 			if patchStr == "" {
 				return "", errors.New("missing patch")
 			}
-			stats, err := patch.Apply([]byte(patchStr))
+			res, err := patch.Apply(patchStr)
 			if err != nil {
 				return "", err
 			}
-			var b strings.Builder
-			for _, s := range stats {
-				fmt.Fprintf(&b, "%s +%d -%d\n", s.File, s.Additions, s.Deletions)
-			}
-			return strings.TrimSpace(b.String()), nil
+			return patch.MarshalResult(res)
 		},
 	}
 }
