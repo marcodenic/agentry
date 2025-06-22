@@ -50,8 +50,12 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	}
 
 	var store memstore.KV
-	if cfg.Store != "" {
-		s, err := memstore.NewSQLite(cfg.Store)
+	memURI := cfg.Memory
+	if memURI == "" {
+		memURI = cfg.Store
+	}
+	if memURI != "" {
+		s, err := memstore.StoreFactory(memURI)
 		if err != nil {
 			return nil, err
 		}
