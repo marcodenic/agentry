@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/converse"
@@ -40,6 +42,7 @@ func main() {
 	mcpFlag := fs.String("mcp", "", "comma-separated MCP servers")
 	saveID := fs.String("save-id", "", "save conversation state to this ID")
 	resumeID := fs.String("resume-id", "", "load conversation state from this ID")
+	ckptID := fs.String("checkpoint-id", "", "checkpoint session id")
 	_ = fs.Parse(args)
 	var configPath string
 	if *conf != "" {
@@ -60,8 +63,9 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		if *resumeID != "" {
-			_ = ag.LoadState(context.Background(), *resumeID)
+		if *ckptID != "" {
+			ag.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(*ckptID))
+			_ = ag.Resume(context.Background())
 		}
 		if *resumeID != "" {
 			_ = ag.LoadState(context.Background(), *resumeID)
@@ -144,6 +148,10 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		if *ckptID != "" {
+			ag.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(*ckptID))
+			_ = ag.Resume(context.Background())
+		}
 		if *resumeID != "" {
 			_ = ag.LoadState(context.Background(), *resumeID)
 		}
@@ -201,6 +209,10 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		if *ckptID != "" {
+			ag.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(*ckptID))
+			_ = ag.Resume(context.Background())
+		}
 		suite := "tests/eval_suite.json"
 		if key != "" {
 			suite = "tests/openai_eval_suite.json"
@@ -257,6 +269,10 @@ func main() {
 		ag, err := buildAgent(cfg)
 		if err != nil {
 			panic(err)
+		}
+		if *ckptID != "" {
+			ag.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(*ckptID))
+			_ = ag.Resume(context.Background())
 		}
 		if *resumeID != "" {
 			_ = ag.LoadState(context.Background(), *resumeID)
