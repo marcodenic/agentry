@@ -65,4 +65,11 @@ This project is licensed under the MIT License. See [LICENSE](./LICENSE).
 
 ---
 
+## Roadmap Update Policy
+
+- Only update the roadmap or task list in [ROADMAP.md](./ROADMAP.md) when a task has been completed to an enterprise-grade level. Partial or experimental implementations should not be marked as complete until they meet this standard.
+- Review and update the roadmap as needed every time you make changes to the codebase, or when you update or create new documentation—including AI-specific documentation—to ensure alignment and accuracy.
+
+---
+
 _Please help keep this file up to date as agents and entrypoints are added or removed._
