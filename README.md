@@ -30,9 +30,11 @@ go install github.com/marcodenic/agentry/cmd/agentry@latest
 agentry dev
 
 # 🌐 HTTP server + JS client
-agentry serve --config .agentry.yaml
+agentry serve --config examples/.agentry.yaml
 npm i @marcodenic/agentry
 ```
+
+The `examples/.agentry.yaml` file contains a ready-to-use configuration for these commands.
 
 You can now use subcommands instead of the --mode flag:
 
