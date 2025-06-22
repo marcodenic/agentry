@@ -53,6 +53,26 @@ Run `agentry tui --config examples/.agentry.yaml` to try.
 
 ---
 
+### 🎨 Themes & Keybinds
+
+Create a `theme.json` file to customise colours and keyboard shortcuts. Agentry
+looks for the file in the current directory and its parents, falling back to
+`$HOME/.config/agentry/theme.json`. Settings override the built‑in defaults.
+
+```json
+{
+  "userBarColor": "#00FF00",
+  "aiBarColor": "#FF00FF",
+  "keybinds": {
+    "quit": "ctrl+c",
+    "toggleTab": "tab",
+    "submit": "enter"
+  }
+}
+```
+
+---
+
 ## 🧰 Built-in Tools
 
 Agentry ships with a collection of safe builtin tools. They become available to the agent when listed in your `.agentry.yaml` file:
