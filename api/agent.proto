@@ -1,0 +1,41 @@
+syntax = "proto3";
+package api;
+option go_package = "github.com/marcodenic/agentry/api";
+
+message SpawnRequest {
+  string parent_id = 1;
+}
+message SpawnResponse {
+  string agent_id = 1;
+}
+
+message SendMessageRequest {
+  string agent_id = 1;
+  string input = 2;
+}
+message Ack {
+  bool ok = 1;
+}
+
+message TraceRequest {
+  string agent_id = 1;
+}
+
+message TraceEvent {
+  string type = 1;
+  string agent_id = 2;
+  string data = 3;
+  int64 timestamp = 4;
+}
+
+service AgentHub {
+  rpc Spawn(SpawnRequest) returns (SpawnResponse);
+  rpc SendMessage(SendMessageRequest) returns (Ack);
+  rpc Trace(TraceRequest) returns (stream TraceEvent);
+}
+
+service AgentNode {
+  rpc Spawn(SpawnRequest) returns (SpawnResponse);
+  rpc SendMessage(SendMessageRequest) returns (Ack);
+  rpc Trace(TraceRequest) returns (stream TraceEvent);
+}
