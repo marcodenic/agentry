@@ -12,6 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Ensure LICENSE exists
+        run: test -f LICENSE
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
