@@ -59,3 +59,4 @@ tools:
   - name: local_shell
     command: echo hello
     description: Uses shell (optional, advanced)
+metrics: true

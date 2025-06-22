@@ -6,10 +6,16 @@ import (
 
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/trace"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func Serve(agents map[string]*core.Agent) error {
-	http.HandleFunc("/invoke", func(w http.ResponseWriter, r *http.Request) {
+func Handler(agents map[string]*core.Agent, metrics bool) http.Handler {
+	mux := http.NewServeMux()
+	if metrics {
+		mux.Handle("/metrics", promhttp.Handler())
+	}
+	mux.HandleFunc("/invoke", func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			AgentID string `json:"agent_id"`
 			Input   string `json:"input"`
@@ -44,5 +50,9 @@ func Serve(agents map[string]*core.Agent) error {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"output": out})
 	})
-	return http.ListenAndServe(":8080", nil)
+	return mux
+}
+
+func Serve(agents map[string]*core.Agent, metrics bool) error {
+	return http.ListenAndServe(":8080", Handler(agents, metrics))
 }

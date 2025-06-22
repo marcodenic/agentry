@@ -36,6 +36,7 @@ type File struct {
 	Keybinds    map[string]string            `yaml:"keybinds" json:"keybinds"`
 	Credentials map[string]map[string]string `yaml:"credentials" json:"credentials"`
 	MCPServers  map[string]string            `yaml:"mcp_servers" json:"mcp_servers"`
+	Metrics     bool                         `yaml:"metrics" json:"metrics"`
 }
 
 func merge(dst *File, src File) {
@@ -71,6 +72,9 @@ func merge(dst *File, src File) {
 	}
 	for k, v := range src.MCPServers {
 		dst.MCPServers[k] = v
+	}
+	if src.Metrics {
+		dst.Metrics = true
 	}
 }
 
