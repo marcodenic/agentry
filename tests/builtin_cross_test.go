@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -16,11 +17,28 @@ func TestBuiltinsCrossPlatform(t *testing.T) {
 			ex = map[string]any{}
 		}
 		if p, ok := ex["path"].(string); ok {
-			ex["path"] = filepath.Join("..", p)
+			tmp := filepath.Join(t.TempDir(), filepath.Base(p))
+			ex["path"] = tmp
+			if name == "view" || name == "grep" || name == "edit" {
+				content := []byte("hello")
+				if name == "grep" {
+					content = []byte("hello world")
+				}
+				if err := os.WriteFile(tmp, content, 0644); err != nil {
+					t.Fatalf("setup file: %v", err)
+				}
+			}
 		}
 		t.Run(name, func(t *testing.T) {
 			if name == "patch" || name == "ping" || name == "fetch" || name == "sourcegraph" || name == "mcp" {
 				t.Skip("skip network-dependent tool")
+			}
+			if name == "edit" {
+				path := ex["path"].(string)
+				viewT, _ := tool.DefaultRegistry().Use("view")
+				if _, err := viewT.Execute(ctx, map[string]any{"path": path}); err != nil {
+					t.Fatalf("setup view: %v", err)
+				}
 			}
 			_, err := tl.Execute(ctx, ex)
 			if err != nil {

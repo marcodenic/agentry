@@ -1,6 +1,7 @@
 package tool
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -15,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/marcodenic/agentry/internal/config"
@@ -44,6 +46,59 @@ func absPath(p string) string {
 
 var ErrUnknownManifest = errors.New("unknown tool manifest")
 var ErrUnknownBuiltin = errors.New("unknown builtin tool")
+
+// viewedFiles tracks file paths read via the view builtin along with their
+// modification time. It is used to prevent overwriting files that have changed
+// on disk since they were last viewed.
+var viewedFiles sync.Map
+
+// confirmOverwrite toggles interactive confirmation before overwriting. Set the
+// AGENTRY_CONFIRM environment variable to any non-empty value to enable.
+var confirmOverwrite = os.Getenv("AGENTRY_CONFIRM") != ""
+
+func recordView(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	viewedFiles.Store(path, info.ModTime())
+	return nil
+}
+
+func confirm(msg string) bool {
+	if !confirmOverwrite {
+		return false
+	}
+	fmt.Printf("%s [y/N]: ", msg)
+	rd := bufio.NewReader(os.Stdin)
+	line, _ := rd.ReadString('\n')
+	line = strings.TrimSpace(strings.ToLower(line))
+	return line == "y" || line == "yes"
+}
+
+func checkForOverwrite(path string) error {
+	info, err := os.Stat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	v, ok := viewedFiles.Load(path)
+	if !ok {
+		if confirm("overwrite " + path + " without viewing?") {
+			return nil
+		}
+		return fmt.Errorf("file %s must be viewed before modification", path)
+	}
+	if mod := v.(time.Time); !info.ModTime().Equal(mod) {
+		if confirm("file " + path + " changed since viewed, overwrite?") {
+			return nil
+		}
+		return fmt.Errorf("file %s changed since viewed", path)
+	}
+	return nil
+}
 
 type Tool interface {
 	Name() string
@@ -267,6 +322,9 @@ var builtinMap = map[string]builtinSpec{
 			if err != nil {
 				return "", err
 			}
+			if err := recordView(path); err != nil {
+				return "", err
+			}
 			return string(b), nil
 		},
 	},
@@ -288,9 +346,13 @@ var builtinMap = map[string]builtinSpec{
 				return "", errors.New("missing path")
 			}
 			path = absPath(path)
+			if err := checkForOverwrite(path); err != nil {
+				return "", err
+			}
 			if err := os.WriteFile(path, []byte(text), 0644); err != nil {
 				return "", err
 			}
+			_ = recordView(path)
 			return "written", nil
 		},
 	},
@@ -367,9 +429,13 @@ var builtinMap = map[string]builtinSpec{
 				return "", errors.New("missing path")
 			}
 			path = absPath(path)
+			if err := checkForOverwrite(path); err != nil {
+				return "", err
+			}
 			if err := os.WriteFile(path, []byte(text), 0644); err != nil {
 				return "", err
 			}
+			_ = recordView(path)
 			return "edited", nil
 		},
 	},
