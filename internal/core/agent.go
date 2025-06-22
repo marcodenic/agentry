@@ -12,6 +12,7 @@ import (
 	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
+	"github.com/marcodenic/agentry/pkg/memstore"
 )
 
 type Agent struct {
@@ -20,14 +21,15 @@ type Agent struct {
 	Mem    memory.Store
 	Route  router.Selector
 	Tracer trace.Writer
+	Store  memstore.KV
 }
 
-func New(sel router.Selector, reg tool.Registry, mem memory.Store, tr trace.Writer) *Agent {
-	return &Agent{uuid.New(), reg, mem, sel, tr}
+func New(sel router.Selector, reg tool.Registry, mem memory.Store, store memstore.KV, tr trace.Writer) *Agent {
+	return &Agent{uuid.New(), reg, mem, sel, tr, store}
 }
 
 func (a *Agent) Spawn() *Agent {
-	return New(a.Route, a.Tools, memory.NewInMemory(), a.Tracer)
+	return New(a.Route, a.Tools, memory.NewInMemory(), a.Store, a.Tracer)
 }
 
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
@@ -70,6 +72,34 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	return "", errors.New("max iterations")
 }
 
+// SaveState persists the agent's memory under the given ID.
+func (a *Agent) SaveState(ctx context.Context, id string) error {
+	if a.Store == nil {
+		return nil
+	}
+	data, err := json.Marshal(a.Mem.History())
+	if err != nil {
+		return err
+	}
+	return a.Store.Set(ctx, "history", id, data)
+}
+
+// LoadState restores memory from the store.
+func (a *Agent) LoadState(ctx context.Context, id string) error {
+	if a.Store == nil {
+		return nil
+	}
+	b, err := a.Store.Get(ctx, "history", id)
+	if err != nil || b == nil {
+		return err
+	}
+	var steps []memory.Step
+	if err := json.Unmarshal(b, &steps); err != nil {
+		return err
+	}
+	a.Mem.SetHistory(steps)
+	return nil
+}
 func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
 	if a.Tracer != nil {
 		a.Tracer.Write(ctx, trace.Event{
