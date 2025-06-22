@@ -216,6 +216,19 @@ store: path/to/db.sqlite
 
 Run the CLI with `--resume-id myrun` to load a snapshot before running and `--save-id myrun` to save state after each run.
 
+### 📚 Vector Store
+
+Configure a vector backend for document retrieval:
+
+```yaml
+vector_store:
+  type: qdrant
+  url: http://localhost:6333
+  collection: agentry
+```
+
+Supported types are `qdrant`, `faiss`, and the default in-memory store.
+
 ---
 
 ## ⚙️ Environment Configuration

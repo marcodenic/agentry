@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/api"
@@ -41,7 +42,7 @@ func (c *chanWriter) Write(_ context.Context, e trace.Event) {
 func defaultAgent() *core.Agent {
 	reg := tool.DefaultRegistry()
 	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: model.NewMock()}}
-	return core.New(route, reg, memory.NewInMemory(), nil, nil)
+	return core.New(route, reg, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
 }
 
 // New returns a new Server instance.
@@ -78,9 +79,16 @@ func (s *Server) SendMessage(ctx context.Context, req *api.SendMessageRequest) (
 }
 
 func (s *Server) Trace(req *api.TraceRequest, stream api.AgentNode_TraceServer) error {
-	s.mu.Lock()
-	cw := s.traces[req.AgentId]
-	s.mu.Unlock()
+	var cw *chanWriter
+	for i := 0; i < 10; i++ {
+		s.mu.Lock()
+		cw = s.traces[req.AgentId]
+		s.mu.Unlock()
+		if cw != nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	if cw == nil {
 		return nil
 	}

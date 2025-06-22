@@ -22,7 +22,7 @@ func (m *seqMock) Complete(ctx context.Context, msgs []model.ChatMessage, tools 
 func TestConverseRunner(t *testing.T) {
 	mock := &seqMock{}
 	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: mock}}
-	parent := core.New(route, nil, memory.NewInMemory(), nil, nil)
+	parent := core.New(route, nil, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
 
 	out, err := converse.Run(context.Background(), parent, 3, "")
 	if err != nil {
