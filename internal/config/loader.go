@@ -15,6 +15,10 @@ type ToolManifest struct {
 	Command     string         `yaml:"command,omitempty" json:"command,omitempty"`
 	HTTP        string         `yaml:"http,omitempty" json:"http,omitempty"`
 	Args        map[string]any `yaml:"args,omitempty" json:"args,omitempty"`
+	Privileged  bool           `yaml:"privileged,omitempty" json:"privileged,omitempty"`
+	Net         string         `yaml:"net,omitempty" json:"net,omitempty"`
+	CPULimit    string         `yaml:"cpu_limit,omitempty" json:"cpu_limit,omitempty"`
+	MemLimit    string         `yaml:"mem_limit,omitempty" json:"mem_limit,omitempty"`
 }
 
 type ModelManifest struct {
