@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -30,6 +31,10 @@ func main() {
 	args := os.Args[2:]
 	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
 	conf := fs.String("config", "", "path to .agentry.yaml")
+	theme := fs.String("theme", "", "theme name override")
+	keybinds := fs.String("keybinds", "", "path to keybinds json")
+	credsPath := fs.String("creds", "", "path to credentials json")
+	mcpFlag := fs.String("mcp", "", "comma-separated MCP servers")
 	_ = fs.Parse(args)
 	var configPath string
 	if *conf != "" {
@@ -96,6 +101,31 @@ func main() {
 			fmt.Printf("failed to load config: %v\n", err)
 			os.Exit(1)
 		}
+		if *theme != "" {
+			if cfg.Themes == nil {
+				cfg.Themes = map[string]string{}
+			}
+			cfg.Themes["active"] = *theme
+		}
+		if *keybinds != "" {
+			if b, err := os.ReadFile(*keybinds); err == nil {
+				_ = json.Unmarshal(b, &cfg.Keybinds)
+			}
+		}
+		if *credsPath != "" {
+			if b, err := os.ReadFile(*credsPath); err == nil {
+				_ = json.Unmarshal(b, &cfg.Credentials)
+			}
+		}
+		if *mcpFlag != "" {
+			if cfg.MCPServers == nil {
+				cfg.MCPServers = map[string]string{}
+			}
+			parts := strings.Split(*mcpFlag, ",")
+			for i, p := range parts {
+				cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = strings.TrimSpace(p)
+			}
+		}
 		ag, err := buildAgent(cfg)
 		if err != nil {
 			panic(err)
@@ -108,6 +138,31 @@ func main() {
 		if err != nil {
 			fmt.Printf("failed to load config: %v\n", err)
 			os.Exit(1)
+		}
+		if *theme != "" {
+			if cfg.Themes == nil {
+				cfg.Themes = map[string]string{}
+			}
+			cfg.Themes["active"] = *theme
+		}
+		if *keybinds != "" {
+			if b, err := os.ReadFile(*keybinds); err == nil {
+				_ = json.Unmarshal(b, &cfg.Keybinds)
+			}
+		}
+		if *credsPath != "" {
+			if b, err := os.ReadFile(*credsPath); err == nil {
+				_ = json.Unmarshal(b, &cfg.Credentials)
+			}
+		}
+		if *mcpFlag != "" {
+			if cfg.MCPServers == nil {
+				cfg.MCPServers = map[string]string{}
+			}
+			parts := strings.Split(*mcpFlag, ",")
+			for i, p := range parts {
+				cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = strings.TrimSpace(p)
+			}
 		}
 		key := os.Getenv("OPENAI_KEY")
 		if key != "" {
@@ -134,6 +189,31 @@ func main() {
 		if err != nil {
 			fmt.Printf("failed to load config: %v\n", err)
 			os.Exit(1)
+		}
+		if *theme != "" {
+			if cfg.Themes == nil {
+				cfg.Themes = map[string]string{}
+			}
+			cfg.Themes["active"] = *theme
+		}
+		if *keybinds != "" {
+			if b, err := os.ReadFile(*keybinds); err == nil {
+				_ = json.Unmarshal(b, &cfg.Keybinds)
+			}
+		}
+		if *credsPath != "" {
+			if b, err := os.ReadFile(*credsPath); err == nil {
+				_ = json.Unmarshal(b, &cfg.Credentials)
+			}
+		}
+		if *mcpFlag != "" {
+			if cfg.MCPServers == nil {
+				cfg.MCPServers = map[string]string{}
+			}
+			parts := strings.Split(*mcpFlag, ",")
+			for i, p := range parts {
+				cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = strings.TrimSpace(p)
+			}
 		}
 		ag, err := buildAgent(cfg)
 		if err != nil {

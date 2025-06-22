@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/marcodenic/agentry/internal/config"
-	"github.com/marcodenic/agentry/internal/lsp"
+	"github.com/marcodenic/agentry/internal/patch"
 )
 
 var osType = runtime.GOOS
@@ -370,10 +370,6 @@ var builtinMap = map[string]builtinSpec{
 			if err := os.WriteFile(path, []byte(text), 0644); err != nil {
 				return "", err
 			}
-			diags, _ := lsp.Check([]string{path})
-			if diags != "" {
-				return "edited\n" + diags, nil
-			}
 			return "edited", nil
 		},
 	},
@@ -418,31 +414,29 @@ var builtinMap = map[string]builtinSpec{
 }
 
 func init() {
-	if osType != "windows" {
-		builtinMap["patch"] = builtinSpec{
-			Desc: "Apply a unified diff patch",
-			Schema: map[string]any{
-				"type":       "object",
-				"properties": map[string]any{"patch": map[string]any{"type": "string"}},
-				"required":   []string{"patch"},
-				"example":    map[string]any{"patch": ""},
-			},
-			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				patchStr, _ := args["patch"].(string)
-				if patchStr == "" {
-					return "", errors.New("missing patch")
-				}
-				cmd := exec.CommandContext(ctx, "patch", "-p0")
-				cmd.Stdin = strings.NewReader(patchStr)
-				out, err := cmd.CombinedOutput()
-				if err != nil {
-					return string(out), err
-				}
-				files := parsePatchFiles(patchStr)
-				diags, _ := lsp.Check(files)
-				return string(out) + "\n" + diags, nil
-			},
-		}
+	builtinMap["patch"] = builtinSpec{
+		Desc: "Apply a unified diff patch",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"patch": map[string]any{"type": "string"}},
+			"required":   []string{"patch"},
+			"example":    map[string]any{"patch": ""},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			patchStr, _ := args["patch"].(string)
+			if patchStr == "" {
+				return "", errors.New("missing patch")
+			}
+			stats, err := patch.Apply([]byte(patchStr))
+			if err != nil {
+				return "", err
+			}
+			var b strings.Builder
+			for _, s := range stats {
+				fmt.Fprintf(&b, "%s +%d -%d\n", s.File, s.Additions, s.Deletions)
+			}
+			return strings.TrimSpace(b.String()), nil
+		},
 	}
 }
 
