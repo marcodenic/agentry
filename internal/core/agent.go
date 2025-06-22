@@ -24,6 +24,7 @@ type Agent struct {
 	ID     uuid.UUID
 	Tools  tool.Registry
 	Mem    memory.Store
+	Vector memory.VectorStore
 	Route  router.Selector
 	Tracer trace.Writer
 	Store  memstore.KV
@@ -41,12 +42,12 @@ var (
 	}, []string{"agent", "tool"})
 )
 
-func New(sel router.Selector, reg tool.Registry, mem memory.Store, store memstore.KV, tr trace.Writer) *Agent {
-	return &Agent{uuid.New(), reg, mem, sel, tr, store}
+func New(sel router.Selector, reg tool.Registry, mem memory.Store, store memstore.KV, vec memory.VectorStore, tr trace.Writer) *Agent {
+	return &Agent{uuid.New(), reg, mem, vec, sel, tr, store}
 }
 
 func (a *Agent) Spawn() *Agent {
-	return New(a.Route, a.Tools, memory.NewInMemory(), a.Store, a.Tracer)
+	return New(a.Route, a.Tools, memory.NewInMemory(), a.Store, a.Vector, a.Tracer)
 }
 
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {

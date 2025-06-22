@@ -49,7 +49,7 @@ func Run(ctx context.Context, f *File, reg tool.Registry, store memstore.KV) ([]
 			client = model.NewMock()
 		}
 		route := router.Rules{{Name: conf.Model, IfContains: []string{""}, Client: client}}
-		ag := core.New(route, tools, memory.NewInMemory(), store, nil)
+		ag := core.New(route, tools, memory.NewInMemory(), store, memory.NewInMemoryVector(), nil)
 		return ag, nil
 	}
 
