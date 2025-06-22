@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/marcodenic/agentry/internal/config"
+	"github.com/marcodenic/agentry/internal/patch"
 )
 
 var osType = runtime.GOOS
@@ -479,50 +480,25 @@ var builtinMap = map[string]builtinSpec{
 }
 
 func init() {
-	if osType != "windows" {
-		builtinMap["patch"] = builtinSpec{
-			Desc: "Apply a unified diff patch",
-			Schema: map[string]any{
-				"type":       "object",
-				"properties": map[string]any{"patch": map[string]any{"type": "string"}},
-				"required":   []string{"patch"},
-				"example":    map[string]any{"patch": ""},
-			},
-			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				patchStr, _ := args["patch"].(string)
-				if patchStr == "" {
-					return "", errors.New("missing patch")
-				}
-				// collect touched files from patch headers
-				paths := map[string]struct{}{}
-				sc := bufio.NewScanner(strings.NewReader(patchStr))
-				for sc.Scan() {
-					line := sc.Text()
-					if strings.HasPrefix(line, "+++ ") {
-						f := strings.Fields(line)
-						if len(f) > 1 {
-							p := strings.TrimPrefix(f[1], "b/")
-							p = strings.TrimPrefix(p, "a/")
-							if p != "/dev/null" {
-								paths[p] = struct{}{}
-							}
-						}
-					}
-				}
-				for p := range paths {
-					if err := checkForOverwrite(absPath(p)); err != nil {
-						return "", err
-					}
-				}
-				cmd := exec.CommandContext(ctx, "patch", "-p0")
-				cmd.Stdin = strings.NewReader(patchStr)
-				out, err := cmd.CombinedOutput()
-				for p := range paths {
-					_ = recordView(absPath(p))
-				}
-				return string(out), err
-			},
-		}
+	builtinMap["patch"] = builtinSpec{
+		Desc: "Apply a unified diff patch",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"patch": map[string]any{"type": "string"}},
+			"required":   []string{"patch"},
+			"example":    map[string]any{"patch": ""},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			patchStr, _ := args["patch"].(string)
+			if patchStr == "" {
+				return "", errors.New("missing patch")
+			}
+			res, err := patch.Apply(patchStr)
+			if err != nil {
+				return "", err
+			}
+			return patch.MarshalResult(res)
+		},
 	}
 }
 
