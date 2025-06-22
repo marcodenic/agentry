@@ -2,7 +2,7 @@
 
 Agentry aims to become a best-in-class platform for multi-agent AI by anticipating the next wave of requirements in agentic systems. The following strategic context and recommendations inform the roadmap and epics below, ensuring Agentry can leapfrog current offerings and remain future-proof:
 
-## Key Strategic Enhancements (6–12 Month Outlook)
+## Key Strategic Enhancements
 
 1. **Persistent Memory & Resumable Workflows**
 
@@ -39,7 +39,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 
 ## Industry Context & Sources
 
-- The above roadmap is informed by Agentry’s current design and by studying leading tools: OpenCode, OpenDevin/OpenHands, Microsoft AutoGen, CrewAI, and Anthropic’s multi-agent research. See AGENTS.md for additional references.
+- See AGENTS.md for additional references.
 - These recommendations ensure Agentry is positioned for reliability, scalability, security, and developer delight as the field evolves.
 
 ---
