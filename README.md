@@ -96,7 +96,7 @@ address in your YAML config and the agent can send MCP commands and read the
 responses.
 
 
-> **🪟 Windows users:** Agentry works out-of-the-box on Windows 10+ with PowerShell installed. Built-ins that require external Unix tools (`patch`) are disabled automatically. Install Git for Windows and run under Git Bash if you need them.
+> **🪟 Windows users:** Agentry works out-of-the-box on Windows 10+ with PowerShell installed.
 
 ---
 
