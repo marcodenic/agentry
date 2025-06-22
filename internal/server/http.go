@@ -6,15 +6,17 @@ import (
 
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/trace"
+	"github.com/marcodenic/agentry/ui"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func Handler(agents map[string]*core.Agent, metrics bool) http.Handler {
+func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID string) http.Handler {
 	mux := http.NewServeMux()
 	if metrics {
 		mux.Handle("/metrics", promhttp.Handler())
 	}
+	mux.Handle("/", http.FileServer(http.FS(ui.WebUI)))
 	mux.HandleFunc("/invoke", func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			AgentID string `json:"agent_id"`
@@ -44,16 +46,22 @@ func Handler(agents map[string]*core.Agent, metrics bool) http.Handler {
 			}
 			return
 		}
+		if resumeID != "" {
+			_ = ag.LoadState(r.Context(), resumeID)
+		}
 		out, err := ag.Run(r.Context(), in.Input)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
+		}
+		if saveID != "" {
+			_ = ag.SaveState(r.Context(), saveID)
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"output": out})
 	})
 	return mux
 }
 
-func Serve(agents map[string]*core.Agent, metrics bool) error {
-	return http.ListenAndServe(":8080", Handler(agents, metrics))
+func Serve(agents map[string]*core.Agent, metrics bool, saveID, resumeID string) error {
+	return http.ListenAndServe(":8080", Handler(agents, metrics, saveID, resumeID))
 }

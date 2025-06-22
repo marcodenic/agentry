@@ -39,3 +39,15 @@ flowchart LR
 ```
 
 This layout may evolve as the distributed scheduler and sandbox features mature.
+
+## Building the Dashboard
+
+The web dashboard lives under `ui/web` and uses SvelteKit.
+
+```bash
+cd ui/web
+npm install
+npm run build
+```
+
+The build output in `ui/web/dist` is embedded into the hub and served at `/` when running `agentry serve --metrics`.

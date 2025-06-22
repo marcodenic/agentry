@@ -50,6 +50,8 @@ Example:
 agentry flow .
 ```
 
+Pass `--resume-id name` to load a saved session and `--save-id name` to persist after each run.
+
 The new `tui` command launches a split-screen interface:
 
 ```
@@ -203,6 +205,16 @@ converse 3 Pick a favourite movie, just one, then discuss as a group.
 ```
 
 The first number selects how many agents join the chat. Any remaining text becomes the opening message. If omitted, a generic greeting is used.
+
+### 💾 Saving & Resuming
+
+Add a `store` path to your `.agentry.yaml` to enable persistence:
+
+```yaml
+store: path/to/db.sqlite
+```
+
+Run the CLI with `--resume-id myrun` to load a snapshot before running and `--save-id myrun` to save state after each run.
 
 ---
 
