@@ -48,6 +48,6 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		rules = router.Rules{{Name: "mock", IfContains: []string{""}, Client: model.NewMock()}}
 	}
 
-	ag := core.New(rules, reg, memory.NewInMemory(), nil)
+	ag := core.New(rules, reg, memory.NewInMemory(), nil, nil)
 	return ag, nil
 }

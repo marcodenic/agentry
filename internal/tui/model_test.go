@@ -10,7 +10,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	ag := core.New(router.Rules{{IfContains: []string{""}, Client: nil}}, tool.Registry{}, memory.NewInMemory(), nil)
+	ag := core.New(router.Rules{{IfContains: []string{""}, Client: nil}}, tool.Registry{}, memory.NewInMemory(), nil, nil)
 	m := New(ag)
 	if m.agent != ag {
 		t.Fatalf("agent mismatch")
