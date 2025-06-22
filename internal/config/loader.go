@@ -37,6 +37,7 @@ type File struct {
 	Routes      []RouteRule                  `yaml:"routes" json:"routes"`
 	Tools       []ToolManifest               `yaml:"tools" json:"tools"`
 	Store       string                       `yaml:"store" json:"store"`
+	SessionTTL  string                       `yaml:"session_ttl" json:"session_ttl"`
 	Themes      map[string]string            `yaml:"themes" json:"themes"`
 	Keybinds    map[string]string            `yaml:"keybinds" json:"keybinds"`
 	Credentials map[string]map[string]string `yaml:"credentials" json:"credentials"`
@@ -56,6 +57,9 @@ func merge(dst *File, src File) {
 	}
 	if src.Store != "" {
 		dst.Store = src.Store
+	}
+	if src.SessionTTL != "" {
+		dst.SessionTTL = src.SessionTTL
 	}
 	if dst.Themes == nil {
 		dst.Themes = map[string]string{}

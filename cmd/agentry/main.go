@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/marcodenic/agentry/internal/config"
@@ -21,6 +22,7 @@ import (
 	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/internal/tui"
 	"github.com/marcodenic/agentry/pkg/flow"
+	"github.com/marcodenic/agentry/pkg/memstore"
 )
 
 func main() {
@@ -60,9 +62,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		if *resumeID != "" {
-			_ = ag.LoadState(context.Background(), *resumeID)
-		}
+		// no session cleanup in dev mode
 		if *resumeID != "" {
 			_ = ag.LoadState(context.Background(), *resumeID)
 		}
@@ -143,6 +143,17 @@ func main() {
 		ag, err := buildAgent(cfg)
 		if err != nil {
 			panic(err)
+		}
+		if dur, err := time.ParseDuration(cfg.SessionTTL); err == nil && dur > 0 {
+			if s, ok := ag.Store.(*memstore.SQLite); ok {
+				go func() {
+					ticker := time.NewTicker(time.Hour)
+					defer ticker.Stop()
+					for range ticker.C {
+						_ = s.Cleanup(context.Background(), "history", dur)
+					}
+				}()
+			}
 		}
 		if *resumeID != "" {
 			_ = ag.LoadState(context.Background(), *resumeID)
