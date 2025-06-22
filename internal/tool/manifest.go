@@ -515,3 +515,17 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 
 	return nil, ErrUnknownManifest
 }
+
+func parsePatchFiles(patchStr string) []string {
+	var files []string
+	for _, line := range strings.Split(patchStr, "\n") {
+		if strings.HasPrefix(line, "+++ ") {
+			f := strings.TrimPrefix(line, "+++ ")
+			f = strings.TrimPrefix(f, "b/")
+			if f != "/dev/null" && f != "" {
+				files = append(files, f)
+			}
+		}
+	}
+	return files
+}
