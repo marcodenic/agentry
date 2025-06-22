@@ -18,7 +18,7 @@ func TestServerConcurrentInvoke(t *testing.T) {
 	ag := newAgent("ok", nil)
 	agents := map[string]*core.Agent{"a": ag}
 
-	srv := httptest.NewServer(server.Handler(agents, false))
+	srv := httptest.NewServer(server.Handler(agents, false, "", ""))
 	defer srv.Close()
 
 	const n = 10
