@@ -10,6 +10,7 @@ import (
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/tool"
+	"github.com/marcodenic/agentry/pkg/memstore"
 )
 
 // buildAgent constructs an Agent from configuration.
@@ -48,6 +49,15 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		rules = router.Rules{{Name: "mock", IfContains: []string{""}, Client: model.NewMock()}}
 	}
 
-	ag := core.New(rules, reg, memory.NewInMemory(), nil, nil)
+	var store memstore.KV
+	if cfg.Store != "" {
+		s, err := memstore.NewSQLite(cfg.Store)
+		if err != nil {
+			return nil, err
+		}
+		store = s
+	}
+
+	ag := core.New(rules, reg, memory.NewInMemory(), store, nil)
 	return ag, nil
 }
