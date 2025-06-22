@@ -36,6 +36,8 @@ func main() {
 	keybinds := fs.String("keybinds", "", "path to keybinds json")
 	credsPath := fs.String("creds", "", "path to credentials json")
 	mcpFlag := fs.String("mcp", "", "comma-separated MCP servers")
+	saveID := fs.String("save-id", "", "save conversation state to this ID")
+	resumeID := fs.String("resume-id", "", "load conversation state from this ID")
 	_ = fs.Parse(args)
 	var configPath string
 	if *conf != "" {
@@ -55,6 +57,12 @@ func main() {
 		ag, err := buildAgent(cfg)
 		if err != nil {
 			panic(err)
+		}
+		if *resumeID != "" {
+			_ = ag.LoadState(context.Background(), *resumeID)
+		}
+		if *resumeID != "" {
+			_ = ag.LoadState(context.Background(), *resumeID)
 		}
 
 		// tiny REPL
@@ -95,6 +103,9 @@ func main() {
 				continue
 			}
 			fmt.Println(out)
+			if *saveID != "" {
+				_ = ag.SaveState(context.Background(), *saveID)
+			}
 		}
 	case "serve":
 		cfg, err := config.Load(configPath)
@@ -131,6 +142,9 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		if *resumeID != "" {
+			_ = ag.LoadState(context.Background(), *resumeID)
+		}
 		if cfg.Metrics {
 			if _, err := trace.Init(); err != nil {
 				fmt.Printf("trace init: %v\n", err)
@@ -138,7 +152,7 @@ func main() {
 		}
 		agents := map[string]*core.Agent{"default": ag}
 		fmt.Println("Serving HTTP on :8080")
-		server.Serve(agents, cfg.Metrics)
+		server.Serve(agents, cfg.Metrics, *saveID, *resumeID)
 	case "eval":
 		cfg, err := config.Load(configPath)
 		if err != nil {
@@ -190,6 +204,9 @@ func main() {
 			suite = "tests/openai_eval_suite.json"
 		}
 		eval.Run(nil, ag, suite)
+		if *saveID != "" {
+			_ = ag.SaveState(context.Background(), *saveID)
+		}
 	case "tui":
 		cfg, err := config.Load(configPath)
 		if err != nil {
@@ -225,9 +242,15 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		if *resumeID != "" {
+			_ = ag.LoadState(context.Background(), *resumeID)
+		}
 		p := tea.NewProgram(tui.New(ag))
 		if err := p.Start(); err != nil {
 			panic(err)
+		}
+		if *saveID != "" {
+			_ = ag.SaveState(context.Background(), *saveID)
 		}
 	case "plugin":
 		runPluginCmd(args)
