@@ -229,6 +229,8 @@ func main() {
 		if err := p.Start(); err != nil {
 			panic(err)
 		}
+	case "plugin":
+		runPluginCmd(args)
 	default:
 		fmt.Println("unknown command. Usage: agentry [dev|serve|tui|eval] [--config path/to/config.yaml]")
 		os.Exit(1)
