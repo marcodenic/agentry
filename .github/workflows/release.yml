@@ -29,9 +29,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: agentry-${{ matrix.goos }}
           path: dist/*
-  
+
   release:
     name: Publish GitHub Release
     needs: build
