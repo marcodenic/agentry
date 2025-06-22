@@ -60,3 +60,7 @@ tools:
     command: echo hello
     description: Uses shell (optional, advanced)
 metrics: true
+# path to SQLite DB for conversation history
+# store: path/to/db.sqlite
+# delete sessions older than this duration (e.g. 168h = 7 days)
+session_ttl: 168h

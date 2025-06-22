@@ -209,8 +209,7 @@ The first number selects how many agents join the chat. Any remaining text becom
 
 ### 💾 Saving & Resuming
 
-Add a `memory` entry to your `.agentry.yaml` to enable persistence. The value
-uses a URI scheme to select the backend:
+Add a `memory` entry to your `.agentry.yaml` to enable persistence. The value uses a URI scheme to select the backend:
 
 ```yaml
 # SQLite database
@@ -221,9 +220,15 @@ memory: sqlite:mem.db
 
 # In-memory (ephemeral)
 # memory: mem:
+
+# Session TTL (optional)
+store: path/to/db.sqlite
+# automatically remove sessions after one week
+session_ttl: 168h
 ```
 
 Run the CLI with `--resume-id myrun` to load a snapshot before running and `--save-id myrun` to save state after each run. `--checkpoint-id myrun` continuously saves intermediate steps so sessions can be resumed.
+Expired sessions are pruned automatically by the server based on `session_ttl`.
 
 ### 📚 Vector Store
 

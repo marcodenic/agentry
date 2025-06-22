@@ -45,6 +45,7 @@ type File struct {
 	Tools       []ToolManifest               `yaml:"tools" json:"tools"`
 	Memory      string                       `yaml:"memory" json:"memory"`
 	Store       string                       `yaml:"store" json:"store"`
+	SessionTTL  string                       `yaml:"session_ttl" json:"session_ttl"`
 	Vector      VectorManifest               `yaml:"vector_store" json:"vector_store"`
 	Themes      map[string]string            `yaml:"themes" json:"themes"`
 	Keybinds    map[string]string            `yaml:"keybinds" json:"keybinds"`
@@ -68,6 +69,9 @@ func merge(dst *File, src File) {
 	}
 	if src.Store != "" {
 		dst.Store = src.Store
+	}
+	if src.SessionTTL != "" {
+		dst.SessionTTL = src.SessionTTL
 	}
 	if src.Vector.Type != "" {
 		dst.Vector = src.Vector

@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/internal/tui"
 	"github.com/marcodenic/agentry/pkg/flow"
+	"github.com/marcodenic/agentry/pkg/memstore"
 )
 
 func main() {
@@ -62,10 +64,6 @@ func main() {
 		ag, err := buildAgent(cfg)
 		if err != nil {
 			panic(err)
-		}
-		if *ckptID != "" {
-			ag.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(*ckptID))
-			_ = ag.Resume(context.Background())
 		}
 		if *resumeID != "" {
 			_ = ag.LoadState(context.Background(), *resumeID)
@@ -148,6 +146,19 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		// Session cleanup goroutine
+		if dur, err := time.ParseDuration(cfg.SessionTTL); err == nil && dur > 0 {
+			if s, ok := ag.Store.(*memstore.SQLite); ok {
+				go func() {
+					ticker := time.NewTicker(time.Hour)
+					defer ticker.Stop()
+					for range ticker.C {
+						_ = s.Cleanup(context.Background(), "history", dur)
+					}
+				}()
+			}
+		}
+		// Checkpoint logic
 		if *ckptID != "" {
 			ag.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(*ckptID))
 			_ = ag.Resume(context.Background())
