@@ -42,6 +42,13 @@ You can now use subcommands instead of the --mode flag:
 - `agentry serve` (HTTP server)
 - `agentry tui` (TUI interface)
 - `agentry eval` (evaluation)
+- `agentry flow` (run `.agentry.flow.yaml`)
+
+Example:
+
+```bash
+agentry flow .
+```
 
 Pass `--resume-id name` to load a saved session and `--save-id name` to persist after each run.
 

@@ -17,14 +17,16 @@ import (
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/eval"
 	"github.com/marcodenic/agentry/internal/server"
+	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/internal/tui"
+	"github.com/marcodenic/agentry/pkg/flow"
 )
 
 func main() {
 	env.Load()
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: agentry [dev|serve|tui|eval] [--config path/to/config.yaml]")
+		fmt.Println("Usage: agentry [dev|serve|tui|eval|flow] [--config path/to/config.yaml]")
 		os.Exit(1)
 	}
 
@@ -207,6 +209,20 @@ func main() {
 		if *saveID != "" {
 			_ = ag.SaveState(context.Background(), *saveID)
 		}
+	case "flow":
+		f, err := flow.Load(configPath)
+		if err != nil {
+			fmt.Printf("failed to load flow: %v\n", err)
+			os.Exit(1)
+		}
+		outs, err := flow.Run(context.Background(), f, tool.DefaultRegistry(), nil)
+		if err != nil {
+			fmt.Printf("flow error: %v\n", err)
+			os.Exit(1)
+		}
+		for _, o := range outs {
+			fmt.Println(o)
+		}
 	case "tui":
 		cfg, err := config.Load(configPath)
 		if err != nil {
@@ -255,7 +271,7 @@ func main() {
 	case "plugin":
 		runPluginCmd(args)
 	default:
-		fmt.Println("unknown command. Usage: agentry [dev|serve|tui|eval] [--config path/to/config.yaml]")
+		fmt.Println("unknown command. Usage: agentry [dev|serve|tui|eval|flow] [--config path/to/config.yaml]")
 		os.Exit(1)
 	}
 }
