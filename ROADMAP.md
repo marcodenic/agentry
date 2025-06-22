@@ -136,7 +136,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 
 # `condition`, `loop`, `timeout`, `env`.
 
-# R2.3 Engine that interprets DSL → spawns/coordinates agents.
+# R2.3 Engine that interprets DSL → spawns/coordinates agents. (basic engine implemented)
 
 # R2.4 Validation + static schema (JSON‑Schema for IDE support).
 

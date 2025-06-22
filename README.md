@@ -42,6 +42,13 @@ You can now use subcommands instead of the --mode flag:
 - `agentry serve` (HTTP server)
 - `agentry tui` (TUI interface)
 - `agentry eval` (evaluation)
+- `agentry flow` (run `.agentry.flow.yaml`)
+
+Example:
+
+```bash
+agentry flow .
+```
 
 The new `tui` command launches a split-screen interface:
 
