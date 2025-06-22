@@ -51,6 +51,7 @@ agentry flow .
 ```
 
 Pass `--resume-id name` to load a saved session and `--save-id name` to persist after each run.
+Use `--checkpoint-id name` to continuously snapshot the run loop and resume after a crash.
 
 The new `tui` command launches a split-screen interface:
 
@@ -222,7 +223,20 @@ memory: sqlite:mem.db
 # memory: mem:
 ```
 
-Run the CLI with `--resume-id myrun` to load a snapshot before running and `--save-id myrun` to save state after each run.
+Run the CLI with `--resume-id myrun` to load a snapshot before running and `--save-id myrun` to save state after each run. `--checkpoint-id myrun` continuously saves intermediate steps so sessions can be resumed.
+
+### 📚 Vector Store
+
+Configure a vector backend for document retrieval:
+
+```yaml
+vector_store:
+  type: qdrant
+  url: http://localhost:6333
+  collection: agentry
+```
+
+Supported types are `qdrant`, `faiss`, and the default in-memory store.
 
 ---
 

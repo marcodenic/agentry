@@ -17,6 +17,8 @@ const (
 	EventToolEnd    EventType = "tool_end"
 	EventFinal      EventType = "final"
 	EventModelStart EventType = "model_start"
+	// EventYield signals that the agent stopped because the iteration limit was reached.
+	EventYield EventType = "yield"
 )
 
 type Event struct {

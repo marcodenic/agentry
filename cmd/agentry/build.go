@@ -62,6 +62,16 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		store = s
 	}
 
-	ag := core.New(rules, reg, memory.NewInMemory(), store, nil)
+	var vec memory.VectorStore
+	switch cfg.Vector.Type {
+	case "qdrant":
+		vec = memory.NewQdrant(cfg.Vector.URL, cfg.Vector.Collection)
+	case "faiss":
+		vec = memory.NewFaiss(cfg.Vector.URL)
+	default:
+		vec = memory.NewInMemoryVector()
+	}
+
+	ag := core.New(rules, reg, memory.NewInMemory(), store, vec, nil)
 	return ag, nil
 }
