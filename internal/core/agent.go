@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -94,7 +93,8 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		a.Mem.AddStep(step)
 		_ = a.Checkpoint(ctx)
 	}
-	return "", errors.New("max iterations")
+	a.Trace(ctx, trace.EventYield, nil)
+	return "", nil
 }
 
 // SaveState persists the agent's memory under the given ID.
