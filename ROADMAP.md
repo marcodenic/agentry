@@ -1,3 +1,49 @@
+# === STRATEGIC ROADMAP & CONTEXT ===
+
+Agentry aims to become a best-in-class platform for multi-agent AI by anticipating the next wave of requirements in agentic systems. The following strategic context and recommendations inform the roadmap and epics below, ensuring Agentry can leapfrog current offerings and remain future-proof:
+
+## Key Strategic Enhancements (6–12 Month Outlook)
+
+1. **Persistent Memory & Resumable Workflows**
+
+   - Enable agents to remember and resume tasks across sessions, with first-class support for persistent state storage and workflow checkpointing.
+   - Integrate long-term memory (e.g., SQLite/vector DB per agent/project) and provide APIs for agents to read/write knowledge, facts, and plans.
+   - Implement checkpointing and task resumption, allowing agents to serialize/deserialize state and continue complex workflows after restarts.
+   - Provide example scenarios (e.g., scheduled agents, multi-day research tasks) to demonstrate reliability and persistence.
+
+2. **Declarative Workflow Orchestration (DSL for Agents)**
+
+   - Extend Agentry’s YAML/JSON config to support scripting of multi-agent interactions and orchestration patterns (parallel, sequential, conditional, etc.).
+   - Develop a high-level, human-readable DSL for defining agent roles, communication, and tool usage, lowering the barrier for complex workflows.
+   - Plan for a future no-code/low-code UI to edit and visualize workflows, making orchestration accessible to a broader audience.
+
+3. **Enhanced Sandboxing and Plugin Ecosystem**
+
+   - Strengthen sandboxing for tool/plugin execution (e.g., Docker, gVisor, Firecracker) to ensure system safety and configurable permissions.
+   - Implement a permission system for tool usage, with interactive or policy-based approvals and comprehensive audit logging.
+   - Formalize plugin APIs and align with emerging standards (OpenAI Plugin spec, Anthropics’ MCP) for maximum interoperability.
+   - Foster a community-driven plugin marketplace, enabling rapid extension and sharing of tools/agents.
+
+4. **Distributed Agent Scheduling & Collaboration**
+
+   - Evolve Agentry into a distributed platform, orchestrating agents across processes/machines via messaging (gRPC, NATS, etc.).
+   - Build a task queue and scheduler for background/long-running tasks, supporting horizontal scaling and resilience.
+   - Define protocols for agent collaboration and state sharing, with optional central coordination components.
+   - Integrate monitoring, discovery, and secure communication for distributed deployments.
+
+5. **Observability and Developer Experience**
+   - Provide real-time tracing, structured logging, and web dashboards for visualizing agent workflows and debugging.
+   - Track metrics (token usage, latency, tool calls) and expose endpoints for integration with observability stacks (e.g., Prometheus).
+   - Offer interactive control for step-through debugging and human-in-the-loop development.
+   - Invest in documentation, guides, and a “cookbook” of agent scenarios to accelerate adoption and success.
+
+## Industry Context & Sources
+
+- The above roadmap is informed by Agentry’s current design and by studying leading tools: OpenCode, OpenDevin/OpenHands, Microsoft AutoGen, CrewAI, and Anthropic’s multi-agent research. See AGENTS.md for additional references.
+- These recommendations ensure Agentry is positioned for reliability, scalability, security, and developer delight as the field evolves.
+
+---
+
 # === MASTER PROMPT: BUILDING "AGENTRY CLOUD" ===
 
 #
