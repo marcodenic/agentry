@@ -6,6 +6,7 @@ import (
 
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/trace"
+	"github.com/marcodenic/agentry/ui"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -15,6 +16,7 @@ func Handler(agents map[string]*core.Agent, metrics bool) http.Handler {
 	if metrics {
 		mux.Handle("/metrics", promhttp.Handler())
 	}
+	mux.Handle("/", http.FileServer(http.FS(ui.WebUI)))
 	mux.HandleFunc("/invoke", func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			AgentID string `json:"agent_id"`
