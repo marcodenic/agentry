@@ -36,7 +36,8 @@ type File struct {
 	Models      []ModelManifest              `yaml:"models" json:"models"`
 	Routes      []RouteRule                  `yaml:"routes" json:"routes"`
 	Tools       []ToolManifest               `yaml:"tools" json:"tools"`
-	Store       string                       `yaml:"store" json:"store"`
+	Memory      string                       `yaml:"memory" json:"memory"`
+	Store       string                       `yaml:"store" json:"store"` // legacy
 	Themes      map[string]string            `yaml:"themes" json:"themes"`
 	Keybinds    map[string]string            `yaml:"keybinds" json:"keybinds"`
 	Credentials map[string]map[string]string `yaml:"credentials" json:"credentials"`
@@ -53,6 +54,9 @@ func merge(dst *File, src File) {
 	}
 	if len(src.Tools) > 0 {
 		dst.Tools = src.Tools
+	}
+	if src.Memory != "" {
+		dst.Memory = src.Memory
 	}
 	if src.Store != "" {
 		dst.Store = src.Store

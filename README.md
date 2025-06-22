@@ -208,10 +208,18 @@ The first number selects how many agents join the chat. Any remaining text becom
 
 ### 💾 Saving & Resuming
 
-Add a `store` path to your `.agentry.yaml` to enable persistence:
+Add a `memory` entry to your `.agentry.yaml` to enable persistence. The value
+uses a URI scheme to select the backend:
 
 ```yaml
-store: path/to/db.sqlite
+# SQLite database
+memory: sqlite:mem.db
+
+# JSON file
+# memory: file:mem.json
+
+# In-memory (ephemeral)
+# memory: mem:
 ```
 
 Run the CLI with `--resume-id myrun` to load a snapshot before running and `--save-id myrun` to save state after each run.
