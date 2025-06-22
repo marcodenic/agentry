@@ -50,14 +50,28 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	}
 
 	var store memstore.KV
-	if cfg.Store != "" {
-		s, err := memstore.NewSQLite(cfg.Store)
+	memURI := cfg.Memory
+	if memURI == "" {
+		memURI = cfg.Store
+	}
+	if memURI != "" {
+		s, err := memstore.StoreFactory(memURI)
 		if err != nil {
 			return nil, err
 		}
 		store = s
 	}
 
-	ag := core.New(rules, reg, memory.NewInMemory(), store, nil)
+	var vec memory.VectorStore
+	switch cfg.Vector.Type {
+	case "qdrant":
+		vec = memory.NewQdrant(cfg.Vector.URL, cfg.Vector.Collection)
+	case "faiss":
+		vec = memory.NewFaiss(cfg.Vector.URL)
+	default:
+		vec = memory.NewInMemoryVector()
+	}
+
+	ag := core.New(rules, reg, memory.NewInMemory(), store, vec, nil)
 	return ag, nil
 }

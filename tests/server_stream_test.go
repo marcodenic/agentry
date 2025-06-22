@@ -20,7 +20,7 @@ func TestInvokeStreaming(t *testing.T) {
 	reg := tool.DefaultRegistry()
 
 	route := router.Rules{{IfContains: []string{""}, Client: model.NewMock()}}
-	ag := core.New(route, reg, memory.NewInMemory(), nil, nil)
+	ag := core.New(route, reg, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
 	agents := map[string]*core.Agent{"a": ag}
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

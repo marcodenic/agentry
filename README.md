@@ -51,6 +51,7 @@ agentry flow .
 ```
 
 Pass `--resume-id name` to load a saved session and `--save-id name` to persist after each run.
+Use `--checkpoint-id name` to continuously snapshot the run loop and resume after a crash.
 
 The new `tui` command launches a split-screen interface:
 
@@ -208,16 +209,39 @@ The first number selects how many agents join the chat. Any remaining text becom
 
 ### 💾 Saving & Resuming
 
-Add a `store` path to your `.agentry.yaml` to enable persistence:
+Add a `memory` entry to your `.agentry.yaml` to enable persistence. The value uses a URI scheme to select the backend:
 
 ```yaml
+# SQLite database
+memory: sqlite:mem.db
+
+# JSON file
+# memory: file:mem.json
+
+# In-memory (ephemeral)
+# memory: mem:
+
+# Session TTL (optional)
 store: path/to/db.sqlite
 # automatically remove sessions after one week
 session_ttl: 168h
 ```
 
-Run the CLI with `--resume-id myrun` to load a snapshot before running and `--save-id myrun` to save state after each run.
+Run the CLI with `--resume-id myrun` to load a snapshot before running and `--save-id myrun` to save state after each run. `--checkpoint-id myrun` continuously saves intermediate steps so sessions can be resumed.
 Expired sessions are pruned automatically by the server based on `session_ttl`.
+
+### 📚 Vector Store
+
+Configure a vector backend for document retrieval:
+
+```yaml
+vector_store:
+  type: qdrant
+  url: http://localhost:6333
+  collection: agentry
+```
+
+Supported types are `qdrant`, `faiss`, and the default in-memory store.
 
 ---
 

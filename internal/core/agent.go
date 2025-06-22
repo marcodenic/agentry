@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -24,6 +23,7 @@ type Agent struct {
 	ID     uuid.UUID
 	Tools  tool.Registry
 	Mem    memory.Store
+	Vector memory.VectorStore
 	Route  router.Selector
 	Tracer trace.Writer
 	Store  memstore.KV
@@ -41,12 +41,12 @@ var (
 	}, []string{"agent", "tool"})
 )
 
-func New(sel router.Selector, reg tool.Registry, mem memory.Store, store memstore.KV, tr trace.Writer) *Agent {
-	return &Agent{uuid.New(), reg, mem, sel, tr, store}
+func New(sel router.Selector, reg tool.Registry, mem memory.Store, store memstore.KV, vec memory.VectorStore, tr trace.Writer) *Agent {
+	return &Agent{uuid.New(), reg, mem, vec, sel, tr, store}
 }
 
 func (a *Agent) Spawn() *Agent {
-	return New(a.Route, a.Tools, memory.NewInMemory(), a.Store, a.Tracer)
+	return New(a.Route, a.Tools, memory.NewInMemory(), a.Store, a.Vector, a.Tracer)
 }
 
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
@@ -66,6 +66,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
 		if len(res.ToolCalls) == 0 {
 			a.Mem.AddStep(step)
+			_ = a.Checkpoint(ctx)
 			a.Trace(ctx, trace.EventFinal, res.Content)
 			return res.Content, nil
 		}
@@ -90,8 +91,10 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})
 		}
 		a.Mem.AddStep(step)
+		_ = a.Checkpoint(ctx)
 	}
-	return "", errors.New("max iterations")
+	a.Trace(ctx, trace.EventYield, nil)
+	return "", nil
 }
 
 // SaveState persists the agent's memory under the given ID.
@@ -112,6 +115,35 @@ func (a *Agent) LoadState(ctx context.Context, id string) error {
 		return nil
 	}
 	b, err := a.Store.Get(ctx, "history", id)
+	if err != nil || b == nil {
+		return err
+	}
+	var steps []memory.Step
+	if err := json.Unmarshal(b, &steps); err != nil {
+		return err
+	}
+	a.Mem.SetHistory(steps)
+	return nil
+}
+
+// Checkpoint persists the agent's current loop state under its ID.
+func (a *Agent) Checkpoint(ctx context.Context) error {
+	if a.Store == nil {
+		return nil
+	}
+	data, err := json.Marshal(a.Mem.History())
+	if err != nil {
+		return err
+	}
+	return a.Store.Set(ctx, "checkpoint", a.ID.String(), data)
+}
+
+// Resume restores the agent's loop state from the store.
+func (a *Agent) Resume(ctx context.Context) error {
+	if a.Store == nil {
+		return nil
+	}
+	b, err := a.Store.Get(ctx, "checkpoint", a.ID.String())
 	if err != nil || b == nil {
 		return err
 	}
