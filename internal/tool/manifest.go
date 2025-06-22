@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/marcodenic/agentry/internal/config"
+	"github.com/marcodenic/agentry/internal/lsp"
 )
 
 var osType = runtime.GOOS
@@ -369,6 +370,10 @@ var builtinMap = map[string]builtinSpec{
 			if err := os.WriteFile(path, []byte(text), 0644); err != nil {
 				return "", err
 			}
+			diags, _ := lsp.Check([]string{path})
+			if diags != "" {
+				return "edited\n" + diags, nil
+			}
 			return "edited", nil
 		},
 	},
@@ -430,7 +435,12 @@ func init() {
 				cmd := exec.CommandContext(ctx, "patch", "-p0")
 				cmd.Stdin = strings.NewReader(patchStr)
 				out, err := cmd.CombinedOutput()
-				return string(out), err
+				if err != nil {
+					return string(out), err
+				}
+				files := parsePatchFiles(patchStr)
+				diags, _ := lsp.Check(files)
+				return string(out) + "\n" + diags, nil
 			},
 		}
 	}
@@ -514,4 +524,18 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 	}
 
 	return nil, ErrUnknownManifest
+}
+
+func parsePatchFiles(patchStr string) []string {
+	var files []string
+	for _, line := range strings.Split(patchStr, "\n") {
+		if strings.HasPrefix(line, "+++ ") {
+			f := strings.TrimPrefix(line, "+++ ")
+			f = strings.TrimPrefix(f, "b/")
+			if f != "/dev/null" && f != "" {
+				files = append(files, f)
+			}
+		}
+	}
+	return files
 }
