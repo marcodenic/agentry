@@ -45,7 +45,7 @@ func TestConfigBootAndEval(t *testing.T) {
 	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: mock}}
 	agent := core.New(route, tools, memory.NewInMemory(), nil)
 
-	out, err := agent.Run(context.TODO(), "hello")
+	out, err := agent.Run(context.Background(), "hello")
 	if err != nil {
 		t.Fatal(err)
 	}

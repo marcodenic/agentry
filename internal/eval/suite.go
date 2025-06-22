@@ -25,7 +25,7 @@ func Run(t *testing.T, ag *core.Agent, path string) {
 	var s Suite
 	_ = json.Unmarshal(b, &s)
 	for _, c := range s.Cases {
-		out, err := ag.Run(context.TODO(), c.Input)
+		out, err := ag.Run(context.Background(), c.Input)
 		passed := err == nil && strings.Contains(out, c.Contains)
 		if t != nil {
 			if !passed {
