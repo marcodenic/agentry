@@ -127,6 +127,50 @@ var builtinMap = map[string]builtinSpec{
 			return fmt.Sprintf("pong in %v", time.Since(start)), nil
 		},
 	},
+	"mcp": {
+		Desc: "Execute an MCP command",
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"host":    map[string]any{"type": "string"},
+				"port":    map[string]any{"type": "integer"},
+				"command": map[string]any{"type": "string"},
+			},
+			"required": []string{"host", "port", "command"},
+			"example":  map[string]any{"host": "localhost", "port": 1234, "command": "hello"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			host, _ := args["host"].(string)
+			var portStr string
+			switch p := args["port"].(type) {
+			case float64:
+				portStr = fmt.Sprintf("%d", int(p))
+			case int:
+				portStr = fmt.Sprintf("%d", p)
+			case string:
+				portStr = p
+			}
+			cmdStr, _ := args["command"].(string)
+			if host == "" || portStr == "" || cmdStr == "" {
+				return "", errors.New("missing args")
+			}
+			d := net.Dialer{Timeout: 3 * time.Second}
+			conn, err := d.DialContext(ctx, "tcp", net.JoinHostPort(host, portStr))
+			if err != nil {
+				return "", err
+			}
+			defer conn.Close()
+			_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
+			if _, err := conn.Write([]byte(cmdStr)); err != nil {
+				return "", err
+			}
+			resp, err := io.ReadAll(conn)
+			if err != nil {
+				return "", err
+			}
+			return string(resp), nil
+		},
+	},
 	"bash": {
 		Desc: "Execute a bash command",
 		Schema: map[string]any{
