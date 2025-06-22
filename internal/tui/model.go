@@ -43,10 +43,14 @@ type Model struct {
 	height    int
 
 	err error
+
+	theme Theme
+	keys  Keybinds
 }
 
 // New creates a new TUI model bound to an Agent.
 func New(ag *core.Agent) Model {
+	th := LoadTheme()
 	items := []list.Item{}
 	for name, tl := range ag.Tools {
 		items = append(items, listItem{name: name, desc: tl.Description()})
@@ -79,7 +83,7 @@ func New(ag *core.Agent) Model {
 	vp := viewport.New(0, 0)
 	cwd, _ := os.Getwd()
 
-	return Model{agent: ag, vp: vp, input: ti, tools: l, history: "", cwd: cwd, modelName: "unknown"}
+	return Model{agent: ag, vp: vp, input: ti, tools: l, history: "", cwd: cwd, modelName: "unknown", theme: th, keys: th.Keybinds}
 }
 
 type listItem struct{ name, desc string }
@@ -180,15 +184,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c":
+		case m.keys.Quit:
 			return m, tea.Quit
-		case "tab":
+		case m.keys.ToggleTab:
 			m.activeTab = 1 - m.activeTab
-		case "enter":
+		case m.keys.Submit:
 			if m.input.Focused() {
 				txt := m.input.Value()
 				m.input.SetValue("")
-				m.history += userBar() + " " + txt + "\n"
+				m.history += m.userBar() + " " + txt + "\n"
 				m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 
 				pr, pw := io.Pipe()
@@ -209,7 +213,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
 	case finalMsg:
-		m.history += aiBar() + " "
+		m.history += m.aiBar() + " "
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
 		return m, tea.Batch(streamTokens(string(msg)+"\n"), m.readCmd())
@@ -265,12 +269,12 @@ func (m Model) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left, main, footer)
 }
 
-func userBar() string {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color("#8B5CF6")).Render("┃")
+func (m Model) userBar() string {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.UserBarColor)).Render("┃")
 }
 
-func aiBar() string {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF")).Render("┃")
+func (m Model) aiBar() string {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor)).Render("┃")
 }
 
 func renderMemory(ag *core.Agent) string {
