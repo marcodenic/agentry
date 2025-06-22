@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/memory"
@@ -13,6 +15,9 @@ import (
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/pkg/memstore"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type Agent struct {
@@ -23,6 +28,18 @@ type Agent struct {
 	Tracer trace.Writer
 	Store  memstore.KV
 }
+
+var (
+	tokenCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "agentry_tokens_total",
+		Help: "Total tokens processed by an agent",
+	}, []string{"agent"})
+	toolLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "agentry_tool_latency_seconds",
+		Help:    "Latency of tool execution in seconds",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"agent", "tool"})
+)
 
 func New(sel router.Selector, reg tool.Registry, mem memory.Store, store memstore.KV, tr trace.Writer) *Agent {
 	return &Agent{uuid.New(), reg, mem, sel, tr, store}
@@ -37,12 +54,14 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	a.Trace(ctx, trace.EventModelStart, name)
 	msgs := buildMessages(a.Mem.History(), input)
 	specs := tool.BuildSpecs(a.Tools)
+	tokenCounter.WithLabelValues(a.ID.String()).Add(float64(len(strings.Fields(input))))
 	for i := 0; i < 8; i++ {
 		res, err := client.Complete(ctx, msgs, specs)
 		if err != nil {
 			return "", err
 		}
 		a.Trace(ctx, trace.EventStepStart, res)
+		tokenCounter.WithLabelValues(a.ID.String()).Add(float64(len(strings.Fields(res.Content))))
 		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
 		step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
 		if len(res.ToolCalls) == 0 {
@@ -59,10 +78,13 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			if err := json.Unmarshal(tc.Arguments, &args); err != nil {
 				return "", err
 			}
+			start := time.Now()
 			r, err := t.Execute(ctx, args)
+			toolLatency.WithLabelValues(a.ID.String(), tc.Name).Observe(time.Since(start).Seconds())
 			if err != nil {
 				return "", err
 			}
+			tokenCounter.WithLabelValues(a.ID.String()).Add(float64(len(strings.Fields(r))))
 			a.Trace(ctx, trace.EventToolEnd, map[string]any{"name": tc.Name, "result": r})
 			step.ToolResults[tc.ID] = r
 			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})
