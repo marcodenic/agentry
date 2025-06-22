@@ -66,6 +66,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
 		if len(res.ToolCalls) == 0 {
 			a.Mem.AddStep(step)
+			_ = a.Checkpoint(ctx)
 			a.Trace(ctx, trace.EventFinal, res.Content)
 			return res.Content, nil
 		}
@@ -90,6 +91,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})
 		}
 		a.Mem.AddStep(step)
+		_ = a.Checkpoint(ctx)
 	}
 	return "", errors.New("max iterations")
 }
@@ -112,6 +114,35 @@ func (a *Agent) LoadState(ctx context.Context, id string) error {
 		return nil
 	}
 	b, err := a.Store.Get(ctx, "history", id)
+	if err != nil || b == nil {
+		return err
+	}
+	var steps []memory.Step
+	if err := json.Unmarshal(b, &steps); err != nil {
+		return err
+	}
+	a.Mem.SetHistory(steps)
+	return nil
+}
+
+// Checkpoint persists the agent's current loop state under its ID.
+func (a *Agent) Checkpoint(ctx context.Context) error {
+	if a.Store == nil {
+		return nil
+	}
+	data, err := json.Marshal(a.Mem.History())
+	if err != nil {
+		return err
+	}
+	return a.Store.Set(ctx, "checkpoint", a.ID.String(), data)
+}
+
+// Resume restores the agent's loop state from the store.
+func (a *Agent) Resume(ctx context.Context) error {
+	if a.Store == nil {
+		return nil
+	}
+	b, err := a.Store.Get(ctx, "checkpoint", a.ID.String())
 	if err != nil || b == nil {
 		return err
 	}
