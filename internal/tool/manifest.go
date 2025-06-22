@@ -205,7 +205,11 @@ var builtinMap = map[string]builtinSpec{
 			if u == "" {
 				return "", errors.New("missing url")
 			}
-			resp, err := http.Get(u)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+			if err != nil {
+				return "", err
+			}
+			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				return "", err
 			}
