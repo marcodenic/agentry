@@ -4,6 +4,8 @@
 
 Agentry is a production-ready **agent runtime** written in Go with an optional TypeScript client.
 
+For the upcoming cloud deployment model, see [README-cloud.md](./README-cloud.md).
+
 ---
 
 | 🚩 **Pillar**        | ✨ **v1.0 Features**                                     |
