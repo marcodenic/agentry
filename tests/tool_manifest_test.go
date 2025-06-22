@@ -48,7 +48,7 @@ func TestFromManifestHTTP(t *testing.T) {
 }
 
 func TestFromManifestCommand(t *testing.T) {
-	m := config.ToolManifest{Name: "local", Command: "echo hi", Description: ""}
+	m := config.ToolManifest{Name: "local", Command: "echo hi", Description: "", Privileged: true}
 	tl, err := tool.FromManifest(m)
 	if err != nil {
 		t.Fatal(err)
