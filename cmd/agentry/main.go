@@ -17,6 +17,7 @@ import (
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/eval"
 	"github.com/marcodenic/agentry/internal/server"
+	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/internal/tui"
 )
 
@@ -130,9 +131,14 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		if cfg.Metrics {
+			if _, err := trace.Init(); err != nil {
+				fmt.Printf("trace init: %v\n", err)
+			}
+		}
 		agents := map[string]*core.Agent{"default": ag}
 		fmt.Println("Serving HTTP on :8080")
-		server.Serve(agents)
+		server.Serve(agents, cfg.Metrics)
 	case "eval":
 		cfg, err := config.Load(configPath)
 		if err != nil {
