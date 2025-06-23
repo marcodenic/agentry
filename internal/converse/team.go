@@ -86,11 +86,14 @@ func (t *Team) Step(ctx context.Context) (int, string, error) {
 	return idx, out, nil
 }
 
+// ErrUnknownAgent is returned when Call is invoked with a name that doesn't exist.
+var ErrUnknownAgent = errors.New("unknown agent")
+
 // Call runs the named agent with the provided input once.
 func (t *Team) Call(ctx context.Context, name, input string) (string, error) {
 	ag, ok := t.agentsByName[name]
 	if !ok {
-		return "", fmt.Errorf("unknown agent: %s", name)
+		return "", fmt.Errorf("%w: %s", ErrUnknownAgent, name)
 	}
 	ctx = contextWithTeam(ctx, t)
 	return runAgent(ctx, ag, input, name, t.names)

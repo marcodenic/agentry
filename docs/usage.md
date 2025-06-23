@@ -47,3 +47,20 @@ Create a `theme.json` file to customise colours and keyboard shortcuts. Agentry 
   }
 }
 ```
+
+## Delegating Tasks
+
+Planners can offload work to another agent using the `delegate` tool. Add it to
+your configuration:
+
+```yaml
+tools:
+  - name: delegate
+    type: builtin
+```
+
+Invoke the tool with the target agent and task:
+
+```bash
+delegate --agent coder --task "draft documentation"
+```

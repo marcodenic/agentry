@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/teamctx"
 )
 
 type teamMsg struct {
@@ -51,7 +52,8 @@ func (m TeamModel) Init() tea.Cmd {
 
 func (m TeamModel) stepCmd() tea.Cmd {
 	return func() tea.Msg {
-		idx, out, err := m.team.Step(context.Background())
+		ctx := context.WithValue(context.Background(), teamctx.Key{}, m.team)
+		idx, out, err := m.team.Step(ctx)
 		if err != nil {
 			return errMsg{err}
 		}
