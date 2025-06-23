@@ -8,11 +8,15 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
       - name: Ensure LICENSE exists
+        shell: bash
         run: test -f LICENSE
 
       - name: Set up Go
@@ -21,11 +25,13 @@ jobs:
           go-version: "1.23"
 
       - name: Install and run golangci-lint
+        shell: bash
         run: |
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
           $(go env GOPATH)/bin/golangci-lint run
 
       - name: Run Go tests
+        shell: bash
         run: go test ./...
 
       - name: Set up Node.js
@@ -35,9 +41,11 @@ jobs:
 
       - name: Install and test TS SDK
         working-directory: ts-sdk
+        shell: bash
         run: |
           npm ci
           npm test
 
       - name: Run agentry eval
+        shell: bash
         run: go run ./cmd/agentry eval examples/.agentry.yaml
