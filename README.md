@@ -127,6 +127,13 @@ Use the `mcp` tool to connect to Multi-User Connection Protocol servers. Set its
 address in your YAML config and the agent can send MCP commands and read the
 responses.
 
+### OpenAPI & MCP Specs
+
+Agentry can generate tools from an OpenAPI document or a simple MCP schema. Use
+`tool.FromOpenAPI` or `tool.FromMCP` to load a spec and obtain a registry of
+HTTP-backed tools. Example specs are provided in `examples/echo-openapi.yaml` and
+`examples/ping-mcp.json`.
+
 > **🪟 Windows users:** Agentry works out-of-the-box on Windows 10+ with PowerShell installed.
 
 ---
