@@ -21,6 +21,7 @@ import (
 
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/patch"
+	"github.com/marcodenic/agentry/internal/teamctx"
 	"github.com/marcodenic/agentry/pkg/sbox"
 )
 
@@ -501,7 +502,13 @@ var builtinMap = map[string]builtinSpec{
 		},
 		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			query, _ := args["query"].(string)
-			return "agent searched: " + query, nil
+			team, ok := ctx.Value(teamctx.Key{}).(interface {
+				Call(context.Context, string) (string, error)
+			})
+			if !ok {
+				return "", errors.New("team not found in context")
+			}
+			return team.Call(ctx, query)
 		},
 	},
 }
