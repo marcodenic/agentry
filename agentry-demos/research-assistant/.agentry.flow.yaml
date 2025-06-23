@@ -1,0 +1,12 @@
+agents:
+  researcher:
+    model: mock
+    tools: [fetch, view]
+  summariser:
+    model: mock
+tasks:
+  - sequential:
+      - agent: researcher
+        input: "Find and fetch the latest Go release notes"
+      - agent: summariser
+        input: "Summarise the key changes in the release"
