@@ -3,10 +3,11 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
-	"github.com/marcodenic/agentry/internal/trace"
+	"github.com/marcodenic/agentry/internal/taskqueue"
 	"github.com/marcodenic/agentry/ui"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -18,6 +19,13 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 		mux.Handle("/metrics", promhttp.Handler())
 	}
 	mux.Handle("/", http.FileServer(http.FS(ui.WebUI)))
+
+	// NATS queue setup (URL/subject could be from config/env)
+	q, err := taskqueue.NewQueue(natsURL(), "agentry.tasks")
+	if err != nil {
+		panic("NATS unavailable: " + err.Error())
+	}
+
 	mux.HandleFunc("/spawn", func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			Template string `json:"template"`
@@ -69,44 +77,31 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 			http.Error(w, "unknown agent", http.StatusBadRequest)
 			return
 		}
-		if in.AgentID == "default" {
-			ag = ag.Spawn()
-		} else {
-			_ = ag.Resume(r.Context())
+		// Publish to NATS instead of running synchronously
+		task := taskqueue.Task{
+			Type: "invoke",
+			Payload: map[string]any{
+				"agent_id": in.AgentID,
+				"input":    in.Input,
+				"stream":   in.Stream,
+			},
 		}
-		if in.Stream {
-			w.Header().Set("Content-Type", "text/event-stream")
-			w.Header().Set("Cache-Control", "no-cache")
-			cw := trace.NewCollector(trace.NewSSE(w))
-			ag.Tracer = cw
-			if fl, ok := w.(http.Flusher); ok {
-				fl.Flush()
-			}
-			if _, err := ag.Run(r.Context(), in.Input); err != nil {
-				http.Error(w, err.Error(), 500)
-				return
-			}
-			sum := trace.Analyze(in.Input, cw.Events())
-			cw.Write(r.Context(), trace.Event{Type: trace.EventSummary, AgentID: ag.ID.String(), Data: sum, Timestamp: trace.Now()})
+		if err := q.Publish(r.Context(), task); err != nil {
+			http.Error(w, "queue error", 500)
 			return
 		}
-		if in.AgentID == "default" && resumeID != "" {
-			_ = ag.LoadState(r.Context(), resumeID)
-		}
-		cw := trace.NewCollector(nil)
-		ag.Tracer = cw
-		out, err := ag.Run(r.Context(), in.Input)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		if in.AgentID == "default" && saveID != "" {
-			_ = ag.SaveState(r.Context(), saveID)
-		}
-		sum := trace.Analyze(in.Input, cw.Events())
-		_ = json.NewEncoder(w).Encode(map[string]any{"output": out, "summary": sum})
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "queued"})
 	})
 	return mux
+}
+
+// natsURL returns the NATS server URL (could be env/config driven)
+func natsURL() string {
+	if u := os.Getenv("NATS_URL"); u != "" {
+		return u
+	}
+	return "nats://localhost:4222"
 }
 
 func Serve(agents map[string]*core.Agent, metrics bool, saveID, resumeID string) error {
