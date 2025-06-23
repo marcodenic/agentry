@@ -10,8 +10,9 @@ import (
 )
 
 type File struct {
-	Agents map[string]Agent `yaml:"agents"`
-	Tasks  []Task           `yaml:"tasks"`
+	Presets []string         `yaml:"presets,omitempty"`
+	Agents  map[string]Agent `yaml:"agents"`
+	Tasks   []Task           `yaml:"tasks"`
 }
 
 type Agent struct {
@@ -29,6 +30,38 @@ type Task struct {
 	Env        map[string]string `yaml:"env,omitempty"`
 }
 
+func merge(dst *File, src File) {
+	if dst.Agents == nil {
+		dst.Agents = map[string]Agent{}
+	}
+	for k, v := range src.Agents {
+		dst.Agents[k] = v
+	}
+	dst.Tasks = append(dst.Tasks, src.Tasks...)
+}
+
+func resolvePreset(name, baseDir string) string {
+	if filepath.IsAbs(name) {
+		return name
+	}
+	if _, err := os.Stat(filepath.Join(baseDir, name)); err == nil {
+		return filepath.Join(baseDir, name)
+	}
+	dir := baseDir
+	for {
+		p := filepath.Join(dir, "templates", name)
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir || parent == "" {
+			break
+		}
+		dir = parent
+	}
+	return filepath.Join(baseDir, name)
+}
+
 // Load reads and validates a flow file.
 func Load(path string) (*File, error) {
 	if fi, err := os.Stat(path); err == nil && fi.IsDir() {
@@ -43,15 +76,28 @@ func Load(path string) (*File, error) {
 	if err := yaml.Unmarshal(b, &f); err != nil {
 		return nil, err
 	}
-	if len(f.Agents) == 0 {
+
+	baseDir := filepath.Dir(path)
+	var out File
+	for _, p := range f.Presets {
+		pf, err := Load(resolvePreset(p, baseDir))
+		if err != nil {
+			return nil, err
+		}
+		merge(&out, *pf)
+	}
+	f.Presets = nil
+	merge(&out, f)
+
+	if len(out.Agents) == 0 {
 		return nil, errors.New("no agents defined")
 	}
-	for i, t := range f.Tasks {
-		if err := validateTask(t, f.Agents); err != nil {
+	for i, t := range out.Tasks {
+		if err := validateTask(t, out.Agents); err != nil {
 			return nil, fmt.Errorf("task %d: %w", i, err)
 		}
 	}
-	return &f, nil
+	return &out, nil
 }
 
 func validateTask(t Task, agents map[string]Agent) error {
