@@ -27,7 +27,7 @@ func (c *captureWriter) Write(_ context.Context, e trace.Event) { c.events = app
 func TestAgentRunYields(t *testing.T) {
 	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: loopMock{}}}
 	cw := &captureWriter{}
-	ag := core.New(route, tool.DefaultRegistry(), memory.NewInMemory(), nil, cw)
+	ag := core.New(route, tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), cw)
 
 	out, err := ag.Run(context.Background(), "start")
 	if err != nil {
