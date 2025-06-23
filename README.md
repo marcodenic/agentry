@@ -19,6 +19,7 @@ For the upcoming cloud deployment model, see [README-cloud.md](./README-cloud.md
 | ⚙️ **Config**        | `.agentry.yaml` bootstraps agent, models, tools          |
 | 🧪 **Evaluation**    | YAML test suites, CLI `agentry eval`                     |
 | 🛠️ **SDK**           | JS/TS client (`@marcodenic/agentry`), supports streaming |
+| 📦 **Registry**     | [Plugin Registry](docs/registry/) |
 
 ---
 
