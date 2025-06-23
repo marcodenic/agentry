@@ -45,6 +45,8 @@ func main() {
 	saveID := fs.String("save-id", "", "save conversation state to this ID")
 	resumeID := fs.String("resume-id", "", "load conversation state from this ID")
 	ckptID := fs.String("checkpoint-id", "", "checkpoint session id")
+	teamSize := fs.Int("team", 0, "number of agents for team chat")
+	topic := fs.String("topic", "", "team chat topic")
 	_ = fs.Parse(args)
 	var configPath string
 	if *conf != "" {
@@ -288,9 +290,20 @@ func main() {
 		if *resumeID != "" {
 			_ = ag.LoadState(context.Background(), *resumeID)
 		}
-		p := tea.NewProgram(tui.New(ag))
-		if err := p.Start(); err != nil {
-			panic(err)
+		if *teamSize > 1 {
+			tm, err := tui.NewTeam(ag, *teamSize, *topic)
+			if err != nil {
+				panic(err)
+			}
+			p := tea.NewProgram(tm)
+			if err := p.Start(); err != nil {
+				panic(err)
+			}
+		} else {
+			p := tea.NewProgram(tui.New(ag))
+			if err := p.Start(); err != nil {
+				panic(err)
+			}
 		}
 		if *saveID != "" {
 			_ = ag.SaveState(context.Background(), *saveID)
