@@ -465,7 +465,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | 8.1 | Stress plan → Go tests | Regression       | `pkg/e2e` suite                |  1.3 |
 | 8.2 | GitHub Actions matrix  | Multi‑os         | linux/mac/win jobs             |  8.1 |
 | 8.3 | Chaos monkey job       | Crash resilience | Kill worker mid task           |  4.4 |
-| 8.4 | Benchmarks             | Perf trend       | `go test -bench` + flamegraphs |  7.2 |
+| 8.4 | ~~Benchmarks~~             | Perf trend       | `go test -bench` + flamegraphs |  7.2 |
 
 ## ❾ Developer Experience (dx)
 
