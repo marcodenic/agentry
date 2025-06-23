@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
-	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/internal/taskqueue"
 	"github.com/marcodenic/agentry/ui"
 
@@ -26,6 +26,42 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 		panic("NATS unavailable: " + err.Error())
 	}
 
+	mux.HandleFunc("/spawn", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			Template string `json:"template"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&in)
+		if in.Template == "" {
+			in.Template = "default"
+		}
+		base := agents[in.Template]
+		if base == nil {
+			http.Error(w, "unknown template", http.StatusBadRequest)
+			return
+		}
+		ag := base.Spawn()
+		id := uuid.New().String()
+		ag.ID = uuid.MustParse(id)
+		agents[id] = ag
+		_ = json.NewEncoder(w).Encode(map[string]string{"agent_id": id})
+	})
+	mux.HandleFunc("/kill", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			AgentID string `json:"agent_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			http.Error(w, "bad json", http.StatusBadRequest)
+			return
+		}
+		ag := agents[in.AgentID]
+		if ag == nil {
+			http.Error(w, "unknown agent", http.StatusBadRequest)
+			return
+		}
+		_ = ag.SaveState(r.Context(), in.AgentID)
+		delete(agents, in.AgentID)
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	})
 	mux.HandleFunc("/invoke", func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			AgentID string `json:"agent_id"`
@@ -36,8 +72,8 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 			http.Error(w, "bad json", http.StatusBadRequest)
 			return
 		}
-		base := agents[in.AgentID]
-		if base == nil {
+		ag := agents[in.AgentID]
+		if ag == nil {
 			http.Error(w, "unknown agent", http.StatusBadRequest)
 			return
 		}
@@ -57,9 +93,6 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 		w.WriteHeader(http.StatusAccepted)
 		_ = json.NewEncoder(w).Encode(map[string]any{"status": "queued"})
 	})
-
-	// Optionally, add /spawn similarly if needed
-
 	return mux
 }
 
@@ -68,7 +101,7 @@ func natsURL() string {
 	if u := os.Getenv("NATS_URL"); u != "" {
 		return u
 	}
-	return nats.DefaultURL
+	return "nats://localhost:4222"
 }
 
 func Serve(agents map[string]*core.Agent, metrics bool, saveID, resumeID string) error {

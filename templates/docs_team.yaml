@@ -1,0 +1,12 @@
+agents:
+  writer:
+    model: gpt-4
+    prompt: "Write clear documentation."
+  editor:
+    model: gpt-4
+    prompt: "Polish and edit documentation."
+tasks:
+  - agent: writer
+    input: draft docs
+  - agent: editor
+    input: proofread
