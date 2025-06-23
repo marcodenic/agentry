@@ -243,6 +243,38 @@ vector_store:
 
 Supported types are `qdrant`, `faiss`, and the default in-memory store.
 
+### ♻️ Reusing Roles
+
+Role templates live under `templates/roles/`. Each YAML file defines an agent
+name, prompt, and allowed tools:
+
+```yaml
+name: coder
+prompt: |
+  You are an expert software developer.
+tools:
+  - bash
+  - patch
+```
+
+Reference templates from a flow using the `include` key:
+
+```yaml
+include:
+  - templates/roles/coder.yaml
+
+agents:
+  coder:
+    model: gpt-4o
+
+tasks:
+  - agent: coder
+    input: build a CLI
+```
+
+The template's prompt and tools merge with the agent definition. Paths are
+resolved relative to the flow file.
+
 ---
 
 ## ⚙️ Environment Configuration
