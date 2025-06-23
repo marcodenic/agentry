@@ -18,10 +18,9 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/patch"
-	"github.com/marcodenic/agentry/internal/team"
+	"github.com/marcodenic/agentry/internal/teamctx"
 	"github.com/marcodenic/agentry/pkg/sbox"
 )
 
@@ -502,10 +501,17 @@ var builtinMap = map[string]builtinSpec{
 				"input": map[string]any{"type": "string"},
 			},
 			"required": []string{"agent", "input"},
-		},
-		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+		},		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			name, _ := args["agent"].(string)
 			input, _ := args["input"].(string)
+			
+			// Look for team interface in context
+			team, ok := ctx.Value(teamctx.Key{}).(interface {
+				Call(context.Context, string, string) (string, error)
+			})
+			if !ok {
+				return "", errors.New("team not found in context")
+			}
 			return team.Call(ctx, name, input)
 		},
 	},

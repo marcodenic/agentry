@@ -160,6 +160,8 @@ tools:
     type: builtin
   - name: agent # 🤖 launch a search agent
     type: builtin
+  - name: delegate # 📋 assign tasks to another agent
+    type: builtin
   - name: mcp # 🎮 connect to MCP servers
     type: builtin
 ```
@@ -169,6 +171,16 @@ The example configuration already lists these tools so they appear in the TUI's 
 Use the `mcp` tool to connect to Multi-User Connection Protocol servers. Set its
 address in your YAML config and the agent can send MCP commands and read the
 responses.
+
+### 📋 Delegating Tasks
+
+Planners can forward work to specialised agents using the new `delegate` tool.
+Include it in your `.agentry.yaml` and call it with the target agent name and
+task description:
+
+```bash
+delegate --agent coder --task "write unit tests"
+```
 
 ### OpenAPI & MCP Specs
 
