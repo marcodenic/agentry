@@ -1,0 +1,36 @@
+{
+  "name": "agentry-vscode",
+  "displayName": "Agentry",
+  "description": "SSE output panel for Agentry server",
+  "version": "0.0.1",
+  "publisher": "agentry",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "activationEvents": [
+    "onCommand:agentry.openPanel",
+    "onCommand:agentry.stopStream"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "agentry.openPanel", "title": "Agentry: Open Panel" },
+      { "command": "agentry.stopStream", "title": "Agentry: Stop Stream" }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "tsc -p ./",
+    "compile": "tsc -watch -p ./",
+    "test": "echo \"No tests yet\""
+  },
+  "dependencies": {
+    "cross-fetch": "^4.0.0",
+    "eventsource-parser": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "typescript": "^5.5.0",
+    "vscode": "^1.1.38"
+  }
+}
