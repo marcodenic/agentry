@@ -21,14 +21,14 @@ func TestAgentCheckpointResume(t *testing.T) {
 	defer store.Close()
 
 	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: recordClient{}}}
-	ag := core.New(route, nil, memory.NewInMemory(), store, nil, nil)
+	ag := core.New(route, nil, memory.NewInMemory(), store, memory.NewInMemoryVector(), nil)
 	ag.ID = uuid.New()
 
 	if _, err := ag.Run(context.Background(), "hi"); err != nil {
 		t.Fatal(err)
 	}
 
-	ag2 := core.New(route, nil, memory.NewInMemory(), store, nil, nil)
+	ag2 := core.New(route, nil, memory.NewInMemory(), store, memory.NewInMemoryVector(), nil)
 	ag2.ID = ag.ID
 	if err := ag2.Resume(context.Background()); err != nil {
 		t.Fatal(err)
