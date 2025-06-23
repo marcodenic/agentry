@@ -329,6 +329,18 @@ agentry dev
 ```
 
 ---
+## 🧩 VS Code Extension
+
+The `extensions/vscode-agentry` folder contains a small helper extension that streams output from a running server.
+
+```bash
+cd extensions/vscode-agentry
+npm install
+npm run build
+```
+
+Start the Agentry server with `agentry serve --config examples/.agentry.yaml` then run **Agentry: Open Panel** from VS Code to connect. Use **Agentry: Stop Stream** to end the session.
+
 
 ## 🔌 Plugin Registry
 
