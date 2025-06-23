@@ -1,8 +1,19 @@
 <script>
   import { onMount } from 'svelte';
+  import { Chart } from 'chart.js/auto';
   let traces = [];
+  let otel = [];
   let metrics = '';
   let input = '';
+  let agents = [];
+  let chart;
+  let labels = [];
+  let tokens = [];
+
+  async function loadAgents() {
+    const res = await fetch('/agents');
+    if (res.ok) agents = await res.json();
+  }
   async function send() {
     const resp = await fetch('/invoke', {
       method: 'POST',
@@ -26,8 +37,30 @@
   async function refresh() {
     const res = await fetch('/metrics');
     metrics = await res.text();
+    parseMetrics(metrics);
+    const tr = await fetch('/traces');
+    if (tr.ok) otel = await tr.json();
+  }
+  function parseMetrics(text) {
+    const line = text.split('\n').find((l) => l.startsWith('agentry_tokens_total'));
+    if (!line) return;
+    const parts = line.split(' ');
+    const v = parseFloat(parts[1]);
+    tokens.push(v);
+    labels.push(new Date().toLocaleTimeString());
+    if (tokens.length > 20) { tokens.shift(); labels.shift(); }
+    if (!chart) {
+      const ctx = document.getElementById('tokChart');
+      if (!ctx) return;
+      chart = new Chart(ctx, { type: 'line', data: { labels, datasets:[{label:'tokens', data: tokens}] }});
+    } else {
+      chart.data.labels = labels;
+      chart.data.datasets[0].data = tokens;
+      chart.update();
+    }
   }
   onMount(() => {
+    loadAgents();
     refresh();
     const i = setInterval(refresh, 5000);
     return () => clearInterval(i);
@@ -36,7 +69,16 @@
 
 <input bind:value={input} placeholder="Ask..." />
 <button on:click={send}>Send</button>
+<h3>Running Agents</h3>
+<ul>
+  {#each agents as a}
+    <li>{a}</li>
+  {/each}
+</ul>
 <h3>Traces</h3>
 <pre>{JSON.stringify(traces, null, 2)}</pre>
+<h3>OTLP</h3>
+<pre>{JSON.stringify(otel, null, 2)}</pre>
 <h3>Metrics</h3>
+<canvas id="tokChart"></canvas>
 <pre>{metrics}</pre>

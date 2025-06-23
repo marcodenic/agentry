@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/trace"
@@ -13,9 +14,22 @@ import (
 
 func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID string) http.Handler {
 	mux := http.NewServeMux()
+	var mem *trace.MemoryWriter
 	if metrics {
 		mux.Handle("/metrics", promhttp.Handler())
+		mem = trace.NewMemory(100)
+		mux.HandleFunc("/traces", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewEncoder(w).Encode(mem.All())
+		})
 	}
+	mux.HandleFunc("/agents", func(w http.ResponseWriter, r *http.Request) {
+		list := make([]string, 0, len(agents))
+		for id := range agents {
+			list = append(list, id)
+		}
+		sort.Strings(list)
+		_ = json.NewEncoder(w).Encode(list)
+	})
 	mux.Handle("/", http.FileServer(http.FS(ui.WebUI)))
 	mux.HandleFunc("/invoke", func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
@@ -33,14 +47,25 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 			return
 		}
 		ag := base.Spawn()
+		writers := []trace.Writer{}
 		if in.Stream {
 			w.Header().Set("Content-Type", "text/event-stream")
 			w.Header().Set("Cache-Control", "no-cache")
-			tr := trace.NewSSE(w)
-			ag.Tracer = tr
+			writers = append(writers, trace.NewSSE(w))
 			if fl, ok := w.(http.Flusher); ok {
 				fl.Flush()
 			}
+		}
+		if metrics {
+			writers = append(writers, trace.NewOTel())
+			if mem != nil {
+				writers = append(writers, mem)
+			}
+		}
+		if len(writers) > 0 {
+			ag.Tracer = trace.NewMulti(writers...)
+		}
+		if in.Stream {
 			if _, err := ag.Run(r.Context(), in.Input); err != nil {
 				http.Error(w, err.Error(), 500)
 			}
