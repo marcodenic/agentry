@@ -47,6 +47,29 @@ func absPath(p string) string {
 
 var ErrUnknownManifest = errors.New("unknown tool manifest")
 var ErrUnknownBuiltin = errors.New("unknown builtin tool")
+var ErrToolDenied = errors.New("tool not permitted")
+
+var allowedTools map[string]struct{}
+
+// SetPermissions configures which tools may execute. Nil or empty slice allows all.
+func SetPermissions(list []string) {
+	if len(list) == 0 {
+		allowedTools = nil
+		return
+	}
+	allowedTools = make(map[string]struct{}, len(list))
+	for _, n := range list {
+		allowedTools[n] = struct{}{}
+	}
+}
+
+func permitted(name string) bool {
+	if allowedTools == nil {
+		return true
+	}
+	_, ok := allowedTools[name]
+	return ok
+}
 
 // viewedFiles tracks file paths read via the view builtin along with their
 // modification time. It is used to prevent overwriting files that have changed
@@ -127,6 +150,9 @@ func (t *simpleTool) Name() string               { return t.name }
 func (t *simpleTool) Description() string        { return t.desc }
 func (t *simpleTool) JSONSchema() map[string]any { return t.schema }
 func (t *simpleTool) Execute(ctx context.Context, args map[string]any) (string, error) {
+	if !permitted(t.name) {
+		return "", fmt.Errorf("%w: %s", ErrToolDenied, t.name)
+	}
 	return t.fn(ctx, args)
 }
 

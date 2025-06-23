@@ -52,6 +52,11 @@ type File struct {
 	Credentials map[string]map[string]string `yaml:"credentials" json:"credentials"`
 	MCPServers  map[string]string            `yaml:"mcp_servers" json:"mcp_servers"`
 	Metrics     bool                         `yaml:"metrics" json:"metrics"`
+	Permissions Permissions                  `yaml:"permissions" json:"permissions"`
+}
+
+type Permissions struct {
+	Tools []string `yaml:"tools" json:"tools"`
 }
 
 func merge(dst *File, src File) {
@@ -102,6 +107,9 @@ func merge(dst *File, src File) {
 	}
 	if src.Metrics {
 		dst.Metrics = true
+	}
+	if len(src.Permissions.Tools) > 0 {
+		dst.Permissions = src.Permissions
 	}
 }
 
