@@ -69,7 +69,7 @@ The new `tui` command launches a split-screen interface:
 +-------+-----------------------------+
 ```
 
-Run `agentry tui --config examples/.agentry.yaml` to try.
+Run `agentry tui --config examples/.agentry.yaml` to try. Use `--team 3` to launch team chat mode where each agent has its own pane.
 
 ---
 
@@ -207,7 +207,7 @@ node -e "const {invoke}=require('./dist/index.js');invoke('hi',{stream:false,age
 
 ### 🤖 Multi-agent conversations
 
-The `converse` command spawns multiple sub-agents that riff off one another. This feature is for the dev REPL only and is not available in the TUI.
+The `converse` command spawns multiple sub-agents that riff off one another. This was originally REPL-only, but the TUI now supports team chat via `--team`.
 
 ```bash
 converse 3 Pick a favourite movie, just one, then discuss as a group.
