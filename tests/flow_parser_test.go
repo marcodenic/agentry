@@ -13,6 +13,8 @@ func TestFlowParseSuccess(t *testing.T) {
 	yaml := `agents:
   coder:
     model: gpt-4
+    vars:
+      tone: excited
 tasks:
   - agent: coder
     input: build
@@ -26,6 +28,9 @@ tasks:
 	}
 	if len(f.Agents) != 1 || len(f.Tasks) != 1 {
 		t.Fatalf("unexpected parsed data: %#v", f)
+	}
+	if f.Agents["coder"].Vars["tone"] != "excited" {
+		t.Fatalf("vars not parsed: %#v", f.Agents["coder"].Vars)
 	}
 }
 
