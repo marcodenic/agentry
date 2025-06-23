@@ -50,38 +50,46 @@ tasks:
 	}
 }
 
-func TestFlowParseInclude(t *testing.T) {
+func TestFlowLoadPresetAndInclude(t *testing.T) {
 	dir := t.TempDir()
-	role := `name: coder
-prompt: |
-  testing role
-tools:
-  - bash
-`
+	if err := os.Mkdir(filepath.Join(dir, "templates"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	preset := `agents:
+  coder:
+    model: gpt-4
+tasks:
+  - agent: coder
+    input: build`
+	if err := os.WriteFile(filepath.Join(dir, "templates", "team.yaml"), []byte(preset), 0644); err != nil {
+		t.Fatal(err)
+	}
+	role := `agents:
+  reviewer:
+    model: gpt-4
+tasks:
+  - agent: reviewer
+    input: check`
 	if err := os.WriteFile(filepath.Join(dir, "role.yaml"), []byte(role), 0644); err != nil {
 		t.Fatal(err)
 	}
-	flowYaml := `include:
+	flowYaml := `presets: [team.yaml]
+include:
   - role.yaml
 agents:
-  coder:
-    model: mock
+  leader:
+    model: gpt-4
 tasks:
-  - agent: coder
-    input: hi
-`
+  - agent: leader
+    input: lead`
 	if err := os.WriteFile(filepath.Join(dir, ".agentry.flow.yaml"), []byte(flowYaml), 0644); err != nil {
 		t.Fatal(err)
 	}
 	f, err := flow.Load(dir)
 	if err != nil {
-		t.Fatalf("parse failed: %v", err)
+		t.Fatal(err)
 	}
-	ag, ok := f.Agents["coder"]
-	if !ok {
-		t.Fatalf("agent not loaded")
-	}
-	if ag.Prompt == "" || len(ag.Tools) != 1 || ag.Tools[0] != "bash" {
-		t.Fatalf("include failed: %#v", ag)
+	if len(f.Agents) != 3 || len(f.Tasks) != 3 {
+		t.Fatalf("unexpected merged data: %#v", f)
 	}
 }
