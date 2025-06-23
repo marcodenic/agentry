@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"runtime"
 	"testing"
 
 	"github.com/marcodenic/agentry/internal/plugin"
@@ -18,6 +19,9 @@ func TestInstallPluginUpdatesManifest(t *testing.T) {
 	var cmds [][]string
 	plugin.ExecCommand = func(name string, args ...string) *exec.Cmd {
 		cmds = append(cmds, append([]string{name}, args...))
+		if runtime.GOOS == "windows" {
+			return exec.Command("cmd", "/C", "exit", "0")
+		}
 		return exec.Command("true")
 	}
 	defer func() { plugin.ExecCommand = exec.Command }()
