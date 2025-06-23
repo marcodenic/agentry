@@ -21,6 +21,7 @@ import (
 
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/patch"
+	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/pkg/sbox"
 )
 
@@ -493,15 +494,19 @@ var builtinMap = map[string]builtinSpec{
 		},
 	},
 	"agent": {
-		Desc: "Launch a search agent",
+		Desc: "Delegate a message to another agent",
 		Schema: map[string]any{
-			"type":       "object",
-			"properties": map[string]any{"query": map[string]any{"type": "string"}},
-			"required":   []string{"query"},
+			"type": "object",
+			"properties": map[string]any{
+				"agent": map[string]any{"type": "string"},
+				"input": map[string]any{"type": "string"},
+			},
+			"required": []string{"agent", "input"},
 		},
 		Exec: func(ctx context.Context, args map[string]any) (string, error) {
-			query, _ := args["query"].(string)
-			return "agent searched: " + query, nil
+			name, _ := args["agent"].(string)
+			input, _ := args["input"].(string)
+			return team.Call(ctx, name, input)
 		},
 	},
 }

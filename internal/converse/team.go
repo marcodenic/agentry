@@ -9,6 +9,7 @@ import (
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
+	"github.com/marcodenic/agentry/internal/team"
 )
 
 // Team manages a multi-agent conversation step by step.
@@ -67,4 +68,17 @@ func (t *Team) Step(ctx context.Context) (int, string, error) {
 	t.msg = out
 	t.turn++
 	return idx, out, nil
+}
+
+// ErrUnknownAgent is returned when Call is invoked with a name that doesn't exist.
+var ErrUnknownAgent = team.ErrUnknownAgent
+
+// Call runs the named agent with the provided input.
+func (t *Team) Call(ctx context.Context, name, input string) (string, error) {
+	for i, n := range t.names {
+		if n == name {
+			return t.agents[i].Run(ctx, input)
+		}
+	}
+	return "", fmt.Errorf("%w: %s", ErrUnknownAgent, name)
 }
