@@ -18,6 +18,7 @@ type Agent struct {
 	Model  string            `yaml:"model"`
 	Prompt string            `yaml:"prompt,omitempty"`
 	Tools  []string          `yaml:"tools,omitempty"`
+	Vars   map[string]string `yaml:"vars,omitempty"`
 	Env    map[string]string `yaml:"env,omitempty"`
 }
 
