@@ -1,0 +1,52 @@
+version: '3.8'
+services:
+  nats:
+    image: nats:2
+    ports:
+      - "4222:4222"
+
+  hub:
+    image: golang:1.23
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: go run ./cmd/agent-hub -addr :9090 -nodes node1:9091,node2:9092
+    depends_on:
+      - node1
+      - node2
+    ports:
+      - "9090:9090"
+
+  node1:
+    image: golang:1.23
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: go run ./cmd/agent-node -addr :9091
+    depends_on:
+      - nats
+    ports:
+      - "9091:9091"
+
+  node2:
+    image: golang:1.23
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: go run ./cmd/agent-node -addr :9092
+    depends_on:
+      - nats
+    ports:
+      - "9092:9092"
+
+  worker:
+    image: golang:1.23
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      - NATS_URL=nats://nats:4222
+    command: go run ./cmd/worker
+    depends_on:
+      - nats
+

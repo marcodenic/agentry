@@ -472,7 +472,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | ID  |  ‑ [ ] Task                 | Why                | How                 | Deps |
 | --- | --------------------------- | ------------------ | ------------------- | ---- |
 | 9.1 | One‑line installer          | Fast start         | Homebrew/scoop/deb  | —    |
-| 9.2 | Docker‑compose mini‑cluster | Showcase           | `docker compose up` |  4.4 |
+| 9.2 | ~~Docker‑compose mini‑cluster~~ | Showcase           | `docker compose up` |  4.4 |
 | 9.3 | Helm chart                  | Enterprise         | k8s templates       |  4.4 |
 | 9.4 | VS Code extension           | Editor integration | SSE panel           |  7.1 |
 
