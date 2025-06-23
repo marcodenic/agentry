@@ -8,7 +8,7 @@ import (
 
 // Options controls sandboxed execution.
 type Options struct {
-	Engine   string // "docker" or "gvisor"
+	Engine   string // "docker", "gvisor", or "cri"
 	Net      string
 	CPULimit string
 	MemLimit string
@@ -51,6 +51,8 @@ func buildArgs(engine, cmdStr string, opts Options) []string {
 		return args
 	case "gvisor":
 		return []string{"runsc", "bash", "-c", cmdStr}
+	case "cri":
+		return []string{"cri-shim", "run", "--", "sh", "-c", cmdStr}
 	default:
 		return nil
 	}
