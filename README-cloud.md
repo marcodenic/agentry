@@ -51,3 +51,60 @@ npm run build
 ```
 
 The build output in `ui/web/dist` is embedded into the hub and served at `/` when running `agentry serve --metrics`.
+
+## Using the Dashboard
+
+Start the server with metrics enabled and then open `http://localhost:8080` in a browser:
+
+```bash
+agentry serve --config examples/.agentry.yaml --metrics
+```
+
+The dashboard shows:
+
+- **Running Agents** – list of available agent IDs from `/agents`.
+- **Traces** – live SSE events plus OTLP spans fetched from `/traces`.
+- **Metrics Graphs** – Prometheus counters visualised in real time from `/metrics`.
+
+Data refreshes every few seconds to provide a near real‑time view of the system.
+
+## HTTP API
+
+Agentry exposes a simple JSON API. Agents are identified by UUIDs which map to
+persistent state in the configured `memstore` backend.
+
+### `POST /spawn`
+
+Create a new agent from the `default` template. Returns the assigned `agent_id`.
+
+```
+curl -X POST http://localhost:8080/spawn
+```
+
+Response:
+
+```json
+{"agent_id": "<uuid>"}
+```
+
+### `POST /invoke`
+
+Send a message to an agent. Set `stream` to `true` for an SSE stream.
+
+```json
+{
+  "agent_id": "<uuid>",
+  "input": "hello",
+  "stream": false
+}
+```
+
+### `POST /kill`
+
+Persist the agent's state and remove it from memory.
+
+```json
+{
+  "agent_id": "<uuid>"
+}
+```

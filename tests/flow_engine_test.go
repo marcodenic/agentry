@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/marcodenic/agentry/internal/tool"
@@ -56,6 +57,19 @@ func TestFlowEngineParallel(t *testing.T) {
 	for _, o := range outs {
 		if o != "hello" {
 			t.Fatalf("unexpected output %s", o)
+		}
+	}
+}
+
+func TestLoadExampleFlows(t *testing.T) {
+	cases := []string{
+		filepath.Join("..", "examples", "flows", "research_task"),
+		filepath.Join("..", "examples", "flows", "etl_pipeline"),
+		filepath.Join("..", "examples", "flows", "multi_agent_chat"),
+	}
+	for _, dir := range cases {
+		if _, err := flow.Load(dir); err != nil {
+			t.Fatalf("failed to load %s: %v", dir, err)
 		}
 	}
 }

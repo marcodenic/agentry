@@ -19,6 +19,7 @@ type ToolManifest struct {
 	Net         string         `yaml:"net,omitempty" json:"net,omitempty"`
 	CPULimit    string         `yaml:"cpu_limit,omitempty" json:"cpu_limit,omitempty"`
 	MemLimit    string         `yaml:"mem_limit,omitempty" json:"mem_limit,omitempty"`
+	Engine      string         `yaml:"engine,omitempty" json:"engine,omitempty"`
 }
 
 type ModelManifest struct {
@@ -53,6 +54,11 @@ type File struct {
 	MCPServers  map[string]string            `yaml:"mcp_servers" json:"mcp_servers"`
 	Metrics     bool                         `yaml:"metrics" json:"metrics"`
 	Collector   string                       `yaml:"collector" json:"collector"`
+	Permissions Permissions                  `yaml:"permissions" json:"permissions"`
+}
+
+type Permissions struct {
+	Tools []string `yaml:"tools" json:"tools"`
 }
 
 func merge(dst *File, src File) {
@@ -74,7 +80,7 @@ func merge(dst *File, src File) {
 	if src.SessionTTL != "" {
 		dst.SessionTTL = src.SessionTTL
 	}
-	if src.Vector.Type != "" {
+	if src.Vector.Name != "" {
 		dst.Vector = src.Vector
 	}
 	if dst.Themes == nil {
@@ -106,6 +112,9 @@ func merge(dst *File, src File) {
 	}
 	if src.Collector != "" {
 		dst.Collector = src.Collector
+	}
+	if len(src.Permissions.Tools) > 0 {
+		dst.Permissions = src.Permissions
 	}
 }
 

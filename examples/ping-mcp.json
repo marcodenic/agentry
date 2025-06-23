@@ -1,0 +1,16 @@
+{
+  "server": "http://localhost:8080",
+  "commands": [
+    {
+      "name": "ping",
+      "description": "Ping command",
+      "method": "POST",
+      "path": "/ping",
+      "schema": {
+        "type": "object",
+        "properties": {"msg": {"type": "string"}},
+        "required": ["msg"]
+      }
+    }
+  ]
+}

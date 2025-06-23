@@ -59,6 +59,7 @@ tools:
   - name: local_shell
     command: echo hello
     description: Uses shell (optional, advanced)
+    engine: cri
 metrics: true
 # send spans to an OTLP collector
 # collector: localhost:4318

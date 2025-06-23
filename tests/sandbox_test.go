@@ -59,3 +59,28 @@ func TestSandboxGVisor(t *testing.T) {
 		t.Fatalf("got %v want %v", got, want)
 	}
 }
+
+func TestSandboxCRI(t *testing.T) {
+	var got []string
+	sbox.RunCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		got = append([]string{name}, args...)
+		return exec.CommandContext(ctx, "echo", "ok")
+	}
+	defer func() {
+		sbox.RunCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+			return exec.CommandContext(ctx, name, args...)
+		}
+	}()
+
+	out, err := sbox.Exec(context.Background(), "echo hi", sbox.Options{Engine: "cri"})
+	if err != nil {
+		t.Fatalf("exec failed: %v", err)
+	}
+	if strings.TrimSpace(out) != "ok" {
+		t.Fatalf("unexpected output: %q", out)
+	}
+	want := []string{"cri-shim", "run", "--", "sh", "-c", "echo hi"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v want %v", got, want)
+	}
+}
