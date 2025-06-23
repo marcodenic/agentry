@@ -19,7 +19,7 @@ For the upcoming cloud deployment model, see [README-cloud.md](./README-cloud.md
 | ⚙️ **Config**        | `.agentry.yaml` bootstraps agent, models, tools          |
 | 🧪 **Evaluation**    | YAML test suites, CLI `agentry eval`                     |
 | 🛠️ **SDK**           | JS/TS client (`@marcodenic/agentry`), supports streaming |
-| 📦 **Registry**     | [Plugin Registry](docs/registry/) |
+| 📦 **Registry**      | [Plugin Registry](docs/registry/)                        |
 
 ---
 
@@ -85,6 +85,7 @@ agentry flow examples/flows/research_task
 agentry flow examples/flows/etl_pipeline
 agentry flow examples/flows/multi_agent_chat
 ```
+
 More advanced scenarios are available in the [agentry-demos](./agentry-demos) repository:
 
 ```bash
@@ -344,6 +345,13 @@ If no key is present, the built-in mock model is used.
 
 ---
 
+## 🧪 Testing & Validation
+
+- For the canonical, machine-readable checklist, see [TEST.md](./TEST.md).
+- For a human-friendly guide, see [docs/testing.md](./docs/testing.md).
+
+---
+
 ## 🧪 Testing & Development
 
 Run all tests and start a REPL with one command:
@@ -361,7 +369,28 @@ go install ./cmd/agentry
 agentry dev
 ```
 
+## 🪟 Windows Setup & NATS Server
+
+To run tests or use Agentry features that require NATS on Windows:
+
+1. Download and extract the latest NATS server zip from the [official releases](https://github.com/nats-io/nats-server/releases).
+2. Start the server in PowerShell (adjust path as needed):
+   ```powershell
+   & "C:\Users\marco\Downloads\nats-server-v2.11.4-windows-amd64\nats-server-v2.11.4-windows-amd64\nats-server.exe" -p 4222
+   ```
+
+**Run Go tests (excluding integration):**
+```powershell
+go test ./... -v -short
+```
+
+**Run all tests, including integration:**
+```powershell
+go test ./... -v -tags=integration
+```
+
 ---
+
 ## 🧩 VS Code Extension
 
 The `extensions/vscode-agentry` folder contains a small helper extension that streams output from a running server.
@@ -373,7 +402,6 @@ npm run build
 ```
 
 Start the Agentry server with `agentry serve --config examples/.agentry.yaml` then run **Agentry: Open Panel** from VS Code to connect. Use **Agentry: Stop Stream** to end the session.
-
 
 ## 🔌 Plugin Registry
 

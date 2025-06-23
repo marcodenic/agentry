@@ -55,6 +55,9 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	if memURI == "" {
 		memURI = cfg.Store
 	}
+	if memURI == "" {
+		memURI = "mem"
+	}
 	if memURI != "" {
 		s, err := memstore.StoreFactory(memURI)
 		if err != nil {

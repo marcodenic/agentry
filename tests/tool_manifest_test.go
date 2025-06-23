@@ -69,7 +69,7 @@ func TestFromManifestCommandEngine(t *testing.T) {
 	var got []string
 	sbox.RunCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		got = append([]string{name}, args...)
-		return exec.CommandContext(ctx, "echo", "ok")
+		return echoCmd(ctx, "ok")
 	}
 	defer func() {
 		sbox.RunCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {

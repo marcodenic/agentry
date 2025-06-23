@@ -8,6 +8,9 @@ nav:
   - API: api.md
   - VS Code Extension: vscode-extension.md
   - Registry: registry/index.html
+  - Testing & Validation:
+      - Test Checklist: TEST.md
+      - Testing Guide: docs/testing.md
 theme:
   name: material
 plugins:

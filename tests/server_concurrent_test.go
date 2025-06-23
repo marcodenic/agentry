@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -35,20 +34,19 @@ func TestServerConcurrentInvoke(t *testing.T) {
 				return
 			}
 			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				b, _ := io.ReadAll(resp.Body)
-				errs <- fmt.Errorf("status %d: %s", resp.StatusCode, string(b))
+			if resp.StatusCode != http.StatusAccepted {
+				errs <- fmt.Errorf("expected 202, got %d", resp.StatusCode)
 				return
 			}
 			var out struct {
-				Output string `json:"output"`
+				Status string `json:"status"`
 			}
 			if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 				errs <- err
 				return
 			}
-			if out.Output != "ok" {
-				errs <- fmt.Errorf("unexpected output %s", out.Output)
+			if out.Status != "queued" {
+				errs <- fmt.Errorf("unexpected status %s", out.Status)
 			}
 		}()
 	}

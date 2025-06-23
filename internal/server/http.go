@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/taskqueue"
+	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/ui"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"

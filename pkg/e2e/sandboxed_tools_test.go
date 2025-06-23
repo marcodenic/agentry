@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os/exec"
 	"reflect"
+	"runtime"
 	"testing"
 
 	"github.com/marcodenic/agentry/internal/config"
@@ -32,6 +33,9 @@ func TestSandboxedToolE2E(t *testing.T) {
 	var got []string
 	sbox.RunCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		got = append([]string{name}, args...)
+		if runtime.GOOS == "windows" {
+			return exec.CommandContext(ctx, "cmd", "/c", "echo", "ok")
+		}
 		return exec.CommandContext(ctx, "echo", "ok")
 	}
 	defer func() {

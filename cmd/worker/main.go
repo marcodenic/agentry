@@ -1,11 +1,9 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
-	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/taskqueue"
 )
 
@@ -16,7 +14,7 @@ func main() {
 	}
 	defer q.Close()
 
-	agents := make(map[string]*core.Agent) // TODO: load/configure agents as needed
+	// agents := make(map[string]*core.Agent) // TODO: load/configure agents as needed
 
 	fmt.Println("Worker listening for tasks...")
 	_, err = q.Subscribe(func(task taskqueue.Task) {

@@ -80,7 +80,7 @@ func merge(dst *File, src File) {
 	if src.SessionTTL != "" {
 		dst.SessionTTL = src.SessionTTL
 	}
-	if src.Vector.Name != "" {
+	if src.Vector.Type != "" {
 		dst.Vector = src.Vector
 	}
 	if dst.Themes == nil {

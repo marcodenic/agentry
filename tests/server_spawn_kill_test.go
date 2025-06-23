@@ -44,21 +44,24 @@ func TestServerSpawnKill(t *testing.T) {
 		t.Fatalf("bad uuid %s", out.AgentID)
 	}
 
-	// invoke the agent
+	// invoke the agent (expect async response)
 	body := fmt.Sprintf(`{"agent_id":"%s","input":"hi"}`, out.AgentID)
 	resp2, err := http.Post(srv.URL+"/invoke", "application/json", bytes.NewBufferString(body))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer resp2.Body.Close()
-	var res struct {
-		Output string `json:"output"`
+	if resp2.StatusCode != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d", resp2.StatusCode)
 	}
-	if err := json.NewDecoder(resp2.Body).Decode(&res); err != nil {
+	var invokeRes struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(resp2.Body).Decode(&invokeRes); err != nil {
 		t.Fatal(err)
 	}
-	if res.Output == "" {
-		t.Fatalf("empty output")
+	if invokeRes.Status != "queued" {
+		t.Fatalf("unexpected status: %s", invokeRes.Status)
 	}
 
 	// kill the agent
