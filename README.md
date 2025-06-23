@@ -387,4 +387,3 @@ agentry plugin fetch examples/registry/index.json example
 
 To contribute, add your plugin information to `index.json` and open a pull request.
 See `examples/registry/README.md` for details.
-
