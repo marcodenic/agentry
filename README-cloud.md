@@ -108,3 +108,24 @@ Persist the agent's state and remove it from memory.
   "agent_id": "<uuid>"
 }
 ```
+
+## Local Cluster Setup
+
+A `docker-compose.yml` is provided for running a small cluster locally. It starts
+NATS, an agent hub, two agent nodes, and a worker process. Run it from the
+repository root:
+
+```bash
+docker compose up
+```
+
+Services are exposed on the following ports:
+
+- **NATS** – `4222`
+- **Hub** – `9090`
+- **Node 1** – `9091`
+- **Node 2** – `9092`
+
+The hub automatically connects to both nodes. The worker subscribes to the NATS
+queue for task execution. Use `grpcurl` or your own client to call the
+`AgentHub` API on `localhost:9090`.
