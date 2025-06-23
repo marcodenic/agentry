@@ -19,6 +19,7 @@ For the upcoming cloud deployment model, see [README-cloud.md](./README-cloud.md
 | ⚙️ **Config**        | `.agentry.yaml` bootstraps agent, models, tools          |
 | 🧪 **Evaluation**    | YAML test suites, CLI `agentry eval`                     |
 | 🛠️ **SDK**           | JS/TS client (`@marcodenic/agentry`), supports streaming |
+| 📦 **Registry**     | [Plugin Registry](docs/registry/) |
 
 ---
 
@@ -50,6 +51,14 @@ Example:
 agentry flow .
 ```
 
+Run the sample scenarios in `examples/flows`:
+
+```bash
+agentry flow examples/flows/research_task
+agentry flow examples/flows/etl_pipeline
+agentry flow examples/flows/multi_agent_chat
+```
+
 Pass `--resume-id name` to load a saved session and `--save-id name` to persist after each run.
 Use `--checkpoint-id name` to continuously snapshot the run loop and resume after a crash.
 
@@ -61,7 +70,7 @@ The new `tui` command launches a split-screen interface:
 +-------+-----------------------------+
 ```
 
-Run `agentry tui --config examples/.agentry.yaml` to try.
+Run `agentry tui --config examples/.agentry.yaml` to try. Use `--team 3` to launch team chat mode where each agent has its own pane.
 
 ---
 
@@ -126,6 +135,13 @@ The example configuration already lists these tools so they appear in the TUI's 
 Use the `mcp` tool to connect to Multi-User Connection Protocol servers. Set its
 address in your YAML config and the agent can send MCP commands and read the
 responses.
+
+### OpenAPI & MCP Specs
+
+Agentry can generate tools from an OpenAPI document or a simple MCP schema. Use
+`tool.FromOpenAPI` or `tool.FromMCP` to load a spec and obtain a registry of
+HTTP-backed tools. Example specs are provided in `examples/echo-openapi.yaml` and
+`examples/ping-mcp.json`.
 
 > **🪟 Windows users:** Agentry works out-of-the-box on Windows 10+ with PowerShell installed.
 
@@ -199,7 +215,7 @@ node -e "const {invoke}=require('./dist/index.js');invoke('hi',{stream:false,age
 
 ### 🤖 Multi-agent conversations
 
-The `converse` command spawns multiple sub-agents that riff off one another. This feature is for the dev REPL only and is not available in the TUI.
+The `converse` command spawns multiple sub-agents that riff off one another. This was originally REPL-only, but the TUI now supports team chat via `--team`.
 
 ```bash
 converse 3 Pick a favourite movie, just one, then discuss as a group.
@@ -243,6 +259,38 @@ vector_store:
 
 Supported types are `qdrant`, `faiss`, and the default in-memory store.
 
+### ♻️ Reusing Roles
+
+Role templates live under `templates/roles/`. Each YAML file defines an agent
+name, prompt, and allowed tools:
+
+```yaml
+name: coder
+prompt: |
+  You are an expert software developer.
+tools:
+  - bash
+  - patch
+```
+
+Reference templates from a flow using the `include` key:
+
+```yaml
+include:
+  - templates/roles/coder.yaml
+
+agents:
+  coder:
+    model: gpt-4o
+
+tasks:
+  - agent: coder
+    input: build a CLI
+```
+
+The template's prompt and tools merge with the agent definition. Paths are
+resolved relative to the flow file.
+
 ---
 
 ## ⚙️ Environment Configuration
@@ -279,3 +327,19 @@ cd ts-sdk && npm install && npm test
 go install ./cmd/agentry
 agentry dev
 ```
+
+---
+
+## 🔌 Plugin Registry
+
+A sample registry file lives under `examples/registry/index.json`. Each entry lists a plugin
+archive `url` and its expected `sha256` checksum.
+Fetch a plugin with:
+
+```bash
+agentry plugin fetch examples/registry/index.json example
+```
+
+To contribute, add your plugin information to `index.json` and open a pull request.
+See `examples/registry/README.md` for details.
+

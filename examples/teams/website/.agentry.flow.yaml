@@ -1,0 +1,9 @@
+presets:
+  - dev_team.yaml
+agents:
+  deployer:
+    model: gpt-4
+    prompt: "Deploy the finished code."
+tasks:
+  - agent: deployer
+    input: deploy application
