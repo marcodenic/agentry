@@ -5,11 +5,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/tool"
+	"github.com/marcodenic/agentry/pkg/sbox"
 )
 
 func TestFromManifestBuiltin(t *testing.T) {
@@ -59,5 +62,34 @@ func TestFromManifestCommand(t *testing.T) {
 	}
 	if strings.TrimSpace(out) != "hi" {
 		t.Errorf("expected hi, got %s", out)
+	}
+}
+
+func TestFromManifestCommandEngine(t *testing.T) {
+	var got []string
+	sbox.RunCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+		got = append([]string{name}, args...)
+		return exec.CommandContext(ctx, "echo", "ok")
+	}
+	defer func() {
+		sbox.RunCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
+			return exec.CommandContext(ctx, name, args...)
+		}
+	}()
+	m := config.ToolManifest{Name: "shim", Command: "echo hi", Engine: "cri"}
+	tl, err := tool.FromManifest(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := tl.Execute(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out) != "ok" {
+		t.Errorf("unexpected output: %s", out)
+	}
+	want := []string{"cri-shim", "run", "--", "sh", "-c", "echo hi"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v want %v", got, want)
 	}
 }

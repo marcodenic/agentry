@@ -11,6 +11,9 @@ type Keybinds struct {
 	Quit      string `json:"quit"`
 	ToggleTab string `json:"toggleTab"`
 	Submit    string `json:"submit"`
+	NextPane  string `json:"nextPane"`
+	PrevPane  string `json:"prevPane"`
+	Pause     string `json:"pause"`
 }
 
 // Theme holds colour settings and keybinds.
@@ -29,6 +32,9 @@ func DefaultTheme() Theme {
 			Quit:      "ctrl+c",
 			ToggleTab: "tab",
 			Submit:    "enter",
+			NextPane:  "ctrl+n",
+			PrevPane:  "ctrl+p",
+			Pause:     "ctrl+s",
 		},
 	}
 }

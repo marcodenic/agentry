@@ -21,6 +21,8 @@ import (
 
 type Agent struct {
 	ID     uuid.UUID
+	Prompt string
+	Vars   map[string]string
 	Tools  tool.Registry
 	Mem    memory.Store
 	Vector memory.VectorStore
@@ -42,7 +44,7 @@ var (
 )
 
 func New(sel router.Selector, reg tool.Registry, mem memory.Store, store memstore.KV, vec memory.VectorStore, tr trace.Writer) *Agent {
-	return &Agent{uuid.New(), reg, mem, vec, sel, tr, store}
+	return &Agent{ID: uuid.New(), Tools: reg, Mem: mem, Vector: vec, Route: sel, Tracer: tr, Store: store}
 }
 
 func (a *Agent) Spawn() *Agent {
@@ -52,7 +54,7 @@ func (a *Agent) Spawn() *Agent {
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	client, name := a.Route.Select(input)
 	a.Trace(ctx, trace.EventModelStart, name)
-	msgs := buildMessages(a.Mem.History(), input)
+	msgs := buildMessages(a.Prompt, a.Vars, a.Mem.History(), input)
 	specs := tool.BuildSpecs(a.Tools)
 	tokenCounter.WithLabelValues(a.ID.String()).Add(float64(len(strings.Fields(input))))
 	for i := 0; i < 8; i++ {
@@ -79,6 +81,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			if err := json.Unmarshal(tc.Arguments, &args); err != nil {
 				return "", err
 			}
+			applyVarsMap(args, a.Vars)
 			start := time.Now()
 			r, err := t.Execute(ctx, args)
 			toolLatency.WithLabelValues(a.ID.String(), tc.Name).Observe(time.Since(start).Seconds())
@@ -165,9 +168,13 @@ func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
 	}
 }
 
-func buildMessages(hist []memory.Step, input string) []model.ChatMessage {
+func buildMessages(prompt string, vars map[string]string, hist []memory.Step, input string) []model.ChatMessage {
+	if prompt == "" {
+		prompt = "You are an agent. Use the tools provided to answer the user's question. When you call a tool, `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden."
+	}
+	prompt = applyVars(prompt, vars)
 	msgs := []model.ChatMessage{
-		{Role: "system", Content: "You are an agent. Use the tools provided to answer the user's question. When you call a tool, `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden."},
+		{Role: "system", Content: prompt},
 	}
 	for _, h := range hist {
 		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: h.Output, ToolCalls: h.ToolCalls})

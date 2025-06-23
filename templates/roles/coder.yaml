@@ -1,0 +1,7 @@
+name: coder
+prompt: |
+  You are an expert software developer who writes clear, concise code.
+tools:
+  - bash
+  - patch
+  - view
