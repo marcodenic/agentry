@@ -41,3 +41,27 @@ jobs:
 
       - name: Run agentry eval
         run: go run ./cmd/agentry eval examples/.agentry.yaml
+
+  e2e:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check changed paths
+        id: changed
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            core/**
+            engine/**
+
+      - name: Set up Go
+        if: steps.changed.outputs.any_changed == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Run e2e tests
+        if: steps.changed.outputs.any_changed == 'true'
+        run: go test ./pkg/e2e/...
