@@ -18,7 +18,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/patch"
 	"github.com/marcodenic/agentry/internal/teamctx"
@@ -494,21 +493,26 @@ var builtinMap = map[string]builtinSpec{
 		},
 	},
 	"agent": {
-		Desc: "Launch a search agent",
+		Desc: "Delegate a message to another agent",
 		Schema: map[string]any{
-			"type":       "object",
-			"properties": map[string]any{"query": map[string]any{"type": "string"}},
-			"required":   []string{"query"},
-		},
-		Exec: func(ctx context.Context, args map[string]any) (string, error) {
-			query, _ := args["query"].(string)
+			"type": "object",
+			"properties": map[string]any{
+				"agent": map[string]any{"type": "string"},
+				"input": map[string]any{"type": "string"},
+			},
+			"required": []string{"agent", "input"},
+		},		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			name, _ := args["agent"].(string)
+			input, _ := args["input"].(string)
+			
+			// Look for team interface in context
 			team, ok := ctx.Value(teamctx.Key{}).(interface {
-				Call(context.Context, string) (string, error)
+				Call(context.Context, string, string) (string, error)
 			})
 			if !ok {
 				return "", errors.New("team not found in context")
 			}
-			return team.Call(ctx, query)
+			return team.Call(ctx, name, input)
 		},
 	},
 }
