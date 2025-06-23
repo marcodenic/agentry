@@ -53,6 +53,7 @@ type File struct {
 	Credentials map[string]map[string]string `yaml:"credentials" json:"credentials"`
 	MCPServers  map[string]string            `yaml:"mcp_servers" json:"mcp_servers"`
 	Metrics     bool                         `yaml:"metrics" json:"metrics"`
+	Collector   string                       `yaml:"collector" json:"collector"`
 	Permissions Permissions                  `yaml:"permissions" json:"permissions"`
 }
 
@@ -79,7 +80,7 @@ func merge(dst *File, src File) {
 	if src.SessionTTL != "" {
 		dst.SessionTTL = src.SessionTTL
 	}
-	if src.Vector.Type != "" {
+	if src.Vector.Name != "" {
 		dst.Vector = src.Vector
 	}
 	if dst.Themes == nil {
@@ -108,6 +109,9 @@ func merge(dst *File, src File) {
 	}
 	if src.Metrics {
 		dst.Metrics = true
+	}
+	if src.Collector != "" {
+		dst.Collector = src.Collector
 	}
 	if len(src.Permissions.Tools) > 0 {
 		dst.Permissions = src.Permissions

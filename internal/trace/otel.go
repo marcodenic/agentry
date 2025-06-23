@@ -3,9 +3,11 @@ package trace
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	oteltrace "go.opentelemetry.io/otel/trace"
@@ -13,8 +15,23 @@ import (
 
 // Init configures a stdout exporter and sets the global tracer provider.
 // It returns a shutdown function to flush traces when the program exits.
-func Init() (func(context.Context) error, error) {
-	exp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+func Init(collector string) (func(context.Context) error, error) {
+	var (
+		exp sdktrace.SpanExporter
+		err error
+	)
+	ctx := context.Background()
+	if collector != "" {
+		addr := collector
+		if strings.HasPrefix(addr, "http://") {
+			addr = strings.TrimPrefix(addr, "http://")
+		}
+		exp, err = otlptracehttp.New(ctx,
+			otlptracehttp.WithEndpoint(addr),
+			otlptracehttp.WithInsecure())
+	} else {
+		exp, err = stdouttrace.New(stdouttrace.WithPrettyPrint())
+	}
 	if err != nil {
 		return nil, err
 	}
