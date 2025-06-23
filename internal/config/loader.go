@@ -19,6 +19,7 @@ type ToolManifest struct {
 	Net         string         `yaml:"net,omitempty" json:"net,omitempty"`
 	CPULimit    string         `yaml:"cpu_limit,omitempty" json:"cpu_limit,omitempty"`
 	MemLimit    string         `yaml:"mem_limit,omitempty" json:"mem_limit,omitempty"`
+	Engine      string         `yaml:"engine,omitempty" json:"engine,omitempty"`
 }
 
 type ModelManifest struct {
