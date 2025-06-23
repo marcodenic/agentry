@@ -15,6 +15,7 @@ import (
 
 // buildAgent constructs an Agent from configuration.
 func buildAgent(cfg *config.File) (*core.Agent, error) {
+	tool.SetPermissions(cfg.Permissions.Tools)
 	reg := tool.Registry{}
 	for _, m := range cfg.Tools {
 		tl, err := tool.FromManifest(m)
