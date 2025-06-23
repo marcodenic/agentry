@@ -28,6 +28,9 @@ jobs:
       - name: Run Go tests
         run: go test ./...
 
+      - name: OTLP export integration test
+        run: go test ./tests -run TestOTLPExport -count=1
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:

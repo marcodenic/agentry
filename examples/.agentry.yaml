@@ -60,6 +60,8 @@ tools:
     command: echo hello
     description: Uses shell (optional, advanced)
 metrics: true
+# send spans to an OTLP collector
+# collector: localhost:4318
 # path to SQLite DB for conversation history
 # store: path/to/db.sqlite
 # delete sessions older than this duration (e.g. 168h = 7 days)

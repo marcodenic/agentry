@@ -167,9 +167,10 @@ func main() {
 			_ = ag.LoadState(context.Background(), *resumeID)
 		}
 		if cfg.Metrics {
-			if _, err := trace.Init(); err != nil {
+			if _, err := trace.Init(cfg.Collector); err != nil {
 				fmt.Printf("trace init: %v\n", err)
 			}
+			ag.Tracer = trace.NewOTel()
 		}
 		agents := map[string]*core.Agent{"default": ag}
 		fmt.Println("Serving HTTP on :8080")
