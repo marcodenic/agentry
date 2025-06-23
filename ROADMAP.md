@@ -481,7 +481,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | ID   |  ‑ [ ] Task        | Why             | How                        | Deps          |
 | ---- | ------------------ | --------------- | -------------------------- | ------------- |
 | 10.1 | User guide rewrite | Up‑to‑date docs | mkdocs site                | All           |
-| 10.2 | “Power demos” repo | Marketing       | DevOps flow, ETL, research |  Sections 3‑5 |
+| 10.2 | ~~“Power demos” repo~~ | Marketing       | DevOps flow, ETL, research |  Sections 3‑5 |
 | 10.3 | Tutorial videos    | Onboarding      | Asciinema + Loom           |  9.1          |
 
 ## ⓫ Governance (meta)

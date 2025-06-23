@@ -85,6 +85,12 @@ agentry flow examples/flows/research_task
 agentry flow examples/flows/etl_pipeline
 agentry flow examples/flows/multi_agent_chat
 ```
+More advanced scenarios are available in the [agentry-demos](./agentry-demos) repository:
+
+```bash
+agentry flow agentry-demos/devops-automation
+agentry flow agentry-demos/research-assistant
+```
 
 Pass `--resume-id name` to load a saved session and `--save-id name` to persist after each run.
 Use `--checkpoint-id name` to continuously snapshot the run loop and resume after a crash.
