@@ -11,6 +11,7 @@ import (
 
 type File struct {
 	Presets []string         `yaml:"presets,omitempty"`
+	Include []string         `yaml:"include,omitempty"`
 	Agents  map[string]Agent `yaml:"agents"`
 	Tasks   []Task           `yaml:"tasks"`
 }
@@ -19,6 +20,7 @@ type Agent struct {
 	Model  string            `yaml:"model"`
 	Prompt string            `yaml:"prompt,omitempty"`
 	Tools  []string          `yaml:"tools,omitempty"`
+	Vars   map[string]string `yaml:"vars,omitempty"`
 	Env    map[string]string `yaml:"env,omitempty"`
 }
 
@@ -76,9 +78,9 @@ func Load(path string) (*File, error) {
 	if err := yaml.Unmarshal(b, &f); err != nil {
 		return nil, err
 	}
-
 	baseDir := filepath.Dir(path)
 	var out File
+	// Handle presets (legacy)
 	for _, p := range f.Presets {
 		pf, err := Load(resolvePreset(p, baseDir))
 		if err != nil {
@@ -86,16 +88,21 @@ func Load(path string) (*File, error) {
 		}
 		merge(&out, *pf)
 	}
+	// Handle include (new)
+	for _, inc := range f.Include {
+		p := filepath.Join(baseDir, inc)
+		pf, err := Load(p)
+		if err != nil {
+			return nil, err
+		}
+		merge(&out, *pf)
+	}
 	f.Presets = nil
+	f.Include = nil
 	merge(&out, f)
 
 	if len(out.Agents) == 0 {
 		return nil, errors.New("no agents defined")
-	}
-	for i, t := range out.Tasks {
-		if err := validateTask(t, out.Agents); err != nil {
-			return nil, fmt.Errorf("task %d: %w", i, err)
-		}
 	}
 	return &out, nil
 }

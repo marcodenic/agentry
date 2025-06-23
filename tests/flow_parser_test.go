@@ -13,6 +13,8 @@ func TestFlowParseSuccess(t *testing.T) {
 	yaml := `agents:
   coder:
     model: gpt-4
+    vars:
+      tone: excited
 tasks:
   - agent: coder
     input: build
@@ -26,6 +28,9 @@ tasks:
 	}
 	if len(f.Agents) != 1 || len(f.Tasks) != 1 {
 		t.Fatalf("unexpected parsed data: %#v", f)
+	}
+	if f.Agents["coder"].Vars["tone"] != "excited" {
+		t.Fatalf("vars not parsed: %#v", f.Agents["coder"].Vars)
 	}
 }
 
@@ -45,7 +50,7 @@ tasks:
 	}
 }
 
-func TestFlowLoadPreset(t *testing.T) {
+func TestFlowLoadPresetAndInclude(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.Mkdir(filepath.Join(dir, "templates"), 0755); err != nil {
 		t.Fatal(err)
@@ -59,14 +64,24 @@ tasks:
 	if err := os.WriteFile(filepath.Join(dir, "templates", "team.yaml"), []byte(preset), 0644); err != nil {
 		t.Fatal(err)
 	}
-
-	flowYaml := `presets: [team.yaml]
-agents:
+	role := `agents:
   reviewer:
     model: gpt-4
 tasks:
   - agent: reviewer
     input: check`
+	if err := os.WriteFile(filepath.Join(dir, "role.yaml"), []byte(role), 0644); err != nil {
+		t.Fatal(err)
+	}
+	flowYaml := `presets: [team.yaml]
+include:
+  - role.yaml
+agents:
+  leader:
+    model: gpt-4
+tasks:
+  - agent: leader
+    input: lead`
 	if err := os.WriteFile(filepath.Join(dir, ".agentry.flow.yaml"), []byte(flowYaml), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +89,7 @@ tasks:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(f.Agents) != 2 || len(f.Tasks) != 2 {
+	if len(f.Agents) != 3 || len(f.Tasks) != 3 {
 		t.Fatalf("unexpected merged data: %#v", f)
 	}
 }

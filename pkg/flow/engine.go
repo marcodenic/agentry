@@ -50,6 +50,8 @@ func Run(ctx context.Context, f *File, reg tool.Registry, store memstore.KV) ([]
 		}
 		route := router.Rules{{Name: conf.Model, IfContains: []string{""}, Client: client}}
 		ag := core.New(route, tools, memory.NewInMemory(), store, memory.NewInMemoryVector(), nil)
+		ag.Prompt = conf.Prompt
+		ag.Vars = conf.Vars
 		return ag, nil
 	}
 
