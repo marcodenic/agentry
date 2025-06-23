@@ -69,7 +69,7 @@ The new `tui` command launches a split-screen interface:
 +-------+-----------------------------+
 ```
 
-Run `agentry tui --config examples/.agentry.yaml` to try.
+Run `agentry tui --config examples/.agentry.yaml` to try. Use `--team 3` to launch team chat mode where each agent has its own pane.
 
 ---
 
@@ -134,6 +134,13 @@ The example configuration already lists these tools so they appear in the TUI's 
 Use the `mcp` tool to connect to Multi-User Connection Protocol servers. Set its
 address in your YAML config and the agent can send MCP commands and read the
 responses.
+
+### OpenAPI & MCP Specs
+
+Agentry can generate tools from an OpenAPI document or a simple MCP schema. Use
+`tool.FromOpenAPI` or `tool.FromMCP` to load a spec and obtain a registry of
+HTTP-backed tools. Example specs are provided in `examples/echo-openapi.yaml` and
+`examples/ping-mcp.json`.
 
 > **🪟 Windows users:** Agentry works out-of-the-box on Windows 10+ with PowerShell installed.
 
@@ -207,7 +214,7 @@ node -e "const {invoke}=require('./dist/index.js');invoke('hi',{stream:false,age
 
 ### 🤖 Multi-agent conversations
 
-The `converse` command spawns multiple sub-agents that riff off one another. This feature is for the dev REPL only and is not available in the TUI.
+The `converse` command spawns multiple sub-agents that riff off one another. This was originally REPL-only, but the TUI now supports team chat via `--team`.
 
 ```bash
 converse 3 Pick a favourite movie, just one, then discuss as a group.

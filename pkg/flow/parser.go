@@ -10,15 +10,10 @@ import (
 )
 
 type File struct {
-	Include []string         `yaml:"include"`
+	Presets []string         `yaml:"presets,omitempty"`
+	Include []string         `yaml:"include,omitempty"`
 	Agents  map[string]Agent `yaml:"agents"`
 	Tasks   []Task           `yaml:"tasks"`
-}
-
-type Role struct {
-	Name   string   `yaml:"name"`
-	Prompt string   `yaml:"prompt"`
-	Tools  []string `yaml:"tools"`
 }
 
 type Agent struct {
@@ -37,6 +32,38 @@ type Task struct {
 	Env        map[string]string `yaml:"env,omitempty"`
 }
 
+func merge(dst *File, src File) {
+	if dst.Agents == nil {
+		dst.Agents = map[string]Agent{}
+	}
+	for k, v := range src.Agents {
+		dst.Agents[k] = v
+	}
+	dst.Tasks = append(dst.Tasks, src.Tasks...)
+}
+
+func resolvePreset(name, baseDir string) string {
+	if filepath.IsAbs(name) {
+		return name
+	}
+	if _, err := os.Stat(filepath.Join(baseDir, name)); err == nil {
+		return filepath.Join(baseDir, name)
+	}
+	dir := baseDir
+	for {
+		p := filepath.Join(dir, "templates", name)
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir || parent == "" {
+			break
+		}
+		dir = parent
+	}
+	return filepath.Join(baseDir, name)
+}
+
 // Load reads and validates a flow file.
 func Load(path string) (*File, error) {
 	if fi, err := os.Stat(path); err == nil && fi.IsDir() {
@@ -52,40 +79,32 @@ func Load(path string) (*File, error) {
 		return nil, err
 	}
 	baseDir := filepath.Dir(path)
-	for _, inc := range f.Include {
-		p := filepath.Join(baseDir, inc)
-		b, err := os.ReadFile(p)
+	var out File
+	// Handle presets (legacy)
+	for _, p := range f.Presets {
+		pf, err := Load(resolvePreset(p, baseDir))
 		if err != nil {
 			return nil, err
 		}
-		var r Role
-		if err := yaml.Unmarshal(b, &r); err != nil {
+		merge(&out, *pf)
+	}
+	// Handle include (new)
+	for _, inc := range f.Include {
+		p := filepath.Join(baseDir, inc)
+		pf, err := Load(p)
+		if err != nil {
 			return nil, err
 		}
-		if r.Name == "" {
-			continue
-		}
-		if f.Agents == nil {
-			f.Agents = map[string]Agent{}
-		}
-		a := f.Agents[r.Name]
-		if a.Prompt == "" {
-			a.Prompt = r.Prompt
-		}
-		if len(a.Tools) == 0 {
-			a.Tools = r.Tools
-		}
-		f.Agents[r.Name] = a
+		merge(&out, *pf)
 	}
-	if len(f.Agents) == 0 {
+	f.Presets = nil
+	f.Include = nil
+	merge(&out, f)
+
+	if len(out.Agents) == 0 {
 		return nil, errors.New("no agents defined")
 	}
-	for i, t := range f.Tasks {
-		if err := validateTask(t, f.Agents); err != nil {
-			return nil, fmt.Errorf("task %d: %w", i, err)
-		}
-	}
-	return &f, nil
+	return &out, nil
 }
 
 func validateTask(t Task, agents map[string]Agent) error {

@@ -1,0 +1,14 @@
+agents:
+  coder:
+    model: gpt-4
+    prompt: "You are a pragmatic software developer."
+    tools: [bash, grep, ls, write]
+  reviewer:
+    model: gpt-4
+    prompt: "You review and improve code."
+    tools: [view, echo]
+tasks:
+  - agent: coder
+    input: build feature
+  - agent: reviewer
+    input: review feature
