@@ -101,12 +101,16 @@ func main() {
 				converse.Repl(ag, n, topic)
 				continue
 			}
+			col := trace.NewCollector(nil)
+			ag.Tracer = col
 			out, err := ag.Run(context.Background(), line)
 			if err != nil {
 				fmt.Println("ERR:", err)
 				continue
 			}
+			sum := trace.Analyze(line, col.Events())
 			fmt.Println(out)
+			fmt.Printf("tokens: %d cost: $%.4f\n", sum.Tokens, sum.Cost)
 			if *saveID != "" {
 				_ = ag.SaveState(context.Background(), *saveID)
 			}

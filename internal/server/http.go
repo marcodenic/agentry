@@ -36,19 +36,24 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 		if in.Stream {
 			w.Header().Set("Content-Type", "text/event-stream")
 			w.Header().Set("Cache-Control", "no-cache")
-			tr := trace.NewSSE(w)
-			ag.Tracer = tr
+			cw := trace.NewCollector(trace.NewSSE(w))
+			ag.Tracer = cw
 			if fl, ok := w.(http.Flusher); ok {
 				fl.Flush()
 			}
 			if _, err := ag.Run(r.Context(), in.Input); err != nil {
 				http.Error(w, err.Error(), 500)
+				return
 			}
+			sum := trace.Analyze(in.Input, cw.Events())
+			cw.Write(r.Context(), trace.Event{Type: trace.EventSummary, AgentID: ag.ID.String(), Data: sum, Timestamp: trace.Now()})
 			return
 		}
 		if resumeID != "" {
 			_ = ag.LoadState(r.Context(), resumeID)
 		}
+		cw := trace.NewCollector(nil)
+		ag.Tracer = cw
 		out, err := ag.Run(r.Context(), in.Input)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
@@ -57,7 +62,8 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 		if saveID != "" {
 			_ = ag.SaveState(r.Context(), saveID)
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"output": out})
+		sum := trace.Analyze(in.Input, cw.Events())
+		_ = json.NewEncoder(w).Encode(map[string]any{"output": out, "summary": sum})
 	})
 	return mux
 }

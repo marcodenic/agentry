@@ -19,6 +19,8 @@ const (
 	EventModelStart EventType = "model_start"
 	// EventYield signals that the agent stopped because the iteration limit was reached.
 	EventYield EventType = "yield"
+	// EventSummary indicates a run summary with token and cost statistics.
+	EventSummary EventType = "summary"
 )
 
 type Event struct {
