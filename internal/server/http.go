@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
@@ -15,9 +16,22 @@ import (
 
 func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID string) http.Handler {
 	mux := http.NewServeMux()
+	var mem *trace.MemoryWriter
 	if metrics {
 		mux.Handle("/metrics", promhttp.Handler())
+		mem = trace.NewMemory(100)
+		mux.HandleFunc("/traces", func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewEncoder(w).Encode(mem.All())
+		})
 	}
+	mux.HandleFunc("/agents", func(w http.ResponseWriter, r *http.Request) {
+		list := make([]string, 0, len(agents))
+		for id := range agents {
+			list = append(list, id)
+		}
+		sort.Strings(list)
+		_ = json.NewEncoder(w).Encode(list)
+	})
 	mux.Handle("/", http.FileServer(http.FS(ui.WebUI)))
 
 	// NATS queue setup (URL/subject could be from config/env)
