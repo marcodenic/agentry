@@ -1,0 +1,17 @@
+[
+  {
+    "name": "agentry-shell",
+    "description": "Execute shell commands as tools",
+    "url": "https://github.com/marcodenic/agentry-shell"
+  },
+  {
+    "name": "agentry-file",
+    "description": "Read and write files on disk",
+    "url": "https://github.com/marcodenic/agentry-file"
+  },
+  {
+    "name": "agentry-web",
+    "description": "Interact with web services via HTTP",
+    "url": "https://github.com/marcodenic/agentry-web"
+  }
+]
