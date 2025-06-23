@@ -279,3 +279,19 @@ cd ts-sdk && npm install && npm test
 go install ./cmd/agentry
 agentry dev
 ```
+
+---
+
+## 🔌 Plugin Registry
+
+A sample registry file lives under `examples/registry/index.json`. Each entry lists a plugin
+archive `url` and its expected `sha256` checksum.
+Fetch a plugin with:
+
+```bash
+agentry plugin fetch examples/registry/index.json example
+```
+
+To contribute, add your plugin information to `index.json` and open a pull request.
+See `examples/registry/README.md` for details.
+
