@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentry-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agentry-worker
+  template:
+    metadata:
+      labels:
+        app: agentry-worker
+    spec:
+      containers:
+      - name: worker
+        image: agentry:latest
+        env:
+        - name: NATS_URL
+          value: nats://nats:4222
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: agentry-data

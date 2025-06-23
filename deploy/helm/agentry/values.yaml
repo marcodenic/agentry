@@ -1,0 +1,17 @@
+image:
+  repository: agentry
+  tag: latest
+  pullPolicy: IfNotPresent
+
+queue:
+  address: nats://nats:4222
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+storage:
+  size: 1Gi
+  accessMode: ReadWriteOnce
