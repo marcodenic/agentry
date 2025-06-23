@@ -380,11 +380,13 @@ To run tests or use Agentry features that require NATS on Windows:
    ```
 
 **Run Go tests (excluding integration):**
+
 ```powershell
 go test ./... -v -short
 ```
 
 **Run all tests, including integration:**
+
 ```powershell
 go test ./... -v -tags=integration
 ```

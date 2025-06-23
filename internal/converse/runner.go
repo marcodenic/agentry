@@ -89,7 +89,7 @@ func Repl(parent *core.Agent, n int, topic string) {
 
 func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []string) (string, error) {
 	client, _ := ag.Route.Select(input)
-	msgs := BuildMessages(ag.Mem.History(), input, name, peers)
+	msgs := core.BuildMessages(ag.Prompt, ag.Vars, ag.Mem.History(), input)
 	specs := tool.BuildSpecs(ag.Tools)
 	for i := 0; i < 8; i++ {
 		res, err := client.Complete(ctx, msgs, specs)

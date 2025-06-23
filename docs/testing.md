@@ -127,11 +127,13 @@ Some tests and features require a running NATS server. On Windows:
    ```
 
 **Run Go tests (excluding integration):**
+
 ```powershell
 go test ./... -v -short
 ```
 
 **Run all tests, including integration:**
+
 ```powershell
 go test ./... -v -tags=integration
 ```

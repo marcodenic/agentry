@@ -48,13 +48,23 @@ func New(sel router.Selector, reg tool.Registry, mem memory.Store, store memstor
 }
 
 func (a *Agent) Spawn() *Agent {
-	return New(a.Route, a.Tools, memory.NewInMemory(), a.Store, a.Vector, a.Tracer)
+	return &Agent{
+		ID:     uuid.New(),
+		Prompt: a.Prompt, // Ensure prompt is inherited by sub-agents
+		Vars:   a.Vars,
+		Tools:  a.Tools,
+		Mem:    memory.NewInMemory(),
+		Vector: a.Vector,
+		Route:  a.Route,
+		Tracer: a.Tracer,
+		Store:  a.Store,
+	}
 }
 
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	client, name := a.Route.Select(input)
 	a.Trace(ctx, trace.EventModelStart, name)
-	msgs := buildMessages(a.Prompt, a.Vars, a.Mem.History(), input)
+	msgs := BuildMessages(a.Prompt, a.Vars, a.Mem.History(), input)
 	specs := tool.BuildSpecs(a.Tools)
 	tokenCounter.WithLabelValues(a.ID.String()).Add(float64(len(strings.Fields(input))))
 	for i := 0; i < 8; i++ {
@@ -168,14 +178,13 @@ func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
 	}
 }
 
-func buildMessages(prompt string, vars map[string]string, hist []memory.Step, input string) []model.ChatMessage {
+// Exported for use in team mode and other packages
+func BuildMessages(prompt string, vars map[string]string, hist []memory.Step, input string) []model.ChatMessage {
 	if prompt == "" {
 		prompt = "You are an agent. Use the tools provided to answer the user's question. When you call a tool, `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden."
 	}
 	prompt = applyVars(prompt, vars)
-	msgs := []model.ChatMessage{
-		{Role: "system", Content: prompt},
-	}
+	msgs := []model.ChatMessage{{Role: "system", Content: prompt}}
 	for _, h := range hist {
 		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: h.Output, ToolCalls: h.ToolCalls})
 		for id, res := range h.ToolResults {
