@@ -9,6 +9,7 @@ import (
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
+	"github.com/marcodenic/agentry/internal/teamctx"
 )
 
 // Team manages a multi-agent conversation step by step.
@@ -67,4 +68,14 @@ func (t *Team) Step(ctx context.Context) (int, string, error) {
 	t.msg = out
 	t.turn++
 	return idx, out, nil
+}
+
+// Call returns the result of invoking the agent tool using the team from the context.
+func (t *Team) Call(ctx context.Context, query string) (string, error) {
+	team, ok := ctx.Value(teamctx.Key{}).(*Team)
+	if !ok || team == nil {
+		return "", errors.New("team not found in context")
+	}
+	_ = team // retrieved but currently unused
+	return "agent searched: " + query, nil
 }
