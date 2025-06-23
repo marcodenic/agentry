@@ -1,0 +1,7 @@
+name: writer
+prompt: |
+  You craft engaging prose and explain complex topics clearly.
+tools:
+  - fetch
+  - write
+  - view

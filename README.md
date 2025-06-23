@@ -50,6 +50,14 @@ Example:
 agentry flow .
 ```
 
+Run the sample scenarios in `examples/flows`:
+
+```bash
+agentry flow examples/flows/research_task
+agentry flow examples/flows/etl_pipeline
+agentry flow examples/flows/multi_agent_chat
+```
+
 Pass `--resume-id name` to load a saved session and `--save-id name` to persist after each run.
 Use `--checkpoint-id name` to continuously snapshot the run loop and resume after a crash.
 
@@ -243,6 +251,38 @@ vector_store:
 
 Supported types are `qdrant`, `faiss`, and the default in-memory store.
 
+### ♻️ Reusing Roles
+
+Role templates live under `templates/roles/`. Each YAML file defines an agent
+name, prompt, and allowed tools:
+
+```yaml
+name: coder
+prompt: |
+  You are an expert software developer.
+tools:
+  - bash
+  - patch
+```
+
+Reference templates from a flow using the `include` key:
+
+```yaml
+include:
+  - templates/roles/coder.yaml
+
+agents:
+  coder:
+    model: gpt-4o
+
+tasks:
+  - agent: coder
+    input: build a CLI
+```
+
+The template's prompt and tools merge with the agent definition. Paths are
+resolved relative to the flow file.
+
 ---
 
 ## ⚙️ Environment Configuration
@@ -279,3 +319,19 @@ cd ts-sdk && npm install && npm test
 go install ./cmd/agentry
 agentry dev
 ```
+
+---
+
+## 🔌 Plugin Registry
+
+A sample registry file lives under `examples/registry/index.json`. Each entry lists a plugin
+archive `url` and its expected `sha256` checksum.
+Fetch a plugin with:
+
+```bash
+agentry plugin fetch examples/registry/index.json example
+```
+
+To contribute, add your plugin information to `index.json` and open a pull request.
+See `examples/registry/README.md` for details.
+

@@ -1,0 +1,10 @@
+agents:
+  researcher:
+    model: mock
+    tools: [fetch, view]
+tasks:
+  - sequential:
+      - agent: researcher
+        input: "Gather sources about the Go programming language."
+      - agent: researcher
+        input: "Summarise the key features of Go."

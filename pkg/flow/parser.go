@@ -10,14 +10,22 @@ import (
 )
 
 type File struct {
-	Agents map[string]Agent `yaml:"agents"`
-	Tasks  []Task           `yaml:"tasks"`
+	Include []string         `yaml:"include"`
+	Agents  map[string]Agent `yaml:"agents"`
+	Tasks   []Task           `yaml:"tasks"`
+}
+
+type Role struct {
+	Name   string   `yaml:"name"`
+	Prompt string   `yaml:"prompt"`
+	Tools  []string `yaml:"tools"`
 }
 
 type Agent struct {
 	Model  string            `yaml:"model"`
 	Prompt string            `yaml:"prompt,omitempty"`
 	Tools  []string          `yaml:"tools,omitempty"`
+	Vars   map[string]string `yaml:"vars,omitempty"`
 	Env    map[string]string `yaml:"env,omitempty"`
 }
 
@@ -42,6 +50,32 @@ func Load(path string) (*File, error) {
 	var f File
 	if err := yaml.Unmarshal(b, &f); err != nil {
 		return nil, err
+	}
+	baseDir := filepath.Dir(path)
+	for _, inc := range f.Include {
+		p := filepath.Join(baseDir, inc)
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return nil, err
+		}
+		var r Role
+		if err := yaml.Unmarshal(b, &r); err != nil {
+			return nil, err
+		}
+		if r.Name == "" {
+			continue
+		}
+		if f.Agents == nil {
+			f.Agents = map[string]Agent{}
+		}
+		a := f.Agents[r.Name]
+		if a.Prompt == "" {
+			a.Prompt = r.Prompt
+		}
+		if len(a.Tools) == 0 {
+			a.Tools = r.Tools
+		}
+		f.Agents[r.Name] = a
 	}
 	if len(f.Agents) == 0 {
 		return nil, errors.New("no agents defined")
