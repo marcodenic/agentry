@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -22,6 +23,7 @@ type RegistryEntry struct {
 	Name   string `json:"name"`
 	URL    string `json:"url"`
 	SHA256 string `json:"sha256"`
+	Sig    string `json:"sig,omitempty"`
 }
 
 // Fetch downloads a plugin by name from indexPath, verifies the SHA256 sum,
@@ -44,6 +46,19 @@ func Fetch(indexPath, name string) (string, error) {
 	}
 	if ent == nil {
 		return "", fmt.Errorf("plugin %s not found", name)
+	}
+	if pubPath := os.Getenv("AGENTRY_REGISTRY_PUBKEY"); pubPath != "" {
+		pubData, err := os.ReadFile(pubPath)
+		if err != nil {
+			return "", err
+		}
+		pub, err := hex.DecodeString(strings.TrimSpace(string(pubData)))
+		if err != nil {
+			return "", err
+		}
+		if !VerifySignature(*ent, ed25519.PublicKey(pub)) {
+			return "", fmt.Errorf("signature mismatch for %s", name)
+		}
 	}
 	b, err := readBytes(ent.URL)
 	if err != nil {
@@ -73,4 +88,23 @@ func readBytes(path string) ([]byte, error) {
 		return io.ReadAll(resp.Body)
 	}
 	return os.ReadFile(path)
+}
+
+// SignRegistry signs all entries in reg using priv and updates the Sig field.
+func SignRegistry(reg *Registry, priv ed25519.PrivateKey) {
+	for i := range reg.Plugins {
+		data := []byte(reg.Plugins[i].Name + "|" + reg.Plugins[i].URL + "|" + reg.Plugins[i].SHA256)
+		sig := ed25519.Sign(priv, data)
+		reg.Plugins[i].Sig = hex.EncodeToString(sig)
+	}
+}
+
+// VerifySignature checks the entry signature using pub.
+func VerifySignature(e RegistryEntry, pub ed25519.PublicKey) bool {
+	b, err := hex.DecodeString(e.Sig)
+	if err != nil || len(b) == 0 {
+		return false
+	}
+	data := []byte(e.Name + "|" + e.URL + "|" + e.SHA256)
+	return ed25519.Verify(pub, data, b)
 }

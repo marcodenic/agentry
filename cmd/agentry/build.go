@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/core"
@@ -27,6 +28,11 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 			return nil, err
 		}
 		reg[m.Name] = tl
+	}
+	if path := os.Getenv("AGENTRY_AUDIT_LOG"); path != "" {
+		if f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
+			reg = tool.WrapWithAudit(reg, f)
+		}
 	}
 
 	clients := map[string]model.Client{}
