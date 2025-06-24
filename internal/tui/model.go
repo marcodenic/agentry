@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -321,8 +321,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	var leftContent string
 	if m.activeTab == 0 {
-		leftContent = m.vp.View() + "\n" + m.input.View()
-	} else {
+		leftContent = m.vp.View() + "\n" + m.input.View()	} else {
 		if info, ok := m.infos[m.active]; ok {
 			leftContent = renderMemory(info.Agent)
 		}
@@ -333,9 +332,10 @@ func (m Model) View() string {
 	left := lipgloss.NewStyle().Width(int(float64(m.width) * 0.75)).Render(leftContent)
 	right := lipgloss.NewStyle().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
 	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+	help := lipgloss.NewStyle().Width(m.width).Render(helpView())
 	footer := fmt.Sprintf("cwd: %s | agents: %d", m.cwd, len(m.infos))
 	footer = lipgloss.NewStyle().Width(m.width).Render(footer)
-	return lipgloss.JoinVertical(lipgloss.Left, main, footer)
+	return lipgloss.JoinVertical(lipgloss.Left, main, help, footer)
 }
 
 func (m Model) userBar() string {
@@ -529,4 +529,13 @@ func (m Model) cycleActive(delta int) Model {
 		m.vp.SetContent(info.History)
 	}
 	return m
+}
+
+func helpView() string {
+	return strings.Join([]string{
+		"/spawn <n>    - create a new agent",
+		"/switch <prefix> - focus an agent",
+		"/stop <prefix>   - stop an agent",
+		"/converse <n> <topic> - side conversation",
+	}, "\n")
 }
