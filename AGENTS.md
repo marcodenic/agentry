@@ -11,6 +11,54 @@ Agentry is a minimal, extensible agentic runtime written in Go, with a TypeScrip
 
 ---
 
+## 🚨 MANDATORY DOCUMENTATION UPDATES
+
+**CRITICAL: When ANY work is completed, you MUST update the following files immediately:**
+
+### ✅ REQUIRED ACTIONS AFTER COMPLETING WORK:
+
+1. **Update [ROADMAP.md](./ROADMAP.md)**
+
+   - Mark completed tasks as DONE
+   - Remove or update obsolete items
+   - Add any new tasks discovered during work
+   - Update progress indicators and timelines
+
+2. **Update Documentation**
+
+   - Update relevant files in `/docs/` directory
+   - Update API documentation if APIs changed
+   - Update usage examples if functionality changed
+   - Update installation/setup instructions if needed
+
+3. **Update TODO Lists**
+
+   - Remove completed items from any TODO lists
+   - Add new discovered tasks or technical debt
+   - Update priorities based on current understanding
+
+4. **Update This File (AGENTS.md)**
+   - Add new agents/entrypoints if created
+   - Update examples if changed
+   - Update testing instructions if new tests added
+
+### 🎯 PURPOSE:
+
+- **Prevent Duplicate Work**: Agents need current information to avoid repeating completed tasks
+- **Maintain Accurate Backlog**: Keep the work queue current and prioritized
+- **Enable Efficient Collaboration**: Ensure all agents have up-to-date context
+
+### ⚠️ FAILURE TO UPDATE DOCUMENTATION WILL RESULT IN:
+
+- Wasted effort on already-completed tasks
+- Inconsistent project state
+- Confused agents working from outdated information
+- Degraded project quality and efficiency
+
+**NO EXCEPTIONS: Documentation updates are not optional—they are a required part of completing any work.**
+
+---
+
 ## Agents & Entrypoints
 
 | Name    | Description               | Entrypoint          | Example Usage                |
@@ -65,10 +113,17 @@ This project is licensed under the MIT License. See [LICENSE](./LICENSE).
 
 ---
 
-## Roadmap Update Policy
+## 📋 ROADMAP & DOCUMENTATION UPDATE POLICY
 
-- Only update the roadmap or task list in [ROADMAP.md](./ROADMAP.md) when a task has been completed to an enterprise-grade level. Partial or experimental implementations should not be marked as complete until they meet this standard.
-- Review and update the roadmap as needed every time you make changes to the codebase, or when you update or create new documentation—including AI-specific documentation—to ensure alignment and accuracy.
+**MANDATORY REQUIREMENTS:**
+
+- **ONLY** mark tasks as complete in [ROADMAP.md](./ROADMAP.md) when they have been implemented to an **enterprise-grade level** with proper testing, documentation, and error handling
+- **ALWAYS** review and update the roadmap immediately after making ANY changes to the codebase
+- **ALWAYS** update relevant documentation when creating or modifying features
+- **NEVER** leave partial or experimental implementations marked as complete
+- **VERIFY** that all related documentation accurately reflects the current state after your changes
+
+**This is not a suggestion—it is a requirement for all contributors and agents.**
 
 ---
 
