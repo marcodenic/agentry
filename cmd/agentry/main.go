@@ -296,19 +296,17 @@ func main() {
 		if *resumeID != "" {
 			_ = ag.LoadState(context.Background(), *resumeID)
 		}
-		if *teamSize > 1 {
-			tm, err := tui.NewTeam(ag, *teamSize, *topic)
-			if err != nil {
-				panic(err)
-			}
-			p := tea.NewProgram(tm)
-			if err := p.Start(); err != nil {
-				panic(err)
-			}		} else {
-			p := tea.NewProgram(tui.New(ag))
-			if err := p.Start(); err != nil {
-				panic(err)
-			}
+		size := 1
+		if *teamSize > 0 {
+			size = *teamSize
+		}
+		cm, err := tui.NewChat(ag, size, *topic)
+		if err != nil {
+			panic(err)
+		}
+		p := tea.NewProgram(cm)
+		if err := p.Start(); err != nil {
+			panic(err)
 		}
 		if *saveID != "" {
 			_ = ag.SaveState(context.Background(), *saveID)

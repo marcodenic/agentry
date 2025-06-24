@@ -9,7 +9,7 @@ import (
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
-	"github.com/marcodenic/agentry/internal/teamctx"
+	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
@@ -27,7 +27,7 @@ func TestAgentToolContext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	ctx := context.WithValue(context.Background(), teamctx.Key{}, team)
+	ctx := team.WithContext(context.Background(), team)
 	tl, ok := tool.DefaultRegistry()["agent"]
 	if !ok {
 		t.Fatalf("agent tool missing")

@@ -11,11 +11,11 @@ import (
 
 func TestNewTeam(t *testing.T) {
 	ag := core.New(router.Rules{{IfContains: []string{""}, Client: nil}}, tool.Registry{}, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
-	tm, err := NewTeam(ag, 2, "")
+	cm, err := NewChat(ag, 2, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(tm.vps) != 2 {
+	if len(cm.vps) != 2 {
 		t.Fatalf("expected 2 panes")
 	}
 }
