@@ -175,7 +175,7 @@ func main() {
 		if *resumeID != "" {
 			_ = ag.LoadState(context.Background(), *resumeID)
 		}
-		if cfg.Metrics {
+		if cfg.Collector != "" {
 			if _, err := trace.Init(cfg.Collector); err != nil {
 				fmt.Printf("trace init: %v\n", err)
 			}

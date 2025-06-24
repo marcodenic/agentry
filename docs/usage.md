@@ -159,6 +159,13 @@ metrics: true
 collector: localhost:4318
 ```
 
+You can override the collector address via the `AGENTRY_COLLECTOR` environment
+variable:
+
+```bash
+export AGENTRY_COLLECTOR=collector.example.com:4318
+```
+
 The server then exposes `/metrics` and streams spans to the specified collector.
 
 Metrics include HTTP request counts (`agentry_http_requests_total`),
