@@ -1,10 +1,16 @@
+include:
+  - roles/writer.yaml
+  - roles/editor.yaml
+
 agents:
   writer:
     model: gpt-4
-    prompt: "Write clear documentation."
+    vars:
+      personality: helpful
   editor:
     model: gpt-4
-    prompt: "Polish and edit documentation."
+    vars:
+      personality: precise
 tasks:
   - agent: writer
     input: draft docs

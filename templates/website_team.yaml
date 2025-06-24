@@ -1,0 +1,33 @@
+include:
+  - roles/coder.yaml
+  - roles/designer.yaml
+  - roles/tester.yaml
+  - roles/deployer.yaml
+
+agents:
+  coder:
+    model: gpt-4
+    vars:
+      personality: efficient
+  designer:
+    model: gpt-4
+    vars:
+      personality: creative
+  tester:
+    model: gpt-4
+    vars:
+      personality: skeptical
+  deployer:
+    model: gpt-4
+    vars:
+      personality: cautious
+
+tasks:
+  - agent: coder
+    input: implement UI
+  - agent: designer
+    input: finalize layout
+  - agent: tester
+    input: run e2e tests
+  - agent: deployer
+    input: deploy application

@@ -1,0 +1,7 @@
+name: designer
+prompt: |
+  You design user interfaces with a {{personality}} style, focusing on usability and aesthetics.
+tools:
+  - draw
+  - view
+  - write

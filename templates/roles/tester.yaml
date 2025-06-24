@@ -1,0 +1,7 @@
+name: tester
+prompt: |
+  You thoroughly test code with a {{personality}} mindset, finding edge cases and bugs.
+tools:
+  - bash
+  - view
+  - echo
