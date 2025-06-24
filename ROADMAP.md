@@ -456,7 +456,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | 7.1 | OTLP trace exporter | Aggregate | Convert events → spans |  4.4 | ✅
 | 7.2 | Prometheus metrics  | Ops       | `/metrics` endpoint    |  4.4 | ✅
 | 7.3 | Web dashboard       | Visualize | Next.js or SvelteKit   |  7.1 | ✅
-| 7.4 | Cost estimator      | Budget    | Post‑run analyzer      |  7.2 |
+| 7.4 | Cost estimator      | Budget    | Post‑run analyzer      |  7.2 | ✅
 | 7.5 | Profiling dashboard | Perf tune | pprof + flamegraphs    |  7.2 |
 
 ## ❽ Automated Test & CI (qa)

@@ -21,6 +21,7 @@ You can now use subcommands instead of the --mode flag:
 - `agentry tui` (TUI interface)
 - `agentry eval` (evaluation)
 - `agentry flow` (run `.agentry.flow.yaml`)
+- `agentry cost` (summarize trace logs)
 
 Example:
 
@@ -175,6 +176,17 @@ The server then exposes `/metrics` and streams spans to the specified collector.
 Metrics include HTTP request counts (`agentry_http_requests_total`),
 token usage (`agentry_tokens_total`) and tool execution latency
 (`agentry_tool_latency_seconds`).
+
+### Cost Analysis
+
+Use `agentry cost` to summarize token usage and estimated cost from a
+JSONL trace log:
+
+```bash
+agentry cost --input "original prompt" trace.jsonl
+```
+
+The command prints the total tokens processed and approximate dollar cost.
 
 ## Plugin Management
 

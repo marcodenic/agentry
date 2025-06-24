@@ -33,7 +33,7 @@ import (
 func main() {
 	env.Load()
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: agentry [dev|serve|tui|eval|flow|version] [--config path/to/config.yaml]")
+		fmt.Println("Usage: agentry [dev|serve|tui|eval|flow|cost|version] [--config path/to/config.yaml]")
 		os.Exit(1)
 	}
 
@@ -329,6 +329,8 @@ func main() {
 		if *saveID != "" {
 			_ = ag.SaveState(context.Background(), *saveID)
 		}
+	case "cost":
+		runCostCmd(args)
 	case "plugin":
 		runPluginCmd(args)
 	case "tool":
@@ -336,7 +338,7 @@ func main() {
 	case "version":
 		fmt.Printf("agentry %s\n", agentry.Version)
 	default:
-		fmt.Println("unknown command. Usage: agentry [dev|serve|tui|eval|flow|version] [--config path/to/config.yaml]")
+		fmt.Println("unknown command. Usage: agentry [dev|serve|tui|eval|flow|cost|version] [--config path/to/config.yaml]")
 		os.Exit(1)
 	}
 }
