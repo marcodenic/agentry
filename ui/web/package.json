@@ -4,13 +4,15 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "playwright test"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^2.0.3",
     "@sveltejs/kit": "^2.5.1",
     "svelte": "^4.2.9",
     "vite": "^4.4.0",
-    "chart.js": "^4.4.1"
+    "chart.js": "^4.4.1",
+    "playwright": "^1.53.1"
   }
 }

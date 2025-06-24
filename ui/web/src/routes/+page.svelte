@@ -8,9 +8,13 @@
   let agents = [];
   let chart;
   let reqChart;
+  let usageChart;
+  let healthChart;
   let labels = [];
   let tokens = [];
   let requests = {};
+  let tokenUsage = {};
+  let health = {};
 
   async function loadAgents() {
     const res = await fetch('/agents');
@@ -40,6 +44,10 @@
     const res = await fetch('/metrics');
     metrics = await res.text();
     parseMetrics(metrics);
+    const usageRes = await fetch('/token_usage');
+    if (usageRes.ok) updateUsage(await usageRes.json());
+    const healthRes = await fetch('/agent_health');
+    if (healthRes.ok) updateHealth(await healthRes.json());
     const tr = await fetch('/traces');
     if (tr.ok) otel = await tr.json();
   }
@@ -80,6 +88,34 @@
       reqChart.update();
     }
   }
+
+  function updateUsage(data) {
+    tokenUsage = data;
+    const labels = Object.keys(data);
+    const vals = Object.values(data);
+    if (!usageChart) {
+      const ctx = document.getElementById('usageChart');
+      if (ctx) usageChart = new Chart(ctx, {type:'bar', data:{labels,datasets:[{label:'tokens', data:vals}]}});
+    } else {
+      usageChart.data.labels = labels;
+      usageChart.data.datasets[0].data = vals;
+      usageChart.update();
+    }
+  }
+
+  function updateHealth(data) {
+    health = data;
+    const labels = Object.keys(data);
+    const vals = Object.values(data);
+    if (!healthChart) {
+      const ctx = document.getElementById('healthChart');
+      if (ctx) healthChart = new Chart(ctx, {type:'bar', data:{labels,datasets:[{label:'up', data:vals}]}, options:{scales:{y:{min:0,max:1}}}});
+    } else {
+      healthChart.data.labels = labels;
+      healthChart.data.datasets[0].data = vals;
+      healthChart.update();
+    }
+  }
   onMount(() => {
     loadAgents();
     refresh();
@@ -103,4 +139,6 @@
 <h3>Metrics</h3>
 <canvas id="tokChart"></canvas>
 <canvas id="reqChart"></canvas>
+<canvas id="usageChart"></canvas>
+<canvas id="healthChart"></canvas>
 <pre>{metrics}</pre>
