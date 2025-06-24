@@ -121,6 +121,13 @@ The new `tui` command launches a split-screen interface:
 
 Run `agentry tui --config examples/.agentry.yaml` to start the interface. There is no separate `--team` flag; simply type `/spawn <name>` to add a new agent pane. For example, `/spawn coder` starts an additional "coder" agent. All agents share the same chat window and can be dispatched to remote nodes in your Agentry cluster.
 
+Supported chat commands:
+
+- `/spawn <name>` – create a new agent pane
+- `/switch <prefix>` – focus an agent by ID prefix
+- `/stop <prefix>` – stop an agent while keeping history
+- `/converse <n> <topic>` – launch a side conversation between `n` agents
+
 ---
 
 ### 🎨 Themes & Keybinds
@@ -475,6 +482,30 @@ agentry tool mcp examples/ping-mcp.json > tools.yaml
 
 Each command prints YAML `ToolSpec` entries that can be inspected or embedded in
 config files.
+
+## 🔒 Security & Auditing
+
+List allowed tools in your configuration to enable granular permissions:
+
+```yaml
+permissions:
+  tools:
+    - echo
+    - ls
+```
+
+Set `AGENTRY_CONFIRM=1` to require confirmation before overwriting files. If `AGENTRY_AUDIT_LOG` points to a path, tool executions are appended in JSONL format.
+
+## 📊 Observability
+
+Add `metrics: true` to expose Prometheus counters at `/metrics`. Specify a `collector:` address to forward spans via OTLP:
+
+```yaml
+metrics: true
+collector: localhost:4318
+```
+
+The web dashboard visualises these metrics and traces live.
 
 ## 🤝 Contributing
 

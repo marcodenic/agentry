@@ -55,6 +55,15 @@ There is no `--team` flag. From inside the chat you can spawn additional agents 
 
 Spawned agents appear in their own panes and may run on remote nodes if your Agentry cluster is configured.
 
+#### TUI Commands
+
+Inside the chat input you can control running agents:
+
+- `/spawn <name>` – create another agent pane
+- `/switch <prefix>` – focus an agent by ID prefix
+- `/stop <prefix>` – halt an agent and keep its history
+- `/converse <n> <topic>` – open a side conversation between `n` new agents
+
 ### TUI Themes & Keybinds
 
 Create a `theme.json` file to customise colours and keyboard shortcuts. Agentry looks for the file in the current directory and its parents, falling back to `$HOME/.config/agentry/theme.json`.
@@ -117,3 +126,38 @@ branch-tidy --force false
 # Force delete all eligible branches
 branch-tidy --force true
 ```
+
+## Security
+
+Define a `permissions` section in `.agentry.yaml` to restrict which builtin tools may run:
+
+```yaml
+permissions:
+  tools:
+    - echo
+    - ls
+```
+
+Set `AGENTRY_CONFIRM=1` to require confirmation before overwriting files. Tool executions can be logged by setting `AGENTRY_AUDIT_LOG=path/to/audit.jsonl`.
+
+## Observability
+
+Enable Prometheus metrics and OTLP traces in your config:
+
+```yaml
+metrics: true
+collector: localhost:4318
+```
+
+The server then exposes `/metrics` and streams spans to the specified collector.
+
+## Plugin Management
+
+Agentry includes tooling to fetch and install external plugins:
+
+```bash
+agentry plugin fetch docs/registry/plugins.json agentry-shell
+agentry plugin install https://github.com/marcodenic/agentry-shell
+```
+
+Create new tools with `agentry tool init <name>`. Downloaded plugins are verified against the registry's signature before installation.
