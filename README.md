@@ -103,6 +103,7 @@ tools:
     type: builtin
   - name: agent # 🤖 launch a search agent
     type: builtin
+    # Runs a sub-agent with the provided `query` and returns its final answer
   - name: mcp # 🎮 connect to MCP servers
     type: builtin
 ```

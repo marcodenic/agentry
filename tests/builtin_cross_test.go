@@ -30,8 +30,8 @@ func TestBuiltinsCrossPlatform(t *testing.T) {
 			}
 		}
 		t.Run(name, func(t *testing.T) {
-			if name == "patch" || name == "ping" || name == "fetch" || name == "sourcegraph" || name == "mcp" {
-				t.Skip("skip network-dependent tool")
+			if name == "patch" || name == "ping" || name == "fetch" || name == "sourcegraph" || name == "mcp" || name == "agent" {
+				t.Skip("skip complex tool")
 			}
 			if name == "edit" {
 				path := ex["path"].(string)

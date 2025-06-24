@@ -471,10 +471,22 @@ var builtinMap = map[string]builtinSpec{
 			"type":       "object",
 			"properties": map[string]any{"query": map[string]any{"type": "string"}},
 			"required":   []string{"query"},
+			"example":    map[string]any{"query": "hello"},
 		},
 		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			query, _ := args["query"].(string)
-			return "agent searched: " + query, nil
+			if query == "" {
+				return "", errors.New("missing query")
+			}
+			fn, ok := SpawnFromContext(ctx)
+			if !ok {
+				return "", errors.New("missing spawn function")
+			}
+			out, err := fn(ctx, query)
+			if err != nil {
+				return "", err
+			}
+			return out, nil
 		},
 	},
 }
