@@ -21,6 +21,7 @@ import (
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/eval"
 	"github.com/marcodenic/agentry/internal/server"
+	"github.com/marcodenic/agentry/internal/session"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/internal/tui"
@@ -156,13 +157,13 @@ func main() {
 		// Session cleanup goroutine
 		if dur, err := time.ParseDuration(cfg.SessionTTL); err == nil && dur > 0 {
 			if cl, ok := ag.Store.(memstore.Cleaner); ok {
-				go func() {
-					ticker := time.NewTicker(time.Hour)
-					defer ticker.Stop()
-					for range ticker.C {
-						_ = cl.Cleanup(context.Background(), "history", dur)
+				interval := time.Hour
+				if cfg.SessionGCInterval != "" {
+					if iv, err := time.ParseDuration(cfg.SessionGCInterval); err == nil && iv > 0 {
+						interval = iv
 					}
-				}()
+				}
+				session.Start(context.Background(), cl, dur, interval)
 			}
 		}
 		// Checkpoint logic
