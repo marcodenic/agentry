@@ -8,6 +8,7 @@ import (
 	"github.com/marcodenic/agentry/internal/audit"
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
@@ -19,6 +20,7 @@ import (
 // buildAgent constructs an Agent from configuration.
 func buildAgent(cfg *config.File) (*core.Agent, error) {
 	tool.SetPermissions(cfg.Permissions.Tools)
+	tool.SetSandboxEngine(cfg.Sandbox.Engine)
 	reg := tool.Registry{}
 	for _, m := range cfg.Tools {
 		tl, err := tool.FromManifest(m)
@@ -85,8 +87,10 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	default:
 		vec = memory.NewInMemoryVector()
 	}
-
 	ag := core.New(rules, reg, memory.NewInMemory(), store, vec, nil)
+	if cfg.Budget.Tokens > 0 || cfg.Budget.Dollars > 0 {
+		ag.Cost = cost.New(cfg.Budget.Tokens, cfg.Budget.Dollars)
+	}
 	if logWriter != nil {
 		ag.Tracer = trace.NewJSONL(logWriter)
 	}

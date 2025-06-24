@@ -325,8 +325,7 @@ func (m Model) View() string {
 	var leftContent string
 	if m.activeTab == 0 {
 		leftContent = m.vp.View() + "\n" + m.input.View()
-	} else {
-		if info, ok := m.infos[m.active]; ok {
+	} else {		if info, ok := m.infos[m.active]; ok {
 			leftContent = renderMemory(info.Agent)
 		}
 	}
@@ -340,7 +339,14 @@ func (m Model) View() string {
 	right := base.Copy().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
 	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	help := lipgloss.NewStyle().Width(m.width).Render(helpView())
-	footer := fmt.Sprintf("cwd: %s | agents: %d", m.cwd, len(m.infos))
+	
+	tokens := 0
+	costVal := 0.0
+	if info, ok := m.infos[m.active]; ok && info.Agent.Cost != nil {
+		tokens = info.Agent.Cost.TotalTokens()
+		costVal = info.Agent.Cost.TotalCost()
+	}
+	footer := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.infos), tokens, costVal)
 	footer = base.Copy().Width(m.width).Render(footer)
 	return lipgloss.JoinVertical(lipgloss.Left, main, help, footer)
 }
