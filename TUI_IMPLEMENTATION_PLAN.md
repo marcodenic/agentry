@@ -30,13 +30,11 @@
 
 ## Current State Analysis
 
-- ❌ Single-agent model only (Model struct has one `agent *core.Agent`)
-- ❌ No multi-agent orchestration UI
-- ❌ No real-time status visualization
-- ❌ No command/control interface
-- ❌ Basic layout with no agents panel
-- ❌ No spinner/progress indicators
-- ❌ Limited theming system
+- ✅ Multi-agent model using `agents []*core.Agent`
+- ✅ Basic command system (`/spawn`, `/switch`, `/stop`, `/converse`)
+- ✅ Simple agent panel listing active agents
+- ❌ No real-time spinners or progress bars
+- ❌ Limited layout and theming options
 
 ## Required Complete Implementation
 
