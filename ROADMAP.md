@@ -456,8 +456,9 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | 7.1 | OTLP trace exporter | Aggregate | Convert events → spans |  4.4 | ✅
 | 7.2 | Prometheus metrics  | Ops       | `/metrics` endpoint    |  4.4 | ✅
 | 7.3 | Web dashboard       | Visualize | Next.js or SvelteKit   |  7.1 | ✅
-| 7.4 | Cost estimator      | Budget    | Post‑run analyzer      |  7.2 |
-| 7.5 | Profiling dashboard | Perf tune | pprof + flamegraphs    |  7.2 |
+| 7.4 | Cost estimator      | Budget    | Post‑run analyzer      |  7.2 | ✅
+| 7.5 | Profiling dashboard | Perf tune | pprof + flamegraphs    |  7.2 | ✅
+| 7.5a | pprof web viewer    | Quick inspect | `go tool pprof -http` cmd | 7.5 |
 
 ## ❽ Automated Test & CI (qa)
 
@@ -477,9 +478,12 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | 9.3 | Helm chart                  | Enterprise         | k8s templates       |  4.4 | ✅
 | 9.4 | VS Code extension           | Editor integration | SSE panel           |  7.1 | ✅
 | 9.5 | Multi-agent TUI redesign    | Usability          | See TUI_IMPLEMENTATION_PLAN.md |  —  |
+| 9.5a | Layout engine refactor     | Flexible panes     | extract grid manager | 9.5 |
 | 9.6 | TUI command system          | Control agents     | /spawn /stop /switch commands   | 9.5 | ✅ |
 | 9.7 | Real-time agent dashboard   | Visual status      | spinners + token bars (in progress) | 9.5 |
+| 9.7a | WebSocket updates          | Live metrics       | push events to UI    | 9.7 |
 | 9.8 | Custom theming              | Brand look         | lipgloss styles & presets | 9.5 |
+| 9.8a | Theme config file          | User presets       | JSON theme loader    | 9.8 |
 
 ## ❿ Documentation & Examples (docs)
 
@@ -488,21 +492,26 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | 10.1 | User guide rewrite | Up‑to‑date docs | mkdocs site                | All           | ✅
 | 10.2 | ~~“Power demos” repo~~ | Marketing       | DevOps flow, ETL, research |  Sections 3‑5 |
 | 10.3 | Tutorial videos    | Onboarding      | Asciinema + Loom           |  9.1          |
+| 10.3a | Video storyboard   | Plan content    | draft script + scenes | 10.3 |
 
 ## ⓫ Governance (meta)
 
 | ID   |  ‑ [ ] Task              | Why           | How            |
 | ---- | ------------------------ | ------------- | -------------- |
-| 11.1 | CODEOWNERS + RFC process | PR discipline | Add files      |
+| 11.1 | CODEOWNERS + RFC process | PR discipline | Add files      | ✅
 | 11.2 | Monthly roadmap call     | Feedback loop | Zoom + minutes |
+| 11.2a | Schedule GitHub event    | Community sync | recurring issue | 11.2 |
 | 11.3 | Contributor CLA          | Legal         | CLA‑assistant  |
+| 11.3a | Enable CLA bot          | PR gating     | GitHub app setup | 11.3 |
 
 ## ⓬ Performance & Benchmarking (perf)
 
 | ID   |  ‑ [ ] Task              | Why            | How                        | Deps |
 | ---- | ------------------------ | -------------- | -------------------------- | ---- |
 | 12.1 | Go vs Python micro‑bench | Speed story    | Compare throughput         |  8.4 |
+| 12.1a | Benchmark harness        | Reproduce tests | go vs py driver | 12.1 |
 | 12.2 | 1k‑agent scale test      | Validate scale | k8s job, record tokens/sec |  4.4 |
+| 12.2a | k8s cluster setup        | Provision infra | terraform module | 12.2 |
 
 ---
 

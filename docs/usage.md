@@ -21,6 +21,7 @@ You can now use subcommands instead of the --mode flag:
 - `agentry tui` (TUI interface)
 - `agentry eval` (evaluation)
 - `agentry flow` (run `.agentry.flow.yaml`)
+- `agentry analyze trace.log` (token/cost summary)
 
 Example:
 
@@ -193,3 +194,11 @@ export AGENTRY_REGISTRY_GPG_KEYRING=docs/registry/registry.pub
 ```
 
 Create new tools with `agentry tool init <name>`. Downloaded plugins are verified against the registry's signature before installation.
+
+## Trace Log Analysis
+
+If tracing is enabled via `AGENTRY_TRACE_FILE`, analyze the resulting log after a run:
+
+```bash
+agentry analyze path/to/trace.jsonl
+```

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/marcodenic/agentry/internal/model"
@@ -63,4 +64,19 @@ func ParseLog(r io.Reader) ([]Event, error) {
 		evs = append(evs, ev)
 	}
 	return evs, nil
+}
+
+// AnalyzeFile loads a newline-delimited JSON trace log and returns the
+// token usage summary. The input text is assumed to be empty.
+func AnalyzeFile(path string) (Summary, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return Summary{}, err
+	}
+	defer f.Close()
+	evs, err := ParseLog(f)
+	if err != nil {
+		return Summary{}, err
+	}
+	return Analyze("", evs), nil
 }
