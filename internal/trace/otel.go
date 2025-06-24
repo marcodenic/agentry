@@ -7,6 +7,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -26,9 +27,11 @@ func Init(collector string) (func(context.Context) error, error) {
 		if strings.HasPrefix(addr, "http://") {
 			addr = strings.TrimPrefix(addr, "http://")
 		}
-		exp, err = otlptracehttp.New(ctx,
+		client := otlptracehttp.NewClient(
 			otlptracehttp.WithEndpoint(addr),
-			otlptracehttp.WithInsecure())
+			otlptracehttp.WithInsecure(),
+		)
+		exp, err = otlptrace.New(ctx, client)
 	} else {
 		exp, err = stdouttrace.New(stdouttrace.WithPrettyPrint())
 	}

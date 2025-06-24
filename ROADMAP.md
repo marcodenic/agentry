@@ -401,7 +401,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | 1.2 | ~~VectorStore → Qdrant/Faiss adapter~~         | Real ANN search  | REST or local lib via CGO                  | 1.1  |
 | 1.3 | Checkpoint API (`Checkpoint()/Resume()`)   | Pause/continue   | Serialize loop state JSON after each event |  1.1 |
 | 1.4 | Max‑iteration graceful yield               | Avoid hard cap   | Emit `EventYield` when limit reached       |  1.3 |
-| 1.5 | Session GC daemon                          | Disk hygiene     | TTL sweep & compaction                     |  1.1 |
+| 1.5 | ~~Session GC daemon~~                          | Disk hygiene     | TTL sweep & compaction                     |  1.1 |
 
 ## ❷ Sandboxing & Security (security)
 

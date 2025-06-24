@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/marcodenic/agentry/internal/audit"
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/tool"
+	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/pkg/memstore"
 )
 
@@ -29,9 +31,11 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		}
 		reg[m.Name] = tl
 	}
+	var logWriter *audit.Log
 	if path := os.Getenv("AGENTRY_AUDIT_LOG"); path != "" {
-		if f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
-			reg = tool.WrapWithAudit(reg, f)
+		if lw, err := audit.Open(path, 1<<20); err == nil {
+			logWriter = lw
+			reg = tool.WrapWithAudit(reg, lw)
 		}
 	}
 
@@ -83,5 +87,8 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	}
 
 	ag := core.New(rules, reg, memory.NewInMemory(), store, vec, nil)
+	if logWriter != nil {
+		ag.Tracer = trace.NewJSONL(logWriter)
+	}
 	return ag, nil
 }

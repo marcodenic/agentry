@@ -9,17 +9,22 @@ import (
 )
 
 type ToolManifest struct {
-	Name        string         `yaml:"name" json:"name"`
-	Description string         `yaml:"description" json:"description"`
-	Type        string         `yaml:"type,omitempty" json:"type,omitempty"`
-	Command     string         `yaml:"command,omitempty" json:"command,omitempty"`
-	HTTP        string         `yaml:"http,omitempty" json:"http,omitempty"`
-	Args        map[string]any `yaml:"args,omitempty" json:"args,omitempty"`
-	Privileged  bool           `yaml:"privileged,omitempty" json:"privileged,omitempty"`
-	Net         string         `yaml:"net,omitempty" json:"net,omitempty"`
-	CPULimit    string         `yaml:"cpu_limit,omitempty" json:"cpu_limit,omitempty"`
-	MemLimit    string         `yaml:"mem_limit,omitempty" json:"mem_limit,omitempty"`
-	Engine      string         `yaml:"engine,omitempty" json:"engine,omitempty"`
+	Name        string          `yaml:"name" json:"name"`
+	Description string          `yaml:"description" json:"description"`
+	Type        string          `yaml:"type,omitempty" json:"type,omitempty"`
+	Command     string          `yaml:"command,omitempty" json:"command,omitempty"`
+	HTTP        string          `yaml:"http,omitempty" json:"http,omitempty"`
+	Args        map[string]any  `yaml:"args,omitempty" json:"args,omitempty"`
+	Privileged  bool            `yaml:"privileged,omitempty" json:"privileged,omitempty"`
+	Net         string          `yaml:"net,omitempty" json:"net,omitempty"`
+	CPULimit    string          `yaml:"cpu_limit,omitempty" json:"cpu_limit,omitempty"`
+	MemLimit    string          `yaml:"mem_limit,omitempty" json:"mem_limit,omitempty"`
+	Engine      string          `yaml:"engine,omitempty" json:"engine,omitempty"`
+	Permissions ToolPermissions `yaml:"permissions,omitempty" json:"permissions,omitempty"`
+}
+
+type ToolPermissions struct {
+	Allow *bool `yaml:"allow" json:"allow"`
 }
 
 type ModelManifest struct {
@@ -41,20 +46,21 @@ type VectorManifest struct {
 }
 
 type File struct {
-	Models      []ModelManifest              `yaml:"models" json:"models"`
-	Routes      []RouteRule                  `yaml:"routes" json:"routes"`
-	Tools       []ToolManifest               `yaml:"tools" json:"tools"`
-	Memory      string                       `yaml:"memory" json:"memory"`
-	Store       string                       `yaml:"store" json:"store"`
-	SessionTTL  string                       `yaml:"session_ttl" json:"session_ttl"`
-	Vector      VectorManifest               `yaml:"vector_store" json:"vector_store"`
-	Themes      map[string]string            `yaml:"themes" json:"themes"`
-	Keybinds    map[string]string            `yaml:"keybinds" json:"keybinds"`
-	Credentials map[string]map[string]string `yaml:"credentials" json:"credentials"`
-	MCPServers  map[string]string            `yaml:"mcp_servers" json:"mcp_servers"`
-	Metrics     bool                         `yaml:"metrics" json:"metrics"`
-	Collector   string                       `yaml:"collector" json:"collector"`
-	Permissions Permissions                  `yaml:"permissions" json:"permissions"`
+	Models            []ModelManifest              `yaml:"models" json:"models"`
+	Routes            []RouteRule                  `yaml:"routes" json:"routes"`
+	Tools             []ToolManifest               `yaml:"tools" json:"tools"`
+	Memory            string                       `yaml:"memory" json:"memory"`
+	Store             string                       `yaml:"store" json:"store"`
+	SessionTTL        string                       `yaml:"session_ttl" json:"session_ttl"`
+	SessionGCInterval string                       `yaml:"session_gc_interval" json:"session_gc_interval"`
+	Vector            VectorManifest               `yaml:"vector_store" json:"vector_store"`
+	Themes            map[string]string            `yaml:"themes" json:"themes"`
+	Keybinds          map[string]string            `yaml:"keybinds" json:"keybinds"`
+	Credentials       map[string]map[string]string `yaml:"credentials" json:"credentials"`
+	MCPServers        map[string]string            `yaml:"mcp_servers" json:"mcp_servers"`
+	Metrics           bool                         `yaml:"metrics" json:"metrics"`
+	Collector         string                       `yaml:"collector" json:"collector"`
+	Permissions       Permissions                  `yaml:"permissions" json:"permissions"`
 }
 
 type Permissions struct {
@@ -79,6 +85,9 @@ func merge(dst *File, src File) {
 	}
 	if src.SessionTTL != "" {
 		dst.SessionTTL = src.SessionTTL
+	}
+	if src.SessionGCInterval != "" {
+		dst.SessionGCInterval = src.SessionGCInterval
 	}
 	if src.Vector.Type != "" {
 		dst.Vector = src.Vector
@@ -157,5 +166,8 @@ func Load(path string) (*File, error) {
 		return nil, err
 	}
 	merge(&out, yamlFile)
+	if v := os.Getenv("AGENTRY_COLLECTOR"); v != "" {
+		out.Collector = v
+	}
 	return &out, nil
 }
