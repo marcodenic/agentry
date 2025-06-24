@@ -271,14 +271,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		info.History += msg.token
 		info.TokenCount++
 		if msg.id == m.active {
-			m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(info.History))
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 			m.vp.GotoBottom()
 		}
 	case finalMsg:
 		info := m.infos[msg.id]
 		info.History += m.aiBar() + " "
 		if msg.id == m.active {
-			m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(info.History))
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 			m.vp.GotoBottom()
 		}
 		info.Status = StatusIdle
@@ -308,7 +310,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.vp.Height = msg.Height - 5
 		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, msg.Height-2)
 		if info, ok := m.infos[m.active]; ok {
-			m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(info.History))
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 		}
 	}
 
@@ -321,26 +324,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	var leftContent string
 	if m.activeTab == 0 {
-		leftContent = m.vp.View() + "\n" + m.input.View()	} else {
-		if info, ok := m.infos[m.active]; ok {
-			leftContent = renderMemory(info.Agent)		}
+		leftContent = m.vp.View() + "\n" + m.input.View()
+	} else {		if info, ok := m.infos[m.active]; ok {
+			leftContent = renderMemory(info.Agent)
+		}
 	}
 	if m.err != nil {
 		leftContent += "\nERR: " + m.err.Error()
 	}
-	left := lipgloss.NewStyle().Width(int(float64(m.width) * 0.75)).Render(leftContent)
-	right := lipgloss.NewStyle().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
+	base := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+		Background(lipgloss.Color(m.theme.Palette.Background))
+	left := base.Copy().Width(int(float64(m.width) * 0.75)).Render(leftContent)
+	right := base.Copy().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
 	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	help := lipgloss.NewStyle().Width(m.width).Render(helpView())
 	
 	tokens := 0
 	costVal := 0.0
-	if len(m.agents) > 0 && m.agents[0].Cost != nil {
-		tokens = m.agents[0].Cost.TotalTokens()
-		costVal = m.agents[0].Cost.TotalCost()
+	if info, ok := m.infos[m.active]; ok && info.Agent.Cost != nil {
+		tokens = info.Agent.Cost.TotalTokens()
+		costVal = info.Agent.Cost.TotalCost()
 	}
 	footer := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.infos), tokens, costVal)
-	footer = lipgloss.NewStyle().Width(m.width).Render(footer)
+	footer = base.Copy().Width(m.width).Render(footer)
 	return lipgloss.JoinVertical(lipgloss.Left, main, help, footer)
 }
 
@@ -397,7 +404,8 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	info := m.infos[id]
 	info.Status = StatusRunning
 	info.History += m.userBar() + " " + input + "\n"
-	m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(info.History))
+	base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+	m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 
 	pr, pw := io.Pipe()
 	errCh := make(chan error, 1)
@@ -468,7 +476,8 @@ func (m Model) handleSwitch(args []string) (Model, tea.Cmd) {
 		if strings.HasPrefix(id.String(), prefix) {
 			m.active = id
 			if info, ok := m.infos[id]; ok {
-				m.vp.SetContent(info.History)
+				base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+				m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 			}
 			break
 		}

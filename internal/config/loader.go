@@ -54,6 +54,7 @@ type File struct {
 	SessionTTL        string                       `yaml:"session_ttl" json:"session_ttl"`
 	SessionGCInterval string                       `yaml:"session_gc_interval" json:"session_gc_interval"`
 	Vector            VectorManifest               `yaml:"vector_store" json:"vector_store"`
+	Theme             string                       `yaml:"theme" json:"theme"`
 	Themes            map[string]string            `yaml:"themes" json:"themes"`
 	Keybinds          map[string]string            `yaml:"keybinds" json:"keybinds"`
 	Credentials       map[string]map[string]string `yaml:"credentials" json:"credentials"`
@@ -102,6 +103,9 @@ func merge(dst *File, src File) {
 	}
 	if src.Vector.Type != "" {
 		dst.Vector = src.Vector
+	}
+	if src.Theme != "" {
+		dst.Theme = src.Theme
 	}
 	if dst.Themes == nil {
 		dst.Themes = map[string]string{}

@@ -66,6 +66,9 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		if cfg.Theme != "" {
+			os.Setenv("AGENTRY_THEME", cfg.Theme)
+		}
 		ag, err := buildAgent(cfg)
 		if err != nil {
 			panic(err)
@@ -131,6 +134,10 @@ func main() {
 				cfg.Themes = map[string]string{}
 			}
 			cfg.Themes["active"] = *theme
+			cfg.Theme = *theme
+		}
+		if cfg.Theme != "" {
+			os.Setenv("AGENTRY_THEME", cfg.Theme)
 		}
 		if *keybinds != "" {
 			if b, err := os.ReadFile(*keybinds); err == nil {
@@ -196,6 +203,10 @@ func main() {
 				cfg.Themes = map[string]string{}
 			}
 			cfg.Themes["active"] = *theme
+			cfg.Theme = *theme
+		}
+		if cfg.Theme != "" {
+			os.Setenv("AGENTRY_THEME", cfg.Theme)
 		}
 		if *keybinds != "" {
 			if b, err := os.ReadFile(*keybinds); err == nil {
@@ -268,6 +279,10 @@ func main() {
 				cfg.Themes = map[string]string{}
 			}
 			cfg.Themes["active"] = *theme
+			cfg.Theme = *theme
+		}
+		if cfg.Theme != "" {
+			os.Setenv("AGENTRY_THEME", cfg.Theme)
 		}
 		if *keybinds != "" {
 			if b, err := os.ReadFile(*keybinds); err == nil {
