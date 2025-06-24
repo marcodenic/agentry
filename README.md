@@ -85,6 +85,7 @@ You can now use subcommands instead of the --mode flag:
 - `agentry tui` (TUI interface)
 - `agentry eval` (evaluation)
 - `agentry flow` (run `.agentry.flow.yaml`)
+- `agentry version` (show version)
 
 Example:
 

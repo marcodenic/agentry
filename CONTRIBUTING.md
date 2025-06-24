@@ -28,6 +28,11 @@ Thank you for your interest in contributing to Agentry! This document provides g
    go install ./cmd/agentry
    ```
 
+5. Verify the installation:
+   ```bash
+   agentry version
+   ```
+
 ### Building and Testing
 
 #### Running Tests
