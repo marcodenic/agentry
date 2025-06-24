@@ -9,37 +9,32 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
 // Model is the root TUI model.
 type Model struct {
-	agent *core.Agent
+	masterAgent *core.Agent
+	agents      map[uuid.UUID]*AgentInfo
+	active      uuid.UUID
 
 	vp    viewport.Model
 	input textinput.Model
 	tools list.Model
 
-	status      string
-	currentTool string
-
-	cwd        string
-	tokenCount int
-	modelName  string
-	selected   string
-
-	sc *bufio.Scanner
-
-	history string
+	cwd string
 
 	activeTab int
 	width     int
@@ -49,6 +44,28 @@ type Model struct {
 
 	theme Theme
 	keys  Keybinds
+}
+
+type AgentStatus int
+
+const (
+	StatusIdle AgentStatus = iota
+	StatusRunning
+	StatusError
+	StatusStopped
+)
+
+type AgentInfo struct {
+	Agent       *core.Agent
+	History     string
+	Status      AgentStatus
+	CurrentTool string
+	TokenCount  int
+	ModelName   string
+	Scanner     *bufio.Scanner
+	Cancel      context.CancelFunc
+	Spinner     spinner.Model
+	Name        string
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -86,7 +103,21 @@ func New(ag *core.Agent) Model {
 	vp := viewport.New(0, 0)
 	cwd, _ := os.Getwd()
 
-	return Model{agent: ag, vp: vp, input: ti, tools: l, history: "", cwd: cwd, modelName: "unknown", status: "idle", theme: th, keys: th.Keybinds}
+	info := &AgentInfo{Agent: ag, Status: StatusIdle, Spinner: spinner.New(), Name: "master"}
+	agents := map[uuid.UUID]*AgentInfo{ag.ID: info}
+
+	m := Model{
+		masterAgent: ag,
+		agents:      agents,
+		active:      ag.ID,
+		vp:          vp,
+		input:       ti,
+		tools:       l,
+		cwd:         cwd,
+		theme:       th,
+		keys:        th.Keybinds,
+	}
+	return m
 }
 
 type listItem struct{ name, desc string }
@@ -111,53 +142,68 @@ func (d listItemDelegate) Render(w io.Writer, m list.Model, index int, item list
 	}
 }
 
-type tokenMsg string
-type toolUseMsg string
-type modelMsg string
+type tokenMsg struct {
+	id    uuid.UUID
+	token string
+}
+
+type toolUseMsg struct {
+	id   uuid.UUID
+	name string
+}
+
+type modelMsg struct {
+	id   uuid.UUID
+	name string
+}
 
 type errMsg struct{ error }
 
-type finalMsg string
+type finalMsg struct {
+	id   uuid.UUID
+	text string
+}
 
-func streamTokens(out string) tea.Cmd {
+func streamTokens(id uuid.UUID, out string) tea.Cmd {
 	runes := []rune(out)
 	cmds := make([]tea.Cmd, len(runes))
 	for i, r := range runes {
 		tok := string(r)
 		delay := time.Duration(i*30) * time.Millisecond
-		cmds[i] = tea.Tick(delay, func(t time.Time) tea.Msg { return tokenMsg(tok) })
+		cmds[i] = tea.Tick(delay, func(t time.Time) tea.Msg { return tokenMsg{id: id, token: tok} })
 	}
 	return tea.Batch(cmds...)
 }
 
-func (m *Model) readEvent() tea.Msg {
-	if m.sc == nil {
+func (m *Model) readEvent(id uuid.UUID) tea.Msg {
+	info := m.agents[id]
+	if info == nil || info.Scanner == nil {
 		return nil
 	}
 	for {
-		if !m.sc.Scan() {
-			if err := m.sc.Err(); err != nil {
+		if !info.Scanner.Scan() {
+			if err := info.Scanner.Err(); err != nil {
 				return errMsg{err}
 			}
 			return nil
 		}
 		var ev trace.Event
-		if err := json.Unmarshal(m.sc.Bytes(), &ev); err != nil {
+		if err := json.Unmarshal(info.Scanner.Bytes(), &ev); err != nil {
 			return errMsg{err}
 		}
 		switch ev.Type {
 		case trace.EventFinal:
 			if s, ok := ev.Data.(string); ok {
-				return finalMsg(s)
+				return finalMsg{id: id, text: s}
 			}
 		case trace.EventModelStart:
 			if name, ok := ev.Data.(string); ok {
-				return modelMsg(name)
+				return modelMsg{id: id, name: name}
 			}
 		case trace.EventToolEnd:
 			if m2, ok := ev.Data.(map[string]any); ok {
 				if name, ok := m2["name"].(string); ok {
-					return toolUseMsg(name)
+					return toolUseMsg{id: id, name: name}
 				}
 			}
 		default:
@@ -166,8 +212,8 @@ func (m *Model) readEvent() tea.Msg {
 	}
 }
 
-func (m *Model) readCmd() tea.Cmd {
-	return func() tea.Msg { return m.readEvent() }
+func (m *Model) readCmd(id uuid.UUID) tea.Cmd {
+	return func() tea.Msg { return m.readEvent(id) }
 }
 
 func waitErr(ch <-chan error) tea.Cmd {
@@ -195,54 +241,48 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.input.Focused() {
 				txt := m.input.Value()
 				m.input.SetValue("")
-				m.history += m.userBar() + " " + txt + "\n"
-				m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
-
-				m.status = "running"
-				m.currentTool = ""
-
-				pr, pw := io.Pipe()
-				errCh := make(chan error, 1)
-				m.agent.Tracer = trace.NewJSONL(pw)
-				m.sc = bufio.NewScanner(pr)
-				go func() {
-					_, err := m.agent.Run(context.Background(), txt)
-					pw.Close()
-					errCh <- err
-				}()
-				return m, tea.Batch(m.readCmd(), waitErr(errCh))
+				if strings.HasPrefix(txt, "/") {
+					var cmd tea.Cmd
+					m, cmd = m.handleCommand(txt)
+					return m, cmd
+				}
+				return m.startAgent(m.active, txt)
 			}
 		}
 	case tokenMsg:
-		m.history += string(msg)
-		m.tokenCount++
-		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
-		m.vp.GotoBottom()
+		info := m.agents[msg.id]
+		info.History += msg.token
+		info.TokenCount++
+		if msg.id == m.active {
+			m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(info.History))
+			m.vp.GotoBottom()
+		}
 	case finalMsg:
-		m.history += m.aiBar() + " "
-		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
-		m.vp.GotoBottom()
-		m.status = "idle"
-		return m, tea.Batch(streamTokens(string(msg)+"\n"), m.readCmd())
+		info := m.agents[msg.id]
+		info.History += m.aiBar() + " "
+		if msg.id == m.active {
+			m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(info.History))
+			m.vp.GotoBottom()
+		}
+		info.Status = StatusIdle
+		m.agents[msg.id] = info
+		return m, tea.Batch(streamTokens(msg.id, msg.text+"\n"), m.readCmd(msg.id))
 	case toolUseMsg:
-		m.currentTool = string(msg)
-		idx := -1
-		for i, it := range m.tools.Items() {
-			if li, ok := it.(listItem); ok && li.name == string(msg) {
-				idx = i
-				break
-			}
-		}
-		if idx >= 0 {
-			m.tools.Select(idx)
-		}
-		return m, m.readCmd()
+		info := m.agents[msg.id]
+		info.CurrentTool = msg.name
+		m.agents[msg.id] = info
+		return m, m.readCmd(msg.id)
 	case modelMsg:
-		m.modelName = string(msg)
-		return m, m.readCmd()
+		info := m.agents[msg.id]
+		info.ModelName = msg.name
+		m.agents[msg.id] = info
+		return m, m.readCmd(msg.id)
 	case errMsg:
 		m.err = msg
-		m.status = "idle"
+		if info, ok := m.agents[m.active]; ok {
+			info.Status = StatusError
+			m.agents[m.active] = info
+		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -250,7 +290,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.vp.Width = int(float64(msg.Width)*0.75) - 2
 		m.vp.Height = msg.Height - 5
 		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, msg.Height-2)
-		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
+		if info, ok := m.agents[m.active]; ok {
+			m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(info.History))
+		}
 	}
 
 	m.input, _ = m.input.Update(msg)
@@ -264,7 +306,9 @@ func (m Model) View() string {
 	if m.activeTab == 0 {
 		leftContent = m.vp.View() + "\n" + m.input.View()
 	} else {
-		leftContent = renderMemory(m.agent)
+		if info, ok := m.agents[m.active]; ok {
+			leftContent = renderMemory(info.Agent)
+		}
 	}
 	if m.err != nil {
 		leftContent += "\nERR: " + m.err.Error()
@@ -272,7 +316,7 @@ func (m Model) View() string {
 	left := lipgloss.NewStyle().Width(int(float64(m.width) * 0.75)).Render(leftContent)
 	right := lipgloss.NewStyle().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
 	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
-	footer := fmt.Sprintf("cwd: %s | tokens: %d | model: %s", m.cwd, m.tokenCount, m.modelName)
+	footer := fmt.Sprintf("cwd: %s | agents: %d", m.cwd, len(m.agents))
 	footer = lipgloss.NewStyle().Width(m.width).Render(footer)
 	return lipgloss.JoinVertical(lipgloss.Left, main, footer)
 }
@@ -307,13 +351,127 @@ func renderMemory(ag *core.Agent) string {
 }
 
 func (m Model) agentPanel() string {
-	lines := []string{
-		fmt.Sprintf("Name: %s", m.agent.ID.String()[:8]),
-		fmt.Sprintf("Status: %s", m.status),
+	lines := []string{}
+	for id, ag := range m.agents {
+		status := map[AgentStatus]string{
+			StatusIdle:    "idle",
+			StatusRunning: "run",
+			StatusError:   "error",
+			StatusStopped: "stopped",
+		}[ag.Status]
+		prefix := " "
+		if id == m.active {
+			prefix = "*"
+		}
+		line := fmt.Sprintf("%s %s [%s]", prefix, ag.Name, status)
+		lines = append(lines, line)
 	}
-	if m.currentTool != "" {
-		lines = append(lines, fmt.Sprintf("Tool: %s", m.currentTool))
-	}
-	lines = append(lines, fmt.Sprintf("Tokens: %d", m.tokenCount))
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
+func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
+	info := m.agents[id]
+	info.Status = StatusRunning
+	info.History += m.userBar() + " " + input + "\n"
+	m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(info.History))
+
+	pr, pw := io.Pipe()
+	errCh := make(chan error, 1)
+	info.Agent.Tracer = trace.NewJSONL(pw)
+	info.Scanner = bufio.NewScanner(pr)
+	ctx, cancel := context.WithCancel(context.Background())
+	info.Cancel = cancel
+	m.agents[id] = info
+	go func() {
+		_, err := info.Agent.Run(ctx, input)
+		pw.Close()
+		errCh <- err
+	}()
+	return m, tea.Batch(m.readCmd(id), waitErr(errCh))
+}
+
+func (m Model) handleCommand(cmd string) (Model, tea.Cmd) {
+	fields := strings.Fields(cmd)
+	if len(fields) == 0 {
+		return m, nil
+	}
+	switch fields[0] {
+	case "/spawn":
+		return m.handleSpawn(fields[1:])
+	case "/switch":
+		return m.handleSwitch(fields[1:])
+	case "/stop":
+		return m.handleStop(fields[1:])
+	case "/converse":
+		return m.handleConverse(fields[1:])
+	default:
+		return m, nil
+	}
+}
+
+func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
+	name := "agent"
+	if len(args) > 0 {
+		name = args[0]
+	}
+	ag := m.masterAgent.Spawn()
+	info := &AgentInfo{Agent: ag, Status: StatusIdle, Spinner: spinner.New(), Name: name}
+	m.agents[ag.ID] = info
+	m.active = ag.ID
+	m.vp.SetContent("")
+	return m, nil
+}
+
+func (m Model) handleSwitch(args []string) (Model, tea.Cmd) {
+	if len(args) == 0 {
+		return m, nil
+	}
+	prefix := args[0]
+	for id := range m.agents {
+		if strings.HasPrefix(id.String(), prefix) {
+			m.active = id
+			if info, ok := m.agents[id]; ok {
+				m.vp.SetContent(info.History)
+			}
+			break
+		}
+	}
+	return m, nil
+}
+
+func (m Model) handleStop(args []string) (Model, tea.Cmd) {
+	id := m.active
+	if len(args) > 0 {
+		pref := args[0]
+		for aid := range m.agents {
+			if strings.HasPrefix(aid.String(), pref) {
+				id = aid
+				break
+			}
+		}
+	}
+	if info, ok := m.agents[id]; ok && info.Cancel != nil {
+		info.Cancel()
+		info.Status = StatusStopped
+		m.agents[id] = info
+	}
+	return m, nil
+}
+
+func (m Model) handleConverse(args []string) (Model, tea.Cmd) {
+	if len(args) < 2 {
+		return m, nil
+	}
+	n, err := strconv.Atoi(args[0])
+	if err != nil {
+		return m, nil
+	}
+	topic := strings.Join(args[1:], " ")
+	tm, err := NewTeam(m.masterAgent, n, topic)
+	if err != nil {
+		m.err = err
+		return m, nil
+	}
+	go func() { _ = tea.NewProgram(tm).Start() }()
+	return m, nil
 }
