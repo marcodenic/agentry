@@ -8,17 +8,15 @@ import (
 
 // InMemory is a simple ephemeral store backed by Go maps.
 type InMemory struct {
-	mu     sync.RWMutex
-	kv     map[string]map[string][]byte
-	meta   map[string]map[string]int64
-	vector map[string]string
+	mu   sync.RWMutex
+	kv   map[string]map[string][]byte
+	meta map[string]map[string]int64
 }
 
 func NewInMemory() *InMemory {
 	return &InMemory{
-		kv:     map[string]map[string][]byte{},
-		meta:   map[string]map[string]int64{},
-		vector: map[string]string{},
+		kv:   map[string]map[string][]byte{},
+		meta: map[string]map[string]int64{},
 	}
 }
 
@@ -51,26 +49,6 @@ func (m *InMemory) Get(_ context.Context, bucket, key string) ([]byte, error) {
 	cp := make([]byte, len(val))
 	copy(cp, val)
 	return cp, nil
-}
-
-func (m *InMemory) Add(_ context.Context, id, text string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.vector[id] = text
-	return nil
-}
-
-func (m *InMemory) Query(_ context.Context, _ string, k int) ([]string, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	ids := make([]string, 0, k)
-	for id := range m.vector {
-		ids = append(ids, id)
-		if len(ids) >= k {
-			break
-		}
-	}
-	return ids, nil
 }
 
 func (m *InMemory) Cleanup(_ context.Context, bucket string, ttl time.Duration) error {

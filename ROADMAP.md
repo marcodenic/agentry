@@ -514,5 +514,12 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 
 ---
 
-> **Mantra:** _Keep the core fast and tiny; everything else is optional & pluggable._  
+### Changelog
+
+- 2025‑06‑24 – Removed unused vector interface from `pkg/memstore` to simplify
+  the codebase.
+
+---
+
+> **Mantra:** _Keep the core fast and tiny; everything else is optional & pluggable._
 > End of machine‑readable backlog.
