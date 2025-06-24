@@ -57,6 +57,23 @@ func TestCommandFlow(t *testing.T) {
 	}
 }
 
+func TestChatModelConverse(t *testing.T) {
+	mock := &seqMock{}
+	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: mock}}
+	ag := core.New(route, tool.Registry{}, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+
+	m, err := NewChat(ag, 2, "hi")
+	if err != nil {
+		t.Fatalf("new chat error: %v", err)
+	}
+
+	m, _ = m.handleCommand("/converse")
+	first := m.team.Agents()[0].ID
+	if !strings.Contains(m.infos[first].History, "msg") {
+		t.Fatalf("converse did not update history: %s", m.infos[first].History)
+	}
+}
+
 type seqMock struct{ n int }
 
 func (m *seqMock) Complete(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (model.Completion, error) {

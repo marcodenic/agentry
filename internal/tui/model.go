@@ -326,9 +326,10 @@ func (m Model) View() string {
 	left := lipgloss.NewStyle().Width(int(float64(m.width) * 0.75)).Render(leftContent)
 	right := lipgloss.NewStyle().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
 	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+	help := lipgloss.NewStyle().Width(m.width).Render(helpView())
 	footer := fmt.Sprintf("cwd: %s | agents: %d", m.cwd, len(m.agents))
 	footer = lipgloss.NewStyle().Width(m.width).Render(footer)
-	return lipgloss.JoinVertical(lipgloss.Left, main, footer)
+	return lipgloss.JoinVertical(lipgloss.Left, main, help, footer)
 }
 
 func (m Model) userBar() string {
@@ -490,4 +491,13 @@ func (m Model) handleConverse(args []string) (Model, tea.Cmd) {
 	}
 	go func() { _ = tea.NewProgram(tm).Start() }()
 	return m, nil
+}
+
+func helpView() string {
+	return strings.Join([]string{
+		"/spawn <name>    - create a new agent",
+		"/switch <prefix> - focus an agent",
+		"/stop <prefix>   - stop an agent",
+		"/converse <n> <topic> - side conversation",
+	}, "\n")
 }
