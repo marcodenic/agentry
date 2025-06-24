@@ -1,10 +1,10 @@
-name: Deploy Registry
+name: Deploy Registry Site
 
 on:
   push:
     branches: [main]
     paths:
-      - 'docs/registry/**'
+      - 'docs/registry-site/**'
       - '.github/workflows/pages.yml'
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/registry
+          path: docs/registry-site
 
   deploy:
     needs: build
