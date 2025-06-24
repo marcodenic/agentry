@@ -264,14 +264,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		info.History += msg.token
 		info.TokenCount++
 		if msg.id == m.active {
-			m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(info.History))
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 			m.vp.GotoBottom()
 		}
 	case finalMsg:
 		info := m.agents[msg.id]
 		info.History += m.aiBar() + " "
 		if msg.id == m.active {
-			m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(info.History))
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 			m.vp.GotoBottom()
 		}
 		info.Status = StatusIdle
@@ -301,7 +303,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.vp.Height = msg.Height - 5
 		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, msg.Height-2)
 		if info, ok := m.agents[m.active]; ok {
-			m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(info.History))
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 		}
 	}
 
@@ -323,11 +326,14 @@ func (m Model) View() string {
 	if m.err != nil {
 		leftContent += "\nERR: " + m.err.Error()
 	}
-	left := lipgloss.NewStyle().Width(int(float64(m.width) * 0.75)).Render(leftContent)
-	right := lipgloss.NewStyle().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
+	base := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+		Background(lipgloss.Color(m.theme.Palette.Background))
+	left := base.Copy().Width(int(float64(m.width) * 0.75)).Render(leftContent)
+	right := base.Copy().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
 	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	footer := fmt.Sprintf("cwd: %s | agents: %d", m.cwd, len(m.agents))
-	footer = lipgloss.NewStyle().Width(m.width).Render(footer)
+	footer = base.Copy().Width(m.width).Render(footer)
 	return lipgloss.JoinVertical(lipgloss.Left, main, footer)
 }
 
@@ -383,7 +389,8 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	info := m.agents[id]
 	info.Status = StatusRunning
 	info.History += m.userBar() + " " + input + "\n"
-	m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(info.History))
+	base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+	m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 
 	pr, pw := io.Pipe()
 	errCh := make(chan error, 1)
@@ -445,7 +452,8 @@ func (m Model) handleSwitch(args []string) (Model, tea.Cmd) {
 		if strings.HasPrefix(id.String(), prefix) {
 			m.active = id
 			if info, ok := m.agents[id]; ok {
-				m.vp.SetContent(info.History)
+				base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+				m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 			}
 			break
 		}

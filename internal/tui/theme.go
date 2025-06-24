@@ -17,15 +17,33 @@ type Keybinds struct {
 }
 
 // Theme holds colour settings and keybinds.
+// Palette defines a set of base colours for the UI panels.
+type Palette struct {
+	Background string `json:"background"`
+	Foreground string `json:"foreground"`
+}
+
+// Theme holds colour settings and keybinds.
+// Mode selects which built-in palette to use ("light" or "dark").
 type Theme struct {
+	Mode         string   `json:"mode"`
+	Palette      Palette  `json:"palette"`
 	UserBarColor string   `json:"userBarColor"`
 	AIBarColor   string   `json:"aiBarColor"`
 	Keybinds     Keybinds `json:"keybinds"`
 }
 
+// Pre-defined palettes for light and dark modes.
+var (
+	LightPalette = Palette{Background: "#FFFFFF", Foreground: "#000000"}
+	DarkPalette  = Palette{Background: "#000000", Foreground: "#FFFFFF"}
+)
+
 // DefaultTheme returns built‑in colours and keybindings.
 func DefaultTheme() Theme {
 	return Theme{
+		Mode:         "dark",
+		Palette:      DarkPalette,
 		UserBarColor: "#8B5CF6",
 		AIBarColor:   "#9CA3AF",
 		Keybinds: Keybinds{
@@ -64,6 +82,14 @@ func LoadTheme() Theme {
 			break
 		}
 		dir = parent
+	}
+	if mode := os.Getenv("AGENTRY_THEME"); mode != "" {
+		t.Mode = mode
+	}
+	if t.Mode == "light" {
+		t.Palette = LightPalette
+	} else {
+		t.Palette = DarkPalette
 	}
 	return t
 }
