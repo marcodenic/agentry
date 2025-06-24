@@ -407,10 +407,10 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 
 | ID  |  ‑ [ ] Task                 | Why                 | How                                  | Deps |
 | --- | --------------------------- | ------------------- | ------------------------------------ | ---- |
-| 2.1 | Tool permission matrix      | Block dangerous ops | YAML `permissions:` gate before exec | —    |
+| 2.1 | Tool permission matrix      | Block dangerous ops | YAML `permissions:` gate before exec | —    | ✅
 | 2.2 | Docker sandbox executor     | Isolate shell/code  | Wrap tools in `docker run`           |  2.1 |
 | 2.3 | gVisor / Firecracker runner | Hard isolation      | CRI shim prototype                   |  2.2 |
-| 2.4 | Signed‑plugin registry      | Supply‑chain trust  | Publish index.json + SHA256 sig      | —    |
+| 2.4 | Signed‑plugin registry      | Supply‑chain trust  | Publish index.json + SHA256 sig      | —    | ✅
 
 ## ❸ Declarative Workflow DSL (dx)
 
@@ -445,7 +445,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | ID  |  ‑ [ ] Task                    | Why             | How                           | Deps |
 | --- | ------------------------------ | --------------- | ----------------------------- | ---- |
 | 6.1 | `agentry tool init` scaffolder | Fast plugin dev | Gen skeleton + manifest       | —    | ✅
-| 6.2 | Community registry site        | Discovery       | Static Jamstack index         |  6.1 |
+| 6.2 | Community registry site        | Discovery       | Static Jamstack index         |  6.1 | ✅
 | 6.3 | Plugin installer CLI           | Easy add        | `install <repo>` updates YAML |  6.2 | ✅
 | 6.4 | OpenAPI/MCP adapter            | Interop         | Wrap external spec as tool    |  6.3 | ✅
 
@@ -453,8 +453,8 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 
 | ID  |  ‑ [ ] Task         | Why       | How                    | Deps |
 | --- | ------------------- | --------- | ---------------------- | ---- |
-| 7.1 | OTLP trace exporter | Aggregate | Convert events → spans |  4.4 |
-| 7.2 | Prometheus metrics  | Ops       | `/metrics` endpoint    |  4.4 |
+| 7.1 | OTLP trace exporter | Aggregate | Convert events → spans |  4.4 | ✅
+| 7.2 | Prometheus metrics  | Ops       | `/metrics` endpoint    |  4.4 | ✅
 | 7.3 | Web dashboard       | Visualize | Next.js or SvelteKit   |  7.1 |
 | 7.4 | Cost estimator      | Budget    | Post‑run analyzer      |  7.2 |
 
