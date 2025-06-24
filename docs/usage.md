@@ -72,6 +72,10 @@ Create a `theme.json` file to customise colours and keyboard shortcuts. Agentry 
 {
   "userBarColor": "#00FF00",
   "aiBarColor": "#FF00FF",
+  "idleColor": "#22C55E",
+  "runningColor": "#FBBF24",
+  "errorColor": "#EF4444",
+  "stoppedColor": "#6B7280",
   "keybinds": {
     "quit": "ctrl+c",
     "toggleTab": "tab",

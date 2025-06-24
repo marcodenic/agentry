@@ -26,11 +26,17 @@ type Palette struct {
 // Theme holds colour settings and keybinds.
 // Mode selects which built-in palette to use ("light" or "dark").
 type Theme struct {
-	Mode         string   `json:"mode"`
-	Palette      Palette  `json:"palette"`
-	UserBarColor string   `json:"userBarColor"`
-	AIBarColor   string   `json:"aiBarColor"`
-	Keybinds     Keybinds `json:"keybinds"`
+	Mode         string  `json:"mode"`
+	Palette      Palette `json:"palette"`
+	UserBarColor string  `json:"userBarColor"`
+	AIBarColor   string  `json:"aiBarColor"`
+
+	IdleColor    string `json:"idleColor"`
+	RunningColor string `json:"runningColor"`
+	ErrorColor   string `json:"errorColor"`
+	StoppedColor string `json:"stoppedColor"`
+
+	Keybinds Keybinds `json:"keybinds"`
 }
 
 // Pre-defined palettes for light and dark modes.
@@ -46,6 +52,10 @@ func DefaultTheme() Theme {
 		Palette:      DarkPalette,
 		UserBarColor: "#8B5CF6",
 		AIBarColor:   "#9CA3AF",
+		IdleColor:    "#22C55E",
+		RunningColor: "#FBBF24",
+		ErrorColor:   "#EF4444",
+		StoppedColor: "#6B7280",
 		Keybinds: Keybinds{
 			Quit:      "ctrl+c",
 			ToggleTab: "tab",

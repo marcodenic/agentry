@@ -478,7 +478,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | 9.4 | VS Code extension           | Editor integration | SSE panel           |  7.1 | ✅
 | 9.5 | Multi-agent TUI redesign    | Usability          | See TUI_IMPLEMENTATION_PLAN.md |  —  |
 | 9.6 | TUI command system          | Control agents     | /spawn /stop /switch commands   | 9.5 | ✅ |
-| 9.7 | Real-time agent dashboard   | Visual status      | spinners + token bars | 9.5 |
+| 9.7 | Real-time agent dashboard   | Visual status      | spinners + token bars (in progress) | 9.5 |
 | 9.8 | Custom theming              | Brand look         | lipgloss styles & presets | 9.5 |
 
 ## ❿ Documentation & Examples (docs)
