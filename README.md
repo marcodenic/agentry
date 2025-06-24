@@ -85,6 +85,7 @@ You can now use subcommands instead of the --mode flag:
 - `agentry tui` (TUI interface)
 - `agentry eval` (evaluation)
 - `agentry flow` (run `.agentry.flow.yaml`)
+- `agentry analyze trace.log` (token/cost summary)
 - `agentry version` (show version)
 
 Server port can be overridden with `--port` or `AGENTRY_PORT`. Adjust the agent
@@ -102,6 +103,12 @@ Run the sample scenarios in `examples/flows`:
 agentry flow examples/flows/research_task
 agentry flow examples/flows/etl_pipeline
 agentry flow examples/flows/multi_agent_chat
+```
+
+After running a flow with `AGENTRY_TRACE_FILE` set, generate a token usage summary:
+
+```bash
+agentry analyze path/to/trace.jsonl
 ```
 
 More advanced scenarios are available in the [agentry-demos](./agentry-demos) repository:

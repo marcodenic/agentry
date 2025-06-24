@@ -33,7 +33,7 @@ import (
 func main() {
 	env.Load()
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: agentry [dev|serve|tui|eval|flow|cost|version] [--config path/to/config.yaml]")
+		fmt.Println("Usage: agentry [dev|serve|tui|eval|flow|analyze|cost|version] [--config path/to/config.yaml]")
 		os.Exit(1)
 	}
 
@@ -359,10 +359,20 @@ func main() {
 		runPluginCmd(args)
 	case "tool":
 		runToolCmd(args)
+	case "analyze":
+		if len(args) < 1 {
+			fmt.Println("usage: agentry analyze trace.log")
+			return
+		}
+		sum, err := trace.AnalyzeFile(args[0])
+		if err != nil {
+			fmt.Println("analyze error:", err)
+			os.Exit(1)		}
+		fmt.Printf("tokens: %d cost: $%.4f\n", sum.Tokens, sum.Cost)
 	case "version":
 		fmt.Printf("agentry %s\n", agentry.Version)
 	default:
-		fmt.Println("unknown command. Usage: agentry [dev|serve|tui|eval|flow|cost|version] [--config path/to/config.yaml]")
+		fmt.Println("unknown command. Usage: agentry [dev|serve|tui|eval|flow|analyze|cost|version] [--config path/to/config.yaml]")
 		os.Exit(1)
 	}
 }

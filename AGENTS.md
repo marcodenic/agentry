@@ -65,6 +65,7 @@ Agentry is a minimal, extensible agentic runtime written in Go, with a TypeScrip
 | ------- | ------------------------- | ------------------- | ---------------------------- |
 | agentry | Main agent runtime        | cmd/agentry/main.go | `go run cmd/agentry/main.go` |
 | ts-sdk  | TypeScript SDK entrypoint | ts-sdk/src/index.ts | `cd ts-sdk && npm run build` |
+| trace analyzer | Token usage summary tool | cmd/agentry/main.go analyze | `agentry analyze trace.jsonl` |
 
 ---
 
