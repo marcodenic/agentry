@@ -316,11 +316,13 @@ memory: sqlite:mem.db
 store: path/to/db.sqlite
 # automatically remove sessions after one week
 session_ttl: 168h
+# interval between cleanup sweeps (default 1h)
+session_gc_interval: 1h
 ```
 
 Run the CLI with `--resume-id myrun` to load a snapshot before running and `--save-id myrun` to save state after each run. `--checkpoint-id myrun` continuously saves intermediate steps so sessions can be resumed.
 Expired sessions are pruned automatically by the server based on `session_ttl`.
-Cleanup runs hourly for any configured store backend.
+Cleanup runs on `session_gc_interval` for any configured store backend.
 
 ### 📚 Vector Store
 
