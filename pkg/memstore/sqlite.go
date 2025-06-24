@@ -24,9 +24,6 @@ func NewSQLite(path string) (*SQLite, error) {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS kv_meta (bucket TEXT, key TEXT, updated INTEGER, PRIMARY KEY(bucket,key))`); err != nil {
 		return nil, err
 	}
-	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS vector (id TEXT PRIMARY KEY, text TEXT)`); err != nil {
-		return nil, err
-	}
 	return &SQLite{db: db}, nil
 }
 
@@ -58,28 +55,6 @@ func (s *SQLite) Get(ctx context.Context, bucket, key string) ([]byte, error) {
 		return nil, err
 	}
 	return val, nil
-}
-
-func (s *SQLite) Add(ctx context.Context, id, text string) error {
-	_, err := s.db.ExecContext(ctx, `INSERT OR REPLACE INTO vector(id,text) VALUES(?,?)`, id, text)
-	return err
-}
-
-func (s *SQLite) Query(ctx context.Context, text string, k int) ([]string, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id FROM vector LIMIT ?`, k)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	ids := []string{}
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids = append(ids, id)
-	}
-	return ids, rows.Err()
 }
 
 // Cleanup removes entries older than the provided TTL from the given bucket.
