@@ -24,6 +24,14 @@ jobs:
         with:
           go-version: "1.23"
 
+      - name: Check gofmt
+        run: |
+          diff=$(gofmt -l $(git ls-files '*.go'))
+          if [ -n "$diff" ]; then echo "gofmt needed:" && echo "$diff" && exit 1; fi
+
+      - name: Run go vet
+        run: go vet ./...
+
       - name: Install and run golangci-lint
         shell: bash
         run: |

@@ -6,7 +6,9 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 
 1. **Persistent Memory & Resumable Workflows**
 
-   - Enable agents to remember and resume tasks across sessions, with first-class support for persistent state storage and workflow checkpointing.
+   - Enable agents to remember and res| 7.4 | Cost estimator      | Budget    | Post‑run analyzer      |  7.2 | ✅
+| 7.5 | Profiling dashboard | Perf tune | pprof + flamegraphs    |  7.2 | ✅
+| 7.5a | pprof web viewer    | Quick inspect | `go tool pprof -http` cmd | 7.5 |ks across sessions, with first-class support for persistent state storage and workflow checkpointing.
    - Integrate long-term memory (e.g., SQLite/vector DB per agent/project) and provide APIs for agents to read/write knowledge, facts, and plans.
    - Implement checkpointing and task resumption, allowing agents to serialize/deserialize state and continue complex workflows after restarts.
    - Provide example scenarios (e.g., scheduled agents, multi-day research tasks) to demonstrate reliability and persistence.
@@ -402,6 +404,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | 1.3 | Checkpoint API (`Checkpoint()/Resume()`)   | Pause/continue   | Serialize loop state JSON after each event |  1.1 | ✅
 | 1.4 | Max‑iteration graceful yield               | Avoid hard cap   | Emit `EventYield` when limit reached       |  1.3 | ✅
 | 1.5 | ~~Session GC daemon~~                          | Disk hygiene     | TTL sweep & compaction                     |  1.1 | ✅
+| 1.6 | Configurable iteration limit               | Tune workloads    | CLI flag & config field                    |  1.4 | ✅
 
 ## ❷ Sandboxing & Security (security)
 
@@ -457,8 +460,12 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | 7.2 | Prometheus metrics  | Ops       | `/metrics` endpoint    |  4.4 | ✅
 | 7.3 | Web dashboard       | Visualize | Next.js or SvelteKit   |  7.1 | ✅
 | 7.4 | Cost estimator      | Budget    | Post‑run analyzer      |  7.2 | ✅
+<<<<<<< HEAD
 | 7.5 | Profiling dashboard | Perf tune | pprof + flamegraphs    |  7.2 | ✅
 | 7.5a | pprof web viewer    | Quick inspect | `go tool pprof -http` cmd | 7.5 |
+=======
+| 7.5 | Profiling dashboard | Perf tune | pprof + flamegraphs    |  7.2 |
+>>>>>>> v0.2.0
 
 ## ❽ Automated Test & CI (qa)
 

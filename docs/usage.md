@@ -22,6 +22,10 @@ You can now use subcommands instead of the --mode flag:
 - `agentry eval` (evaluation)
 - `agentry flow` (run `.agentry.flow.yaml`)
 - `agentry analyze trace.log` (token/cost summary)
+- `agentry cost` (summarize trace logs)
+
+Use `--port 9090` or set `AGENTRY_PORT` to change the HTTP server port. Set
+`--max-iter` or `max_iterations:` in `.agentry.yaml` to control the iteration limit.
 
 Example:
 
@@ -176,6 +180,17 @@ The server then exposes `/metrics` and streams spans to the specified collector.
 Metrics include HTTP request counts (`agentry_http_requests_total`),
 token usage (`agentry_tokens_total`) and tool execution latency
 (`agentry_tool_latency_seconds`).
+
+### Cost Analysis
+
+Use `agentry cost` to summarize token usage and estimated cost from a
+JSONL trace log:
+
+```bash
+agentry cost --input "original prompt" trace.jsonl
+```
+
+The command prints the total tokens processed and approximate dollar cost.
 
 ## Plugin Management
 

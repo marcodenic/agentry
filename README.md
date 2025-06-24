@@ -88,6 +88,9 @@ You can now use subcommands instead of the --mode flag:
 - `agentry analyze trace.log` (token/cost summary)
 - `agentry version` (show version)
 
+Server port can be overridden with `--port` or `AGENTRY_PORT`. Adjust the agent
+iteration limit using `--max-iter` or `max_iterations` in the config file.
+
 Example:
 
 ```bash

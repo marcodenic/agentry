@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"sort"
@@ -23,15 +24,15 @@ var (
 		Name: "agentry_http_requests_total",
 		Help: "Total HTTP requests",
 	}, []string{"path"})
-        httpDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-                Name:    "agentry_http_request_duration_seconds",
-                Help:    "Duration of HTTP requests",
-                Buckets: prometheus.DefBuckets,
-        }, []string{"path"})
-       agentUp = promauto.NewGaugeVec(prometheus.GaugeOpts{
-               Name: "agentry_agent_up",
-               Help: "Agent running status",
-       }, []string{"agent"})
+	httpDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "agentry_http_request_duration_seconds",
+		Help:    "Duration of HTTP requests",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"path"})
+	agentUp = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "agentry_agent_up",
+		Help: "Agent running status",
+	}, []string{"agent"})
 )
 
 func instrument(path string, h http.Handler) http.Handler {
@@ -67,23 +68,23 @@ func metricMap(name string) map[string]float64 {
 	return out
 }
 
-func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID string, ap policy.Approver) http.Handler {
+func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID string, ap policy.Approver) (http.Handler, error) {
 	mux := http.NewServeMux()
 	var mem *trace.MemoryWriter
 	if metrics {
-               mux.Handle("/metrics", promhttp.Handler())
-               mem = trace.NewMemory(100)
-               for id, ag := range agents {
-                       agentUp.WithLabelValues(id).Set(1)
-                       if ag.Tracer == nil {
-                               ag.Tracer = mem
-                       } else {
-                               ag.Tracer = trace.NewMulti(ag.Tracer, mem)
-                       }
-               }
-               mux.Handle("/traces", instrument("/traces", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-                       _ = json.NewEncoder(w).Encode(mem.All())
-               })))
+		mux.Handle("/metrics", promhttp.Handler())
+		mem = trace.NewMemory(100)
+		for id, ag := range agents {
+			agentUp.WithLabelValues(id).Set(1)
+			if ag.Tracer == nil {
+				ag.Tracer = mem
+			} else {
+				ag.Tracer = trace.NewMulti(ag.Tracer, mem)
+			}
+		}
+		mux.Handle("/traces", instrument("/traces", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewEncoder(w).Encode(mem.All())
+		})))
 	}
 	for id, ag := range agents {
 		ag.Tools = policy.WrapTools(ag.Tools, ap)
@@ -96,30 +97,30 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 			mux.HandleFunc(path, h)
 		}
 	}
-       register("/agents", func(w http.ResponseWriter, r *http.Request) {
-               list := make([]string, 0, len(agents))
-               for id := range agents {
-                       list = append(list, id)
-               }
-               sort.Strings(list)
-               _ = json.NewEncoder(w).Encode(list)
-       })
-       register("/token_usage", func(w http.ResponseWriter, r *http.Request) {
-               _ = json.NewEncoder(w).Encode(metricMap("agentry_tokens_total"))
-       })
-       register("/agent_health", func(w http.ResponseWriter, r *http.Request) {
-               _ = json.NewEncoder(w).Encode(metricMap("agentry_agent_up"))
-       })
-       if metrics {
-               mux.Handle("/", instrument("/", http.FileServer(http.FS(ui.WebUI))))
-       } else {
-               mux.Handle("/", http.FileServer(http.FS(ui.WebUI)))
-       }
+	register("/agents", func(w http.ResponseWriter, r *http.Request) {
+		list := make([]string, 0, len(agents))
+		for id := range agents {
+			list = append(list, id)
+		}
+		sort.Strings(list)
+		_ = json.NewEncoder(w).Encode(list)
+	})
+	register("/token_usage", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(metricMap("agentry_tokens_total"))
+	})
+	register("/agent_health", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(metricMap("agentry_agent_up"))
+	})
+	if metrics {
+		mux.Handle("/", instrument("/", http.FileServer(http.FS(ui.WebUI))))
+	} else {
+		mux.Handle("/", http.FileServer(http.FS(ui.WebUI)))
+	}
 
 	// NATS queue setup (URL/subject could be from config/env)
 	q, err := taskqueue.NewQueue(natsURL(), "agentry.tasks")
 	if err != nil {
-		panic("NATS unavailable: " + err.Error())
+		return nil, fmt.Errorf("NATS unavailable: %w", err)
 	}
 
 	register("/spawn", func(w http.ResponseWriter, r *http.Request) {
@@ -196,7 +197,7 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 		w.WriteHeader(http.StatusAccepted)
 		_ = json.NewEncoder(w).Encode(map[string]any{"status": "queued"})
 	})
-	return mux
+	return mux, nil
 }
 
 // natsURL returns the NATS server URL (could be env/config driven)
@@ -207,6 +208,13 @@ func natsURL() string {
 	return "nats://localhost:4222"
 }
 
-func Serve(agents map[string]*core.Agent, metrics bool, saveID, resumeID string, ap policy.Approver) error {
-	return http.ListenAndServe(":8080", Handler(agents, metrics, saveID, resumeID, ap))
+func Serve(port string, agents map[string]*core.Agent, metrics bool, saveID, resumeID string, ap policy.Approver) error {
+	h, err := Handler(agents, metrics, saveID, resumeID, ap)
+	if err != nil {
+		return err
+	}
+	if port == "" {
+		port = "8080"
+	}
+	return http.ListenAndServe(":"+port, h)
 }

@@ -91,7 +91,11 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 	client, _ := ag.Route.Select(input)
 	msgs := core.BuildMessages(ag.Prompt, ag.Vars, ag.Mem.History(), input)
 	specs := tool.BuildSpecs(ag.Tools)
-	for i := 0; i < 8; i++ {
+	limit := ag.MaxIterations
+	if limit <= 0 {
+		limit = 8
+	}
+	for i := 0; i < limit; i++ {
 		res, err := client.Complete(ctx, msgs, specs)
 		if err != nil {
 			return "", err
