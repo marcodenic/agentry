@@ -12,27 +12,30 @@ import (
 
 func TestNew(t *testing.T) {
 	ag := core.New(router.Rules{{IfContains: []string{""}, Client: nil}}, tool.Registry{}, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
-	m := New(ag)
-	if m.masterAgent != ag {
-		t.Fatalf("agent mismatch")
+	m, err := NewChat(ag, 1, "")
+	if err != nil {
+		t.Fatalf("new chat error: %v", err)
 	}
-	if len(m.agents) != 1 {
+	if len(m.infos) != 1 {
 		t.Fatalf("expected one agent")
 	}
 }
 
 func TestCommandFlow(t *testing.T) {
 	ag := core.New(router.Rules{{IfContains: []string{""}, Client: nil}}, tool.Registry{}, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
-	m := New(ag)
+	m, err := NewChat(ag, 1, "")
+	if err != nil {
+		t.Fatalf("new chat error: %v", err)
+	}
 
 	m, _ = m.handleCommand("/spawn helper")
-	if len(m.agents) != 2 {
+	if len(m.infos) != 2 {
 		t.Fatalf("spawn failed")
 	}
 
 	var newID uuid.UUID
-	for id := range m.agents {
-		if id != ag.ID {
+	for id := range m.infos {
+		if id != m.active {
 			newID = id
 		}
 	}
@@ -43,7 +46,7 @@ func TestCommandFlow(t *testing.T) {
 	}
 
 	m, _ = m.handleCommand("/stop " + newID.String()[:8])
-	if m.agents[newID].Status != StatusStopped {
+	if m.infos[newID].Status != StatusStopped {
 		t.Fatalf("stop failed")
 	}
 }

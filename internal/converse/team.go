@@ -24,6 +24,7 @@ func TeamFromContext(ctx context.Context) (*Team, bool) {
 
 // Team manages a multi-agent conversation step by step.
 type Team struct {
+	parent       *core.Agent
 	agents       []*core.Agent
 	names        []string
 	agentsByName map[string]*core.Agent
@@ -31,6 +32,12 @@ type Team struct {
 	turn         int
 	maxTurns     int
 }
+
+// Agents returns the current set of agents in the team.
+func (t *Team) Agents() []*core.Agent { return t.agents }
+
+// Names returns the display names of the agents.
+func (t *Team) Names() []string { return t.names }
 
 // NewTeam spawns n sub-agents from parent ready to converse.
 func NewTeam(parent *core.Agent, n int, topic string) (*Team, error) {
@@ -66,7 +73,7 @@ func NewTeam(parent *core.Agent, n int, topic string) (*Team, error) {
 		names[i] = name
 		byName[name] = ag
 	}
-	return &Team{agents: agents, names: names, agentsByName: byName, msg: topic, maxTurns: maxTurns}, nil
+	return &Team{parent: parent, agents: agents, names: names, agentsByName: byName, msg: topic, maxTurns: maxTurns}, nil
 }
 
 // Step advances the conversation by one turn and returns the agent index and output.
@@ -96,4 +103,21 @@ func (t *Team) Call(ctx context.Context, name, input string) (string, error) {
 	}
 	ctx = contextWithTeam(ctx, t)
 	return runAgent(ctx, ag, input, name, t.names)
+}
+
+// AddAgent spawns a new agent and joins it to the team. The returned agent and
+// name can be used by callers. A default name is generated when none is
+// provided.
+func (t *Team) AddAgent(name string) (*core.Agent, string) {
+	ag := t.parent.Spawn()
+	ag.Tracer = nil
+	ag.Mem = t.agents[0].Mem
+	ag.Route = t.agents[0].Route
+	if name == "" {
+		name = fmt.Sprintf("Agent%d", len(t.agents)+1)
+	}
+	t.agents = append(t.agents, ag)
+	t.names = append(t.names, name)
+	t.agentsByName[name] = ag
+	return ag, name
 }
