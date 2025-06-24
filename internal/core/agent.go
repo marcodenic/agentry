@@ -109,6 +109,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 				return "", err
 			}
 			applyVarsMap(args, a.Vars)
+			a.Trace(ctx, trace.EventToolStart, map[string]any{"name": tc.Name, "args": args})
 			start := time.Now()
 			r, err := t.Execute(ctx, args)
 			toolLatency.WithLabelValues(a.ID.String(), tc.Name).Observe(time.Since(start).Seconds())

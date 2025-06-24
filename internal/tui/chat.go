@@ -134,20 +134,31 @@ func (m ChatModel) callActive(input string) (ChatModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m ChatModel) handleCommand(cmd string) (ChatModel, tea.Cmd) {
-	fields := strings.Fields(cmd)
+type chatCommand struct {
+	Name string
+	Args []string
+}
+
+func parseChatCommand(s string) chatCommand {
+	fields := strings.Fields(strings.TrimSpace(s))
 	if len(fields) == 0 {
-		return m, nil
+		return chatCommand{}
 	}
-	switch fields[0] {
-	case "/spawn":
-		return m.handleSpawn(fields[1:])
-	case "/switch":
-		return m.handleSwitch(fields[1:])
-	case "/stop":
-		return m.handleStop(fields[1:])
-	case "/converse":
-		return m.handleConverse(fields[1:])
+	name := strings.TrimPrefix(fields[0], "/")
+	return chatCommand{Name: name, Args: fields[1:]}
+}
+
+func (m ChatModel) handleCommand(cmd string) (ChatModel, tea.Cmd) {
+	c := parseChatCommand(cmd)
+	switch c.Name {
+	case "spawn":
+		return m.handleSpawn(c.Args)
+	case "switch":
+		return m.handleSwitch(c.Args)
+	case "stop":
+		return m.handleStop(c.Args)
+	case "converse":
+		return m.handleConverse(c.Args)
 	default:
 		return m, nil
 	}

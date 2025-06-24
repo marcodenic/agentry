@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -28,9 +28,10 @@ import (
 
 // Model is the root TUI model.
 type Model struct {
-	masterAgent *core.Agent
-	agents      map[uuid.UUID]*AgentInfo
-	active      uuid.UUID
+	agents []*core.Agent
+	infos  map[uuid.UUID]*AgentInfo
+	order  []uuid.UUID
+	active uuid.UUID
 
 	team *converse.Team
 
@@ -108,7 +109,7 @@ func New(ag *core.Agent) Model {
 	cwd, _ := os.Getwd()
 
 	info := &AgentInfo{Agent: ag, Status: StatusIdle, Spinner: spinner.New(), Name: "master"}
-	agents := map[uuid.UUID]*AgentInfo{ag.ID: info}
+	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
 	tm, err := converse.NewTeam(ag, 1, "")
 	if err != nil {
@@ -116,16 +117,17 @@ func New(ag *core.Agent) Model {
 	}
 
 	m := Model{
-		masterAgent: ag,
-		agents:      agents,
-		active:      ag.ID,
-		team:        tm,
-		vp:          vp,
-		input:       ti,
-		tools:       l,
-		cwd:         cwd,
-		theme:       th,
-		keys:        th.Keybinds,
+		agents: []*core.Agent{ag},
+		infos:  infos,
+		order:  []uuid.UUID{ag.ID},
+		active: ag.ID,
+		team:   tm,
+		vp:     vp,
+		input:  ti,
+		tools:  l,
+		cwd:    cwd,
+		theme:  th,
+		keys:   th.Keybinds,
 	}
 	return m
 }
@@ -186,7 +188,7 @@ func streamTokens(id uuid.UUID, out string) tea.Cmd {
 }
 
 func (m *Model) readEvent(id uuid.UUID) tea.Msg {
-	info := m.agents[id]
+	info := m.infos[id]
 	if info == nil || info.Scanner == nil {
 		return nil
 	}
@@ -242,6 +244,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if key.Matches(msg, PrevAgentKey) {
+			m = m.cycleActive(-1)
+		} else if key.Matches(msg, NextAgentKey) {
+			m = m.cycleActive(1)
+		}
 		switch msg.String() {
 		case m.keys.Quit:
 			return m, tea.Quit
@@ -260,7 +267,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case tokenMsg:
-		info := m.agents[msg.id]
+		info := m.infos[msg.id]
 		info.History += msg.token
 		info.TokenCount++
 		if msg.id == m.active {
@@ -268,30 +275,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.vp.GotoBottom()
 		}
 	case finalMsg:
-		info := m.agents[msg.id]
+		info := m.infos[msg.id]
 		info.History += m.aiBar() + " "
 		if msg.id == m.active {
 			m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(info.History))
 			m.vp.GotoBottom()
 		}
 		info.Status = StatusIdle
-		m.agents[msg.id] = info
+		m.infos[msg.id] = info
 		return m, tea.Batch(streamTokens(msg.id, msg.text+"\n"), m.readCmd(msg.id))
 	case toolUseMsg:
-		info := m.agents[msg.id]
+		info := m.infos[msg.id]
 		info.CurrentTool = msg.name
-		m.agents[msg.id] = info
+		m.infos[msg.id] = info
 		return m, m.readCmd(msg.id)
 	case modelMsg:
-		info := m.agents[msg.id]
+		info := m.infos[msg.id]
 		info.ModelName = msg.name
-		m.agents[msg.id] = info
+		m.infos[msg.id] = info
 		return m, m.readCmd(msg.id)
 	case errMsg:
 		m.err = msg
-		if info, ok := m.agents[m.active]; ok {
+		if info, ok := m.infos[m.active]; ok {
 			info.Status = StatusError
-			m.agents[m.active] = info
+			m.infos[m.active] = info
 		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -300,7 +307,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.vp.Width = int(float64(msg.Width)*0.75) - 2
 		m.vp.Height = msg.Height - 5
 		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, msg.Height-2)
-		if info, ok := m.agents[m.active]; ok {
+		if info, ok := m.infos[m.active]; ok {
 			m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(info.History))
 		}
 	}
@@ -314,11 +321,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	var leftContent string
 	if m.activeTab == 0 {
-		leftContent = m.vp.View() + "\n" + m.input.View()
-	} else {
-		if info, ok := m.agents[m.active]; ok {
-			leftContent = renderMemory(info.Agent)
-		}
+		leftContent = m.vp.View() + "\n" + m.input.View()	} else {
+		if info, ok := m.infos[m.active]; ok {
+			leftContent = renderMemory(info.Agent)		}
 	}
 	if m.err != nil {
 		leftContent += "\nERR: " + m.err.Error()
@@ -326,15 +331,17 @@ func (m Model) View() string {
 	left := lipgloss.NewStyle().Width(int(float64(m.width) * 0.75)).Render(leftContent)
 	right := lipgloss.NewStyle().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
 	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+	help := lipgloss.NewStyle().Width(m.width).Render(helpView())
+	
 	tokens := 0
 	costVal := 0.0
-	if m.masterAgent != nil && m.masterAgent.Cost != nil {
-		tokens = m.masterAgent.Cost.TotalTokens()
-		costVal = m.masterAgent.Cost.TotalCost()
+	if len(m.agents) > 0 && m.agents[0].Cost != nil {
+		tokens = m.agents[0].Cost.TotalTokens()
+		costVal = m.agents[0].Cost.TotalCost()
 	}
-	footer := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.agents), tokens, costVal)
+	footer := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.infos), tokens, costVal)
 	footer = lipgloss.NewStyle().Width(m.width).Render(footer)
-	return lipgloss.JoinVertical(lipgloss.Left, main, footer)
+	return lipgloss.JoinVertical(lipgloss.Left, main, help, footer)
 }
 
 func (m Model) userBar() string {
@@ -368,7 +375,8 @@ func renderMemory(ag *core.Agent) string {
 
 func (m Model) agentPanel() string {
 	lines := []string{}
-	for id, ag := range m.agents {
+	for _, id := range m.order {
+		ag := m.infos[id]
 		status := map[AgentStatus]string{
 			StatusIdle:    "idle",
 			StatusRunning: "run",
@@ -386,19 +394,24 @@ func (m Model) agentPanel() string {
 }
 
 func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
-	info := m.agents[id]
+	info := m.infos[id]
 	info.Status = StatusRunning
 	info.History += m.userBar() + " " + input + "\n"
 	m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(info.History))
 
 	pr, pw := io.Pipe()
 	errCh := make(chan error, 1)
-	info.Agent.Tracer = trace.NewJSONL(pw)
+	tracer := trace.NewJSONL(pw)
+	if info.Agent.Tracer != nil {
+		info.Agent.Tracer = trace.NewMulti(info.Agent.Tracer, tracer)
+	} else {
+		info.Agent.Tracer = tracer
+	}
 	info.Scanner = bufio.NewScanner(pr)
 	ctx := context.WithValue(context.Background(), teamctx.Key{}, m.team)
 	ctx, cancel := context.WithCancel(ctx)
 	info.Cancel = cancel
-	m.agents[id] = info
+	m.infos[id] = info
 	go func() {
 		_, err := info.Agent.Run(ctx, input)
 		pw.Close()
@@ -431,9 +444,13 @@ func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 	if len(args) > 0 {
 		name = args[0]
 	}
-	ag := m.masterAgent.Spawn()
+	if len(m.agents) == 0 {
+		return m, nil
+	}
+	ag := m.agents[0].Spawn()
 	info := &AgentInfo{Agent: ag, Status: StatusIdle, Spinner: spinner.New(), Name: name}
-	m.agents[ag.ID] = info
+	m.infos[ag.ID] = info
+	m.order = append(m.order, ag.ID)
 	if m.team != nil {
 		m.team.Add(name, ag)
 	}
@@ -447,10 +464,10 @@ func (m Model) handleSwitch(args []string) (Model, tea.Cmd) {
 		return m, nil
 	}
 	prefix := args[0]
-	for id := range m.agents {
+	for _, id := range m.order {
 		if strings.HasPrefix(id.String(), prefix) {
 			m.active = id
-			if info, ok := m.agents[id]; ok {
+			if info, ok := m.infos[id]; ok {
 				m.vp.SetContent(info.History)
 			}
 			break
@@ -463,19 +480,19 @@ func (m Model) handleStop(args []string) (Model, tea.Cmd) {
 	id := m.active
 	if len(args) > 0 {
 		pref := args[0]
-		for aid := range m.agents {
+		for _, aid := range m.order {
 			if strings.HasPrefix(aid.String(), pref) {
 				id = aid
 				break
 			}
 		}
 	}
-	if info, ok := m.agents[id]; ok {
+	if info, ok := m.infos[id]; ok {
 		if info.Cancel != nil {
 			info.Cancel()
 		}
 		info.Status = StatusStopped
-		m.agents[id] = info
+		m.infos[id] = info
 	}
 	return m, nil
 }
@@ -489,11 +506,42 @@ func (m Model) handleConverse(args []string) (Model, tea.Cmd) {
 		return m, nil
 	}
 	topic := strings.Join(args[1:], " ")
-	tm, err := NewTeam(m.masterAgent, n, topic)
+	if len(m.agents) == 0 {
+		return m, nil
+	}
+	tm, err := NewTeam(m.agents[0], n, topic)
 	if err != nil {
 		m.err = err
 		return m, nil
 	}
 	go func() { _ = tea.NewProgram(tm).Start() }()
 	return m, nil
+}
+
+func (m Model) cycleActive(delta int) Model {
+	if len(m.order) == 0 {
+		return m
+	}
+	idx := 0
+	for i, id := range m.order {
+		if id == m.active {
+			idx = i
+			break
+		}
+	}
+	idx = (idx + delta + len(m.order)) % len(m.order)
+	m.active = m.order[idx]
+	if info, ok := m.infos[m.active]; ok {
+		m.vp.SetContent(info.History)
+	}
+	return m
+}
+
+func helpView() string {
+	return strings.Join([]string{
+		"/spawn <n>    - create a new agent",
+		"/switch <prefix> - focus an agent",
+		"/stop <prefix>   - stop an agent",
+		"/converse <n> <topic> - side conversation",
+	}, "\n")
 }
