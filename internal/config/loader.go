@@ -157,5 +157,8 @@ func Load(path string) (*File, error) {
 		return nil, err
 	}
 	merge(&out, yamlFile)
+	if v := os.Getenv("AGENTRY_COLLECTOR"); v != "" {
+		out.Collector = v
+	}
 	return &out, nil
 }
