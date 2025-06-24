@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -27,7 +28,7 @@ func runPluginCmd(args []string) {
 			fmt.Println("Usage: agentry plugin fetch <index> <name>")
 			os.Exit(1)
 		}
-		if _, err := plugin.Fetch(args[1], args[2]); err != nil {
+		if _, err := plugin.Fetch(context.Background(), args[1], args[2]); err != nil {
 			fmt.Printf("fetch failed: %v\n", err)
 			os.Exit(1)
 		}

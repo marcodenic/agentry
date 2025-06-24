@@ -155,5 +155,8 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	if logWriter != nil {
 		ag.Tracer = trace.NewJSONL(logWriter)
 	}
+	if cfg.MaxIterations > 0 {
+		ag.MaxIterations = cfg.MaxIterations
+	}
 	return ag, nil
 }

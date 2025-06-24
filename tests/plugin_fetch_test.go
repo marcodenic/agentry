@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -50,7 +51,7 @@ func TestFetchVerifiesChecksum(t *testing.T) {
 	os.Setenv("AGENTRY_REGISTRY_GPG_KEYRING", pubPath)
 	defer os.Unsetenv("AGENTRY_REGISTRY_GPG_KEYRING")
 
-	out, err := plugin.Fetch(idxPath, "p")
+	out, err := plugin.Fetch(context.Background(), idxPath, "p")
 	if err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
