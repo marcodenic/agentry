@@ -1,22 +1,21 @@
 package server
 
 import (
-        "encoding/json"
-        "net/http"
-        "os"
-        "sort"
-        "time"
+	"encoding/json"
+	"net/http"
+	"os"
+	"sort"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/policy"
 	"github.com/marcodenic/agentry/internal/taskqueue"
 	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/ui"
-
-        "github.com/prometheus/client_golang/prometheus"
-        "github.com/prometheus/client_golang/prometheus/promauto"
-        "github.com/prometheus/client_golang/prometheus/promhttp"
-        dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -36,39 +35,39 @@ var (
 )
 
 func instrument(path string, h http.Handler) http.Handler {
-        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-                start := time.Now()
-                h.ServeHTTP(w, r)
-                httpRequests.WithLabelValues(path).Inc()
-                httpDuration.WithLabelValues(path).Observe(time.Since(start).Seconds())
-        })
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		h.ServeHTTP(w, r)
+		httpRequests.WithLabelValues(path).Inc()
+		httpDuration.WithLabelValues(path).Observe(time.Since(start).Seconds())
+	})
 }
 
 func metricMap(name string) map[string]float64 {
-       out := map[string]float64{}
-       mfs, _ := prometheus.DefaultGatherer.Gather()
-       for _, mf := range mfs {
-               if mf.GetName() != name {
-                       continue
-               }
-               for _, m := range mf.GetMetric() {
-                       var agent string
-                       for _, l := range m.GetLabel() {
-                               if l.GetName() == "agent" {
-                                       agent = l.GetValue()
-                               }
-                       }
-                       if m.Counter != nil {
-                               out[agent] = m.GetCounter().GetValue()
-                       } else if m.Gauge != nil {
-                               out[agent] = m.GetGauge().GetValue()
-                       }
-               }
-       }
-       return out
+	out := map[string]float64{}
+	mfs, _ := prometheus.DefaultGatherer.Gather()
+	for _, mf := range mfs {
+		if mf.GetName() != name {
+			continue
+		}
+		for _, m := range mf.GetMetric() {
+			var agent string
+			for _, l := range m.GetLabel() {
+				if l.GetName() == "agent" {
+					agent = l.GetValue()
+				}
+			}
+			if m.Counter != nil {
+				out[agent] = m.GetCounter().GetValue()
+			} else if m.Gauge != nil {
+				out[agent] = m.GetGauge().GetValue()
+			}
+		}
+	}
+	return out
 }
 
-func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID string) http.Handler {
+func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID string, ap policy.Approver) http.Handler {
 	mux := http.NewServeMux()
 	var mem *trace.MemoryWriter
 	if metrics {
@@ -85,6 +84,10 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
                mux.Handle("/traces", instrument("/traces", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
                        _ = json.NewEncoder(w).Encode(mem.All())
                })))
+	}
+	for id, ag := range agents {
+		ag.Tools = policy.WrapTools(ag.Tools, ap)
+		agents[id] = ag
 	}
 	register := func(path string, h http.HandlerFunc) {
 		if metrics {
@@ -132,16 +135,19 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 			http.Error(w, "unknown template", http.StatusBadRequest)
 			return
 		}
-               ag := base.Spawn()
-               id := uuid.New().String()
-               ag.ID = uuid.MustParse(id)
-               agents[id] = ag
-               agentUp.WithLabelValues(id).Set(1)
-               _ = json.NewEncoder(w).Encode(map[string]string{"agent_id": id})
-       })
-       register("/kill", func(w http.ResponseWriter, r *http.Request) {
-               var in struct {
-                       AgentID string `json:"agent_id"`
+		ag := base.Spawn()
+		ag.Tools = policy.WrapTools(ag.Tools, ap)
+		id := uuid.New().String()
+		ag.ID = uuid.MustParse(id)
+		agents[id] = ag
+		if metrics {
+			agentUp.WithLabelValues(id).Set(1)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"agent_id": id})
+	})
+	register("/kill", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			AgentID string `json:"agent_id"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 			http.Error(w, "bad json", http.StatusBadRequest)
@@ -152,11 +158,13 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 			http.Error(w, "unknown agent", http.StatusBadRequest)
 			return
 		}
-               _ = ag.SaveState(r.Context(), in.AgentID)
-               delete(agents, in.AgentID)
-               agentUp.WithLabelValues(in.AgentID).Set(0)
-               _ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
-       })
+		_ = ag.SaveState(r.Context(), in.AgentID)
+		delete(agents, in.AgentID)
+		if metrics {
+			agentUp.WithLabelValues(in.AgentID).Set(0)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	})
 	register("/invoke", func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			AgentID string `json:"agent_id"`
@@ -199,6 +207,6 @@ func natsURL() string {
 	return "nats://localhost:4222"
 }
 
-func Serve(agents map[string]*core.Agent, metrics bool, saveID, resumeID string) error {
-	return http.ListenAndServe(":8080", Handler(agents, metrics, saveID, resumeID))
+func Serve(agents map[string]*core.Agent, metrics bool, saveID, resumeID string, ap policy.Approver) error {
+	return http.ListenAndServe(":8080", Handler(agents, metrics, saveID, resumeID, ap))
 }
