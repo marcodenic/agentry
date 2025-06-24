@@ -181,7 +181,12 @@ tools:
   - name: patch # 🩹 apply a unified diff
     type: builtin
   - name: sourcegraph # 🔍 search public repositories
-    type: builtin  - name: agent # 🤖 delegate tasks to another agent
+    type: builtin
+  - name: agent # 🤖 delegate tasks to another agent
+    type: builtin
+  - name: flow # 🗺️ run a flow file
+    type: builtin
+  - name: team # 👥 run a multi-agent chat
     type: builtin
   - name: mcp # 🎮 connect to MCP servers
     type: builtin
