@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -30,10 +31,15 @@ type Writer interface {
 	Write(ctx context.Context, e Event)
 }
 
-type JSONLWriter struct{ w io.Writer }
+type JSONLWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
 
-func NewJSONL(w io.Writer) *JSONLWriter { return &JSONLWriter{w} }
+func NewJSONL(w io.Writer) *JSONLWriter { return &JSONLWriter{w: w} }
 func (j *JSONLWriter) Write(_ context.Context, e Event) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	enc := json.NewEncoder(j.w)
 	_ = enc.Encode(e)
 	if fl, ok := j.w.(http.Flusher); ok {
