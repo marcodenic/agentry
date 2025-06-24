@@ -453,7 +453,11 @@ var builtinMap = map[string]builtinSpec{
 				return "", errors.New("missing query")
 			}
 			url := "https://sourcegraph.com/search?q=" + url.QueryEscape(q) + "&format=json"
-			resp, err := http.Get(url)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			if err != nil {
+				return "", err
+			}
+			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				return "", err
 			}
