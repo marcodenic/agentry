@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
@@ -13,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Registry lists available plugins.
@@ -28,10 +30,12 @@ type RegistryEntry struct {
 	Sig    string `json:"sig,omitempty"`
 }
 
+var httpClient = &http.Client{Timeout: 10 * time.Second}
+
 // Fetch downloads a plugin by name from indexPath, verifies the SHA256 sum,
 // and writes the file to the current directory. It returns the saved filename.
-func Fetch(indexPath, name string) (string, error) {
-	data, err := readBytes(indexPath)
+func Fetch(ctx context.Context, indexPath, name string) (string, error) {
+	data, err := readBytes(ctx, indexPath)
 	if err != nil {
 		return "", err
 	}
@@ -66,7 +70,7 @@ func Fetch(indexPath, name string) (string, error) {
 			return "", fmt.Errorf("signature mismatch for %s", name)
 		}
 	}
-	b, err := readBytes(ent.URL)
+	b, err := readBytes(ctx, ent.URL)
 	if err != nil {
 		return "", err
 	}
@@ -81,9 +85,13 @@ func Fetch(indexPath, name string) (string, error) {
 	return out, nil
 }
 
-func readBytes(path string) ([]byte, error) {
+func readBytes(ctx context.Context, path string) ([]byte, error) {
 	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
-		resp, err := http.Get(path)
+		req, err := http.NewRequestWithContext(ctx, "GET", path, nil)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := httpClient.Do(req)
 		if err != nil {
 			return nil, err
 		}

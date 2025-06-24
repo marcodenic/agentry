@@ -22,16 +22,17 @@ import (
 )
 
 type Agent struct {
-	ID     uuid.UUID
-	Prompt string
-	Vars   map[string]string
-	Tools  tool.Registry
-	Mem    memory.Store
-	Vector memory.VectorStore
-	Route  router.Selector
-	Tracer trace.Writer
-	Store  memstore.KV
-	Cost   *cost.Manager
+	ID            uuid.UUID
+	Prompt        string
+	Vars          map[string]string
+	Tools         tool.Registry
+	Mem           memory.Store
+	Vector        memory.VectorStore
+	Route         router.Selector
+	Tracer        trace.Writer
+	Store         memstore.KV
+	Cost          *cost.Manager
+	MaxIterations int
 }
 
 var (
@@ -47,21 +48,22 @@ var (
 )
 
 func New(sel router.Selector, reg tool.Registry, mem memory.Store, store memstore.KV, vec memory.VectorStore, tr trace.Writer) *Agent {
-	return &Agent{ID: uuid.New(), Tools: reg, Mem: mem, Vector: vec, Route: sel, Tracer: tr, Store: store, Cost: nil}
+	return &Agent{ID: uuid.New(), Tools: reg, Mem: mem, Vector: vec, Route: sel, Tracer: tr, Store: store, Cost: nil, MaxIterations: 8}
 }
 
 func (a *Agent) Spawn() *Agent {
 	return &Agent{
-		ID:     uuid.New(),
-		Prompt: a.Prompt, // Ensure prompt is inherited by sub-agents
-		Vars:   a.Vars,
-		Tools:  a.Tools,
-		Mem:    memory.NewInMemory(),
-		Vector: a.Vector,
-		Route:  a.Route,
-		Tracer: a.Tracer,
-		Store:  a.Store,
-		Cost:   a.Cost,
+		ID:            uuid.New(),
+		Prompt:        a.Prompt, // Ensure prompt is inherited by sub-agents
+		Vars:          a.Vars,
+		Tools:         a.Tools,
+		Mem:           memory.NewInMemory(),
+		Vector:        a.Vector,
+		Route:         a.Route,
+		Tracer:        a.Tracer,
+		Store:         a.Store,
+		Cost:          a.Cost,
+		MaxIterations: a.MaxIterations,
 	}
 }
 
@@ -79,7 +81,11 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			}
 		}
 	}
-	for i := 0; i < 8; i++ {
+	limit := a.MaxIterations
+	if limit <= 0 {
+		limit = 8
+	}
+	for i := 0; i < limit; i++ {
 		res, err := client.Complete(ctx, msgs, specs)
 		if err != nil {
 			return "", err

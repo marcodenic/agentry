@@ -50,6 +50,8 @@ func main() {
 	ckptID := fs.String("checkpoint-id", "", "checkpoint session id")
 	teamSize := fs.Int("team", 0, "number of agents for team chat")
 	topic := fs.String("topic", "", "team chat topic")
+	portFlag := fs.String("port", "", "HTTP server port")
+	maxIter := fs.Int("max-iter", 0, "max iterations per run")
 	_ = fs.Parse(args)
 	var configPath string
 	if *conf != "" {
@@ -72,6 +74,9 @@ func main() {
 		ag, err := buildAgent(cfg)
 		if err != nil {
 			panic(err)
+		}
+		if *maxIter > 0 {
+			ag.MaxIterations = *maxIter
 		}
 		if *resumeID != "" {
 			_ = ag.LoadState(context.Background(), *resumeID)
@@ -162,6 +167,9 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		if *maxIter > 0 {
+			ag.MaxIterations = *maxIter
+		}
 		// Session cleanup goroutine
 		if dur, err := time.ParseDuration(cfg.SessionTTL); err == nil && dur > 0 {
 			if cl, ok := ag.Store.(memstore.Cleaner); ok {
@@ -189,9 +197,19 @@ func main() {
 			ag.Tracer = trace.NewOTel()
 		}
 		agents := map[string]*core.Agent{"default": ag}
-		fmt.Println("Serving HTTP on :8080")
+		port := cfg.Port
+		if *portFlag != "" {
+			port = *portFlag
+		}
+		if port == "" {
+			port = "8080"
+		}
+		fmt.Printf("Serving HTTP on :%s\n", port)
 		ap := policy.Manager{Prompt: policy.CLIPrompt}
-		server.Serve(agents, cfg.Metrics, *saveID, *resumeID, ap)
+		if err := server.Serve(port, agents, cfg.Metrics, *saveID, *resumeID, ap); err != nil {
+			fmt.Printf("server error: %v\n", err)
+			os.Exit(1)
+		}
 	case "eval":
 		cfg, err := config.Load(configPath)
 		if err != nil {
@@ -241,6 +259,9 @@ func main() {
 		ag, err := buildAgent(cfg)
 		if err != nil {
 			panic(err)
+		}
+		if *maxIter > 0 {
+			ag.MaxIterations = *maxIter
 		}
 		if *ckptID != "" {
 			ag.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(*ckptID))
@@ -306,6 +327,9 @@ func main() {
 		ag, err := buildAgent(cfg)
 		if err != nil {
 			panic(err)
+		}
+		if *maxIter > 0 {
+			ag.MaxIterations = *maxIter
 		}
 		if *ckptID != "" {
 			ag.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(*ckptID))

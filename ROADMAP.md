@@ -402,6 +402,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | 1.3 | Checkpoint API (`Checkpoint()/Resume()`)   | Pause/continue   | Serialize loop state JSON after each event |  1.1 | ✅
 | 1.4 | Max‑iteration graceful yield               | Avoid hard cap   | Emit `EventYield` when limit reached       |  1.3 | ✅
 | 1.5 | ~~Session GC daemon~~                          | Disk hygiene     | TTL sweep & compaction                     |  1.1 | ✅
+| 1.6 | Configurable iteration limit               | Tune workloads    | CLI flag & config field                    |  1.4 | ✅
 
 ## ❷ Sandboxing & Security (security)
 

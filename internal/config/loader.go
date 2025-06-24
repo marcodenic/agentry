@@ -2,8 +2,10 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -61,6 +63,8 @@ type File struct {
 	MCPServers        map[string]string            `yaml:"mcp_servers" json:"mcp_servers"`
 	Metrics           bool                         `yaml:"metrics" json:"metrics"`
 	Collector         string                       `yaml:"collector" json:"collector"`
+	Port              string                       `yaml:"port" json:"port"`
+	MaxIterations     int                          `yaml:"max_iterations" json:"max_iterations"`
 	Sandbox           Sandbox                      `yaml:"sandbox" json:"sandbox"`
 	Permissions       Permissions                  `yaml:"permissions" json:"permissions"`
 	Budget            Budget                       `yaml:"budget" json:"budget"`
@@ -77,6 +81,23 @@ type Permissions struct {
 type Budget struct {
 	Tokens  int     `yaml:"tokens" json:"tokens"`
 	Dollars float64 `yaml:"dollars" json:"dollars"`
+}
+
+// Validate performs basic sanity checks on the loaded configuration.
+func (f *File) Validate() error {
+	for _, r := range f.Routes {
+		found := false
+		for _, m := range f.Models {
+			if m.Name == r.Model {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("model %s referenced in routes not defined", r.Model)
+		}
+	}
+	return nil
 }
 
 func merge(dst *File, src File) {
@@ -137,6 +158,12 @@ func merge(dst *File, src File) {
 	if src.Collector != "" {
 		dst.Collector = src.Collector
 	}
+	if src.Port != "" {
+		dst.Port = src.Port
+	}
+	if src.MaxIterations > 0 {
+		dst.MaxIterations = src.MaxIterations
+	}
 	if src.Sandbox.Engine != "" {
 		dst.Sandbox = src.Sandbox
 	}
@@ -189,6 +216,14 @@ func Load(path string) (*File, error) {
 	merge(&out, yamlFile)
 	if v := os.Getenv("AGENTRY_COLLECTOR"); v != "" {
 		out.Collector = v
+	}
+	if v := os.Getenv("AGENTRY_PORT"); v != "" {
+		out.Port = v
+	}
+	if v := os.Getenv("AGENTRY_MAX_ITER"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			out.MaxIterations = n
+		}
 	}
 	return &out, nil
 }

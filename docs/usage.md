@@ -22,6 +22,9 @@ You can now use subcommands instead of the --mode flag:
 - `agentry eval` (evaluation)
 - `agentry flow` (run `.agentry.flow.yaml`)
 
+Use `--port 9090` or set `AGENTRY_PORT` to change the HTTP server port. Set
+`--max-iter` or `max_iterations:` in `.agentry.yaml` to control the iteration limit.
+
 Example:
 
 ```bash
