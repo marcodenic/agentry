@@ -32,6 +32,16 @@ type Team struct {
 	maxTurns     int
 }
 
+// Add registers ag under name so it can be addressed via Call.
+func (t *Team) Add(name string, ag *core.Agent) {
+	t.agents = append(t.agents, ag)
+	t.names = append(t.names, name)
+	if t.agentsByName == nil {
+		t.agentsByName = map[string]*core.Agent{}
+	}
+	t.agentsByName[name] = ag
+}
+
 // NewTeam spawns n sub-agents from parent ready to converse.
 func NewTeam(parent *core.Agent, n int, topic string) (*Team, error) {
 	if n <= 0 {

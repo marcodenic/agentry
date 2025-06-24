@@ -50,3 +50,29 @@ func TestTeamCallUnknown(t *testing.T) {
 		t.Fatal("expected error for unknown agent")
 	}
 }
+
+func TestTeamAdd(t *testing.T) {
+	mock := &seqMock{}
+	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: mock}}
+	parent := core.New(route, nil, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+
+	tm, err := NewTeam(parent, 1, "hi")
+	if err != nil {
+		t.Fatalf("new team: %v", err)
+	}
+
+	ag := parent.Spawn()
+	tm.Add("extra", ag)
+
+	if len(tm.agents) != 2 {
+		t.Fatalf("expected 2 agents got %d", len(tm.agents))
+	}
+
+	out, err := tm.Call(context.Background(), "extra", "yo")
+	if err != nil {
+		t.Fatalf("call error: %v", err)
+	}
+	if out != "msg1" {
+		t.Fatalf("expected msg1 got %s", out)
+	}
+}

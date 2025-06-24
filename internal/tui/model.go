@@ -20,7 +20,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/google/uuid"
+	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/teamctx"
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
@@ -29,6 +31,8 @@ type Model struct {
 	masterAgent *core.Agent
 	agents      map[uuid.UUID]*AgentInfo
 	active      uuid.UUID
+
+	team *converse.Team
 
 	vp    viewport.Model
 	input textinput.Model
@@ -106,10 +110,16 @@ func New(ag *core.Agent) Model {
 	info := &AgentInfo{Agent: ag, Status: StatusIdle, Spinner: spinner.New(), Name: "master"}
 	agents := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
+	tm, err := converse.NewTeam(ag, 1, "")
+	if err != nil {
+		tm = &converse.Team{}
+	}
+
 	m := Model{
 		masterAgent: ag,
 		agents:      agents,
 		active:      ag.ID,
+		team:        tm,
 		vp:          vp,
 		input:       ti,
 		tools:       l,
@@ -379,7 +389,8 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	errCh := make(chan error, 1)
 	info.Agent.Tracer = trace.NewJSONL(pw)
 	info.Scanner = bufio.NewScanner(pr)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx := context.WithValue(context.Background(), teamctx.Key{}, m.team)
+	ctx, cancel := context.WithCancel(ctx)
 	info.Cancel = cancel
 	m.agents[id] = info
 	go func() {
@@ -417,6 +428,9 @@ func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 	ag := m.masterAgent.Spawn()
 	info := &AgentInfo{Agent: ag, Status: StatusIdle, Spinner: spinner.New(), Name: name}
 	m.agents[ag.ID] = info
+	if m.team != nil {
+		m.team.Add(name, ag)
+	}
 	m.active = ag.ID
 	m.vp.SetContent("")
 	return m, nil
@@ -450,8 +464,10 @@ func (m Model) handleStop(args []string) (Model, tea.Cmd) {
 			}
 		}
 	}
-	if info, ok := m.agents[id]; ok && info.Cancel != nil {
-		info.Cancel()
+	if info, ok := m.agents[id]; ok {
+		if info.Cancel != nil {
+			info.Cancel()
+		}
 		info.Status = StatusStopped
 		m.agents[id] = info
 	}
