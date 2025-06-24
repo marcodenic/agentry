@@ -119,7 +119,7 @@ The new `tui` command launches a split-screen interface:
 +-------+-----------------------------+
 ```
 
-Run `agentry tui --config examples/.agentry.yaml` to try. Use `--team 3` to launch team chat mode where each agent has its own pane.
+Run `agentry tui --config examples/.agentry.yaml` to start the interface. There is no separate `--team` flag; simply type `/spawn <name>` to add a new agent pane. For example, `/spawn coder` starts an additional "coder" agent. All agents share the same chat window and can be dispatched to remote nodes in your Agentry cluster.
 
 ---
 
@@ -275,13 +275,21 @@ node -e "const {invoke}=require('./dist/index.js');invoke('hi',{stream:false,age
 
 ### 🤖 Multi-agent conversations
 
-The `converse` command spawns multiple sub-agents that riff off one another. This was originally REPL-only, but the TUI now supports team chat via `--team`.
+The `converse` command spawns multiple sub-agents that riff off one another. This was originally REPL-only, but the TUI now supports these conversations without any special flags.
 
 ```bash
 converse 3 Pick a favourite movie, just one, then discuss as a group.
 ```
 
 The first number selects how many agents join the chat. Any remaining text becomes the opening message. If omitted, a generic greeting is used.
+
+Inside the TUI, you can create additional agents on the fly:
+
+```bash
+/spawn researcher "gather background info"
+```
+
+Agents spawned in this way can run tasks locally or on remote nodes connected to your Agentry cluster.
 
 ### 💾 Saving & Resuming
 

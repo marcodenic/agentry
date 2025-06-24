@@ -39,6 +39,22 @@ agentry flow examples/flows/multi_agent_chat
 Pass `--resume-id name` to load a saved session and `--save-id name` to persist after each run.
 Use `--checkpoint-id name` to continuously snapshot the run loop and resume after a crash.
 
+### Terminal UI
+
+Start the interactive interface:
+
+```bash
+agentry tui --config examples/.agentry.yaml
+```
+
+There is no `--team` flag. From inside the chat you can spawn additional agents at any time:
+
+```bash
+/spawn coder "handle all build tasks"
+```
+
+Spawned agents appear in their own panes and may run on remote nodes if your Agentry cluster is configured.
+
 ### TUI Themes & Keybinds
 
 Create a `theme.json` file to customise colours and keyboard shortcuts. Agentry looks for the file in the current directory and its parents, falling back to `$HOME/.config/agentry/theme.json`.
