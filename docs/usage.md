@@ -151,6 +151,10 @@ collector: localhost:4318
 
 The server then exposes `/metrics` and streams spans to the specified collector.
 
+Metrics include HTTP request counts (`agentry_http_requests_total`),
+token usage (`agentry_tokens_total`) and tool execution latency
+(`agentry_tool_latency_seconds`).
+
 ## Plugin Management
 
 Agentry includes tooling to fetch and install external plugins:
