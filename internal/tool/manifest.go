@@ -20,8 +20,14 @@ import (
 	"time"
 
 	"github.com/marcodenic/agentry/internal/config"
+	"github.com/marcodenic/agentry/internal/converse"
+	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/memory"
+	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/patch"
+	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/team"
+	"github.com/marcodenic/agentry/pkg/flow"
 	"github.com/marcodenic/agentry/pkg/sbox"
 )
 
@@ -623,6 +629,62 @@ var builtinMap = map[string]builtinSpec{
 				return "", errors.New("team not found in context")
 			}
 			return t.Call(ctx, name, input)
+		},
+	},
+	"flow": {
+		Desc: "Run a flow file",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"path": map[string]any{"type": "string"}},
+			"required":   []string{"path"},
+			"example":    map[string]any{"path": "examples/flows/research_task"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			p, _ := args["path"].(string)
+			if p == "" {
+				return "", errors.New("missing path")
+			}
+			p = absPath(p)
+			f, err := flow.Load(p)
+			if err != nil {
+				return "", err
+			}
+			outs, err := flow.Run(ctx, f, DefaultRegistry(), nil)
+			if err != nil {
+				return "", err
+			}
+			return strings.Join(outs, "\n"), nil
+		},
+	},
+	"team": {
+		Desc: "Run a multi-agent conversation",
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"n":     map[string]any{"type": "integer"},
+				"topic": map[string]any{"type": "string"},
+			},
+			"required": []string{"n"},
+			"example":  map[string]any{"n": 2, "topic": "discuss"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			n, _ := args["n"].(int)
+			if n == 0 {
+				if f, ok := args["n"].(float64); ok {
+					n = int(f)
+				}
+			}
+			topic, _ := args["topic"].(string)
+			if n <= 0 {
+				return "", errors.New("n must be > 0")
+			}
+			route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: model.NewMock()}}
+			ag := core.New(route, DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+			outs, err := converse.Run(ctx, ag, n, topic)
+			if err != nil {
+				return "", err
+			}
+			return strings.Join(outs, "\n"), nil
 		},
 	},
 }
