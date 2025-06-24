@@ -29,6 +29,9 @@ type Model struct {
 	input textinput.Model
 	tools list.Model
 
+	status      string
+	currentTool string
+
 	cwd        string
 	tokenCount int
 	modelName  string
@@ -83,7 +86,7 @@ func New(ag *core.Agent) Model {
 	vp := viewport.New(0, 0)
 	cwd, _ := os.Getwd()
 
-	return Model{agent: ag, vp: vp, input: ti, tools: l, history: "", cwd: cwd, modelName: "unknown", theme: th, keys: th.Keybinds}
+	return Model{agent: ag, vp: vp, input: ti, tools: l, history: "", cwd: cwd, modelName: "unknown", status: "idle", theme: th, keys: th.Keybinds}
 }
 
 type listItem struct{ name, desc string }
@@ -195,6 +198,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.history += m.userBar() + " " + txt + "\n"
 				m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 
+				m.status = "running"
+				m.currentTool = ""
+
 				pr, pw := io.Pipe()
 				errCh := make(chan error, 1)
 				m.agent.Tracer = trace.NewJSONL(pw)
@@ -216,8 +222,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.history += m.aiBar() + " "
 		m.vp.SetContent(lipgloss.NewStyle().Width(m.vp.Width).Render(m.history))
 		m.vp.GotoBottom()
+		m.status = "idle"
 		return m, tea.Batch(streamTokens(string(msg)+"\n"), m.readCmd())
 	case toolUseMsg:
+		m.currentTool = string(msg)
 		idx := -1
 		for i, it := range m.tools.Items() {
 			if li, ok := it.(listItem); ok && li.name == string(msg) {
@@ -234,6 +242,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.readCmd()
 	case errMsg:
 		m.err = msg
+		m.status = "idle"
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -251,18 +260,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	left := lipgloss.NewStyle().Width(int(float64(m.width) * 0.25)).Render(m.tools.View())
-
-	var rightContent string
+	var leftContent string
 	if m.activeTab == 0 {
-		rightContent = m.vp.View() + "\n" + m.input.View()
+		leftContent = m.vp.View() + "\n" + m.input.View()
 	} else {
-		rightContent = renderMemory(m.agent)
+		leftContent = renderMemory(m.agent)
 	}
 	if m.err != nil {
-		rightContent += "\nERR: " + m.err.Error()
+		leftContent += "\nERR: " + m.err.Error()
 	}
-	right := lipgloss.NewStyle().Width(int(float64(m.width) * 0.75)).Render(rightContent)
+	left := lipgloss.NewStyle().Width(int(float64(m.width) * 0.75)).Render(leftContent)
+	right := lipgloss.NewStyle().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
 	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	footer := fmt.Sprintf("cwd: %s | tokens: %d | model: %s", m.cwd, m.tokenCount, m.modelName)
 	footer = lipgloss.NewStyle().Width(m.width).Render(footer)
@@ -296,4 +304,16 @@ func renderMemory(ag *core.Agent) string {
 		b.WriteString("\n")
 	}
 	return b.String()
+}
+
+func (m Model) agentPanel() string {
+	lines := []string{
+		fmt.Sprintf("Name: %s", m.agent.ID.String()[:8]),
+		fmt.Sprintf("Status: %s", m.status),
+	}
+	if m.currentTool != "" {
+		lines = append(lines, fmt.Sprintf("Tool: %s", m.currentTool))
+	}
+	lines = append(lines, fmt.Sprintf("Tokens: %d", m.tokenCount))
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
