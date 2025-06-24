@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"sort"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
@@ -32,12 +31,10 @@ var (
 )
 
 func instrument(path string, h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		h.ServeHTTP(w, r)
-		httpRequests.WithLabelValues(path).Inc()
-		httpDuration.WithLabelValues(path).Observe(time.Since(start).Seconds())
-	})
+	counter := httpRequests.MustCurryWith(prometheus.Labels{"path": path})
+	duration := httpDuration.MustCurryWith(prometheus.Labels{"path": path})
+	return promhttp.InstrumentHandlerDuration(duration,
+		promhttp.InstrumentHandlerCounter(counter, h))
 }
 
 func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID string, ap policy.Approver) http.Handler {
