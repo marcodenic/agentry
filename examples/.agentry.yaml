@@ -64,6 +64,9 @@ tools:
     description: Uses shell (optional, advanced)
     engine: cri
 metrics: true
+# default sandbox engine for unprivileged tools
+sandbox:
+  engine: docker
 # send spans to an OTLP collector
 # collector: localhost:4318
 # path to SQLite DB for conversation history

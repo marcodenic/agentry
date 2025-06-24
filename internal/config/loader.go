@@ -60,7 +60,12 @@ type File struct {
 	MCPServers        map[string]string            `yaml:"mcp_servers" json:"mcp_servers"`
 	Metrics           bool                         `yaml:"metrics" json:"metrics"`
 	Collector         string                       `yaml:"collector" json:"collector"`
+	Sandbox           Sandbox                      `yaml:"sandbox" json:"sandbox"`
 	Permissions       Permissions                  `yaml:"permissions" json:"permissions"`
+}
+
+type Sandbox struct {
+	Engine string `yaml:"engine" json:"engine"`
 }
 
 type Permissions struct {
@@ -121,6 +126,9 @@ func merge(dst *File, src File) {
 	}
 	if src.Collector != "" {
 		dst.Collector = src.Collector
+	}
+	if src.Sandbox.Engine != "" {
+		dst.Sandbox = src.Sandbox
 	}
 	if len(src.Permissions.Tools) > 0 {
 		dst.Permissions = src.Permissions

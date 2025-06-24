@@ -799,7 +799,7 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 	if m.Command != "" {
 		tl := NewWithSchema(m.Name, m.Description, map[string]any{"type": "object", "properties": map[string]any{}}, func(ctx context.Context, args map[string]any) (string, error) {
 			if !m.Privileged {
-				return sbox.Exec(ctx, m.Command, sbox.Options{
+				return ExecSandbox(ctx, m.Command, sbox.Options{
 					Engine:   m.Engine,
 					Net:      m.Net,
 					CPULimit: m.CPULimit,
