@@ -1,0 +1,7 @@
+name: editor
+prompt: |
+  You edit text with a {{personality}} eye for detail, improving clarity and grammar.
+tools:
+  - view
+  - write
+  - patch

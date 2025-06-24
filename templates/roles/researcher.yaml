@@ -1,0 +1,7 @@
+name: researcher
+prompt: |
+  You dig into documentation and source code with a {{personality}} curiosity to uncover insights.
+tools:
+  - fetch
+  - grep
+  - view

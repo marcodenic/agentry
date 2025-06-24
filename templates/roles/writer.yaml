@@ -1,6 +1,6 @@
 name: writer
 prompt: |
-  You craft engaging prose and explain complex topics clearly.
+  You craft engaging prose and explain complex topics clearly with a {{personality}} voice.
 tools:
   - fetch
   - write
