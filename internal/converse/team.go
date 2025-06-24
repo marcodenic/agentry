@@ -9,17 +9,16 @@ import (
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
+	"github.com/marcodenic/agentry/internal/teamctx"
 )
 
-type teamCtxKey struct{}
-
 func contextWithTeam(ctx context.Context, t *Team) context.Context {
-	return context.WithValue(ctx, teamCtxKey{}, t)
+	return context.WithValue(ctx, teamctx.Key{}, t)
 }
 
 // TeamFromContext extracts a Team pointer if present.
 func TeamFromContext(ctx context.Context) (*Team, bool) {
-	t, ok := ctx.Value(teamCtxKey{}).(*Team)
+	t, ok := ctx.Value(teamctx.Key{}).(*Team)
 	return t, ok
 }
 

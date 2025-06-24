@@ -14,7 +14,7 @@ Agentry is a minimal, extensible agent runtime written in Go with a TypeScript S
 | **Evaluation**    | YAML test suites, CLI `agentry eval`                     |
 | **SDK**           | JS/TS client (`@marcodenic/agentry`), supports streaming |
 | **Registry**      | [Plugin Registry](registry/)                             |
-| **Delegation**    | `agent` tool lets planners assign tasks to agents         |
+| **Delegation**    | `agent` tool lets planners assign tasks to agents        |
 
 For the upcoming cloud deployment model, see [README-cloud.md](../README-cloud.md).
 

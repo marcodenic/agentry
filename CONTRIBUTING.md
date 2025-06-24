@@ -13,17 +13,20 @@ Thank you for your interest in contributing to Agentry! This document provides g
 
 1. Fork the repository
 2. Clone your fork:
+
    ```bash
    git clone https://github.com/yourusername/agentry.git
    cd agentry
    ```
 
 3. Install dependencies:
+
    ```bash
    go mod download
    ```
 
 4. Install the development version:
+
    ```bash
    go install ./cmd/agentry
    ```
@@ -36,6 +39,7 @@ Thank you for your interest in contributing to Agentry! This document provides g
 ### Building and Testing
 
 #### Running Tests
+
 ```bash
 # Run all tests
 go test ./...
@@ -48,6 +52,7 @@ go test ./tests/
 ```
 
 #### Building Components
+
 ```bash
 # Build all components
 make build
@@ -87,7 +92,9 @@ go build ./cmd/agent-node
 ### Common Issues
 
 #### Build Artifacts in Git
+
 If you accidentally run `go build` in the root and have `agentry` or `agentry.exe` files:
+
 ```bash
 # Remove the artifacts
 rm -f agentry agentry.exe
@@ -97,7 +104,9 @@ git status
 ```
 
 #### Testing New Tools
+
 When adding new built-in tools:
+
 1. Add the tool to `internal/tool/manifest.go`
 2. Add comprehensive tests in `tests/`
 3. Update documentation in `docs/api.md` and `docs/usage.md`

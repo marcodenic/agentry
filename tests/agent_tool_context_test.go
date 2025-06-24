@@ -2,7 +2,6 @@ package tests
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/marcodenic/agentry/internal/converse"
@@ -14,12 +13,11 @@ import (
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
-// simpleMock returns a completion that triggers the agent tool.
+// simpleMock returns a simple text completion.
 type agentMock struct{}
 
 func (agentMock) Complete(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (model.Completion, error) {
-	args, _ := json.Marshal(map[string]any{"query": "foo"})
-	return model.Completion{ToolCalls: []model.ToolCall{{ID: "1", Name: "agent", Arguments: args}}}, nil
+	return model.Completion{Content: "Hello from Agent1"}, nil
 }
 
 func TestAgentToolContext(t *testing.T) {
@@ -34,7 +32,7 @@ func TestAgentToolContext(t *testing.T) {
 	if !ok {
 		t.Fatalf("agent tool missing")
 	}
-	out, err := tl.Execute(ctx, map[string]any{"query": "foo"})
+	out, err := tl.Execute(ctx, map[string]any{"agent": "Agent1", "input": "foo"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

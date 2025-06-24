@@ -6,11 +6,31 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/marcodenic/agentry/internal/converse"
+	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/memory"
+	"github.com/marcodenic/agentry/internal/model"
+	"github.com/marcodenic/agentry/internal/router"
+	"github.com/marcodenic/agentry/internal/teamctx"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
+// simpleMock returns a simple text completion.
+type simpleMock struct{}
+
+func (simpleMock) Complete(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (model.Completion, error) {
+	return model.Completion{Content: "test response"}, nil
+}
+
 func TestBuiltinsCrossPlatform(t *testing.T) {
-	ctx := context.Background()
+	// Set up team context for agent tool
+	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: simpleMock{}}}
+	ag := core.New(route, tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	team, err := converse.NewTeam(ag, 1, "test")
+	if err != nil {
+		t.Fatalf("failed to create team: %v", err)
+	}
+	ctx := context.WithValue(context.Background(), teamctx.Key{}, team)
 	for name, tl := range tool.DefaultRegistry() {
 		ex, _ := tl.JSONSchema()["example"].(map[string]any)
 		if ex == nil {

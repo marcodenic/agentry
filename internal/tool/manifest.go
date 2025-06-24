@@ -600,8 +600,7 @@ var builtinMap = map[string]builtinSpec{
 			}
 			return string(b), nil
 		},
-	},
-	"agent": {
+	},	"agent": {
 		Desc: "Send a message to another agent",
 		Schema: map[string]any{
 			"type": "object",
@@ -610,7 +609,11 @@ var builtinMap = map[string]builtinSpec{
 				"input": map[string]any{"type": "string"},
 			},
 			"required": []string{"agent", "input"},
-		},		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			"example": map[string]any{
+				"agent": "Agent1",
+				"input": "Hello, how are you?",
+			},
+		},Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			name, _ := args["agent"].(string)
 			input, _ := args["input"].(string)
 			

@@ -1,6 +1,7 @@
 # Usage
 
 ## Quick Start
+
 ```bash
 # CLI dev REPL with tracing
 go install github.com/marcodenic/agentry/cmd/agentry@latest
@@ -10,9 +11,11 @@ agentry dev
 agentry serve --config examples/.agentry.yaml
 npm i @marcodenic/agentry
 ```
+
 The `examples/.agentry.yaml` file contains a ready-to-use configuration for these commands.
 
 You can now use subcommands instead of the --mode flag:
+
 - `agentry dev` (REPL)
 - `agentry serve` (HTTP server)
 - `agentry tui` (TUI interface)
@@ -20,11 +23,13 @@ You can now use subcommands instead of the --mode flag:
 - `agentry flow` (run `.agentry.flow.yaml`)
 
 Example:
+
 ```bash
 agentry flow .
 ```
 
 Run the sample scenarios in `examples/flows`:
+
 ```bash
 agentry flow examples/flows/research_task
 agentry flow examples/flows/etl_pipeline
@@ -35,7 +40,9 @@ Pass `--resume-id name` to load a saved session and `--save-id name` to persist 
 Use `--checkpoint-id name` to continuously snapshot the run loop and resume after a crash.
 
 ### TUI Themes & Keybinds
+
 Create a `theme.json` file to customise colours and keyboard shortcuts. Agentry looks for the file in the current directory and its parents, falling back to `$HOME/.config/agentry/theme.json`.
+
 ```json
 {
   "userBarColor": "#00FF00",
@@ -76,12 +83,14 @@ tools:
 ```
 
 The tool provides several options:
+
 - `dry-run`: Preview which branches would be deleted without actually deleting them
 - `force`: Use Git's `-D` flag instead of `-d` for force deletion
 
 The tool automatically protects common branches (`main`, `master`, `develop`, `development`) and the current working branch.
 
 Example usage:
+
 ```bash
 # Preview what would be deleted
 branch-tidy --dry-run true
@@ -89,6 +98,6 @@ branch-tidy --dry-run true
 # Delete branches with confirmation (safe delete)
 branch-tidy --force false
 
-# Force delete all eligible branches  
+# Force delete all eligible branches
 branch-tidy --force true
 ```

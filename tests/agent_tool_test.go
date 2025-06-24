@@ -2,7 +2,6 @@ package tests
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/marcodenic/agentry/internal/converse"
@@ -10,7 +9,7 @@ import (
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
-	"github.com/marcodenic/agentry/internal/team"
+	"github.com/marcodenic/agentry/internal/teamctx"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
@@ -33,7 +32,7 @@ func newTestTeam(t *testing.T, reply string) *converse.Team {
 
 func TestAgentToolDelegates(t *testing.T) {
 	tm := newTestTeam(t, "ok")
-	ctx := team.WithContext(context.Background(), tm)
+	ctx := context.WithValue(context.Background(), teamctx.Key{}, tm)
 	tl, ok := tool.DefaultRegistry().Use("agent")
 	if !ok {
 		t.Fatal("agent tool missing")
@@ -49,10 +48,14 @@ func TestAgentToolDelegates(t *testing.T) {
 
 func TestAgentToolUnknown(t *testing.T) {
 	tm := newTestTeam(t, "ignore")
-	ctx := team.WithContext(context.Background(), tm)
+	ctx := context.WithValue(context.Background(), teamctx.Key{}, tm)
 	tl, _ := tool.DefaultRegistry().Use("agent")
 	_, err := tl.Execute(ctx, map[string]any{"agent": "Bogus", "input": "hi"})
-	if !errors.Is(err, team.ErrUnknownAgent) {
-		t.Fatalf("expected unknown agent error, got %v", err)
+	if err == nil {
+		t.Fatal("expected unknown agent error")
+	}
+	expectedErr := "unknown agent: Bogus"
+	if err.Error() != expectedErr {
+		t.Fatalf("expected '%s' error, got %v", expectedErr, err)
 	}
 }
