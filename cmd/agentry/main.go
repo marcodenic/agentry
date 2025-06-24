@@ -154,12 +154,12 @@ func main() {
 		}
 		// Session cleanup goroutine
 		if dur, err := time.ParseDuration(cfg.SessionTTL); err == nil && dur > 0 {
-			if s, ok := ag.Store.(*memstore.SQLite); ok {
+			if cl, ok := ag.Store.(memstore.Cleaner); ok {
 				go func() {
 					ticker := time.NewTicker(time.Hour)
 					defer ticker.Stop()
 					for range ticker.C {
-						_ = s.Cleanup(context.Background(), "history", dur)
+						_ = cl.Cleanup(context.Background(), "history", dur)
 					}
 				}()
 			}
