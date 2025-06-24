@@ -3,12 +3,14 @@ package plugin
 import (
 	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -47,7 +49,11 @@ func Fetch(indexPath, name string) (string, error) {
 	if ent == nil {
 		return "", fmt.Errorf("plugin %s not found", name)
 	}
-	if pubPath := os.Getenv("AGENTRY_REGISTRY_PUBKEY"); pubPath != "" {
+	if ring := os.Getenv("AGENTRY_REGISTRY_GPG_KEYRING"); ring != "" {
+		if err := verifyGPG(*ent, ring); err != nil {
+			return "", err
+		}
+	} else if pubPath := os.Getenv("AGENTRY_REGISTRY_PUBKEY"); pubPath != "" {
 		pubData, err := os.ReadFile(pubPath)
 		if err != nil {
 			return "", err
@@ -107,4 +113,39 @@ func VerifySignature(e RegistryEntry, pub ed25519.PublicKey) bool {
 	}
 	data := []byte(e.Name + "|" + e.URL + "|" + e.SHA256)
 	return ed25519.Verify(pub, data, b)
+}
+
+// verifyGPG checks the signature using a GPG keyring path.
+func verifyGPG(e RegistryEntry, keyring string) error {
+	if e.Sig == "" {
+		return fmt.Errorf("missing signature")
+	}
+	sig, err := base64.StdEncoding.DecodeString(e.Sig)
+	if err != nil {
+		return err
+	}
+	sigFile, err := os.CreateTemp("", "sig")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(sigFile.Name())
+	if _, err := sigFile.Write(sig); err != nil {
+		return err
+	}
+	sigFile.Close()
+	data := []byte(e.Name + "|" + e.URL + "|" + e.SHA256)
+	dataFile, err := os.CreateTemp("", "data")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(dataFile.Name())
+	if _, err := dataFile.Write(data); err != nil {
+		return err
+	}
+	dataFile.Close()
+	cmd := exec.Command("gpg", "--batch", "--no-default-keyring", "--keyring", keyring, "--verify", sigFile.Name(), dataFile.Name())
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("gpg verify: %v: %s", err, out)
+	}
+	return nil
 }

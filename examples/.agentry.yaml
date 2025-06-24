@@ -73,6 +73,8 @@ sandbox:
 # store: path/to/db.sqlite
 # delete sessions older than this duration (e.g. 168h = 7 days)
 session_ttl: 168h
+# cleanup check interval
+session_gc_interval: 1h
 # Add default team planner role for team mode
 include:
   - templates/roles/team_planner.yaml

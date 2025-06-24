@@ -20,8 +20,14 @@ import (
 	"time"
 
 	"github.com/marcodenic/agentry/internal/config"
+	"github.com/marcodenic/agentry/internal/converse"
+	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/memory"
+	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/patch"
+	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/team"
+	"github.com/marcodenic/agentry/pkg/flow"
 	"github.com/marcodenic/agentry/pkg/sbox"
 )
 
@@ -133,24 +139,28 @@ type Tool interface {
 }
 
 type simpleTool struct {
-	name   string
-	desc   string
-	schema map[string]any
-	fn     func(context.Context, map[string]any) (string, error)
+	name    string
+	desc    string
+	schema  map[string]any
+	fn      func(context.Context, map[string]any) (string, error)
+	allowed bool
 }
 
 func New(name, desc string, fn func(context.Context, map[string]any) (string, error)) Tool {
-	return &simpleTool{name: name, desc: desc, fn: fn, schema: map[string]any{"type": "object"}}
+	return &simpleTool{name: name, desc: desc, fn: fn, schema: map[string]any{"type": "object"}, allowed: true}
 }
 
 func NewWithSchema(name, desc string, schema map[string]any, fn func(context.Context, map[string]any) (string, error)) Tool {
-	return &simpleTool{name: name, desc: desc, fn: fn, schema: schema}
+	return &simpleTool{name: name, desc: desc, fn: fn, schema: schema, allowed: true}
 }
 
 func (t *simpleTool) Name() string               { return t.name }
 func (t *simpleTool) Description() string        { return t.desc }
 func (t *simpleTool) JSONSchema() map[string]any { return t.schema }
 func (t *simpleTool) Execute(ctx context.Context, args map[string]any) (string, error) {
+	if !t.allowed {
+		return "", fmt.Errorf("%w: %s", ErrToolDenied, t.name)
+	}
 	if !permitted(t.name) {
 		return "", fmt.Errorf("%w: %s", ErrToolDenied, t.name)
 	}
@@ -625,6 +635,62 @@ var builtinMap = map[string]builtinSpec{
 			return t.Call(ctx, name, input)
 		},
 	},
+	"flow": {
+		Desc: "Run a flow file",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"path": map[string]any{"type": "string"}},
+			"required":   []string{"path"},
+			"example":    map[string]any{"path": "examples/flows/research_task"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			p, _ := args["path"].(string)
+			if p == "" {
+				return "", errors.New("missing path")
+			}
+			p = absPath(p)
+			f, err := flow.Load(p)
+			if err != nil {
+				return "", err
+			}
+			outs, err := flow.Run(ctx, f, DefaultRegistry(), nil)
+			if err != nil {
+				return "", err
+			}
+			return strings.Join(outs, "\n"), nil
+		},
+	},
+	"team": {
+		Desc: "Run a multi-agent conversation",
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"n":     map[string]any{"type": "integer"},
+				"topic": map[string]any{"type": "string"},
+			},
+			"required": []string{"n"},
+			"example":  map[string]any{"n": 2, "topic": "discuss"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			n, _ := args["n"].(int)
+			if n == 0 {
+				if f, ok := args["n"].(float64); ok {
+					n = int(f)
+				}
+			}
+			topic, _ := args["topic"].(string)
+			if n <= 0 {
+				return "", errors.New("n must be > 0")
+			}
+			route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: model.NewMock()}}
+			ag := core.New(route, DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+			outs, err := converse.Run(ctx, ag, n, topic)
+			if err != nil {
+				return "", err
+			}
+			return strings.Join(outs, "\n"), nil
+		},
+	},
 }
 
 func init() {
@@ -685,12 +751,20 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 		if desc == "" {
 			desc = spec.Desc
 		}
-		return NewWithSchema(m.Name, desc, spec.Schema, spec.Exec), nil
+		tl := NewWithSchema(m.Name, desc, spec.Schema, spec.Exec)
+		if st, ok := tl.(*simpleTool); ok {
+			allowed := true
+			if m.Permissions.Allow != nil {
+				allowed = *m.Permissions.Allow
+			}
+			st.allowed = allowed
+		}
+		return tl, nil
 	}
 
 	// HTTP tools
 	if m.HTTP != "" {
-		return NewWithSchema(m.Name, m.Description, map[string]any{"type": "object", "properties": map[string]any{}}, func(ctx context.Context, args map[string]any) (string, error) {
+		tl := NewWithSchema(m.Name, m.Description, map[string]any{"type": "object", "properties": map[string]any{}}, func(ctx context.Context, args map[string]any) (string, error) {
 			b, err := json.Marshal(args)
 			if err != nil {
 				return "", err
@@ -710,12 +784,20 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 				return "", err
 			}
 			return string(rb), nil
-		}), nil
+		})
+		if st, ok := tl.(*simpleTool); ok {
+			allowed := true
+			if m.Permissions.Allow != nil {
+				allowed = *m.Permissions.Allow
+			}
+			st.allowed = allowed
+		}
+		return tl, nil
 	}
 
 	// Shell command tools
 	if m.Command != "" {
-		return NewWithSchema(m.Name, m.Description, map[string]any{"type": "object", "properties": map[string]any{}}, func(ctx context.Context, args map[string]any) (string, error) {
+		tl := NewWithSchema(m.Name, m.Description, map[string]any{"type": "object", "properties": map[string]any{}}, func(ctx context.Context, args map[string]any) (string, error) {
 			if !m.Privileged {
 				return ExecSandbox(ctx, m.Command, sbox.Options{
 					Engine:   m.Engine,
@@ -732,7 +814,15 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 			}
 			out, err := cmd.CombinedOutput()
 			return string(out), err
-		}), nil
+		})
+		if st, ok := tl.(*simpleTool); ok {
+			allowed := true
+			if m.Permissions.Allow != nil {
+				allowed = *m.Permissions.Allow
+			}
+			st.allowed = allowed
+		}
+		return tl, nil
 	}
 
 	return nil, ErrUnknownManifest
