@@ -37,6 +37,16 @@ type Team struct {
 	maxTurns     int
 }
 
+// Add registers ag under name so it can be addressed via Call.
+func (t *Team) Add(name string, ag *core.Agent) {
+	t.agents = append(t.agents, ag)
+	t.names = append(t.names, name)
+	if t.agentsByName == nil {
+		t.agentsByName = map[string]*core.Agent{}
+	}
+	t.agentsByName[name] = ag
+}
+
 // Agents returns the current set of agents in the team.
 func (t *Team) Agents() []*core.Agent { return t.agents }
 
