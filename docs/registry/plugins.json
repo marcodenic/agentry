@@ -2,16 +2,19 @@
   {
     "name": "agentry-shell",
     "description": "Execute shell commands as tools",
-    "url": "https://github.com/marcodenic/agentry-shell"
+    "url": "https://github.com/marcodenic/agentry-shell",
+    "signature": "3eeff843c51f85e8aca45cc7a19dd7cf1ab95d15b066930acf934ac0577ce2fd"
   },
   {
     "name": "agentry-file",
     "description": "Read and write files on disk",
-    "url": "https://github.com/marcodenic/agentry-file"
+    "url": "https://github.com/marcodenic/agentry-file",
+    "signature": "e0b80a09fb6855287e26bd3bcf252cd66d98b20247dc1831a16b1d304a4078ee"
   },
   {
     "name": "agentry-web",
     "description": "Interact with web services via HTTP",
-    "url": "https://github.com/marcodenic/agentry-web"
+    "url": "https://github.com/marcodenic/agentry-web",
+    "signature": "89ab49ebe1b9488866ecf36af1094b20640c080d3a24e391822296b2377ba76a"
   }
 ]

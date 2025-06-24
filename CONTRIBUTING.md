@@ -118,6 +118,18 @@ When adding new built-in tools:
 - Add examples for new features
 - Keep README.md and docs/ in sync
 
+### Submitting Plugins to the Registry
+
+The plugin registry lives in `docs/registry/plugins.json`. To add your plugin:
+
+1. Append a new JSON object with your plugin's `name`, `description`, `url` and
+   a `signature` field.
+2. The signature is an Ed25519 signature of the string `name|url|sha256` where
+   `sha256` is the checksum of your plugin release archive. Encode the signature
+   as hex.
+3. Open a pull request with the updated file. The GitHub Pages site will
+   automatically update on merge.
+
 ## Questions?
 
 If you have questions about contributing, please open an issue or start a discussion on GitHub.
