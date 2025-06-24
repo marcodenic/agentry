@@ -14,15 +14,23 @@
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
-      { "command": "agentry.openPanel", "title": "Agentry: Open Panel" },
-      { "command": "agentry.stopStream", "title": "Agentry: Stop Stream" }
+      {
+        "command": "agentry.openPanel",
+        "title": "Agentry: Open Panel"
+      },
+      {
+        "command": "agentry.stopStream",
+        "title": "Agentry: Stop Stream"
+      }
     ]
   },
   "scripts": {
     "vscode:prepublish": "npm run build",
     "build": "tsc -p ./",
     "compile": "tsc -watch -p ./",
-    "test": "echo \"No tests yet\""
+    "test": "echo \"No tests yet\"",
+    "package": "vsce package",
+    "publish": "vsce publish"
   },
   "dependencies": {
     "cross-fetch": "^4.0.0",
@@ -31,6 +39,7 @@
   "devDependencies": {
     "@types/node": "^18.0.0",
     "typescript": "^5.5.0",
-    "vscode": "^1.1.38"
+    "vscode": "^1.1.38",
+    "vsce": "^2.24.1"
   }
 }
