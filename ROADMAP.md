@@ -444,10 +444,10 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 
 | ID  |  ‑ [ ] Task                    | Why             | How                           | Deps |
 | --- | ------------------------------ | --------------- | ----------------------------- | ---- |
-| 6.1 | `agentry tool init` scaffolder | Fast plugin dev | Gen skeleton + manifest       | —    |
+| 6.1 | `agentry tool init` scaffolder | Fast plugin dev | Gen skeleton + manifest       | —    | ✅
 | 6.2 | Community registry site        | Discovery       | Static Jamstack index         |  6.1 |
-| 6.3 | Plugin installer CLI           | Easy add        | `install <repo>` updates YAML |  6.2 |
-| 6.4 | OpenAPI/MCP adapter            | Interop         | Wrap external spec as tool    |  6.3 |
+| 6.3 | Plugin installer CLI           | Easy add        | `install <repo>` updates YAML |  6.2 | ✅
+| 6.4 | OpenAPI/MCP adapter            | Interop         | Wrap external spec as tool    |  6.3 | ✅
 
 ## ❼ Observability & Telemetry (ops)
 
