@@ -11,7 +11,7 @@ import (
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
-	"github.com/marcodenic/agentry/internal/teamctx"
+	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
@@ -30,7 +30,7 @@ func TestBuiltinsCrossPlatform(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create team: %v", err)
 	}
-	ctx := context.WithValue(context.Background(), teamctx.Key{}, team)
+	ctx := team.WithContext(context.Background(), team)
 	for name, tl := range tool.DefaultRegistry() {
 		ex, _ := tl.JSONSchema()["example"].(map[string]any)
 		if ex == nil {

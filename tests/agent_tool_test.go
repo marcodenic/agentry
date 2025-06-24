@@ -9,7 +9,7 @@ import (
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
-	"github.com/marcodenic/agentry/internal/teamctx"
+	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
@@ -32,7 +32,7 @@ func newTestTeam(t *testing.T, reply string) *converse.Team {
 
 func TestAgentToolDelegates(t *testing.T) {
 	tm := newTestTeam(t, "ok")
-	ctx := context.WithValue(context.Background(), teamctx.Key{}, tm)
+	ctx := team.WithContext(context.Background(), tm)
 	tl, ok := tool.DefaultRegistry().Use("agent")
 	if !ok {
 		t.Fatal("agent tool missing")
@@ -48,7 +48,7 @@ func TestAgentToolDelegates(t *testing.T) {
 
 func TestAgentToolUnknown(t *testing.T) {
 	tm := newTestTeam(t, "ignore")
-	ctx := context.WithValue(context.Background(), teamctx.Key{}, tm)
+	ctx := team.WithContext(context.Background(), tm)
 	tl, _ := tool.DefaultRegistry().Use("agent")
 	_, err := tl.Execute(ctx, map[string]any{"agent": "Bogus", "input": "hi"})
 	if err == nil {

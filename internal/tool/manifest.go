@@ -21,7 +21,7 @@ import (
 
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/patch"
-	"github.com/marcodenic/agentry/internal/teamctx"
+	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/pkg/sbox"
 )
 
@@ -262,7 +262,7 @@ var builtinMap = map[string]builtinSpec{
 			"properties": map[string]any{"cmd": map[string]any{"type": "string"}},
 			"required":   []string{"cmd"},
 			"example":    map[string]any{"cmd": "echo hi"},
-		},		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+		}, Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			cmdStr, _ := args["cmd"].(string)
 			if cmdStr == "" {
 				return "", errors.New("missing cmd")
@@ -278,7 +278,7 @@ var builtinMap = map[string]builtinSpec{
 	"branch-tidy": {
 		Desc: "Delete all local Git branches except the current one",
 		Schema: map[string]any{
-			"type":       "object",
+			"type": "object",
 			"properties": map[string]any{
 				"force": map[string]any{
 					"type":        "boolean",
@@ -286,7 +286,7 @@ var builtinMap = map[string]builtinSpec{
 					"default":     false,
 				},
 				"dry-run": map[string]any{
-					"type":        "boolean", 
+					"type":        "boolean",
 					"description": "Show which branches would be deleted without actually deleting them",
 					"default":     false,
 				},
@@ -296,7 +296,7 @@ var builtinMap = map[string]builtinSpec{
 		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			force, _ := args["force"].(bool)
 			dryRun, _ := args["dry-run"].(bool)
-			
+
 			// Get current branch
 			currentCmd := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "HEAD")
 			currentOut, err := currentCmd.Output()
@@ -307,38 +307,38 @@ var builtinMap = map[string]builtinSpec{
 			if current == "" {
 				return "", errors.New("could not determine current branch")
 			}
-			
+
 			// Get all local branches
 			branchCmd := exec.CommandContext(ctx, "git", "branch")
 			branchOut, err := branchCmd.Output()
 			if err != nil {
 				return "", fmt.Errorf("failed to list branches: %v", err)
 			}
-			
+
 			var result strings.Builder
 			var deleted []string
 			var skipped []string
-			
+
 			lines := strings.Split(string(branchOut), "\n")
 			for _, line := range lines {
 				line = strings.TrimSpace(line)
 				if line == "" {
 					continue
 				}
-				
+
 				// Skip current branch (marked with * or just the name)
 				branch := strings.TrimPrefix(line, "* ")
 				if branch == current || strings.HasPrefix(line, "* ") {
 					skipped = append(skipped, branch)
 					continue
 				}
-				
+
 				// Skip branches that match common protected patterns
 				if branch == "main" || branch == "master" || branch == "develop" || branch == "development" {
 					skipped = append(skipped, branch)
 					continue
 				}
-				
+
 				if dryRun {
 					deleted = append(deleted, branch)
 				} else {
@@ -347,7 +347,7 @@ var builtinMap = map[string]builtinSpec{
 					if force {
 						deleteFlag = "-D"
 					}
-					
+
 					deleteCmd := exec.CommandContext(ctx, "git", "branch", deleteFlag, branch)
 					if err := deleteCmd.Run(); err != nil {
 						result.WriteString(fmt.Sprintf("Failed to delete branch '%s': %v\n", branch, err))
@@ -356,7 +356,7 @@ var builtinMap = map[string]builtinSpec{
 					}
 				}
 			}
-			
+
 			// Build result message
 			if dryRun {
 				result.WriteString("DRY RUN - branches that would be deleted:\n")
@@ -369,18 +369,18 @@ var builtinMap = map[string]builtinSpec{
 					result.WriteString(fmt.Sprintf("  - %s\n", branch))
 				}
 			}
-			
+
 			if len(skipped) > 0 {
 				result.WriteString("\nSkipped branches:\n")
 				for _, branch := range skipped {
 					result.WriteString(fmt.Sprintf("  - %s (protected or current)\n", branch))
 				}
 			}
-			
+
 			if len(deleted) == 0 && !dryRun {
 				result.WriteString("No branches to delete.")
 			}
-			
+
 			return result.String(), nil
 		},
 	},
@@ -600,7 +600,7 @@ var builtinMap = map[string]builtinSpec{
 			}
 			return string(b), nil
 		},
-	},	"agent": {
+	}, "agent": {
 		Desc: "Send a message to another agent",
 		Schema: map[string]any{
 			"type": "object",
@@ -613,18 +613,16 @@ var builtinMap = map[string]builtinSpec{
 				"agent": "Agent1",
 				"input": "Hello, how are you?",
 			},
-		},Exec: func(ctx context.Context, args map[string]any) (string, error) {
+		}, Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			name, _ := args["agent"].(string)
 			input, _ := args["input"].(string)
-			
+
 			// Look for team interface in context
-			team, ok := ctx.Value(teamctx.Key{}).(interface {
-				Call(context.Context, string, string) (string, error)
-			})
+			t, ok := team.FromContext(ctx)
 			if !ok {
 				return "", errors.New("team not found in context")
 			}
-			return team.Call(ctx, name, input)
+			return t.Call(ctx, name, input)
 		},
 	},
 }
