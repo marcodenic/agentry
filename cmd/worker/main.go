@@ -81,6 +81,7 @@ func natsURL() string {
 
 func buildAgent(cfg *config.File) (*core.Agent, error) {
 	tool.SetPermissions(cfg.Permissions.Tools)
+	tool.SetSandboxEngine(cfg.Sandbox.Engine)
 	reg := tool.Registry{}
 	for _, m := range cfg.Tools {
 		tl, err := tool.FromManifest(m)
