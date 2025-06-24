@@ -43,3 +43,12 @@ To run evaluation with the real model:
 OPENAI_KEY=your-key agentry eval --config my.agentry.yaml
 ```
 If no key is present, the built-in mock model is used.
+
+## HTTP Endpoints
+
+When running `agentry serve`, the following JSON endpoints are available:
+
+- **POST `/spawn`** – create a new agent from the `default` template. Returns
+  `{ "agent_id": "<uuid>" }`.
+- **POST `/kill`** – persist the agent's state and remove it from memory.
+- **POST `/invoke`** – queue a message for an agent to process.

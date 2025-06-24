@@ -15,6 +15,7 @@ spec:
       containers:
       - name: worker
         image: agentry:latest
+        command: ["/app/cmd/worker"]
         env:
         - name: NATS_URL
           value: nats://nats:4222

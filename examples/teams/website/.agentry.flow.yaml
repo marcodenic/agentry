@@ -1,9 +1,10 @@
 presets:
-  - dev_team.yaml
+  - website_team.yaml
+
 agents:
+  coder:
+    vars:
+      personality: calm
   deployer:
-    model: gpt-4
-    prompt: "Deploy the finished code."
-tasks:
-  - agent: deployer
-    input: deploy application
+    vars:
+      personality: cautious

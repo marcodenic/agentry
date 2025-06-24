@@ -9,7 +9,7 @@ kubectl apply -f k8s/
 ```
 
 The `helm/agentry` chart provides the same resources with configurable values for
-queue address, autoscaling and storage:
+queue address, autoscaler settings and storage:
 
 ```bash
 helm install agentry helm/agentry
@@ -25,3 +25,6 @@ helm install agentry helm/agentry -f helm/examples/minimal-values.yaml
 ```
 
 `hpa-values.yaml` demonstrates enabling Kubernetes HPA.
+
+When enabled, the autoscaler monitors NATS queue lag and scales the
+`agentry-worker` deployment accordingly.

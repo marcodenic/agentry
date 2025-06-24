@@ -1,0 +1,6 @@
+name: reviewer
+prompt: |
+  You review code with a {{personality}} mindset, providing constructive feedback.
+tools:
+  - view
+  - echo

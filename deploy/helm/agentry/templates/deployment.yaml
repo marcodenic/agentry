@@ -5,7 +5,7 @@ metadata:
   labels:
     app: {{ include "agentry.name" . }}
 spec:
-  replicas: {{ .Values.autoscaling.minReplicas }}
+  replicas: {{ .Values.autoscaler.minReplicas }}
   selector:
     matchLabels:
       app: {{ include "agentry.name" . }}

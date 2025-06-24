@@ -8,7 +8,8 @@ import (
 
 // Options controls sandboxed execution.
 type Options struct {
-	Engine   string // "docker", "gvisor", or "cri"
+	Engine   string // "docker", "gvisor", "firecracker", or "cri"
+	Image    string
 	Net      string
 	CPULimit string
 	MemLimit string
@@ -37,6 +38,10 @@ func Exec(ctx context.Context, cmdStr string, opts Options) (string, error) {
 func buildArgs(engine, cmdStr string, opts Options) []string {
 	switch engine {
 	case "docker":
+		img := opts.Image
+		if img == "" {
+			img = "alpine"
+		}
 		args := []string{"docker", "run", "--rm", "-v", "/workspace:/workspace"}
 		if opts.Net != "" {
 			args = append(args, "--network", opts.Net)
@@ -47,10 +52,20 @@ func buildArgs(engine, cmdStr string, opts Options) []string {
 		if opts.MemLimit != "" {
 			args = append(args, "--memory", opts.MemLimit)
 		}
-		args = append(args, "alpine", "sh", "-c", cmdStr)
+		args = append(args, img, "sh", "-c", cmdStr)
 		return args
 	case "gvisor":
-		return []string{"runsc", "bash", "-c", cmdStr}
+		img := opts.Image
+		if img == "" {
+			return []string{"runsc", "bash", "-c", cmdStr}
+		}
+		return []string{"runsc", "--rootfs", img, "bash", "-c", cmdStr}
+	case "firecracker":
+		img := opts.Image
+		if img == "" {
+			img = "alpine"
+		}
+		return []string{"ignite", "run", "--quiet", img, "--", "sh", "-c", cmdStr}
 	case "cri":
 		return []string{"cri-shim", "run", "--", "sh", "-c", cmdStr}
 	default:

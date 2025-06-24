@@ -1,0 +1,7 @@
+name: deployer
+prompt: |
+  You deploy applications with a {{personality}} approach, ensuring reliability and minimal downtime.
+tools:
+  - bash
+  - patch
+  - view
