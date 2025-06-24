@@ -138,6 +138,16 @@ permissions:
     - ls
 ```
 
+Individual tools can include their own permissions block. Setting `allow: false` disables that tool:
+
+```yaml
+tools:
+  - name: echo
+    type: builtin
+    permissions:
+      allow: false
+```
+
 Set `AGENTRY_CONFIRM=1` to require confirmation before overwriting files. Tool executions can be logged by setting `AGENTRY_AUDIT_LOG=path/to/audit.jsonl`.
 
 ## Observability

@@ -9,17 +9,22 @@ import (
 )
 
 type ToolManifest struct {
-	Name        string         `yaml:"name" json:"name"`
-	Description string         `yaml:"description" json:"description"`
-	Type        string         `yaml:"type,omitempty" json:"type,omitempty"`
-	Command     string         `yaml:"command,omitempty" json:"command,omitempty"`
-	HTTP        string         `yaml:"http,omitempty" json:"http,omitempty"`
-	Args        map[string]any `yaml:"args,omitempty" json:"args,omitempty"`
-	Privileged  bool           `yaml:"privileged,omitempty" json:"privileged,omitempty"`
-	Net         string         `yaml:"net,omitempty" json:"net,omitempty"`
-	CPULimit    string         `yaml:"cpu_limit,omitempty" json:"cpu_limit,omitempty"`
-	MemLimit    string         `yaml:"mem_limit,omitempty" json:"mem_limit,omitempty"`
-	Engine      string         `yaml:"engine,omitempty" json:"engine,omitempty"`
+	Name        string          `yaml:"name" json:"name"`
+	Description string          `yaml:"description" json:"description"`
+	Type        string          `yaml:"type,omitempty" json:"type,omitempty"`
+	Command     string          `yaml:"command,omitempty" json:"command,omitempty"`
+	HTTP        string          `yaml:"http,omitempty" json:"http,omitempty"`
+	Args        map[string]any  `yaml:"args,omitempty" json:"args,omitempty"`
+	Privileged  bool            `yaml:"privileged,omitempty" json:"privileged,omitempty"`
+	Net         string          `yaml:"net,omitempty" json:"net,omitempty"`
+	CPULimit    string          `yaml:"cpu_limit,omitempty" json:"cpu_limit,omitempty"`
+	MemLimit    string          `yaml:"mem_limit,omitempty" json:"mem_limit,omitempty"`
+	Engine      string          `yaml:"engine,omitempty" json:"engine,omitempty"`
+	Permissions ToolPermissions `yaml:"permissions,omitempty" json:"permissions,omitempty"`
+}
+
+type ToolPermissions struct {
+	Allow *bool `yaml:"allow" json:"allow"`
 }
 
 type ModelManifest struct {
