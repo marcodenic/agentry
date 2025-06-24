@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"os"
 	"sort"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/policy"
 	"github.com/marcodenic/agentry/internal/taskqueue"
 	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/ui"
@@ -31,15 +31,13 @@ var (
 )
 
 func instrument(path string, h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		h.ServeHTTP(w, r)
-		httpRequests.WithLabelValues(path).Inc()
-		httpDuration.WithLabelValues(path).Observe(time.Since(start).Seconds())
-	})
+	counter := httpRequests.MustCurryWith(prometheus.Labels{"path": path})
+	duration := httpDuration.MustCurryWith(prometheus.Labels{"path": path})
+	return promhttp.InstrumentHandlerDuration(duration,
+		promhttp.InstrumentHandlerCounter(counter, h))
 }
 
-func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID string) http.Handler {
+func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID string, ap policy.Approver) http.Handler {
 	mux := http.NewServeMux()
 	var mem *trace.MemoryWriter
 	if metrics {
@@ -55,6 +53,10 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 		mux.Handle("/traces", instrument("/traces", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_ = json.NewEncoder(w).Encode(mem.All())
 		})))
+	}
+	for id, ag := range agents {
+		ag.Tools = policy.WrapTools(ag.Tools, ap)
+		agents[id] = ag
 	}
 	register := func(path string, h http.HandlerFunc) {
 		if metrics {
@@ -97,6 +99,7 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 			return
 		}
 		ag := base.Spawn()
+		ag.Tools = policy.WrapTools(ag.Tools, ap)
 		id := uuid.New().String()
 		ag.ID = uuid.MustParse(id)
 		agents[id] = ag
@@ -161,6 +164,6 @@ func natsURL() string {
 	return "nats://localhost:4222"
 }
 
-func Serve(agents map[string]*core.Agent, metrics bool, saveID, resumeID string) error {
-	return http.ListenAndServe(":8080", Handler(agents, metrics, saveID, resumeID))
+func Serve(agents map[string]*core.Agent, metrics bool, saveID, resumeID string, ap policy.Approver) error {
+	return http.ListenAndServe(":8080", Handler(agents, metrics, saveID, resumeID, ap))
 }
