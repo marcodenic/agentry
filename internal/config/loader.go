@@ -62,6 +62,7 @@ type File struct {
 	Collector         string                       `yaml:"collector" json:"collector"`
 	Sandbox           Sandbox                      `yaml:"sandbox" json:"sandbox"`
 	Permissions       Permissions                  `yaml:"permissions" json:"permissions"`
+	Budget            Budget                       `yaml:"budget" json:"budget"`
 }
 
 type Sandbox struct {
@@ -70,6 +71,11 @@ type Sandbox struct {
 
 type Permissions struct {
 	Tools []string `yaml:"tools" json:"tools"`
+}
+
+type Budget struct {
+	Tokens  int     `yaml:"tokens" json:"tokens"`
+	Dollars float64 `yaml:"dollars" json:"dollars"`
 }
 
 func merge(dst *File, src File) {
@@ -132,6 +138,9 @@ func merge(dst *File, src File) {
 	}
 	if len(src.Permissions.Tools) > 0 {
 		dst.Permissions = src.Permissions
+	}
+	if src.Budget.Tokens > 0 || src.Budget.Dollars > 0 {
+		dst.Budget = src.Budget
 	}
 }
 
