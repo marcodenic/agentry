@@ -170,4 +170,11 @@ agentry plugin fetch docs/registry/plugins.json agentry-shell
 agentry plugin install https://github.com/marcodenic/agentry-shell
 ```
 
+Set `AGENTRY_REGISTRY_GPG_KEYRING` to the exported public key to enable
+signature verification:
+
+```bash
+export AGENTRY_REGISTRY_GPG_KEYRING=docs/registry/registry.pub
+```
+
 Create new tools with `agentry tool init <name>`. Downloaded plugins are verified against the registry's signature before installation.
