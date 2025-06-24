@@ -17,3 +17,11 @@ helm install agentry helm/agentry
 
 Adjust values by creating a YAML file and passing it with `-f`. See
 `helm/agentry/values.yaml` for all available options.
+
+Example configurations are available under `helm/examples/`:
+
+```bash
+helm install agentry helm/agentry -f helm/examples/minimal-values.yaml
+```
+
+`hpa-values.yaml` demonstrates enabling Kubernetes HPA.
