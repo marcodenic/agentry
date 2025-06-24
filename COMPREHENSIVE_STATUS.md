@@ -13,7 +13,7 @@ After thorough code review, Agentry has **solid foundational architecture** but 
 - **✅ COMPLETE**: SQLite/file backends (`pkg/memstore`)
 - **✅ COMPLETE**: Checkpoint/Resume API (`agent.Checkpoint()`, `agent.Resume()`)
 - **✅ COMPLETE**: Agent state persistence with session management
-- **❌ TODO**: Session GC daemon for cleanup
+- **✅ COMPLETE**: Session GC daemon for cleanup
 
 #### 2. Declarative Workflow DSL
 

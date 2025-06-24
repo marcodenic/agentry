@@ -13,7 +13,9 @@ import (
 type EventType string
 
 const (
-	EventStepStart  EventType = "step_start"
+	EventStepStart EventType = "step_start"
+	// EventToolStart captures a tool invocation including parameters.
+	EventToolStart  EventType = "tool_start"
 	EventToolEnd    EventType = "tool_end"
 	EventFinal      EventType = "final"
 	EventModelStart EventType = "model_start"
