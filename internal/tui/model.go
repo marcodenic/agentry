@@ -6,18 +6,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"os"
-	"strconv"
-	"strings"
-	"time"
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"io"
+	"os"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/converse"
@@ -296,6 +296,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		info.ModelName = msg.name
 		m.infos[msg.id] = info
 		return m, m.readCmd(msg.id)
+	case spinner.TickMsg:
+		for id, ag := range m.infos {
+			if ag.Status == StatusRunning {
+				var c tea.Cmd
+				ag.Spinner, c = ag.Spinner.Update(msg)
+				cmds = append(cmds, c)
+				m.infos[id] = ag
+			}
+		}
 	case errMsg:
 		m.err = msg
 		if info, ok := m.infos[m.active]; ok {
@@ -325,7 +334,8 @@ func (m Model) View() string {
 	var leftContent string
 	if m.activeTab == 0 {
 		leftContent = m.vp.View() + "\n" + m.input.View()
-	} else {		if info, ok := m.infos[m.active]; ok {
+	} else {
+		if info, ok := m.infos[m.active]; ok {
 			leftContent = renderMemory(info.Agent)
 		}
 	}
@@ -339,7 +349,7 @@ func (m Model) View() string {
 	right := base.Copy().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
 	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	help := lipgloss.NewStyle().Width(m.width).Render(helpView())
-	
+
 	tokens := 0
 	costVal := 0.0
 	if info, ok := m.infos[m.active]; ok && info.Agent.Cost != nil {
@@ -384,18 +394,19 @@ func (m Model) agentPanel() string {
 	lines := []string{}
 	for _, id := range m.order {
 		ag := m.infos[id]
-		status := map[AgentStatus]string{
-			StatusIdle:    "idle",
-			StatusRunning: "run",
-			StatusError:   "error",
-			StatusStopped: "stopped",
-		}[ag.Status]
-		prefix := " "
+
+		dot := m.statusDot(ag.Status)
+		line := fmt.Sprintf("%s %s %s", dot, ag.Spinner.View(), ag.Name)
 		if id == m.active {
-			prefix = "*"
+			line = "*" + line[1:]
 		}
-		line := fmt.Sprintf("%s %s [%s]", prefix, ag.Name, status)
 		lines = append(lines, line)
+
+		tokLine := fmt.Sprintf("  tokens: %d", ag.TokenCount)
+		bar := m.renderTokenBar(ag.TokenCount, 1000)
+		lines = append(lines, tokLine)
+		lines = append(lines, "  "+bar)
+		lines = append(lines, "")
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
@@ -403,6 +414,9 @@ func (m Model) agentPanel() string {
 func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	info := m.infos[id]
 	info.Status = StatusRunning
+	info.Spinner = spinner.New()
+	info.Spinner.Spinner = spinner.Line
+	info.Spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
 	info.History += m.userBar() + " " + input + "\n"
 	base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
 	m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
@@ -425,7 +439,8 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 		pw.Close()
 		errCh <- err
 	}()
-	return m, tea.Batch(m.readCmd(id), waitErr(errCh))
+	m.infos[id] = info
+	return m, tea.Batch(m.readCmd(id), waitErr(errCh), info.Spinner.Tick)
 }
 
 func (m Model) handleCommand(cmd string) (Model, tea.Cmd) {
@@ -456,7 +471,10 @@ func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 		return m, nil
 	}
 	ag := m.agents[0].Spawn()
-	info := &AgentInfo{Agent: ag, Status: StatusIdle, Spinner: spinner.New(), Name: name}
+	sp := spinner.New()
+	sp.Spinner = spinner.Line
+	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
+	info := &AgentInfo{Agent: ag, Status: StatusIdle, Spinner: sp, Name: name}
 	m.infos[ag.ID] = info
 	m.order = append(m.order, ag.ID)
 	if m.team != nil {
@@ -553,4 +571,30 @@ func helpView() string {
 		"/stop <prefix>   - stop an agent",
 		"/converse <n> <topic> - side conversation",
 	}, "\n")
+}
+
+func (m Model) statusDot(st AgentStatus) string {
+	color := m.theme.IdleColor
+	switch st {
+	case StatusRunning:
+		color = m.theme.RunningColor
+	case StatusError:
+		color = m.theme.ErrorColor
+	case StatusStopped:
+		color = m.theme.StoppedColor
+	}
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render("●")
+}
+
+func (m Model) renderTokenBar(count, max int) string {
+	if max <= 0 {
+		max = 1
+	}
+	pct := float64(count) / float64(max)
+	if pct > 1 {
+		pct = 1
+	}
+	filled := int(pct * 10)
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", 10-filled)
+	return fmt.Sprintf("%s %d%%", bar, int(pct*100))
 }
