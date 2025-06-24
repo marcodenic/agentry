@@ -48,19 +48,47 @@ Create a `theme.json` file to customise colours and keyboard shortcuts. Agentry 
 }
 ```
 
-## Delegating Tasks
+## Agent Delegation
 
-Planners can offload work to another agent using the `delegate` tool. Add it to
+Planners can offload work to another agent using the `agent` tool. Add it to
 your configuration:
 
 ```yaml
 tools:
-  - name: delegate
+  - name: agent
     type: builtin
 ```
 
 Invoke the tool with the target agent and task:
 
 ```bash
-delegate --agent coder --task "draft documentation"
+agent --agent coder --task "draft documentation"
+```
+
+## Git Branch Management
+
+The `branch-tidy` tool helps clean up local Git repositories by removing old branches:
+
+```yaml
+tools:
+  - name: branch-tidy
+    type: builtin
+```
+
+The tool provides several options:
+- `dry-run`: Preview which branches would be deleted without actually deleting them
+- `force`: Use Git's `-D` flag instead of `-d` for force deletion
+
+The tool automatically protects common branches (`main`, `master`, `develop`, `development`) and the current working branch.
+
+Example usage:
+```bash
+# Preview what would be deleted
+branch-tidy --dry-run true
+
+# Delete branches with confirmation (safe delete)
+branch-tidy --force false
+
+# Force delete all eligible branches  
+branch-tidy --force true
 ```

@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/patch"
 	"github.com/marcodenic/agentry/internal/teamctx"
@@ -261,8 +262,7 @@ var builtinMap = map[string]builtinSpec{
 			"properties": map[string]any{"cmd": map[string]any{"type": "string"}},
 			"required":   []string{"cmd"},
 			"example":    map[string]any{"cmd": "echo hi"},
-		},
-		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+		},		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			cmdStr, _ := args["cmd"].(string)
 			if cmdStr == "" {
 				return "", errors.New("missing cmd")
@@ -273,6 +273,115 @@ var builtinMap = map[string]builtinSpec{
 			cmd := exec.CommandContext(ctx, shellCmd, shellFlag, cmdStr)
 			out, err := cmd.CombinedOutput()
 			return string(out), err
+		},
+	},
+	"branch-tidy": {
+		Desc: "Delete all local Git branches except the current one",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{
+				"force": map[string]any{
+					"type":        "boolean",
+					"description": "Use -D flag to force delete branches (default: false uses -d)",
+					"default":     false,
+				},
+				"dry-run": map[string]any{
+					"type":        "boolean", 
+					"description": "Show which branches would be deleted without actually deleting them",
+					"default":     false,
+				},
+			},
+			"example": map[string]any{"force": false, "dry-run": true},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			force, _ := args["force"].(bool)
+			dryRun, _ := args["dry-run"].(bool)
+			
+			// Get current branch
+			currentCmd := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "HEAD")
+			currentOut, err := currentCmd.Output()
+			if err != nil {
+				return "", fmt.Errorf("failed to get current branch: %v", err)
+			}
+			current := strings.TrimSpace(string(currentOut))
+			if current == "" {
+				return "", errors.New("could not determine current branch")
+			}
+			
+			// Get all local branches
+			branchCmd := exec.CommandContext(ctx, "git", "branch")
+			branchOut, err := branchCmd.Output()
+			if err != nil {
+				return "", fmt.Errorf("failed to list branches: %v", err)
+			}
+			
+			var result strings.Builder
+			var deleted []string
+			var skipped []string
+			
+			lines := strings.Split(string(branchOut), "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if line == "" {
+					continue
+				}
+				
+				// Skip current branch (marked with * or just the name)
+				branch := strings.TrimPrefix(line, "* ")
+				if branch == current || strings.HasPrefix(line, "* ") {
+					skipped = append(skipped, branch)
+					continue
+				}
+				
+				// Skip branches that match common protected patterns
+				if branch == "main" || branch == "master" || branch == "develop" || branch == "development" {
+					skipped = append(skipped, branch)
+					continue
+				}
+				
+				if dryRun {
+					deleted = append(deleted, branch)
+				} else {
+					// Delete the branch
+					deleteFlag := "-d"
+					if force {
+						deleteFlag = "-D"
+					}
+					
+					deleteCmd := exec.CommandContext(ctx, "git", "branch", deleteFlag, branch)
+					if err := deleteCmd.Run(); err != nil {
+						result.WriteString(fmt.Sprintf("Failed to delete branch '%s': %v\n", branch, err))
+					} else {
+						deleted = append(deleted, branch)
+					}
+				}
+			}
+			
+			// Build result message
+			if dryRun {
+				result.WriteString("DRY RUN - branches that would be deleted:\n")
+				for _, branch := range deleted {
+					result.WriteString(fmt.Sprintf("  - %s\n", branch))
+				}
+			} else {
+				result.WriteString(fmt.Sprintf("Successfully deleted %d branches:\n", len(deleted)))
+				for _, branch := range deleted {
+					result.WriteString(fmt.Sprintf("  - %s\n", branch))
+				}
+			}
+			
+			if len(skipped) > 0 {
+				result.WriteString("\nSkipped branches:\n")
+				for _, branch := range skipped {
+					result.WriteString(fmt.Sprintf("  - %s (protected or current)\n", branch))
+				}
+			}
+			
+			if len(deleted) == 0 && !dryRun {
+				result.WriteString("No branches to delete.")
+			}
+			
+			return result.String(), nil
 		},
 	},
 	"fetch": {
@@ -493,7 +602,7 @@ var builtinMap = map[string]builtinSpec{
 		},
 	},
 	"agent": {
-		Desc: "Delegate a message to another agent",
+		Desc: "Send a message to another agent",
 		Schema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{

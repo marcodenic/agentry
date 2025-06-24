@@ -48,6 +48,20 @@ wget https://github.com/marcodenic/agentry/releases/download/vX.Y.Z/agentry_X.Y.
 sudo dpkg -i agentry_X.Y.Z_amd64.deb
 ```
 
+### Build from Source
+
+```bash
+# Install to $GOPATH/bin (recommended)
+go install github.com/marcodenic/agentry/cmd/agentry@latest
+
+# Or clone and install from the repository
+git clone https://github.com/marcodenic/agentry.git
+cd agentry
+go install ./cmd/agentry
+```
+
+⚠️ **Note**: Avoid running `go build` in the repository root as it creates build artifacts that shouldn't be committed. Use `go install` instead to properly install the binary to your `$GOPATH/bin` directory.
+
 ---
 
 ## 🚀 Quick Start
@@ -140,6 +154,8 @@ tools:
     type: builtin
   - name: bash # 🖥️ run a bash command
     type: builtin
+  - name: branch-tidy # 🧹 clean up old local Git branches
+    type: builtin
   - name: fetch # 🌍 download content from a URL
     type: builtin
   - name: glob # 🗂️ find files by pattern
@@ -157,10 +173,7 @@ tools:
   - name: patch # 🩹 apply a unified diff
     type: builtin
   - name: sourcegraph # 🔍 search public repositories
-    type: builtin
-  - name: agent # 🤖 launch a search agent
-    type: builtin
-  - name: delegate # 📋 assign tasks to another agent
+    type: builtin  - name: agent # 🤖 delegate tasks to another agent
     type: builtin
   - name: mcp # 🎮 connect to MCP servers
     type: builtin
@@ -172,14 +185,14 @@ Use the `mcp` tool to connect to Multi-User Connection Protocol servers. Set its
 address in your YAML config and the agent can send MCP commands and read the
 responses.
 
-### 📋 Delegating Tasks
+### 📋 Agent Delegation
 
-Planners can forward work to specialised agents using the new `delegate` tool.
+Planners can forward work to specialised agents using the `agent` tool.
 Include it in your `.agentry.yaml` and call it with the target agent name and
 task description:
 
 ```bash
-delegate --agent coder --task "write unit tests"
+agent --agent coder --task "write unit tests"
 ```
 
 ### OpenAPI & MCP Specs
@@ -453,3 +466,19 @@ agentry tool mcp examples/ping-mcp.json > tools.yaml
 
 Each command prints YAML `ToolSpec` entries that can be inspected or embedded in
 config files.
+
+## 🤝 Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, including:
+
+- How to set up your development environment
+- Proper use of `go install` vs `go build`
+- Testing procedures
+- Code style guidelines
+- How to submit pull requests
+
+For questions or discussions, please open an issue on GitHub.
+
+## 📄 License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.

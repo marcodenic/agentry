@@ -10,6 +10,8 @@ tools:
     type: builtin
   - name: bash
     type: builtin
+  - name: branch-tidy
+    type: builtin
   - name: fetch
     type: builtin
   - name: glob
@@ -25,8 +27,7 @@ tools:
   - name: edit
     type: builtin
   - name: patch
-    type: builtin
-  - name: sourcegraph
+    type: builtin  - name: sourcegraph
     type: builtin
   - name: agent
     type: builtin

@@ -22,6 +22,9 @@ tools:
   - name: bash
     type: builtin
     description: Execute a bash command
+  - name: branch-tidy
+    type: builtin
+    description: Delete all local Git branches except the current one
   - name: fetch
     type: builtin
     description: Download content from a URL
