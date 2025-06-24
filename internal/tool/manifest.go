@@ -133,24 +133,28 @@ type Tool interface {
 }
 
 type simpleTool struct {
-	name   string
-	desc   string
-	schema map[string]any
-	fn     func(context.Context, map[string]any) (string, error)
+	name    string
+	desc    string
+	schema  map[string]any
+	fn      func(context.Context, map[string]any) (string, error)
+	allowed bool
 }
 
 func New(name, desc string, fn func(context.Context, map[string]any) (string, error)) Tool {
-	return &simpleTool{name: name, desc: desc, fn: fn, schema: map[string]any{"type": "object"}}
+	return &simpleTool{name: name, desc: desc, fn: fn, schema: map[string]any{"type": "object"}, allowed: true}
 }
 
 func NewWithSchema(name, desc string, schema map[string]any, fn func(context.Context, map[string]any) (string, error)) Tool {
-	return &simpleTool{name: name, desc: desc, fn: fn, schema: schema}
+	return &simpleTool{name: name, desc: desc, fn: fn, schema: schema, allowed: true}
 }
 
 func (t *simpleTool) Name() string               { return t.name }
 func (t *simpleTool) Description() string        { return t.desc }
 func (t *simpleTool) JSONSchema() map[string]any { return t.schema }
 func (t *simpleTool) Execute(ctx context.Context, args map[string]any) (string, error) {
+	if !t.allowed {
+		return "", fmt.Errorf("%w: %s", ErrToolDenied, t.name)
+	}
 	if !permitted(t.name) {
 		return "", fmt.Errorf("%w: %s", ErrToolDenied, t.name)
 	}
@@ -685,12 +689,20 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 		if desc == "" {
 			desc = spec.Desc
 		}
-		return NewWithSchema(m.Name, desc, spec.Schema, spec.Exec), nil
+		tl := NewWithSchema(m.Name, desc, spec.Schema, spec.Exec)
+		if st, ok := tl.(*simpleTool); ok {
+			allowed := true
+			if m.Permissions.Allow != nil {
+				allowed = *m.Permissions.Allow
+			}
+			st.allowed = allowed
+		}
+		return tl, nil
 	}
 
 	// HTTP tools
 	if m.HTTP != "" {
-		return NewWithSchema(m.Name, m.Description, map[string]any{"type": "object", "properties": map[string]any{}}, func(ctx context.Context, args map[string]any) (string, error) {
+		tl := NewWithSchema(m.Name, m.Description, map[string]any{"type": "object", "properties": map[string]any{}}, func(ctx context.Context, args map[string]any) (string, error) {
 			b, err := json.Marshal(args)
 			if err != nil {
 				return "", err
@@ -710,12 +722,20 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 				return "", err
 			}
 			return string(rb), nil
-		}), nil
+		})
+		if st, ok := tl.(*simpleTool); ok {
+			allowed := true
+			if m.Permissions.Allow != nil {
+				allowed = *m.Permissions.Allow
+			}
+			st.allowed = allowed
+		}
+		return tl, nil
 	}
 
 	// Shell command tools
 	if m.Command != "" {
-		return NewWithSchema(m.Name, m.Description, map[string]any{"type": "object", "properties": map[string]any{}}, func(ctx context.Context, args map[string]any) (string, error) {
+		tl := NewWithSchema(m.Name, m.Description, map[string]any{"type": "object", "properties": map[string]any{}}, func(ctx context.Context, args map[string]any) (string, error) {
 			if !m.Privileged {
 				return sbox.Exec(ctx, m.Command, sbox.Options{
 					Engine:   m.Engine,
@@ -732,7 +752,15 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 			}
 			out, err := cmd.CombinedOutput()
 			return string(out), err
-		}), nil
+		})
+		if st, ok := tl.(*simpleTool); ok {
+			allowed := true
+			if m.Permissions.Allow != nil {
+				allowed = *m.Permissions.Allow
+			}
+			st.allowed = allowed
+		}
+		return tl, nil
 	}
 
 	return nil, ErrUnknownManifest
