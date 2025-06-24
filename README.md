@@ -419,13 +419,36 @@ Start the Agentry server with `agentry serve --config examples/.agentry.yaml` th
 
 ## 🔌 Plugin Registry
 
-A sample registry file lives under `examples/registry/index.json`. Each entry lists a plugin
-archive `url` and its expected `sha256` checksum.
-Fetch a plugin with:
+The project publishes a small registry at `docs/registry/plugins.json`. Each
+entry lists a plugin repository URL and description. Fetch a plugin and install
+it with:
 
 ```bash
-agentry plugin fetch examples/registry/index.json example
+agentry plugin fetch docs/registry/plugins.json agentry-shell
+agentry plugin install https://github.com/marcodenic/agentry-shell
 ```
 
-To contribute, add your plugin information to `index.json` and open a pull request.
-See `examples/registry/README.md` for details.
+To contribute a plugin, update `docs/registry/plugins.json` and open a pull
+request.
+
+## 🛠️ Tool Scaffolding
+
+Create boilerplate for a new built-in tool:
+
+```bash
+agentry tool init mytool
+```
+
+This generates a folder with a Go source file and YAML manifest.
+
+## 🔗 Wrapping OpenAPI or MCP Specs
+
+Specs can be converted to tool definitions at the command line:
+
+```bash
+agentry tool openapi examples/echo-openapi.yaml > tools.yaml
+agentry tool mcp examples/ping-mcp.json > tools.yaml
+```
+
+Each command prints YAML `ToolSpec` entries that can be inspected or embedded in
+config files.
