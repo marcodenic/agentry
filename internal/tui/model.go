@@ -387,7 +387,12 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 
 	pr, pw := io.Pipe()
 	errCh := make(chan error, 1)
-	info.Agent.Tracer = trace.NewJSONL(pw)
+	tracer := trace.NewJSONL(pw)
+	if info.Agent.Tracer != nil {
+		info.Agent.Tracer = trace.NewMulti(info.Agent.Tracer, tracer)
+	} else {
+		info.Agent.Tracer = tracer
+	}
 	info.Scanner = bufio.NewScanner(pr)
 	ctx := context.WithValue(context.Background(), teamctx.Key{}, m.team)
 	ctx, cancel := context.WithCancel(ctx)
