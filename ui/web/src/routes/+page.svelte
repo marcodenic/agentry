@@ -7,8 +7,10 @@
   let input = '';
   let agents = [];
   let chart;
+  let reqChart;
   let labels = [];
   let tokens = [];
+  let requests = {};
 
   async function loadAgents() {
     const res = await fetch('/agents');
@@ -42,9 +44,10 @@
     if (tr.ok) otel = await tr.json();
   }
   function parseMetrics(text) {
-    const line = text.split('\n').find((l) => l.startsWith('agentry_tokens_total'));
-    if (!line) return;
-    const parts = line.split(' ');
+    const lines = text.split('\n');
+    const tokLine = lines.find((l) => l.startsWith('agentry_tokens_total'));
+    if (!tokLine) return;
+    const parts = tokLine.split(' ');
     const v = parseFloat(parts[1]);
     tokens.push(v);
     labels.push(new Date().toLocaleTimeString());
@@ -57,6 +60,24 @@
       chart.data.labels = labels;
       chart.data.datasets[0].data = tokens;
       chart.update();
+    }
+
+    requests = {};
+    lines.forEach((l) => {
+      if (l.startsWith('agentry_http_requests_total')) {
+        const m = l.match(/path="([^"]+)".* (\d+(?:\.\d+)?)/);
+        if (m) requests[m[1]] = parseFloat(m[2]);
+      }
+    });
+    const rlabels = Object.keys(requests);
+    const rdata = Object.values(requests);
+    if (!reqChart) {
+      const ctx = document.getElementById('reqChart');
+      if (ctx) reqChart = new Chart(ctx, {type:'bar', data:{labels:rlabels, datasets:[{label:'requests', data:rdata}]}});
+    } else {
+      reqChart.data.labels = rlabels;
+      reqChart.data.datasets[0].data = rdata;
+      reqChart.update();
     }
   }
   onMount(() => {
@@ -81,4 +102,5 @@
 <pre>{JSON.stringify(otel, null, 2)}</pre>
 <h3>Metrics</h3>
 <canvas id="tokChart"></canvas>
+<canvas id="reqChart"></canvas>
 <pre>{metrics}</pre>

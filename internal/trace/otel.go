@@ -64,3 +64,16 @@ func (o *OTelWriter) Write(ctx context.Context, e Event) {
 		attribute.String("data", fmt.Sprintf("%v", e.Data)),
 	))
 }
+
+// Export sends a slice of trace events as individual spans using the global tracer.
+func Export(ctx context.Context, events []Event) {
+	tr := otel.Tracer("agentry")
+	for _, e := range events {
+		_, span := tr.Start(ctx, string(e.Type))
+		span.SetAttributes(
+			attribute.String("agent_id", e.AgentID),
+			attribute.String("data", fmt.Sprintf("%v", e.Data)),
+		)
+		span.End()
+	}
+}
