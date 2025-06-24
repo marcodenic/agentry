@@ -40,6 +40,14 @@ flowchart LR
 
 This layout may evolve as the distributed scheduler and sandbox features mature.
 
+## Design Documents
+
+Further design notes live in the `design/` directory:
+
+- [Distributed Architecture](design/distributed_arch.md)
+- [Flow DSL](design/flow_dsl.md)
+- [Sandbox Architecture](design/sandbox.md)
+
 ## Building the Dashboard
 
 The web dashboard lives under `ui/web` and uses SvelteKit.
