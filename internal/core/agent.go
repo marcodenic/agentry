@@ -57,7 +57,11 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			if err := json.Unmarshal(tc.Arguments, &args); err != nil {
 				return "", err
 			}
-			r, err := t.Execute(ctx, args)
+			fn := func(c context.Context, q string) (string, error) {
+				sub := a.Spawn()
+				return sub.Run(c, q)
+			}
+			r, err := t.Execute(tool.WithSpawn(ctx, fn), args)
 			if err != nil {
 				return "", err
 			}

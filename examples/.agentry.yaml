@@ -52,6 +52,7 @@ tools:
   - name: agent
     type: builtin
     description: Launch a search agent
+    # pass a `query` argument when invoking
   - name: mcp
     type: builtin
     description: Connect to an MCP server
