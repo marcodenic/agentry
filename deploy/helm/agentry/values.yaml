@@ -6,11 +6,12 @@ image:
 queue:
   address: nats://nats:4222
 
-autoscaling:
+autoscaler:
   enabled: false
   minReplicas: 1
   maxReplicas: 5
-  targetCPUUtilizationPercentage: 80
+  scaleFactor: 10
+  pollInterval: 5s
 
 storage:
   size: 1Gi
