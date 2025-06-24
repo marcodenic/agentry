@@ -19,16 +19,18 @@ type teamMsg struct {
 
 // TeamModel displays a multi-agent conversation.
 type TeamModel struct {
-	team    *converse.Team
-	vps     []viewport.Model
-	history []string
-	focus   int
-	paused  bool
-	width   int
-	height  int
-	theme   Theme
-	keys    Keybinds
-	err     error
+	team     *converse.Team
+	vps      []viewport.Model
+	history  []string
+	statuses []AgentStatus
+	roles    []string
+	focus    int
+	paused   bool
+	width    int
+	height   int
+	theme    Theme
+	keys     Keybinds
+	err      error
 }
 
 // NewTeam creates a TeamModel with n agents talking about topic.
@@ -40,10 +42,12 @@ func NewTeam(parent *core.Agent, n int, topic string) (TeamModel, error) {
 	}
 	vps := make([]viewport.Model, n)
 	hist := make([]string, n)
+	status := make([]AgentStatus, n)
+	roles := t.Names()
 	for i := range vps {
 		vps[i] = viewport.New(0, 0)
 	}
-	return TeamModel{team: t, vps: vps, history: hist, theme: th, keys: th.Keybinds}, nil
+	return TeamModel{team: t, vps: vps, history: hist, statuses: status, roles: roles, theme: th, keys: th.Keybinds}, nil
 }
 
 func (m TeamModel) Init() tea.Cmd {
@@ -90,6 +94,7 @@ func (m TeamModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.history[msg.idx] += msg.text + "\n"
 		m.vps[msg.idx].SetContent(lipgloss.NewStyle().Width(m.vps[msg.idx].Width).Render(m.history[msg.idx]))
 		m.vps[msg.idx].GotoBottom()
+		m.statuses[msg.idx] = StatusIdle
 		if !m.paused {
 			return m, m.stepCmd()
 		}
@@ -97,6 +102,20 @@ func (m TeamModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg
 	}
 	return m, nil
+}
+
+func (m TeamModel) agentPanel() string {
+	lines := make([]string, len(m.roles))
+	for i, name := range m.roles {
+		status := map[AgentStatus]string{
+			StatusIdle:    "idle",
+			StatusRunning: "run",
+			StatusError:   "error",
+			StatusStopped: "stopped",
+		}[m.statuses[i]]
+		lines[i] = fmt.Sprintf("%s [%s]", name, status)
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
 func (m TeamModel) View() string {
@@ -110,12 +129,13 @@ func (m TeamModel) View() string {
 		cols[i] = style.Render(vp.View())
 	}
 	row := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
+	panel := m.agentPanel()
 	footer := fmt.Sprintf("focus: %d | %s to pause", m.focus+1, m.keys.Pause)
 	if m.err != nil {
 		footer += " | ERR: " + m.err.Error()
 	}
 	footer = lipgloss.NewStyle().Width(m.width).Render(footer)
-	return lipgloss.JoinVertical(lipgloss.Left, row, footer)
+	return lipgloss.JoinVertical(lipgloss.Left, row, panel, footer)
 }
 
 var _ tea.Model = TeamModel{}
