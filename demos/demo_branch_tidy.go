@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -17,11 +19,11 @@ func main() {
 
 	fmt.Println("=== Branch Tidy Tool Demo ===")
 	fmt.Println("\nTool Description:", branchTidy.Description())
-	
+
 	schema := branchTidy.JSONSchema()
 	fmt.Println("\nTool Schema:")
 	fmt.Printf("  Type: %v\n", schema["type"])
-	
+
 	if props, ok := schema["properties"].(map[string]any); ok {
 		fmt.Println("  Properties:")
 		for name, prop := range props {

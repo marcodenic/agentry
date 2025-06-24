@@ -26,11 +26,11 @@ func TestBuiltinsCrossPlatform(t *testing.T) {
 	// Set up team context for agent tool
 	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: simpleMock{}}}
 	ag := core.New(route, tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
-	team, err := converse.NewTeam(ag, 1, "test")
+	tm, err := converse.NewTeam(ag, 1, "test")
 	if err != nil {
 		t.Fatalf("failed to create team: %v", err)
 	}
-	ctx := team.WithContext(context.Background(), team)
+	ctx := team.WithContext(context.Background(), tm)
 	for name, tl := range tool.DefaultRegistry() {
 		ex, _ := tl.JSONSchema()["example"].(map[string]any)
 		if ex == nil {
