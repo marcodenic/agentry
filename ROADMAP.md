@@ -397,48 +397,48 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 
 | ID  |  ‑ [ ] Task                                | Why              | How (high‑level)                           | Deps |
 | --- | ------------------------------------------ | ---------------- | ------------------------------------------ | ---- |
-| 1.1 | Pluggable `Store` back‑ends (file, SQLite) | Survive restarts | `StoreFactory` switch by YAML `memory:`    | —    |
+| 1.1 | Pluggable `Store` back‑ends (file, SQLite) | Survive restarts | `StoreFactory` switch by YAML `memory:`    | —    | ✅
 | 1.2 | ~~VectorStore → Qdrant/Faiss adapter~~         | Real ANN search  | REST or local lib via CGO                  | 1.1  |
-| 1.3 | Checkpoint API (`Checkpoint()/Resume()`)   | Pause/continue   | Serialize loop state JSON after each event |  1.1 |
-| 1.4 | Max‑iteration graceful yield               | Avoid hard cap   | Emit `EventYield` when limit reached       |  1.3 |
-| 1.5 | ~~Session GC daemon~~                          | Disk hygiene     | TTL sweep & compaction                     |  1.1 |
+| 1.3 | Checkpoint API (`Checkpoint()/Resume()`)   | Pause/continue   | Serialize loop state JSON after each event |  1.1 | ✅
+| 1.4 | Max‑iteration graceful yield               | Avoid hard cap   | Emit `EventYield` when limit reached       |  1.3 | ✅
+| 1.5 | ~~Session GC daemon~~                          | Disk hygiene     | TTL sweep & compaction                     |  1.1 | ✅
 
 ## ❷ Sandboxing & Security (security)
 
 | ID  |  ‑ [ ] Task                 | Why                 | How                                  | Deps |
 | --- | --------------------------- | ------------------- | ------------------------------------ | ---- |
 | 2.1 | Tool permission matrix      | Block dangerous ops | YAML `permissions:` gate before exec | —    | ✅
-| 2.2 | Docker sandbox executor     | Isolate shell/code  | Wrap tools in `docker run`           |  2.1 |
-| 2.3 | gVisor / Firecracker runner | Hard isolation      | CRI shim prototype                   |  2.2 |
+| 2.2 | Docker sandbox executor     | Isolate shell/code  | Wrap tools in `docker run`           |  2.1 | ✅
+| 2.3 | gVisor / Firecracker runner | Hard isolation      | CRI shim prototype                   |  2.2 | ✅
 | 2.4 | Signed‑plugin registry      | Supply‑chain trust  | Publish index.json + SHA256 sig      | —    | ✅
 
 ## ❸ Declarative Workflow DSL (dx)
 
 | ID  |  ‑ [ ] Task                 | Why                   | How                         | Deps |
 | --- | --------------------------- | --------------------- | --------------------------- | ---- |
-| 3.1 | YAML Flow schema v0.1       | Non‑dev orchestration | `.flow.yaml` → `[]Step`     | —    |
-| 3.2 | Flow runner engine          | Execute DSL           | Goroutines; aggregate trace | 3.1  |
-| 3.3 | CLI `agentry run flow.yaml` | DX                    | Detect & run                | 3.2  |
-| 3.4 | Sample flows repo           | Showcase              | 3 demos under `examples/`   | 3.2  |
+| 3.1 | YAML Flow schema v0.1       | Non‑dev orchestration | `.flow.yaml` → `[]Step`     | —    | ✅
+| 3.2 | Flow runner engine          | Execute DSL           | Goroutines; aggregate trace | 3.1  | ✅
+| 3.3 | CLI `agentry run flow.yaml` | DX                    | Detect & run                | 3.2  | ✅
+| 3.4 | Sample flows repo           | Showcase              | 3 demos under `examples/`   | 3.2  | ✅
 
 ## ❹ Distributed Scheduling & Cluster Mode (cloud)
 
 | ID  |  ‑ [ ] Task               | Why              | How                                   | Deps |
 | --- | ------------------------- | ---------------- | ------------------------------------- | ---- |
-| 4.1 | Agent UUID abstraction    | Decouple memory  | Assign UUID on spawn                  |  1.1 |
-| 4.2 | `/spawn` `/kill` HTTP API | Multi‑tenant     | REST endpoints map UUID→Store         |  4.1 |
-| 4.3 | NATS task queue           | Off‑process exec | Publish/subscribe `Task`              |  4.1 |
-| 4.4 | Worker micro‑service      | Run tasks        | `agentry worker --queue …`            |  4.3 |
-| 4.5 | Autoscaler                | Balance load     | Watch queue lag, scale k8s Deployment |  4.4 |
+| 4.1 | Agent UUID abstraction    | Decouple memory  | Assign UUID on spawn                  |  1.1 | ✅
+| 4.2 | `/spawn` `/kill` HTTP API | Multi‑tenant     | REST endpoints map UUID→Store         |  4.1 | ✅
+| 4.3 | NATS task queue           | Off‑process exec | Publish/subscribe `Task`              |  4.1 | ✅
+| 4.4 | Worker micro‑service      | Run tasks        | `agentry worker --queue …`            |  4.3 | ✅
+| 4.5 | Autoscaler                | Balance load     | Watch queue lag, scale k8s Deployment |  4.4 | ✅
 
 ## ❺ Agent Teams & Personas (dx)
 
 | ID  |  ‑ [ ] Task           | Why                 | How                                    | Deps |
 | --- | --------------------- | ------------------- | -------------------------------------- | ---- |
-| 5.1 | Role‑template library | Plug‑and‑play crews | YAML snippets under `templates/roles/` |  3.1 |
-| 5.2 | Team presets          | Ready‑made crews    | Compose roles + flow                   |  5.1 |
-| 5.3 | Personality vars      | Tone control        | Mustache substitution                  |  5.1 |
-| 5.4 | Team‑chat TUI panes   | Visual demo         | Extend existing TUI                    |  5.2 |
+| 5.1 | Role‑template library | Plug‑and‑play crews | YAML snippets under `templates/roles/` |  3.1 | ✅
+| 5.2 | Team presets          | Ready‑made crews    | Compose roles + flow                   |  5.1 | ✅
+| 5.3 | Personality vars      | Tone control        | Mustache substitution                  |  5.1 | ✅
+| 5.4 | Team‑chat TUI panes   | Visual demo         | Extend existing TUI                    |  5.2 | ✅
 
 ## ❻ Tooling & Plugin Ecosystem (community)
 
@@ -455,32 +455,32 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | --- | ------------------- | --------- | ---------------------- | ---- |
 | 7.1 | OTLP trace exporter | Aggregate | Convert events → spans |  4.4 | ✅
 | 7.2 | Prometheus metrics  | Ops       | `/metrics` endpoint    |  4.4 | ✅
-| 7.3 | Web dashboard       | Visualize | Next.js or SvelteKit   |  7.1 |
+| 7.3 | Web dashboard       | Visualize | Next.js or SvelteKit   |  7.1 | ✅
 | 7.4 | Cost estimator      | Budget    | Post‑run analyzer      |  7.2 |
 
 ## ❽ Automated Test & CI (qa)
 
 | ID  |  ‑ [ ] Task            | Why              | How                            | Deps |
 | --- | ---------------------- | ---------------- | ------------------------------ | ---- |
-| 8.1 | Stress plan → Go tests | Regression       | `pkg/e2e` suite                |  1.3 |
-| 8.2 | GitHub Actions matrix  | Multi‑os         | linux/mac/win jobs             |  8.1 |
-| 8.3 | Chaos monkey job       | Crash resilience | Kill worker mid task           |  4.4 |
+| 8.1 | Stress plan → Go tests | Regression       | `pkg/e2e` suite                |  1.3 | ✅
+| 8.2 | GitHub Actions matrix  | Multi‑os         | linux/mac/win jobs             |  8.1 | ✅
+| 8.3 | Chaos monkey job       | Crash resilience | Kill worker mid task           |  4.4 | ✅
 | 8.4 | ~~Benchmarks~~             | Perf trend       | `go test -bench` + flamegraphs |  7.2 |
 
 ## ❾ Developer Experience (dx)
 
 | ID  |  ‑ [ ] Task                 | Why                | How                 | Deps |
 | --- | --------------------------- | ------------------ | ------------------- | ---- |
-| 9.1 | One‑line installer          | Fast start         | Homebrew/scoop/deb  | —    |
+| 9.1 | One‑line installer          | Fast start         | Homebrew/scoop/deb  | —    | ✅
 | 9.2 | ~~Docker‑compose mini‑cluster~~ | Showcase           | `docker compose up` |  4.4 |
-| 9.3 | Helm chart                  | Enterprise         | k8s templates       |  4.4 |
-| 9.4 | VS Code extension           | Editor integration | SSE panel           |  7.1 |
+| 9.3 | Helm chart                  | Enterprise         | k8s templates       |  4.4 | ✅
+| 9.4 | VS Code extension           | Editor integration | SSE panel           |  7.1 | ✅
 
 ## ❿ Documentation & Examples (docs)
 
 | ID   |  ‑ [ ] Task        | Why             | How                        | Deps          |
 | ---- | ------------------ | --------------- | -------------------------- | ------------- |
-| 10.1 | User guide rewrite | Up‑to‑date docs | mkdocs site                | All           |
+| 10.1 | User guide rewrite | Up‑to‑date docs | mkdocs site                | All           | ✅
 | 10.2 | ~~“Power demos” repo~~ | Marketing       | DevOps flow, ETL, research |  Sections 3‑5 |
 | 10.3 | Tutorial videos    | Onboarding      | Asciinema + Loom           |  9.1          |
 
