@@ -1,6 +1,9 @@
 package memstore
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // KV defines a simple bucketed key/value store.
 type KV interface {
@@ -12,4 +15,9 @@ type KV interface {
 type Vector interface {
 	Add(ctx context.Context, id, text string) error
 	Query(ctx context.Context, text string, k int) ([]string, error)
+}
+
+// Cleaner defines optional TTL-based cleanup for a store.
+type Cleaner interface {
+	Cleanup(ctx context.Context, bucket string, ttl time.Duration) error
 }

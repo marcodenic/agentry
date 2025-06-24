@@ -291,6 +291,7 @@ session_ttl: 168h
 
 Run the CLI with `--resume-id myrun` to load a snapshot before running and `--save-id myrun` to save state after each run. `--checkpoint-id myrun` continuously saves intermediate steps so sessions can be resumed.
 Expired sessions are pruned automatically by the server based on `session_ttl`.
+Cleanup runs hourly for any configured store backend.
 
 ### 📚 Vector Store
 
