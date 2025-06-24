@@ -23,11 +23,11 @@ func (agentMock) Complete(ctx context.Context, msgs []model.ChatMessage, tools [
 func TestAgentToolContext(t *testing.T) {
 	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: agentMock{}}}
 	ag := core.New(route, tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
-	team, err := converse.NewTeam(ag, 1, "hi")
+	tm, err := converse.NewTeam(ag, 1, "hi")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	ctx := team.WithContext(context.Background(), team)
+	ctx := team.WithContext(context.Background(), tm)
 	tl, ok := tool.DefaultRegistry()["agent"]
 	if !ok {
 		t.Fatalf("agent tool missing")
