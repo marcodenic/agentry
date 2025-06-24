@@ -20,6 +20,7 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/eval"
+	"github.com/marcodenic/agentry/internal/policy"
 	"github.com/marcodenic/agentry/internal/server"
 	"github.com/marcodenic/agentry/internal/session"
 	"github.com/marcodenic/agentry/internal/tool"
@@ -182,7 +183,8 @@ func main() {
 		}
 		agents := map[string]*core.Agent{"default": ag}
 		fmt.Println("Serving HTTP on :8080")
-		server.Serve(agents, cfg.Metrics, *saveID, *resumeID)
+		ap := policy.Manager{Prompt: policy.CLIPrompt}
+		server.Serve(agents, cfg.Metrics, *saveID, *resumeID, ap)
 	case "eval":
 		cfg, err := config.Load(configPath)
 		if err != nil {

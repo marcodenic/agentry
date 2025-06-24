@@ -9,7 +9,7 @@ import (
 )
 
 func TestMetricsEndpoint(t *testing.T) {
-	h := server.Handler(nil, true, "", "")
+	h := server.Handler(nil, true, "", "", nil)
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 

@@ -25,7 +25,7 @@ func TestServerSpawnKill(t *testing.T) {
 	ag := core.New(route, tool.DefaultRegistry(), memory.NewInMemory(), store, memory.NewInMemoryVector(), nil)
 	agents := map[string]*core.Agent{"default": ag}
 
-	srv := httptest.NewServer(server.Handler(agents, false, "", ""))
+	srv := httptest.NewServer(server.Handler(agents, false, "", "", nil))
 	defer srv.Close()
 
 	// spawn a new agent

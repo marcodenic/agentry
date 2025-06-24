@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/policy"
 	"github.com/marcodenic/agentry/internal/taskqueue"
 	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/ui"
@@ -39,7 +40,7 @@ func instrument(path string, h http.Handler) http.Handler {
 	})
 }
 
-func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID string) http.Handler {
+func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID string, ap policy.Approver) http.Handler {
 	mux := http.NewServeMux()
 	var mem *trace.MemoryWriter
 	if metrics {
@@ -55,6 +56,10 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 		mux.Handle("/traces", instrument("/traces", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_ = json.NewEncoder(w).Encode(mem.All())
 		})))
+	}
+	for id, ag := range agents {
+		ag.Tools = policy.WrapTools(ag.Tools, ap)
+		agents[id] = ag
 	}
 	register := func(path string, h http.HandlerFunc) {
 		if metrics {
@@ -97,6 +102,7 @@ func Handler(agents map[string]*core.Agent, metrics bool, saveID, resumeID strin
 			return
 		}
 		ag := base.Spawn()
+		ag.Tools = policy.WrapTools(ag.Tools, ap)
 		id := uuid.New().String()
 		ag.ID = uuid.MustParse(id)
 		agents[id] = ag
@@ -161,6 +167,6 @@ func natsURL() string {
 	return "nats://localhost:4222"
 }
 
-func Serve(agents map[string]*core.Agent, metrics bool, saveID, resumeID string) error {
-	return http.ListenAndServe(":8080", Handler(agents, metrics, saveID, resumeID))
+func Serve(agents map[string]*core.Agent, metrics bool, saveID, resumeID string, ap policy.Approver) error {
+	return http.ListenAndServe(":8080", Handler(agents, metrics, saveID, resumeID, ap))
 }
