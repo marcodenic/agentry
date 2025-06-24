@@ -10,6 +10,7 @@
   let reqChart;
   let labels = [];
   let tokens = [];
+  let spend = 0;
   let requests = {};
 
   async function loadAgents() {
@@ -47,9 +48,10 @@
     const lines = text.split('\n');
     const tokLine = lines.find((l) => l.startsWith('agentry_tokens_total'));
     if (!tokLine) return;
-    const parts = tokLine.split(' ');
-    const v = parseFloat(parts[1]);
-    tokens.push(v);
+   const parts = tokLine.split(' ');
+   const v = parseFloat(parts[1]);
+   tokens.push(v);
+   spend = v * 0.000002;
     labels.push(new Date().toLocaleTimeString());
     if (tokens.length > 20) { tokens.shift(); labels.shift(); }
     if (!chart) {
@@ -104,3 +106,4 @@
 <canvas id="tokChart"></canvas>
 <canvas id="reqChart"></canvas>
 <pre>{metrics}</pre>
+<p>Current Spend: ${spend.toFixed(4)}</p>

@@ -97,7 +97,13 @@ func (m ChatModel) View() string {
 		vp.SetContent(info.History)
 	}
 	main := vp.View() + "\n" + m.input.View()
-	footer := fmt.Sprintf("agents: %d", len(m.infos))
+	tokens := 0
+	costVal := 0.0
+	if m.parent != nil && m.parent.Cost != nil {
+		tokens = m.parent.Cost.TotalTokens()
+		costVal = m.parent.Cost.TotalCost()
+	}
+	footer := fmt.Sprintf("agents: %d | tokens: %d cost: $%.4f", len(m.infos), tokens, costVal)
 	return fmt.Sprintf("%s\n%s", main, footer)
 }
 

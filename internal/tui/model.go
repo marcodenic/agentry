@@ -326,7 +326,13 @@ func (m Model) View() string {
 	left := lipgloss.NewStyle().Width(int(float64(m.width) * 0.75)).Render(leftContent)
 	right := lipgloss.NewStyle().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
 	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
-	footer := fmt.Sprintf("cwd: %s | agents: %d", m.cwd, len(m.agents))
+	tokens := 0
+	costVal := 0.0
+	if m.masterAgent != nil && m.masterAgent.Cost != nil {
+		tokens = m.masterAgent.Cost.TotalTokens()
+		costVal = m.masterAgent.Cost.TotalCost()
+	}
+	footer := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.agents), tokens, costVal)
 	footer = lipgloss.NewStyle().Width(m.width).Render(footer)
 	return lipgloss.JoinVertical(lipgloss.Left, main, footer)
 }

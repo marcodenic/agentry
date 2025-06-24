@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
@@ -29,6 +30,7 @@ type Agent struct {
 	Route  router.Selector
 	Tracer trace.Writer
 	Store  memstore.KV
+	Cost   *cost.Manager
 }
 
 var (
@@ -44,7 +46,7 @@ var (
 )
 
 func New(sel router.Selector, reg tool.Registry, mem memory.Store, store memstore.KV, vec memory.VectorStore, tr trace.Writer) *Agent {
-	return &Agent{ID: uuid.New(), Tools: reg, Mem: mem, Vector: vec, Route: sel, Tracer: tr, Store: store}
+	return &Agent{ID: uuid.New(), Tools: reg, Mem: mem, Vector: vec, Route: sel, Tracer: tr, Store: store, Cost: nil}
 }
 
 func (a *Agent) Spawn() *Agent {
@@ -58,6 +60,7 @@ func (a *Agent) Spawn() *Agent {
 		Route:  a.Route,
 		Tracer: a.Tracer,
 		Store:  a.Store,
+		Cost:   a.Cost,
 	}
 }
 
@@ -66,14 +69,28 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	a.Trace(ctx, trace.EventModelStart, name)
 	msgs := BuildMessages(a.Prompt, a.Vars, a.Mem.History(), input)
 	specs := tool.BuildSpecs(a.Tools)
-	tokenCounter.WithLabelValues(a.ID.String()).Add(float64(len(strings.Fields(input))))
+	inTok := len(strings.Fields(input))
+	tokenCounter.WithLabelValues(a.ID.String()).Add(float64(inTok))
+	if a.Cost != nil {
+		if a.Cost.AddModel(name, inTok) {
+			if a.Cost.OverBudget() {
+				log.Printf("budget exceeded")
+			}
+		}
+	}
 	for i := 0; i < 8; i++ {
 		res, err := client.Complete(ctx, msgs, specs)
 		if err != nil {
 			return "", err
 		}
 		a.Trace(ctx, trace.EventStepStart, res)
-		tokenCounter.WithLabelValues(a.ID.String()).Add(float64(len(strings.Fields(res.Content))))
+		outTok := len(strings.Fields(res.Content))
+		tokenCounter.WithLabelValues(a.ID.String()).Add(float64(outTok))
+		if a.Cost != nil {
+			if a.Cost.AddModel(name, outTok) && a.Cost.OverBudget() {
+				log.Printf("budget exceeded")
+			}
+		}
 		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
 		step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
 		if len(res.ToolCalls) == 0 {
@@ -98,7 +115,13 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			tokenCounter.WithLabelValues(a.ID.String()).Add(float64(len(strings.Fields(r))))
+			tok := len(strings.Fields(r))
+			tokenCounter.WithLabelValues(a.ID.String()).Add(float64(tok))
+			if a.Cost != nil {
+				if a.Cost.AddTool(tc.Name, tok) && a.Cost.OverBudget() {
+					log.Printf("budget exceeded")
+				}
+			}
 			a.Trace(ctx, trace.EventToolEnd, map[string]any{"name": tc.Name, "result": r})
 			step.ToolResults[tc.ID] = r
 			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})
