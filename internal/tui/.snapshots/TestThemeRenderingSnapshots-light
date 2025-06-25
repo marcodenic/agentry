@@ -1,15 +1,14 @@
-                              * master  
-                              [idle]    
+                              * | master
+                                tokens: 
+                              0         
                                         
+                              ░░░░░░░░░░
+> Message                     0%        
                                         
-                                        
-> Message                               
 /spawn <n>    - create a new agent      
 /switch <prefix> - focus an agent       
 /stop <prefix>   - stop an agent        
 /converse <n> <topic> - side            
 conversation                            
-cwd:                                    
-C:\Users\marco\Documents\GitHub\agentry\
-internal\tui | agents: 1 | tokens: 0    
-cost: $0.0000                           
+cwd: /workspace/agentry/internal/tui |  
+agents: 1 | tokens: 0 cost: $0.0000     
