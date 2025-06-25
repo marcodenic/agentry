@@ -355,6 +355,8 @@ func main() {
 		}
 	case "cost":
 		runCostCmd(args)
+	case "pprof":
+		runPProfCmd(args)
 	case "plugin":
 		runPluginCmd(args)
 	case "tool":
@@ -367,12 +369,13 @@ func main() {
 		sum, err := trace.AnalyzeFile(args[0])
 		if err != nil {
 			fmt.Println("analyze error:", err)
-			os.Exit(1)		}
+			os.Exit(1)
+		}
 		fmt.Printf("tokens: %d cost: $%.4f\n", sum.Tokens, sum.Cost)
 	case "version":
 		fmt.Printf("agentry %s\n", agentry.Version)
 	default:
-		fmt.Println("unknown command. Usage: agentry [dev|serve|tui|eval|flow|analyze|cost|version] [--config path/to/config.yaml]")
+		fmt.Println("unknown command. Usage: agentry [dev|serve|tui|eval|flow|analyze|cost|pprof|version] [--config path/to/config.yaml]")
 		os.Exit(1)
 	}
 }

@@ -22,6 +22,7 @@ You can now use subcommands instead of the --mode flag:
 - `agentry eval` (evaluation)
 - `agentry flow` (run `.agentry.flow.yaml`)
 - `agentry analyze trace.log` (token/cost summary)
+- `agentry pprof profile.out` (launch pprof web UI)
 - `agentry cost` (summarize trace logs)
 
 Use `--port 9090` or set `AGENTRY_PORT` to change the HTTP server port. Set
@@ -217,3 +218,13 @@ If tracing is enabled via `AGENTRY_TRACE_FILE`, analyze the resulting log after 
 ```bash
 agentry analyze path/to/trace.jsonl
 ```
+
+## Profiling
+
+Use `agentry pprof` to explore profiling data in your browser:
+
+```bash
+agentry pprof cpu.out
+```
+
+The command launches `go tool pprof -http` on the given profile file and blocks until you exit.

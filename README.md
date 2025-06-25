@@ -86,6 +86,7 @@ You can now use subcommands instead of the --mode flag:
 - `agentry eval` (evaluation)
 - `agentry flow` (run `.agentry.flow.yaml`)
 - `agentry analyze trace.log` (token/cost summary)
+- `agentry pprof profile.out` (launch pprof web UI)
 - `agentry version` (show version)
 
 Server port can be overridden with `--port` or `AGENTRY_PORT`. Adjust the agent
