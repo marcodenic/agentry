@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -9,7 +11,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	
+
 	// Test direct execution with the same command pattern
 	fmt.Println("Testing ExecDirect with simple command...")
 	result, err := sbox.ExecDirect(ctx, "echo 'hello world'")
@@ -18,7 +20,7 @@ func main() {
 	} else {
 		fmt.Printf("SUCCESS with simple command: %s\n", result)
 	}
-	
+
 	// Test reading a file
 	fmt.Println("\nTesting ExecDirect with file read...")
 	result, err = sbox.ExecDirect(ctx, "Get-Content ../README.md | Select-Object -First 3")
@@ -27,7 +29,7 @@ func main() {
 	} else {
 		fmt.Printf("SUCCESS reading file: %s\n", result)
 	}
-	
+
 	// Test what might be causing exit 127
 	fmt.Println("\nTesting potential problem command...")
 	result, err = sbox.ExecDirect(ctx, "Get-ChildItem")

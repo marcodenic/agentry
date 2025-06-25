@@ -99,7 +99,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			debugInfo += "───────────────────────────────────────\n"
 			// Prepend debug info to make it more visible
 			res.Content = debugInfo + res.Content
-			
+
 			// Also log for console debugging
 			log.Printf("🔍 AGENT_0_DEBUG: Raw AI Response:")
 			log.Printf("  Content: %s", res.Content)
@@ -108,7 +108,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 				log.Printf("  Tool Call %d: Name=%s, Args=%s", j+1, tc.Name, string(tc.Arguments))
 			}
 		}
-		
+
 		a.Trace(ctx, trace.EventStepStart, res)
 		outTok := len(strings.Fields(res.Content))
 		tokenCounter.WithLabelValues(a.ID.String()).Add(float64(outTok))
@@ -135,13 +135,14 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 					for toolName := range a.Tools {
 						debugMsg += fmt.Sprintf("    - %s\n", toolName)
 					}
-					
+
 					// Also log for console debugging
 					log.Printf("🔍 AGENT_0_DEBUG: Tool lookup failed!")
 					log.Printf("  Requested tool: %s", tc.Name)
 					log.Printf("  Available tools:")
 					for toolName := range a.Tools {
-						log.Printf("    - %s", toolName)					}
+						log.Printf("    - %s", toolName)
+					}
 				}
 				return debugMsg + fmt.Sprintf("ERR: unknown tool: %s", tc.Name), fmt.Errorf("unknown tool: %s", tc.Name)
 			}
@@ -157,7 +158,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			
+
 			// DEBUG: Show tool execution results for Agent 0
 			if a.Prompt != "" && strings.Contains(a.Prompt, "Agent 0") {
 				log.Printf("🔍 AGENT_0_DEBUG: Tool '%s' executed successfully", tc.Name)
@@ -184,93 +185,4 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	}
 	a.Trace(ctx, trace.EventYield, nil)
 	return "", nil
-}
-
-// SaveState persists the agent's memory under the given ID.
-func (a *Agent) SaveState(ctx context.Context, id string) error {
-	if a.Store == nil {
-		return nil
-	}
-	data, err := json.Marshal(a.Mem.History())
-	if err != nil {
-		return err
-	}
-	return a.Store.Set(ctx, "history", id, data)
-}
-
-// LoadState restores memory from the store.
-func (a *Agent) LoadState(ctx context.Context, id string) error {
-	if a.Store == nil {
-		return nil
-	}
-	b, err := a.Store.Get(ctx, "history", id)
-	if err != nil || b == nil {
-		return err
-	}
-	var steps []memory.Step
-	if err := json.Unmarshal(b, &steps); err != nil {
-		return err
-	}
-	a.Mem.SetHistory(steps)
-	return nil
-}
-
-// Checkpoint persists the agent's current loop state under its ID.
-func (a *Agent) Checkpoint(ctx context.Context) error {
-	if a.Store == nil {
-		return nil
-	}
-	data, err := json.Marshal(a.Mem.History())
-	if err != nil {
-		return err
-	}
-	return a.Store.Set(ctx, "checkpoint", a.ID.String(), data)
-}
-
-// Resume restores the agent's loop state from the store.
-func (a *Agent) Resume(ctx context.Context) error {
-	if a.Store == nil {
-		return nil
-	}
-	b, err := a.Store.Get(ctx, "checkpoint", a.ID.String())
-	if err != nil || b == nil {
-		return err
-	}
-	var steps []memory.Step
-	if err := json.Unmarshal(b, &steps); err != nil {
-		return err
-	}
-	a.Mem.SetHistory(steps)
-	return nil
-}
-func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
-	if a.Tracer != nil {
-		a.Tracer.Write(ctx, trace.Event{
-			Type:      typ,
-			AgentID:   a.ID.String(),
-			Data:      data,
-			Timestamp: trace.Now(),
-		})
-	}
-}
-
-// Exported for use in team mode and other packages
-func BuildMessages(prompt string, vars map[string]string, hist []memory.Step, input string) []model.ChatMessage {
-	if prompt == "" {
-		prompt = defaultPrompt()
-	}
-	
-	// Inject platform-specific guidance
-	prompt = InjectPlatformContext(prompt)
-	
-	prompt = applyVars(prompt, vars)
-	msgs := []model.ChatMessage{{Role: "system", Content: prompt}}
-	for _, h := range hist {
-		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: h.Output, ToolCalls: h.ToolCalls})
-		for id, res := range h.ToolResults {
-			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: id, Content: res})
-		}
-	}
-	msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})
-	return msgs
 }
