@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -10,13 +12,13 @@ import (
 func main() {
 	// Set sandbox to disabled
 	tool.SetSandboxEngine("disabled")
-	
+
 	// Create context
 	ctx := context.Background()
-	
+
 	// Create tool registry
 	reg := tool.DefaultRegistry()
-	
+
 	// Test powershell tool directly with the command that might be causing issues
 	if powershellTool, exists := reg.Use("powershell"); exists {
 		fmt.Println("Testing powershell tool to read README.md...")
@@ -28,8 +30,8 @@ func main() {
 		} else {
 			fmt.Printf("SUCCESS reading README: %s\n", result)
 		}
-		
-		// Test a simpler command  
+
+		// Test a simpler command
 		fmt.Println("\nTesting simpler powershell command...")
 		result, err = powershellTool.Execute(ctx, map[string]any{
 			"command": "echo 'hello world'",
@@ -39,7 +41,7 @@ func main() {
 		} else {
 			fmt.Printf("SUCCESS with echo: %s\n", result)
 		}
-		
+
 		// Test pwd to see current directory
 		fmt.Println("\nTesting Get-Location...")
 		result, err = powershellTool.Execute(ctx, map[string]any{

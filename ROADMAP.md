@@ -535,3 +535,4 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 
 > **Mantra:** _Keep the core fast and tiny; everything else is optional & pluggable._
 > End of machine‑readable backlog.
+- 2025-06-26 – Refactored large Go files to keep each under 250 lines.
