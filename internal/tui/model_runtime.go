@@ -2,6 +2,7 @@ package tui
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -17,6 +18,17 @@ type tokenMsg struct {
 type toolUseMsg struct {
 	id   uuid.UUID
 	name string
+	args map[string]any
+}
+
+type thinkingMsg struct {
+	id   uuid.UUID
+	text string
+}
+
+type actionMsg struct {
+	id   uuid.UUID
+	text string
 }
 
 type modelMsg struct {
@@ -69,15 +81,72 @@ func (m *Model) readEvent(id uuid.UUID) tea.Msg {
 			if name, ok := ev.Data.(string); ok {
 				return modelMsg{id: id, name: name}
 			}
+		case trace.EventStepStart:
+			// Show thinking indicator when agent starts reasoning
+			return thinkingMsg{id: id, text: "🤔 Thinking..."}
+		case trace.EventToolStart:
+			if m2, ok := ev.Data.(map[string]any); ok {
+				if name, ok := m2["name"].(string); ok {
+					args, _ := m2["args"].(map[string]any)
+					actionText := m.formatToolAction(name, args)
+					return actionMsg{id: id, text: actionText}
+				}
+			}
 		case trace.EventToolEnd:
 			if m2, ok := ev.Data.(map[string]any); ok {
 				if name, ok := m2["name"].(string); ok {
-					return toolUseMsg{id: id, name: name}
+					args, _ := m2["args"].(map[string]any)
+					return toolUseMsg{id: id, name: name, args: args}
 				}
 			}
 		default:
 			continue
 		}
+	}
+}
+
+// formatToolAction creates user-friendly action messages
+func (m *Model) formatToolAction(toolName string, args map[string]any) string {
+	switch toolName {
+	case "view", "read":
+		if path, ok := args["path"].(string); ok {
+			return fmt.Sprintf("🔍 Reading %s...", path)
+		}
+		return "🔍 Reading file..."
+	case "write":
+		if path, ok := args["path"].(string); ok {
+			return fmt.Sprintf("✏️ Writing to %s...", path)
+		}
+		return "✏️ Writing file..."
+	case "edit", "patch":
+		if path, ok := args["path"].(string); ok {
+			return fmt.Sprintf("✏️ Editing %s...", path)
+		}
+		return "✏️ Editing file..."
+	case "ls", "list":
+		if path, ok := args["path"].(string); ok {
+			return fmt.Sprintf("📁 Listing %s...", path)
+		}
+		return "📁 Listing directory..."
+	case "bash", "powershell", "cmd":
+		return "⚡ Running command..."
+	case "agent":
+		if agent, ok := args["agent"].(string); ok {
+			return fmt.Sprintf("🤖 Delegating to %s agent...", agent)
+		}
+		return "🤖 Delegating task..."
+	case "grep", "search":
+		if query, ok := args["query"].(string); ok {
+			return fmt.Sprintf("🔍 Searching for '%s'...", query)
+		}
+		return "🔍 Searching..."
+	case "fetch":
+		if url, ok := args["url"].(string); ok {
+			return fmt.Sprintf("🌐 Fetching %s...", url)
+		}
+		return "🌐 Fetching data..."
+	default:
+		return fmt.Sprintf("🔧 Using %s...", toolName)
 	}
 }
 

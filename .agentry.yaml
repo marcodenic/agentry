@@ -9,43 +9,10 @@ routes:
   - if_contains: [""]
     model: openai
 tools:
-  # All builtin tools available - sandboxing disabled for now
-  - name: echo
-    type: builtin
-    description: Repeat a string
-  - name: ping
-    type: builtin
-    description: Ping a host
-  - name: bash
-    type: builtin
-    description: Execute a bash command
+  # Only custom/specialized tools - agents use native shell commands for basic operations
   - name: branch-tidy
     type: builtin
     description: Delete all local Git branches except the current one
-  - name: fetch
-    type: builtin
-    description: Download content from a URL
-  - name: glob
-    type: builtin
-    description: Find files by pattern
-  - name: grep
-    type: builtin
-    description: Search file contents
-  - name: ls
-    type: builtin
-    description: List directory contents
-  - name: view
-    type: builtin
-    description: View file contents
-  - name: write
-    type: builtin
-    description: Create or overwrite a file
-  - name: edit
-    type: builtin
-    description: Update an existing file
-  - name: patch
-    type: builtin
-    description: Apply a unified diff patch
   - name: agent
     type: builtin
     description: Delegate to another agent

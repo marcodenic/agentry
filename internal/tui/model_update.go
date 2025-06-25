@@ -80,6 +80,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case toolUseMsg:
 		info := m.infos[msg.id]
 		info.CurrentTool = msg.name
+		// Show completion message
+		completionText := m.formatToolCompletion(msg.name, msg.args)
+		info.History += fmt.Sprintf("\n%s %s", m.statusBar(), completionText)
+		if msg.id == m.active {
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+			m.vp.GotoBottom()
+		}
+		m.infos[msg.id] = info
+		return m, m.readCmd(msg.id)
+	case thinkingMsg:
+		info := m.infos[msg.id]
+		info.History += fmt.Sprintf("\n%s %s", m.statusBar(), msg.text)
+		if msg.id == m.active {
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+			m.vp.GotoBottom()
+		}
+		m.infos[msg.id] = info
+		return m, m.readCmd(msg.id)
+	case actionMsg:
+		info := m.infos[msg.id]
+		info.History += fmt.Sprintf("\n%s %s", m.statusBar(), msg.text)
+		if msg.id == m.active {
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+			m.vp.GotoBottom()
+		}
 		m.infos[msg.id] = info
 		return m, m.readCmd(msg.id)
 	case modelMsg:

@@ -1,5 +1,21 @@
 # AGENTS.md
 
+> **🚨 CRITICAL: ROOT DIRECTORY HYGIENE**
+>
+> **NEVER CREATE TEST FILES, DEBUG SCRIPTS, OR TEMPORARY FILES IN THE ROOT DIRECTORY.**
+>
+> The root directory must remain pristine and contain only essential project files.
+> Any test files, debug scripts, experiments, or temporary files MUST go in appropriate subdirectories:
+>
+> - `tests/` for test files
+> - `debug/` for debug scripts
+> - `examples/` for example files
+> - `test-programs/` for test programs
+>
+> **Violation of this rule is unacceptable and will break the build system.**
+
+---
+
 > **Looking for the high-level roadmap, strategic context, or upcoming features?**
 > See [ROADMAP.md](./ROADMAP.md) in the project root. ROADMAP.md contains the master plan, forward-looking goals, and detailed roadmap for Agentry Cloud—including persistent memory, workflow orchestration, sandboxing, distributed scheduling, and more.
 
@@ -42,12 +58,26 @@ Follow Go project best practices and keep the repository organized:
 - `ui/` - Web interface and frontend code
 - `ts-sdk/` - TypeScript SDK
 
-### 🚫 **What NOT to put in the root directory:**
+### 🚫 **CRITICAL: What NEVER belongs in the root directory:**
 
-- ❌ Test files (`test_*.go`, `*_test.yaml`)
-- ❌ Debug scripts (`debug_*.go`, `test_*.ps1`)
-- ❌ Temporary configuration files
-- ❌ Verification or experiment files
+**ABSOLUTELY FORBIDDEN IN ROOT:**
+
+- ❌ ANY test files (`test_*.go`, `*_test.yaml`, `test_*.ps1`)
+- ❌ ANY debug scripts (`debug_*.go`, `test_*.js`, `verify_*.py`)
+- ❌ ANY temporary files (`temp_*.md`, `scratch_*.*`)
+- ❌ ANY verification or experiment files
+- ❌ ANY mock or example data files
+- ❌ ANY development utilities or helper scripts
+
+**These files WILL break the build system and MUST be placed in appropriate subdirectories:**
+
+- `tests/` - for all test-related files
+- `debug/` - for debug and troubleshooting scripts
+- `examples/` - for example configurations and demos
+- `test-programs/` - for test programs and scenarios
+- `scripts/` - for build and utility scripts
+
+**The root directory is SACRED and must contain only production project files.**
 
 ### ✅ **Proper places for test files:**
 

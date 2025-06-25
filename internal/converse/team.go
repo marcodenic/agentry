@@ -187,45 +187,22 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	// Set higher iteration limit for specialized agents
 	ag.MaxIterations = 100 // Much higher limit for specialized agents
 	
-	// DEBUG: Show what we're doing
-	fmt.Printf("🔄 DEBUG: AddAgent called with name: %s\n", name)
-	fmt.Printf("🔄 DEBUG: Set MaxIterations to %d for %s\n", ag.MaxIterations, name)
-	if len(ag.Prompt) > 100 {
-		fmt.Printf("🔄 DEBUG: Original prompt (first 100 chars): %s...\n", ag.Prompt[:100])
-	} else {
-		fmt.Printf("🔄 DEBUG: Original prompt: %s\n", ag.Prompt)
-	}
-	
 	// Load role-specific configuration for the named agent
 	if roleConfig, err := loadRoleConfig(name); err == nil {
-		if len(roleConfig.Prompt) > 100 {
-			fmt.Printf("🔄 DEBUG: Loaded role prompt (first 100 chars): %s...\n", roleConfig.Prompt[:100])
-		} else {
-			fmt.Printf("🔄 DEBUG: Loaded role prompt: %s\n", roleConfig.Prompt)
-		}
 		ag.Prompt = roleConfig.Prompt
 		
 		// Create filtered tool registry based on role config
 		if len(roleConfig.Tools) > 0 {
 			filteredTools := make(tool.Registry)
-			fmt.Printf("🔄 DEBUG: Filtering tools for %s. Allowed tools: %v\n", name, roleConfig.Tools)
 			
 			for _, toolName := range roleConfig.Tools {
 				if t, ok := t.parent.Tools.Use(toolName); ok {
 					filteredTools[toolName] = t
-					fmt.Printf("🔄 DEBUG: Added tool '%s' to %s\n", toolName, name)
-				} else {
-					fmt.Printf("🔄 DEBUG: Tool '%s' not found in parent registry for %s\n", toolName, name)
 				}
 			}
 			
 			ag.Tools = filteredTools
-			fmt.Printf("🔄 DEBUG: Agent %s now has %d tools (was %d)\n", name, len(ag.Tools), len(t.parent.Tools))
-		} else {
-			fmt.Printf("🔄 DEBUG: No tools specified for %s, keeping all parent tools\n", name)
 		}
-	} else {
-		fmt.Printf("🔄 DEBUG: Failed to load role config: %v\n", err)
 	}
 	// If loading fails, keep the inherited prompt and tools as fallback
 	

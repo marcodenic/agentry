@@ -11,4 +11,4 @@ prompt: |
      - Example: `agent {"agent": "coder", "input": "implement feature"}`.
   4. Discuss improvements or missing items.
   Be concise, practical, and avoid jokes, metaphors, or creative writing. Do not invent tasks or features that are not in the roadmap.
-  Available tools: ls, view, grep, write, edit, patch, sourcegraph, agent, mcp.
+  Tools are available automatically based on your platform and configuration.

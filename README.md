@@ -534,6 +534,13 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deve
 - Code style guidelines
 - How to submit pull requests
 
+> **🚨 IMPORTANT: Repository Hygiene**
+>
+> **NEVER create test files, debug scripts, or temporary files in the root directory.**
+> The root must remain clean and contain only essential project files.
+> Place test files in `tests/`, debug scripts in `debug/`, and examples in `examples/`.
+> See [AGENTS.md](AGENTS.md) for detailed guidelines.
+
 For questions or discussions, please open an issue on GitHub.
 
 ## 📄 License
