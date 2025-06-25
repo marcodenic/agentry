@@ -385,6 +385,8 @@ tasks:
 The template's prompt and tools merge with the agent definition. Paths are
 resolved relative to the flow file.
 
+The default system prompt for solo mode lives in `templates/roles/agent_0.yaml`.
+
 ---
 
 ## ⚙️ Environment Configuration

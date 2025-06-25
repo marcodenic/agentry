@@ -113,7 +113,7 @@ var ErrUnknownAgent = errors.New("unknown agent")
 func (t *Team) Call(ctx context.Context, name, input string) (string, error) {
 	ag, ok := t.agentsByName[name]
 	if !ok {
-		return "", fmt.Errorf("%w: %s", ErrUnknownAgent, name)
+		ag, _ = t.AddAgent(name)
 	}
 	ctx = contextWithTeam(ctx, t)
 	return runAgent(ctx, ag, input, name, t.names)

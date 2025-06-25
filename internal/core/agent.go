@@ -212,7 +212,7 @@ func (a *Agent) Trace(ctx context.Context, typ trace.EventType, data any) {
 // Exported for use in team mode and other packages
 func BuildMessages(prompt string, vars map[string]string, hist []memory.Step, input string) []model.ChatMessage {
 	if prompt == "" {
-		prompt = "You are an agent. Use the tools provided to answer the user's question. When you call a tool, `arguments` must be a valid JSON object (use {} if no parameters). Control characters are forbidden."
+		prompt = defaultPrompt()
 	}
 	prompt = applyVars(prompt, vars)
 	msgs := []model.ChatMessage{{Role: "system", Content: prompt}}
