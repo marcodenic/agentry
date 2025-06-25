@@ -2,7 +2,6 @@ package tui
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,14 +14,12 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/core"
-	"github.com/marcodenic/agentry/internal/teamctx"
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
@@ -67,7 +64,7 @@ type AgentInfo struct {
 	CurrentTool     string
 	TokenCount      int
 	TokenHistory    []int
-	ActivityData    []float64 // Activity level per second (0.0 to 1.0)
+	ActivityData    []float64   // Activity level per second (0.0 to 1.0)
 	ActivityTimes   []time.Time // Timestamp for each activity data point
 	LastToken       time.Time
 	LastActivity    time.Time
@@ -77,7 +74,7 @@ type AgentInfo struct {
 	Cancel          context.CancelFunc
 	Spinner         spinner.Model
 	Name            string
-	Role            string  // Agent role for display (e.g., "Master", "Research", "DevOps")
+	Role            string // Agent role for display (e.g., "Master", "Research", "DevOps")
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -109,20 +106,20 @@ func New(ag *core.Agent) Model {
 	l.KeyMap.ForceQuit = NoNavKeyMap.ForceQuit
 	ti := textinput.New()
 	ti.Placeholder = "Type your message... (Press Enter to send)"
-	ti.CharLimit = 2000  // Allow longer messages
+	ti.CharLimit = 2000 // Allow longer messages
 	ti.Focus()
 
 	vp := viewport.New(0, 0)
 	cwd, _ := os.Getwd()
 	info := &AgentInfo{
-		Agent:        ag, 
-		Status:       StatusIdle, 
-		Spinner:      spinner.New(), 
-		Name:         "master", 
-		Role:         "Master",		ActivityData: make([]float64, 0),
-		ActivityTimes: make([]time.Time, 0),
+		Agent:   ag,
+		Status:  StatusIdle,
+		Spinner: spinner.New(),
+		Name:    "master",
+		Role:    "Master", ActivityData: make([]float64, 0),
+		ActivityTimes:   make([]time.Time, 0),
 		CurrentActivity: 0,
-		LastActivity: time.Time{}, // Start with zero time so first tick will initialize properly
+		LastActivity:    time.Time{}, // Start with zero time so first tick will initialize properly
 		// Initialize with empty activity for real-time chart
 		TokenHistory: []int{},
 	}
@@ -256,7 +253,7 @@ func waitErr(ch <-chan error) tea.Cmd {
 	}
 }
 
-func (m Model) Init() tea.Cmd { 
+func (m Model) Init() tea.Cmd {
 	// Start the activity chart ticker (update every second)
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
 		return activityTickMsg{}
@@ -282,7 +279,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case m.keys.ToggleTab:
 			m.activeTab = 1 - m.activeTab
-		case m.keys.Submit:			if m.input.Focused() {
+		case m.keys.Submit:
+			if m.input.Focused() {
 				txt := m.input.Value()
 				m.input.SetValue("")
 				if strings.HasPrefix(txt, "/") {
@@ -298,19 +296,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		info.History += msg.token
 		info.TokenCount++
 		info.CurrentActivity++ // Just increment counter, let activityTickMsg handle data points
-		
+
 		now := time.Now()
-		
+
 		// Legacy token history update (keep for compatibility)
 		if info.LastToken.IsZero() || now.Sub(info.LastToken) > time.Second {
 			info.TokenHistory = append(info.TokenHistory, 1)
 			if len(info.TokenHistory) > 20 {
 				info.TokenHistory = info.TokenHistory[1:]
-			}		} else if len(info.TokenHistory) > 0 {
+			}
+		} else if len(info.TokenHistory) > 0 {
 			info.TokenHistory[len(info.TokenHistory)-1]++
 		}
 		info.LastToken = now
-		m.infos[msg.id] = info  // IMPORTANT: Save the updated info back to the map
+		m.infos[msg.id] = info // IMPORTANT: Save the updated info back to the map
 		if msg.id == m.active {
 			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
 			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
@@ -353,9 +352,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Always add a data point every second to make the chart scroll
 			// If there was activity in this second, it will already be recorded
 			// Otherwise, add a zero point to show time progression
-			
+
 			shouldAddDataPoint := false
-			
+
 			if len(info.ActivityTimes) == 0 {
 				// First data point
 				shouldAddDataPoint = true
@@ -366,7 +365,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					shouldAddDataPoint = true
 				}
 			}
-			
+
 			if shouldAddDataPoint {
 				// Add activity level (either current activity or 0.0 for idle)
 				activityLevel := 0.0
@@ -378,22 +377,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					info.CurrentActivity = 0 // Reset for next second
 				}
-				
+
 				info.ActivityData = append(info.ActivityData, activityLevel)
 				info.ActivityTimes = append(info.ActivityTimes, now)
-				
+
 				// Keep only last 60 seconds of data
 				cutoffTime := now.Add(-60 * time.Second)
 				var newData []float64
 				var newTimes []time.Time
-				
+
 				for i, t := range info.ActivityTimes {
 					if t.After(cutoffTime) {
 						newData = append(newData, info.ActivityData[i])
 						newTimes = append(newTimes, info.ActivityTimes[i])
 					}
 				}
-				
+
 				info.ActivityData = newData
 				info.ActivityTimes = newTimes
 				info.LastActivity = now
@@ -414,7 +413,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.input.Width = int(float64(msg.Width)*0.75) - 2
-		m.vp.Width = int(float64(msg.Width)*0.75) - 2		// Calculate viewport height: total height - input line - footer line
+		m.vp.Width = int(float64(msg.Width)*0.75) - 2 // Calculate viewport height: total height - input line - footer line
 		m.vp.Height = msg.Height - 2
 		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, msg.Height-2)
 		if info, ok := m.infos[m.active]; ok {
@@ -435,7 +434,8 @@ func (m Model) View() string {
 		leftContent = m.vp.View() + "\n" + m.input.View()
 	} else {
 		if info, ok := m.infos[m.active]; ok {
-			leftContent = renderMemory(info.Agent)		}
+			leftContent = renderMemory(info.Agent)
+		}
 	}
 	if m.err != nil {
 		leftContent += "\nERR: " + m.err.Error()
@@ -456,542 +456,4 @@ func (m Model) View() string {
 	footer := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.infos), tokens, costVal)
 	footer = base.Copy().Width(m.width).Render(footer)
 	return lipgloss.JoinVertical(lipgloss.Left, main, footer)
-}
-
-func (m Model) userBar() string {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.UserBarColor)).Render("┃")
-}
-
-func (m Model) aiBar() string {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor)).Render("┃")
-}
-
-func renderMemory(ag *core.Agent) string {
-	hist := ag.Mem.History()
-	var b bytes.Buffer
-	for i, s := range hist {
-		b.WriteString("Step ")
-		b.WriteString(strconv.Itoa(i))
-		b.WriteString(": ")
-		b.WriteString(s.Output)
-		for _, tc := range s.ToolCalls {
-			if r, ok := s.ToolResults[tc.ID]; ok {
-				b.WriteString(" -> ")
-				b.WriteString(tc.Name)
-				b.WriteString(": ")
-				b.WriteString(r)
-			}
-		}
-		b.WriteString("\n")
-	}
-	return b.String()
-}
-
-func (m Model) agentPanel() string {
-	var lines []string
-	
-	// Panel title with emoji - btop style
-	title := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.theme.PanelTitleColor)).
-		Bold(true).
-		Render("🤖 AGENTS")
-	lines = append(lines, title)
-	
-	// Summary stats line
-	totalTokens := 0
-	runningCount := 0
-	for _, ag := range m.infos {
-		totalTokens += ag.TokenCount
-		if ag.Status == StatusRunning {
-			runningCount++
-		}
-	}
-	statsLine := fmt.Sprintf("Total: %d | Running: %d", len(m.infos), runningCount)
-	lines = append(lines, lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
-		Faint(true).
-		Render(statsLine))
-	lines = append(lines, "") // Empty line for spacing
-
-	for i, id := range m.order {
-		ag := m.infos[id]
-
-		// Agent name line with enhanced status indicator and index
-		var nameeLine string
-		statusDot := m.getAdvancedStatusDot(ag.Status)
-		agentIndex := fmt.Sprintf("[%d]", i)
-		
-		if ag.Status == StatusRunning {
-			nameeLine = fmt.Sprintf("%s %s %s %s", agentIndex, statusDot, ag.Spinner.View(), ag.Name)
-		} else {
-			nameeLine = fmt.Sprintf("%s %s %s", agentIndex, statusDot, ag.Name)
-		}
-		
-		// Mark active agent with different styling
-		if id == m.active {
-			nameeLine = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(m.theme.UserBarColor)).
-				Bold(true).
-				Render("▶ " + nameeLine)
-		}
-		lines = append(lines, nameeLine)
-
-		// Role line (if available) - more prominent
-		if ag.Role != "" {
-			roleLine := fmt.Sprintf("  role: %s", ag.Role)
-			roleLine = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(m.theme.RoleColor)).
-				Italic(true).
-				Render(roleLine)
-			lines = append(lines, roleLine)
-		}
-
-		// Current tool line (if active) - with icon
-		if ag.CurrentTool != "" {
-			toolLine := fmt.Sprintf("  🔧 %s", ag.CurrentTool)
-			toolLine = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(m.theme.ToolColor)).
-				Render(toolLine)
-			lines = append(lines, toolLine)
-		}
-
-		// Model name (if available)
-		if ag.ModelName != "" {
-			modelLine := fmt.Sprintf("  model: %s", ag.ModelName)
-			modelLine = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
-				Faint(true).
-				Render(modelLine)
-			lines = append(lines, modelLine)
-		}
-
-		// Token count line with percentage
-		maxTokens := 8000
-		if ag.ModelName != "" && strings.Contains(strings.ToLower(ag.ModelName), "gpt-4") {
-			maxTokens = 128000
-		}
-		tokenPct := float64(ag.TokenCount) / float64(maxTokens) * 100
-		tokenLine := fmt.Sprintf("  tokens: %d (%.1f%%)", ag.TokenCount, tokenPct)
-		lines = append(lines, tokenLine)
-		// Token usage bar - always show for consistency
-		bar := m.renderTokenBar(ag.TokenCount, maxTokens)
-		lines = append(lines, "  "+bar)
-				// Token activity chart (real-time scrolling chart) - always show
-		activityChart := m.renderActivityChart(ag.ActivityData, ag.ActivityTimes)
-		if activityChart != "" {
-			activityPrefix := lipgloss.NewStyle().
-				Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
-				Faint(true).
-				Render("  activity: ")
-			lines = append(lines, activityPrefix+activityChart)
-		}
-
-		// Cost information if available
-		if ag.Agent.Cost != nil && ag.Agent.Cost.TotalCost() > 0 {
-			costLine := fmt.Sprintf("  cost: $%.4f", ag.Agent.Cost.TotalCost())
-			costLine = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(m.theme.AIBarColor)).
-				Render(costLine)
-			lines = append(lines, costLine)
-		}
-
-		lines = append(lines, "") // Spacing between agents
-	}
-
-	// Add help section at bottom
-	if len(m.infos) > 0 {
-		lines = append(lines, lipgloss.NewStyle().
-			Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
-			Faint(true).
-			Render("Controls:"))
-		lines = append(lines, lipgloss.NewStyle().
-			Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
-			Faint(true).
-			Render("  ←→ cycle agents"))
-		lines = append(lines, lipgloss.NewStyle().
-			Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
-			Faint(true).
-			Render("  Tab switch view"))
-	}
-
-	return lipgloss.JoinVertical(lipgloss.Left, lines...)
-}
-
-func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
-	info := m.infos[id]
-	info.Status = StatusRunning
-	info.Spinner = spinner.New()
-	info.Spinner.Spinner = spinner.Line
-	info.Spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
-	info.History += m.userBar() + " " + input + "\n"
-	base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
-	m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
-
-	pr, pw := io.Pipe()
-	errCh := make(chan error, 1)
-	tracer := trace.NewJSONL(pw)
-	if info.Agent.Tracer != nil {
-		info.Agent.Tracer = trace.NewMulti(info.Agent.Tracer, tracer)
-	} else {
-		info.Agent.Tracer = tracer
-	}
-	info.Scanner = bufio.NewScanner(pr)
-	ctx := context.WithValue(context.Background(), teamctx.Key{}, m.team)
-	ctx, cancel := context.WithCancel(ctx)
-	info.Cancel = cancel
-	m.infos[id] = info
-	go func() {
-		_, err := info.Agent.Run(ctx, input)
-		pw.Close()
-		errCh <- err
-	}()
-	m.infos[id] = info
-	return m, tea.Batch(m.readCmd(id), waitErr(errCh), info.Spinner.Tick)
-}
-
-func (m Model) handleCommand(cmd string) (Model, tea.Cmd) {
-	fields := strings.Fields(cmd)
-	if len(fields) == 0 {
-		return m, nil
-	}
-	switch fields[0] {
-	case "/spawn":
-		return m.handleSpawn(fields[1:])
-	case "/switch":
-		return m.handleSwitch(fields[1:])
-	case "/stop":
-		return m.handleStop(fields[1:])
-	case "/converse":
-		return m.handleConverse(fields[1:])
-	default:
-		return m, nil
-	}
-}
-
-func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
-	name := "agent"
-	role := ""
-	if len(args) > 0 {
-		name = args[0]
-	}
-	if len(args) > 1 {
-		role = args[1]
-	}
-	if len(m.agents) == 0 {
-		return m, nil
-	}
-	ag := m.agents[0].Spawn()
-	sp := spinner.New()
-	sp.Spinner = spinner.Line
-	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
-	info := &AgentInfo{
-		Agent:           ag, 
-		Status:          StatusIdle, 
-		Spinner:         sp, 
-		Name:            name, 
-		Role:            role,
-		ActivityData:    make([]float64, 0),
-		ActivityTimes:   make([]time.Time, 0),		CurrentActivity: 0,
-		LastActivity:    time.Time{}, // Start with zero time
-		TokenHistory:    []int{},
-	}
-	m.infos[ag.ID] = info
-	m.order = append(m.order, ag.ID)
-	if m.team != nil {
-		m.team.Add(name, ag)
-	}
-	m.active = ag.ID
-	m.vp.SetContent("")
-	return m, nil
-}
-
-func (m Model) handleSwitch(args []string) (Model, tea.Cmd) {
-	if len(args) == 0 {
-		return m, nil
-	}
-	prefix := args[0]
-	for _, id := range m.order {
-		if strings.HasPrefix(id.String(), prefix) {
-			m.active = id
-			if info, ok := m.infos[id]; ok {
-				base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
-				m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
-			}
-			break
-		}
-	}
-	return m, nil
-}
-
-func (m Model) handleStop(args []string) (Model, tea.Cmd) {
-	id := m.active
-	if len(args) > 0 {
-		pref := args[0]
-		for _, aid := range m.order {
-			if strings.HasPrefix(aid.String(), pref) {
-				id = aid
-				break
-			}
-		}
-	}
-	if info, ok := m.infos[id]; ok {
-		if info.Cancel != nil {
-			info.Cancel()
-		}
-		info.Status = StatusStopped
-		m.infos[id] = info
-	}
-	return m, nil
-}
-
-func (m Model) handleConverse(args []string) (Model, tea.Cmd) {
-	if len(args) < 2 {
-		return m, nil
-	}
-	n, err := strconv.Atoi(args[0])
-	if err != nil {
-		return m, nil
-	}
-	topic := strings.Join(args[1:], " ")
-	if len(m.agents) == 0 {
-		return m, nil
-	}
-	tm, err := NewTeam(m.agents[0], n, topic)
-	if err != nil {
-		m.err = err
-		return m, nil
-	}
-	go func() { _ = tea.NewProgram(tm, tea.WithAltScreen(), tea.WithMouseCellMotion()).Start() }()
-	return m, nil
-}
-
-func (m Model) cycleActive(delta int) Model {
-	if len(m.order) == 0 {
-		return m
-	}
-	idx := 0
-	for i, id := range m.order {
-		if id == m.active {
-			idx = i
-			break
-		}
-	}
-	idx = (idx + delta + len(m.order)) % len(m.order)
-	m.active = m.order[idx]
-	if info, ok := m.infos[m.active]; ok {
-		base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
-		m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
-	}
-	return m
-}
-
-func (m Model) jumpToAgent(index int) Model {
-	if len(m.order) == 0 {
-		return m
-	}
-	if index < 0 {
-		index = 0
-	}
-	if index >= len(m.order) {
-		index = len(m.order) - 1
-	}
-	m.active = m.order[index]
-	if info, ok := m.infos[m.active]; ok {
-		base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
-		m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
-	}
-	return m
-}
-
-func helpView() string {
-	return strings.Join([]string{
-		"AGENTRY TUI - Unified Agent Interface",
-		"",
-		"Commands:",
-		"/spawn <name> [role]     - create a new agent with optional role",
-		"/switch <prefix>         - focus an agent by name or ID prefix", 
-		"/stop <prefix>           - stop an agent",
-		"/converse <n> <topic>    - start multi-agent conversation",
-		"",
-		"Controls:",
-		"←→ / Ctrl+P/N           - cycle between agents",
-		"Tab                     - switch between chat and memory view",
-		"Enter                   - send message / execute command",
-		"Ctrl+C / q              - quit",
-		"",
-		"Agent Panel:",
-		"● idle  🟡 running  ❌ error  ⏸️ stopped",
-		"[index] shows agent position, ▶ shows active agent",
-	}, "\n")
-}
-
-func (m Model) statusDot(st AgentStatus) string {
-	color := m.theme.IdleColor
-	switch st {
-	case StatusRunning:
-		color = m.theme.RunningColor
-	case StatusError:
-		color = m.theme.ErrorColor
-	case StatusStopped:
-		color = m.theme.StoppedColor
-	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render("●")
-}
-
-func (m Model) getAdvancedStatusDot(status AgentStatus) string {
-	switch status {
-	case StatusIdle:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.IdleColor)).Render("●")
-	case StatusRunning:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.RunningColor)).Render("🟡") // Yellow circle emoji
-	case StatusError:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.ErrorColor)).Render("❌")   // Red X emoji
-	case StatusStopped:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.StoppedColor)).Render("⏸️")  // Pause emoji
-	default:
-		return "○"
-	}
-}
-
-func (m Model) renderTokenBar(count, max int) string {
-	if max <= 0 {
-		max = 1
-	}
-	pct := float64(count) / float64(max)
-	if pct > 1 {
-		pct = 1
-	}
-	filled := int(pct * 10)
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", 10-filled)
-	return fmt.Sprintf("%s %d%%", bar, int(pct*100))
-}
-
-func (m Model) renderSparkline(history []int) string {
-	if len(history) == 0 {
-		return ""
-	}
-	chars := []string{"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"}
-	min, max := history[0], history[0]
-	for _, v := range history {
-		if v < min {
-			min = v
-		}
-		if v > max {
-			max = v
-		}
-	}
-	var b strings.Builder
-	for _, v := range history {
-		if max == min {
-			b.WriteString(chars[0])
-		} else {
-			n := float64(v-min) / float64(max-min)
-			idx := int(n * float64(len(chars)-1))
-			b.WriteString(chars[idx])
-		}
-	}
-	return b.String()
-}
-
-// renderActivityChart creates a real-time scrolling activity chart like CPU usage monitors
-func (m Model) renderActivityChart(activityData []float64, activityTimes []time.Time) string {
-	const chartWidth = 30 // Number of characters in the chart (30 chars for ~60 seconds)
-	
-	// Block characters for detailed visualization (8 levels)
-	chars := []string{"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"}
-	
-	// Create a chart with the desired width, filling with recent data
-	chartData := make([]float64, chartWidth)
-	now := time.Now()
-		// Fill chart from right to left with most recent data
-	// Each character represents 2 seconds, so 30 chars = 60 seconds of history
-	for i := 0; i < chartWidth; i++ {
-		// Calculate the time for this chart position (going back in time from right to left)
-		targetTime := now.Add(-time.Duration(2*(chartWidth-1-i)) * time.Second)
-		
-		// Find the closest activity data point for this time
-		var activity float64 = 0.0 // Default to no activity
-		
-		if len(activityData) > 0 && len(activityTimes) > 0 {
-			// Find the data point closest to our target time
-			minDiff := time.Hour // Large initial value
-			for j, t := range activityTimes {
-				diff := targetTime.Sub(t)
-				if diff < 0 {
-					diff = -diff
-				}
-				if diff < minDiff && diff < 5*time.Second { // Within 5 seconds tolerance (since each char = 3 sec)
-					minDiff = diff
-					activity = activityData[j]
-				}
-			}
-		}
-		
-		chartData[i] = activity
-	}
-	
-	var result strings.Builder
-	
-	// Render each data point
-	for _, activity := range chartData {
-		// Convert activity level (0.0-1.0) to character index
-		charIdx := int(activity * float64(len(chars)-1))
-		if charIdx >= len(chars) {
-			charIdx = len(chars) - 1
-		}
-		if charIdx < 0 {
-			charIdx = 0
-		}
-		
-		char := chars[charIdx]
-		
-		// Color coding based on activity level:
-		// Black/dark for no activity, green for low, yellow for medium, red for high
-		var color string
-		if activity <= 0.1 {
-			// Very low/no activity - dark gray
-			color = "#374151"
-		} else if activity <= 0.3 {
-			// Low activity - green
-			color = "#22C55E"
-		} else if activity <= 0.6 {
-			// Medium activity - yellow
-			color = "#FBBF24"
-		} else if activity <= 0.8 {
-			// High activity - orange
-			color = "#F97316"
-		} else {
-			// Very high activity - red
-			color = "#EF4444"
-		}
-		
-		// Apply color styling
-		styledChar := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(color)).
-			Render(char)
-		
-		result.WriteString(styledChar)
-	}
-	
-	// Add current activity percentage if we have recent data
-	if len(activityData) > 0 {
-		currentActivity := activityData[len(activityData)-1]
-		pctText := fmt.Sprintf(" %2.0f%%", currentActivity*100)
-		pctStyled := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280")).
-			Faint(true).
-			Render(pctText)
-		
-		result.WriteString(pctStyled)
-	} else {
-		// Show 0% when no data
-		pctStyled := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280")).
-			Faint(true).
-			Render("  0%")
-		
-		result.WriteString(pctStyled)
-	}
-	
-	return result.String()
 }
