@@ -485,6 +485,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | 9.7a | WebSocket updates          | Live metrics       | push events to UI    | 9.7 |
 | 9.8 | Custom theming              | Brand look         | lipgloss styles & presets | 9.5 |
 | 9.8a | Theme config file          | User presets       | JSON theme loader    | 9.8 |
+| 9.9 | Split TUI package          | Maintainability    | extract commands/helpers | 9.5 | ✅ |
 
 ## ❿ Documentation & Examples (docs)
 
