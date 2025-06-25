@@ -61,6 +61,8 @@ There is no `--team` flag. From inside the chat you can spawn additional agents 
 
 Spawned agents appear in their own panes and may run on remote nodes if your Agentry cluster is configured.
 
+Each pane includes a real-time dashboard showing a token usage bar and a sparkline of recent activity for that agent.
+
 #### TUI Commands
 
 Inside the chat input you can control running agents:
