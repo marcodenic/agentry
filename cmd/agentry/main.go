@@ -32,13 +32,18 @@ import (
 
 func main() {
 	env.Load()
+	
+	var cmd string
+	var args []string
+	
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: agentry [dev|serve|tui|eval|flow|analyze|cost|version] [--config path/to/config.yaml]")
-		os.Exit(1)
+		// Default to TUI mode when no command is provided
+		cmd = "tui"
+		args = []string{}
+	} else {
+		cmd = os.Args[1]
+		args = os.Args[2:]
 	}
-
-	cmd := os.Args[1]
-	args := os.Args[2:]
 	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
 	conf := fs.String("config", "", "path to .agentry.yaml")
 	theme := fs.String("theme", "", "theme name override")
