@@ -52,7 +52,7 @@ tools:
 
 # Disable sandbox to avoid cri-shim dependencies for now
 sandbox:
-  engine: "disabled"
+  engine: disabled
 
 # Include agent role definitions
 include:

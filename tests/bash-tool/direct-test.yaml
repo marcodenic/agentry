@@ -15,7 +15,7 @@ tools:
     description: Execute shell commands
 
 sandbox:
-  engine: "disabled"
+  engine: disabled
 
 agents:
   test-agent:

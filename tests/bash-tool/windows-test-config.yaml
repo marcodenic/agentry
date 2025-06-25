@@ -19,7 +19,7 @@ tools:
     description: Delegate tasks to another agent
 
 sandbox:
-  engine: "disabled"
+  engine: disabled
 
 agents:
   test-agent:
