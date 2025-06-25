@@ -109,6 +109,20 @@ func (t *Team) Agents() []*core.Agent { return t.agents }
 // Names returns the display names of the agents.
 func (t *Team) Names() []string { return t.names }
 
+// NewTeamContext creates a Team context ready for agents to be added dynamically.
+// Unlike NewTeam, this does not pre-spawn any agents - they can be added later
+// via AddAgent or other team spawning mechanisms.
+func NewTeamContext(parent *core.Agent) (*Team, error) {
+	return &Team{
+		parent:       parent,
+		agents:       make([]*core.Agent, 0), // Start with empty agent list
+		names:        make([]string, 0),      // Start with empty names list
+		agentsByName: make(map[string]*core.Agent), // Start with empty map
+		msg:          "Hello agents, let's chat!", // Default initial message
+		maxTurns:     maxTurns,
+	}, nil
+}
+
 // NewTeam spawns n sub-agents from parent ready to converse.
 func NewTeam(parent *core.Agent, n int, topic string) (*Team, error) {
 	if n <= 0 {
@@ -181,8 +195,28 @@ func (t *Team) Call(ctx context.Context, name, input string) (string, error) {
 func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	ag := t.parent.Spawn()
 	ag.Tracer = nil
-	ag.Mem = t.agents[0].Mem
-	ag.Route = t.agents[0].Route
+	
+	// Set up shared memory and routing - use existing from first agent or create new ones
+	if len(t.agents) > 0 {
+		// Use existing shared memory and routing from the first agent
+		ag.Mem = t.agents[0].Mem
+		ag.Route = t.agents[0].Route
+	} else {
+		// This is the first agent being added, set up shared memory and routing
+		shared := memory.NewInMemory()
+		ag.Mem = shared
+		
+		convRoute := t.parent.Route
+		if rules, ok := t.parent.Route.(router.Rules); ok {
+			cpy := make(router.Rules, len(rules))
+			for i, r := range rules {
+				cpy[i] = r
+				cpy[i].Client = model.WithTemperature(r.Client, 0.7)
+			}
+			convRoute = cpy
+		}
+		ag.Route = convRoute
+	}
 	
 	// Set higher iteration limit for specialized agents
 	ag.MaxIterations = 100 // Much higher limit for specialized agents

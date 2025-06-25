@@ -125,6 +125,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case activityTickMsg:
+		// First, check for new agents that may have been spawned by the agent tool
+		if m.team != nil {
+			teamAgents := m.team.Agents()
+			teamNames := m.team.Names()
+			for i, agent := range teamAgents {
+				if _, exists := m.infos[agent.ID]; !exists {
+					// Found a new agent that's not in our tracking - add it
+					sp := spinner.New()
+					sp.Spinner = spinner.Line
+					sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
+					agentName := "agent"
+					if i < len(teamNames) {
+						agentName = teamNames[i]
+					}
+					info := &AgentInfo{
+						Agent:           agent,
+						Status:          StatusIdle,
+						Spinner:         sp,
+						Name:            agentName,
+						Role:            agentName,
+						ActivityData:    make([]float64, 0),
+						ActivityTimes:   make([]time.Time, 0),
+						CurrentActivity: 0,
+						LastActivity:    time.Time{},
+						TokenHistory:    []int{},
+					}
+					m.infos[agent.ID] = info
+					m.order = append(m.order, agent.ID)
+				}
+			}
+		}
+		
 		// Update activity data for all agents (to make chart scroll even when idle)
 		now := time.Now()
 		for id, info := range m.infos {

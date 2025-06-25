@@ -121,9 +121,10 @@ func New(ag *core.Agent) Model {
 	}
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
-	tm, err := converse.NewTeam(ag, 1, "")
+	// Create team context without pre-spawning agents
+	tm, err := converse.NewTeamContext(ag)
 	if err != nil {
-		tm = &converse.Team{}
+		panic(err) // For now, panic on error - TODO: handle gracefully
 	}
 
 	m := Model{
