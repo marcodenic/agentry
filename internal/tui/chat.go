@@ -12,22 +12,22 @@ import (
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/core"
-	"github.com/marcodenic/agentry/internal/teamctx"
+	"github.com/marcodenic/agentry/internal/team"
 )
 
 // DEPRECATED: ChatModel is a legacy unified model that manages a converse.Team.
-// 
-// This model is DEPRECATED and will be removed in a future version. 
+//
+// This model is DEPRECATED and will be removed in a future version.
 // Use Model (tui.New) instead for the unified interface that handles
 // both single agents and teams through the agent panel and spawn commands.
-// 
+//
 // The unified Model provides:
 // - Consistent btop-style agent panel for all scenarios
 // - Advanced real-time status indicators and token tracking
 // - Streamlined command interface (/spawn, /switch, /stop, /converse)
 // - Better performance and code maintainability
 // - Full-screen optimized layout with no empty space
-// 
+//
 // Migration: Replace calls to NewChat() with tui.New() and use /spawn commands
 // to create additional agents as needed.
 type ChatModel struct {
@@ -48,17 +48,18 @@ type ChatModel struct {
 }
 
 // NewChat creates a team with n agents talking about topic.
-// 
+//
 // DEPRECATED: This function is deprecated and will be removed in a future version.
 // Use tui.New() instead for the unified interface. The unified Model supports
 // spawning multiple agents via /spawn commands and provides a consistent,
 // advanced agent panel for all scenarios.
-// 
+//
 // Migration example:
-//   Old: model, err := tui.NewChat(agent, 3, "topic")
-//   New: model := tui.New(agent)
-//        // Then use /spawn commands to create additional agents
-//        // Use /converse command for team conversations
+//
+//	Old: model, err := tui.NewChat(agent, 3, "topic")
+//	New: model := tui.New(agent)
+//	     // Then use /spawn commands to create additional agents
+//	     // Use /converse command for team conversations
 func NewChat(parent *core.Agent, n int, topic string) (ChatModel, error) {
 	th := LoadTheme()
 	t, err := converse.NewTeam(parent, n, topic)
@@ -73,7 +74,7 @@ func NewChat(parent *core.Agent, n int, topic string) (ChatModel, error) {
 	}
 	ti := textinput.New()
 	ti.Placeholder = "Message (Shift+Enter for new line)"
-	ti.CharLimit = 1000  // Set reasonable character limit
+	ti.CharLimit = 1000 // Set reasonable character limit
 	ti.Focus()
 	return ChatModel{parent: parent, team: t, infos: infos, names: t.Names(), active: t.Agents()[0].ID,
 		vps: vps, input: ti, theme: th, keys: th.Keybinds}, nil
@@ -129,22 +130,22 @@ func (m ChatModel) View() string {
 		wrappedContent := lipgloss.NewStyle().Width(vp.Width).Render(info.History)
 		vp.SetContent(wrappedContent)
 	}
-	
+
 	// Create left panel (chat + input)
 	leftContent := vp.View() + "\n" + m.input.View()
-	
+
 	// Create right panel (agent sidebar)
 	rightContent := m.agentPanel()
-	
+
 	// Layout
 	base := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
 		Background(lipgloss.Color(m.theme.Palette.Background))
-	
+
 	left := base.Copy().Width(int(float64(m.width) * 0.75)).Render(leftContent)
 	right := base.Copy().Width(int(float64(m.width) * 0.25)).Render(rightContent)
 	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
-	
+
 	// Footer
 	tokens := 0
 	costVal := 0.0
@@ -154,7 +155,7 @@ func (m ChatModel) View() string {
 	}
 	footer := fmt.Sprintf("agents: %d | tokens: %d cost: $%.4f", len(m.infos), tokens, costVal)
 	footer = base.Copy().Width(m.width).Render(footer)
-	
+
 	return lipgloss.JoinVertical(lipgloss.Left, main, footer)
 }
 
@@ -171,15 +172,15 @@ func (m ChatModel) callActive(input string) (ChatModel, tea.Cmd) {
 	agName := m.names[m.indexOf(m.active)]
 	info := m.infos[m.active]
 	info.History += m.userBar() + " " + input + "\n"
-	
+
 	// Update viewport immediately to show user message
 	idx := m.indexOf(m.active)
 	wrappedContent := lipgloss.NewStyle().Width(m.vps[idx].Width).Render(info.History)
 	m.vps[idx].SetContent(wrappedContent)
 	m.vps[idx].GotoBottom()
 	m.infos[m.active] = info
-	
-	ctx := context.WithValue(context.Background(), teamctx.Key{}, m.team)
+
+	ctx := team.WithContext(context.Background(), m.team)
 	out, err := m.team.Call(ctx, agName, input)
 	if err != nil {
 		m.err = err
@@ -272,7 +273,7 @@ func (m ChatModel) handleStop(args []string) (ChatModel, tea.Cmd) {
 
 func (m ChatModel) handleConverse(args []string) (ChatModel, tea.Cmd) {
 	// Kick off a round-robin conversation using the existing team.
-	ctx := context.WithValue(context.Background(), teamctx.Key{}, m.team)
+	ctx := team.WithContext(context.Background(), m.team)
 	idx, out, err := m.team.Step(ctx)
 	if err != nil {
 		m.err = err
@@ -303,14 +304,14 @@ func (m ChatModel) agentPanel() string {
 	lines := []string{}
 	for _, ag := range m.team.Agents() {
 		info := m.infos[ag.ID]
-		
+
 		dot := m.statusDot(info.Status)
 		line := fmt.Sprintf("%s %s", dot, info.Name)
 		if ag.ID == m.active {
 			line = "*" + line[1:]
 		}
 		lines = append(lines, line)
-		
+
 		// Token info if available
 		if m.parent != nil && m.parent.Cost != nil {
 			tokens := m.parent.Cost.TotalTokens()

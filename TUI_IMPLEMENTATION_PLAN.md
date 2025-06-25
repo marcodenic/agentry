@@ -7,7 +7,7 @@
 │ CHAT / MEMORY (75%)             │ AGENTS (25%)    │
 │                                 │                 │
 │ User: Hello                     │ ● Agent0 idle   │
-│ Agent0: How can I help?         │   role: Master  │
+│ Agent0: How can I help?         │   role: System  │
 │                                 │   tokens: 120   │
 │ > /spawn researcher "find X"    │   ████░░░░░░ 40% │
 │                                 │                 │
@@ -426,7 +426,7 @@ type Theme struct {
 func DefaultTheme() Theme {
     return Theme{
         AgentColors: []lipgloss.Color{
-            lipgloss.Color("#8B5CF6"), // Master agent - purple
+            lipgloss.Color("#8B5CF6"), // System agent - purple
             lipgloss.Color("#FBBF24"), // Agent 1 - yellow
             lipgloss.Color("#34D399"), // Agent 2 - green
             lipgloss.Color("#F87171"), // Agent 3 - red
