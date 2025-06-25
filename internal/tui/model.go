@@ -61,16 +61,18 @@ const (
 )
 
 type AgentInfo struct {
-	Agent       *core.Agent
-	History     string
-	Status      AgentStatus
-	CurrentTool string
-	TokenCount  int
-	ModelName   string
-	Scanner     *bufio.Scanner
-	Cancel      context.CancelFunc
-	Spinner     spinner.Model
-	Name        string
+	Agent        *core.Agent
+	History      string
+	Status       AgentStatus
+	CurrentTool  string
+	TokenCount   int
+	TokenHistory []int
+	LastToken    time.Time
+	ModelName    string
+	Scanner      *bufio.Scanner
+	Cancel       context.CancelFunc
+	Spinner      spinner.Model
+	Name         string
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -270,6 +272,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		info := m.infos[msg.id]
 		info.History += msg.token
 		info.TokenCount++
+		now := time.Now()
+		if info.LastToken.IsZero() || now.Sub(info.LastToken) > time.Second {
+			info.TokenHistory = append(info.TokenHistory, 1)
+			if len(info.TokenHistory) > 10 {
+				info.TokenHistory = info.TokenHistory[1:]
+			}
+		} else if len(info.TokenHistory) > 0 {
+			info.TokenHistory[len(info.TokenHistory)-1]++
+		}
+		info.LastToken = now
 		if msg.id == m.active {
 			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
 			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
@@ -406,6 +418,9 @@ func (m Model) agentPanel() string {
 		bar := m.renderTokenBar(ag.TokenCount, 1000)
 		lines = append(lines, tokLine)
 		lines = append(lines, "  "+bar)
+		if spark := m.renderSparkline(ag.TokenHistory); spark != "" {
+			lines = append(lines, "  "+spark)
+		}
 		lines = append(lines, "")
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
@@ -597,4 +612,31 @@ func (m Model) renderTokenBar(count, max int) string {
 	filled := int(pct * 10)
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", 10-filled)
 	return fmt.Sprintf("%s %d%%", bar, int(pct*100))
+}
+
+func (m Model) renderSparkline(history []int) string {
+	if len(history) == 0 {
+		return ""
+	}
+	chars := []string{"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"}
+	min, max := history[0], history[0]
+	for _, v := range history {
+		if v < min {
+			min = v
+		}
+		if v > max {
+			max = v
+		}
+	}
+	var b strings.Builder
+	for _, v := range history {
+		if max == min {
+			b.WriteString(chars[0])
+		} else {
+			n := float64(v-min) / float64(max-min)
+			idx := int(n * float64(len(chars)-1))
+			b.WriteString(chars[idx])
+		}
+	}
+	return b.String()
 }
