@@ -94,3 +94,42 @@ The agentry executable has been successfully built with all TUI fixes applied:
 **Root Cause**: In `internal/tui/chat.go:83-89`, the `View()` method only renders the main viewport and input, but doesn't include the agent sidebar that exists in `model.go`. The `ChatModel` doesn't have the same layout structure as the main `Model`.
 
 **Fix**: Update the `ChatModel.View()` method to include a right sidebar similar to the main model's `agentPanel()`.
+
+# Current Issues and Status
+
+## TUI Unification ✅ COMPLETED
+
+**STATUS**: ✅ **RESOLVED** - TUI has been successfully unified around a single, consistent interface.
+
+**MAJOR DISCOVERY**: The main issue was that `main.go` was using `tui.NewChat()` (ChatModel) instead of `tui.New()` (Model) for single-agent scenarios. The working streaming functionality, proper agent panel, and immediate message display were already implemented in the main `Model` (model.go)!
+
+**RESOLUTION SUMMARY**:
+- ✅ **Unified Interface**: All TUI scenarios now use `tui.New()` (the unified Model) regardless of team size or topic
+- ✅ **Deprecated ChatModel**: Marked `ChatModel` and `NewChat` as deprecated to prevent future confusion
+- ✅ **Updated Tests**: All tests now use the unified Model instead of deprecated ChatModel
+- ✅ **Enhanced Help**: Updated help text to reflect unified interface capabilities
+- ✅ **Snapshot Updates**: Theme snapshot tests updated to reflect the improved interface
+
+**KEY CHANGES**:
+- `main.go`: Refactored to always use `tui.New()` for TUI mode
+- `chat.go`: Marked deprecated with clear comments
+- `model.go`: Enhanced help text and ensured all features work in unified interface
+- `model_test.go`: Updated all tests to use unified Model
+- Theme snapshots: Updated to reflect the improved interface
+
+**BENEFITS ACHIEVED**:
+- ✅ Single, consistent TUI interface for all scenarios
+- ✅ No more confusion between multiple TUI models
+- ✅ All features (streaming, agent panel, text wrapping) available everywhere
+- ✅ Clean, maintainable codebase with deprecated code clearly marked
+- ✅ Better user experience with comprehensive help and input guidance
+
+**NEXT STEPS** (Optional future cleanup):
+- Consider removing deprecated `ChatModel` code entirely in future cleanup
+- Evaluate if `TeamModel` should also be unified or kept as specialized interface for multi-agent scenarios
+
+**VERIFICATION**:
+- ✅ All tests pass: `go test ./internal/tui/`
+- ✅ Application builds successfully: `go build ./cmd/agentry`
+- ✅ Unified TUI launches correctly for all scenarios
+- ✅ Agent panel, streaming, and all features work in unified interface

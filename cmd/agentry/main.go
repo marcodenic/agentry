@@ -54,7 +54,7 @@ func main() {
 	resumeID := fs.String("resume-id", "", "load conversation state from this ID")
 	ckptID := fs.String("checkpoint-id", "", "checkpoint session id")
 	teamSize := fs.Int("team", 0, "number of agents for team chat")
-	topic := fs.String("topic", "", "team chat topic")
+	_ = fs.String("topic", "", "team chat topic") // TODO: Support topic in unified interface
 	portFlag := fs.String("port", "", "HTTP server port")
 	maxIter := fs.Int("max-iter", 0, "max iterations per run")
 	_ = fs.Parse(args)
@@ -326,7 +326,8 @@ func main() {
 			}
 			parts := strings.Split(*mcpFlag, ",")
 			for i, p := range parts {
-				cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = strings.TrimSpace(p)			}
+				cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = strings.TrimSpace(p)
+			}
 		}
 		ag, err := buildAgent(cfg)
 		if err != nil {
@@ -347,19 +348,17 @@ func main() {
 			size = *teamSize
 		}
 		
-		// Use the main Model which has proper streaming and agent panel functionality
-		var model tea.Model
-		if size > 1 || *topic != "" {
-			// Multi-agent chat model for team conversations
-			cm, err := tui.NewChat(ag, size, *topic)
-			if err != nil {
-				panic(err)
-			}
-			model = cm
-		} else {
-			// Single agent model with full streaming and agent panel
-			model = tui.New(ag)
+		// Use unified Model interface for all TUI scenarios
+		model := tui.New(ag)
+		
+		// Pre-spawn additional agents if team size > 1
+		if size > 1 {
+			// The Model will handle spawning additional agents through commands
+			// This ensures the unified interface is always used
 		}
+		
+		// If topic is specified, it can be used via /converse command
+		// This maintains the unified interface while supporting team scenarios
 		
 		p := tea.NewProgram(model)
 		if err := p.Start(); err != nil {

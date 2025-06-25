@@ -16,6 +16,9 @@ import (
 )
 
 // ChatModel is a unified model that manages a converse.Team of any size.
+// DEPRECATED: Use Model (tui.New) instead for a unified interface that handles
+// both single agents and teams through the agent panel and spawn commands.
+// This model will be removed in a future version.
 type ChatModel struct {
 	parent *core.Agent
 	team   *converse.Team
@@ -34,6 +37,9 @@ type ChatModel struct {
 }
 
 // NewChat creates a team with n agents talking about topic.
+// DEPRECATED: Use tui.New() instead for a unified interface.
+// The unified interface supports spawning multiple agents via /spawn commands
+// and provides a consistent agent panel for all scenarios.
 func NewChat(parent *core.Agent, n int, topic string) (ChatModel, error) {
 	th := LoadTheme()
 	t, err := converse.NewTeam(parent, n, topic)

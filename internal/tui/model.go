@@ -348,8 +348,7 @@ func (m Model) View() string {
 		leftContent = m.vp.View() + "\n" + m.input.View()
 	} else {
 		if info, ok := m.infos[m.active]; ok {
-			leftContent = renderMemory(info.Agent)
-		}
+			leftContent = renderMemory(info.Agent)		}
 	}
 	if m.err != nil {
 		leftContent += "\nERR: " + m.err.Error()
@@ -360,7 +359,6 @@ func (m Model) View() string {
 	left := base.Copy().Width(int(float64(m.width) * 0.75)).Render(leftContent)
 	right := base.Copy().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
 	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
-	help := lipgloss.NewStyle().Width(m.width).Render(helpView())
 
 	tokens := 0
 	costVal := 0.0
@@ -370,7 +368,7 @@ func (m Model) View() string {
 	}
 	footer := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.infos), tokens, costVal)
 	footer = base.Copy().Width(m.width).Render(footer)
-	return lipgloss.JoinVertical(lipgloss.Left, main, help, footer)
+	return lipgloss.JoinVertical(lipgloss.Left, main, footer)
 }
 
 func (m Model) userBar() string {
@@ -581,10 +579,12 @@ func (m Model) cycleActive(delta int) Model {
 
 func helpView() string {
 	return strings.Join([]string{
-		"/spawn <n>    - create a new agent",
-		"/switch <prefix> - focus an agent",
-		"/stop <prefix>   - stop an agent",
-		"/converse <n> <topic> - side conversation",
+		"/spawn <name>       - create a new agent",
+		"/switch <prefix>    - focus an agent", 
+		"/stop <prefix>      - stop an agent",
+		"/converse <n> <topic> - multi-agent conversation",
+		"Tab                 - switch between chat and memory view",
+		"Ctrl+C / q          - quit",
 	}, "\n")
 }
 

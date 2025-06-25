@@ -1,14 +1,11 @@
-                              * | master
+                              *�� | master
                                 tokens: 
                               0         
                                         
                               ░░░░░░░░░░
-> Message                     0%        
-                                        
-/spawn <n>    - create a new agent      
-/switch <prefix> - focus an agent       
-/stop <prefix>   - stop an agent        
-/converse <n> <topic> - side            
-conversation                            
-cwd: /workspace/agentry/internal/tui |  
-agents: 1 | tokens: 0 cost: $0.0000     
+> Type your message... (Press 0%        
+Enter to send)                          
+cwd:                                    
+C:\Users\marco\Documents\GitHub\agentry\
+internal\tui | agents: 1 | tokens: 0    
+cost: $0.0000                           

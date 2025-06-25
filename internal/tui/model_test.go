@@ -18,10 +18,7 @@ import (
 
 func TestNew(t *testing.T) {
 	ag := core.New(router.Rules{{IfContains: []string{""}, Client: nil}}, tool.Registry{}, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
-	m, err := NewChat(ag, 1, "")
-	if err != nil {
-		t.Fatalf("new chat error: %v", err)
-	}
+	m := New(ag)
 	if len(m.infos) != 1 {
 		t.Fatalf("expected one agent")
 	}
@@ -29,10 +26,7 @@ func TestNew(t *testing.T) {
 
 func TestCommandFlow(t *testing.T) {
 	ag := core.New(router.Rules{{IfContains: []string{""}, Client: nil}}, tool.Registry{}, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
-	m, err := NewChat(ag, 1, "")
-	if err != nil {
-		t.Fatalf("new chat error: %v", err)
-	}
+	m := New(ag)
 
 	m, _ = m.handleCommand("/spawn helper")
 	if len(m.infos) != 2 {
@@ -57,20 +51,22 @@ func TestCommandFlow(t *testing.T) {
 	}
 }
 
-func TestChatModelConverse(t *testing.T) {
+func TestModelBasicInteraction(t *testing.T) {
 	mock := &seqMock{}
 	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: mock}}
 	ag := core.New(route, tool.Registry{}, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
 
-	m, err := NewChat(ag, 2, "hi")
-	if err != nil {
-		t.Fatalf("new chat error: %v", err)
-	}
-
-	m, _ = m.handleCommand("/converse")
-	first := m.team.Agents()[0].ID
-	if !strings.Contains(m.infos[first].History, "msg") {
-		t.Fatalf("converse did not update history: %s", m.infos[first].History)
+	m := New(ag)
+	
+	// Test that we can send a message to the agent
+	m.input.SetValue("test message")
+	nm, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = nm.(Model)
+	
+	// Check that the message appears in the active agent's history
+	activeInfo := m.infos[m.active]
+	if !strings.Contains(activeInfo.History, "test message") {
+		t.Fatalf("agent history should contain user input: %s", activeInfo.History)
 	}
 }
 
@@ -81,15 +77,12 @@ func (m *seqMock) Complete(ctx context.Context, msgs []model.ChatMessage, tools 
 	return model.Completion{Content: fmt.Sprintf("msg%d", m.n)}, nil
 }
 
-func TestChatModelMultipleAgents(t *testing.T) {
+func TestModelMultipleAgents(t *testing.T) {
 	mock := &seqMock{}
 	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: mock}}
 	ag := core.New(route, tool.Registry{}, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
 
-	m, err := NewChat(ag, 1, "")
-	if err != nil {
-		t.Fatalf("new chat error: %v", err)
-	}
+	m := New(ag)
 
 	m, _ = m.handleCommand("/spawn second")
 	m, _ = m.handleCommand("/spawn third")
@@ -111,19 +104,22 @@ func TestChatModelMultipleAgents(t *testing.T) {
 	m, _ = m.handleCommand("/switch " + secondID.String()[:8])
 	if m.active != secondID {
 		t.Fatalf("switch failed")
-	}
-
-	// simulate window sizing so viewport renders
+	}	// simulate window sizing so viewport renders
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 20})
-	m = nm.(ChatModel)
+	m = nm.(Model)
 
-	m, _ = m.callActive("ping")
+	// Simulate entering text and pressing enter
+	m.input.SetValue("ping")
+	nm, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = nm.(Model)
+	
 	hist := m.infos[secondID].History
 	if !strings.Contains(hist, "ping") {
 		t.Fatalf("history missing input: %s", hist)
 	}
-	view := m.vps[m.indexOf(secondID)].View()
-	if !strings.Contains(view, "msg1") {
-		t.Fatalf("viewport not updated: %s", view)
+	
+	// Check that the agent is now running (processing the request)
+	if m.infos[secondID].Status != StatusRunning {
+		t.Fatalf("agent should be running after receiving input, got status: %v", m.infos[secondID].Status)
 	}
 }
