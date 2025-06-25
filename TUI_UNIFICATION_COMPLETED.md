@@ -54,6 +54,73 @@ Successfully unified and modernized the Agentry TUI to use a single, advanced, a
 - **Integration Tests**: Updated agent tool test to use unified Model
 - **All Tests Passing**: Full test suite compatibility maintained
 
+### 8. Real-Time Activity Chart Implementation
+
+#### Summary
+Implemented a real-time, scrolling activity chart similar to traditional CPU usage monitors (like btop/htop). The chart continuously scrolls to show the most recent 60 seconds of agent token processing activity.
+
+#### Key Features
+- **Real-time scrolling**: Chart updates every second and scrolls left, showing the passage of time
+- **60-second window**: Always displays the most recent 60 seconds of activity  
+- **Activity normalization**: Token processing is normalized to a 0-100% scale (10 tokens/sec = 100%)
+- **Color coding**: 
+  - Dark gray: No/very low activity (0-10%)
+  - Green: Low activity (10-30%)
+  - Yellow: Medium activity (30-60%)
+  - Orange: High activity (60-80%)
+  - Red: Very high activity (80-100%)
+- **8-level visualization**: Uses Unicode block characters (▁▂▃▄▅▆▇█) for smooth activity representation
+- **Automatic updates**: Chart scrolls and updates even when agent is idle to show time progression
+- **Starts empty**: Chart begins completely dark with no activity, properly representing initial state
+
+#### Technical Implementation
+- Added new fields to `AgentInfo`:
+  - `ActivityData []float64`: Activity levels (0.0-1.0) for each second
+  - `ActivityTimes []time.Time`: Timestamps for activity data points
+  - `CurrentActivity int`: Token count for current second
+  - `LastActivity time.Time`: Last activity update time
+- Added `activityTickMsg` and handler for continuous chart updates every second
+- Simplified token handling to only increment activity counter, letting tick handler manage data points
+- Chart renders 16 characters wide, each representing 3 seconds of activity (48 seconds total)
+- Fits properly within the agent panel without wrapping
+- Maintains sliding window of data, automatically discarding data older than 60 seconds
+- Fixed continuous scrolling so chart updates even when idle
+
+#### Visual Behavior
+- **Startup**: Chart appears completely dark (no activity history) - ✅ FIXED
+- **Token Processing**: Bars appear and grow in height based on tokens/second
+- **Continuous Scrolling**: Chart scrolls left every second, regardless of activity - ✅ FIXED
+- **Most Recent Activity**: Appears on the right edge of chart
+- **Historical Data**: Scrolls off the left edge after 60 seconds
+- **Time Progression**: Always visible through continuous scrolling motion
+
+#### Performance
+- Minimal overhead: Updates once per second
+- Efficient memory usage: Automatically prunes old data
+- No impact on agent performance: Activity tracking is lightweight
+- Separate activity tick prevents conflicts with token processing
+
+#### Bug Fixes Applied
+- ✅ Fixed chart starting with demo data - now starts completely empty
+- ✅ Fixed continuous scrolling - chart now updates every second even when idle  
+- ✅ Separated token processing from activity data management for better reliability
+- ✅ Fixed syntax errors in message handling
+- ✅ Ensured proper initialization of activity tracking fields
+- ✅ **CRITICAL**: Fixed token message handler not saving updated AgentInfo back to map
+- ✅ **CRITICAL**: Fixed initialization to use zero time instead of current time for proper chart startup
+- ✅ **UI FIX**: Adjusted chart width from 40 to 16 characters to fit properly in agent panel
+- ✅ **UI FIX**: Updated time granularity so each character represents 3 seconds (48 seconds total view)
+- ✅ Built and installed updated binary as `agentry-fixed.exe`
+
+#### Current State
+The activity chart should now:
+- Start completely dark (no activity bars)
+- Scroll continuously left every second (even when idle)
+- Show activity bars only when agents are actually processing tokens
+- Maintain proper 60-second sliding window of data
+
+This implementation provides users with immediate visual feedback about agent activity patterns and helps identify when agents are actively processing vs. idle, with proper CPU monitor-style continuous scrolling behavior.
+
 ## Benefits of Unification
 
 1. **Consistency**: Single interface for all agent scenarios

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -15,12 +16,16 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	agentry "github.com/marcodenic/agentry/internal"
+	"github.com/marcodenic/agentry/internal/audit"
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/eval"
+	"github.com/marcodenic/agentry/internal/memory"
+	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/policy"
+	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/server"
 	"github.com/marcodenic/agentry/internal/session"
 	"github.com/marcodenic/agentry/internal/tool"
@@ -53,8 +58,8 @@ func main() {
 	saveID := fs.String("save-id", "", "save conversation state to this ID")
 	resumeID := fs.String("resume-id", "", "load conversation state from this ID")
 	ckptID := fs.String("checkpoint-id", "", "checkpoint session id")
-	teamSize := fs.Int("team", 0, "number of agents for team chat")
-	_ = fs.String("topic", "", "team chat topic") // TODO: Support topic in unified interface
+	_ = fs.String("team", "", "number of agents for team chat")    // Kept for compatibility
+	_ = fs.String("topic", "", "team chat topic")                 // Kept for compatibility
 	portFlag := fs.String("port", "", "HTTP server port")
 	maxIter := fs.Int("max-iter", 0, "max iterations per run")
 	_ = fs.Parse(args)
@@ -341,21 +346,12 @@ func main() {
 			_ = ag.Resume(context.Background())
 		}
 		if *resumeID != "" {
-			_ = ag.LoadState(context.Background(), *resumeID)
-		}
-		size := 1
-		if *teamSize > 0 {
-			size = *teamSize
-		}
-				// Use unified Model interface for all TUI scenarios
+			_ = ag.LoadState(context.Background(), *resumeID)		}
+		
+		// Use unified Model interface for all TUI scenarios
 		model := tui.New(ag)
 		
-		// Pre-spawn additional agents if team size > 1
-		if size > 1 {
-			// The Model will handle spawning additional agents through commands
-			// This ensures the unified interface is always used
-		}
-		
+		// If team size is specified, additional agents can be spawned via /spawn command
 		// If topic is specified, it can be used via /converse command
 		// This maintains the unified interface while supporting team scenarios
 		
@@ -391,4 +387,100 @@ func main() {
 		fmt.Println("unknown command. Usage: agentry [dev|serve|tui|eval|flow|analyze|cost|pprof|version] [--config path/to/config.yaml]")
 		os.Exit(1)
 	}
+}
+
+func buildAgent(cfg *config.File) (*core.Agent, error) {
+	tool.SetPermissions(cfg.Permissions.Tools)
+	tool.SetSandboxEngine(cfg.Sandbox.Engine)
+	reg := tool.Registry{}
+	for _, m := range cfg.Tools {
+		tl, err := tool.FromManifest(m)
+		if err != nil {
+			if errors.Is(err, tool.ErrUnknownBuiltin) {
+				fmt.Printf("skipping builtin %s: not available\n", m.Name)
+				continue
+			}
+			return nil, err
+		}
+		reg[m.Name] = tl
+	}
+	var logWriter *audit.Log
+	if path := os.Getenv("AGENTRY_AUDIT_LOG"); path != "" {
+		if lw, err := audit.Open(path, 1<<20); err == nil {
+			logWriter = lw
+			reg = tool.WrapWithAudit(reg, lw)
+		}
+	}
+
+	clients := map[string]model.Client{}
+	for _, m := range cfg.Models {
+		c, err := model.FromManifest(m)
+		if err != nil {
+			return nil, err
+		}
+		clients[m.Name] = c
+	}
+
+	var rules router.Rules
+	for _, rr := range cfg.Routes {
+		c, ok := clients[rr.Model]
+		if !ok {
+			return nil, fmt.Errorf("model %s not found", rr.Model)
+		}
+		rules = append(rules, router.Rule{Name: rr.Model, IfContains: rr.IfContains, Client: c})
+	}
+	if len(rules) == 0 {
+		rules = router.Rules{{Name: "mock", IfContains: []string{""}, Client: model.NewMock()}}
+	}
+
+	var store memstore.KV
+	memURI := cfg.Memory
+	if memURI == "" {
+		memURI = cfg.Store
+	}
+	if memURI == "" {
+		memURI = "mem"
+	}
+	if memURI != "" {
+		s, err := memstore.StoreFactory(memURI)
+		if err != nil {
+			return nil, err
+		}
+		store = s
+	}
+
+	var vec memory.VectorStore
+	switch cfg.Vector.Type {
+	case "qdrant":
+		vec = memory.NewQdrant(cfg.Vector.URL, cfg.Vector.Collection)
+	case "faiss":
+		vec = memory.NewFaiss(cfg.Vector.URL)
+	default:
+		vec = memory.NewInMemoryVector()
+	}
+
+	ag := core.New(rules, reg, memory.NewInMemory(), store, vec, nil)
+	if logWriter != nil {
+		ag.Tracer = trace.NewJSONL(logWriter)
+	}
+	if cfg.MaxIterations > 0 {
+		ag.MaxIterations = cfg.MaxIterations
+	}
+	return ag, nil
+}
+
+func runCostCmd(args []string) {
+	fmt.Println("Cost command not implemented yet")
+}
+
+func runPProfCmd(args []string) {
+	fmt.Println("PProf command not implemented yet")
+}
+
+func runPluginCmd(args []string) {
+	fmt.Println("Plugin command not implemented yet")
+}
+
+func runToolCmd(args []string) {
+	fmt.Println("Tool command not implemented yet")
 }

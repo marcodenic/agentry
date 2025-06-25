@@ -61,19 +61,23 @@ const (
 )
 
 type AgentInfo struct {
-	Agent        *core.Agent
-	History      string
-	Status       AgentStatus
-	CurrentTool  string
-	TokenCount   int
-	TokenHistory []int
-	LastToken    time.Time
-	ModelName    string
-	Scanner      *bufio.Scanner
-	Cancel       context.CancelFunc
-	Spinner      spinner.Model
-	Name         string
-	Role         string  // Agent role for display (e.g., "Master", "Research", "DevOps")
+	Agent           *core.Agent
+	History         string
+	Status          AgentStatus
+	CurrentTool     string
+	TokenCount      int
+	TokenHistory    []int
+	ActivityData    []float64 // Activity level per second (0.0 to 1.0)
+	ActivityTimes   []time.Time // Timestamp for each activity data point
+	LastToken       time.Time
+	LastActivity    time.Time
+	CurrentActivity int // Tokens processed in current second
+	ModelName       string
+	Scanner         *bufio.Scanner
+	Cancel          context.CancelFunc
+	Spinner         spinner.Model
+	Name            string
+	Role            string  // Agent role for display (e.g., "Master", "Research", "DevOps")
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -110,8 +114,18 @@ func New(ag *core.Agent) Model {
 
 	vp := viewport.New(0, 0)
 	cwd, _ := os.Getwd()
-
-	info := &AgentInfo{Agent: ag, Status: StatusIdle, Spinner: spinner.New(), Name: "master", Role: "Master"}
+	info := &AgentInfo{
+		Agent:        ag, 
+		Status:       StatusIdle, 
+		Spinner:      spinner.New(), 
+		Name:         "master", 
+		Role:         "Master",		ActivityData: make([]float64, 0),
+		ActivityTimes: make([]time.Time, 0),
+		CurrentActivity: 0,
+		LastActivity: time.Time{}, // Start with zero time so first tick will initialize properly
+		// Initialize with empty activity for real-time chart
+		TokenHistory: []int{},
+	}
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
 	tm, err := converse.NewTeam(ag, 1, "")
@@ -171,6 +185,8 @@ type modelMsg struct {
 	id   uuid.UUID
 	name string
 }
+
+type activityTickMsg struct{}
 
 type errMsg struct{ error }
 
@@ -240,7 +256,12 @@ func waitErr(ch <-chan error) tea.Cmd {
 	}
 }
 
-func (m Model) Init() tea.Cmd { return nil }
+func (m Model) Init() tea.Cmd { 
+	// Start the activity chart ticker (update every second)
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return activityTickMsg{}
+	})
+}
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
@@ -261,8 +282,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case m.keys.ToggleTab:
 			m.activeTab = 1 - m.activeTab
-		case m.keys.Submit:
-			if m.input.Focused() {
+		case m.keys.Submit:			if m.input.Focused() {
 				txt := m.input.Value()
 				m.input.SetValue("")
 				if strings.HasPrefix(txt, "/") {
@@ -277,16 +297,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		info := m.infos[msg.id]
 		info.History += msg.token
 		info.TokenCount++
+		info.CurrentActivity++ // Just increment counter, let activityTickMsg handle data points
+		
 		now := time.Now()
+		
+		// Legacy token history update (keep for compatibility)
 		if info.LastToken.IsZero() || now.Sub(info.LastToken) > time.Second {
 			info.TokenHistory = append(info.TokenHistory, 1)
-			if len(info.TokenHistory) > 10 {
+			if len(info.TokenHistory) > 20 {
 				info.TokenHistory = info.TokenHistory[1:]
-			}
-		} else if len(info.TokenHistory) > 0 {
+			}		} else if len(info.TokenHistory) > 0 {
 			info.TokenHistory[len(info.TokenHistory)-1]++
 		}
 		info.LastToken = now
+		m.infos[msg.id] = info  // IMPORTANT: Save the updated info back to the map
 		if msg.id == m.active {
 			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
 			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
@@ -322,6 +346,64 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.infos[id] = ag
 			}
 		}
+	case activityTickMsg:
+		// Update activity data for all agents (to make chart scroll even when idle)
+		now := time.Now()
+		for id, info := range m.infos {
+			// Always add a data point every second to make the chart scroll
+			// If there was activity in this second, it will already be recorded
+			// Otherwise, add a zero point to show time progression
+			
+			shouldAddDataPoint := false
+			
+			if len(info.ActivityTimes) == 0 {
+				// First data point
+				shouldAddDataPoint = true
+			} else {
+				// Check if we need a new data point (more than 1 second since last)
+				lastTime := info.ActivityTimes[len(info.ActivityTimes)-1]
+				if now.Sub(lastTime) >= time.Second {
+					shouldAddDataPoint = true
+				}
+			}
+			
+			if shouldAddDataPoint {
+				// Add activity level (either current activity or 0.0 for idle)
+				activityLevel := 0.0
+				if info.CurrentActivity > 0 {
+					// Normalize current activity (10 tokens/sec = 100%)
+					activityLevel = float64(info.CurrentActivity) / 10.0
+					if activityLevel > 1.0 {
+						activityLevel = 1.0
+					}
+					info.CurrentActivity = 0 // Reset for next second
+				}
+				
+				info.ActivityData = append(info.ActivityData, activityLevel)
+				info.ActivityTimes = append(info.ActivityTimes, now)
+				
+				// Keep only last 60 seconds of data
+				cutoffTime := now.Add(-60 * time.Second)
+				var newData []float64
+				var newTimes []time.Time
+				
+				for i, t := range info.ActivityTimes {
+					if t.After(cutoffTime) {
+						newData = append(newData, info.ActivityData[i])
+						newTimes = append(newTimes, info.ActivityTimes[i])
+					}
+				}
+				
+				info.ActivityData = newData
+				info.ActivityTimes = newTimes
+				info.LastActivity = now
+				m.infos[id] = info
+			}
+		}
+		// Schedule next tick
+		cmds = append(cmds, tea.Tick(time.Second, func(t time.Time) tea.Msg {
+			return activityTickMsg{}
+		}))
 	case errMsg:
 		m.err = msg
 		if info, ok := m.infos[m.active]; ok {
@@ -491,19 +573,17 @@ func (m Model) agentPanel() string {
 		tokenPct := float64(ag.TokenCount) / float64(maxTokens) * 100
 		tokenLine := fmt.Sprintf("  tokens: %d (%.1f%%)", ag.TokenCount, tokenPct)
 		lines = append(lines, tokenLine)
-
 		// Token usage bar - always show for consistency
 		bar := m.renderTokenBar(ag.TokenCount, maxTokens)
 		lines = append(lines, "  "+bar)
-
-		// Token activity sparkline (if we have history)
-		if len(ag.TokenHistory) > 0 {
-			sparkline := m.renderSparkline(ag.TokenHistory)
-			sparkPrefix := lipgloss.NewStyle().
+				// Token activity chart (real-time scrolling chart) - always show
+		activityChart := m.renderActivityChart(ag.ActivityData, ag.ActivityTimes)
+		if activityChart != "" {
+			activityPrefix := lipgloss.NewStyle().
 				Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
 				Faint(true).
 				Render("  activity: ")
-			lines = append(lines, sparkPrefix+sparkline)
+			lines = append(lines, activityPrefix+activityChart)
 		}
 
 		// Cost information if available
@@ -604,7 +684,17 @@ func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 	sp := spinner.New()
 	sp.Spinner = spinner.Line
 	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
-	info := &AgentInfo{Agent: ag, Status: StatusIdle, Spinner: sp, Name: name, Role: role}
+	info := &AgentInfo{
+		Agent:           ag, 
+		Status:          StatusIdle, 
+		Spinner:         sp, 
+		Name:            name, 
+		Role:            role,
+		ActivityData:    make([]float64, 0),
+		ActivityTimes:   make([]time.Time, 0),		CurrentActivity: 0,
+		LastActivity:    time.Time{}, // Start with zero time
+		TokenHistory:    []int{},
+	}
 	m.infos[ag.ID] = info
 	m.order = append(m.order, ag.ID)
 	if m.team != nil {
@@ -801,4 +891,107 @@ func (m Model) renderSparkline(history []int) string {
 		}
 	}
 	return b.String()
+}
+
+// renderActivityChart creates a real-time scrolling activity chart like CPU usage monitors
+func (m Model) renderActivityChart(activityData []float64, activityTimes []time.Time) string {
+	const chartWidth = 30 // Number of characters in the chart (30 chars for ~60 seconds)
+	
+	// Block characters for detailed visualization (8 levels)
+	chars := []string{"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"}
+	
+	// Create a chart with the desired width, filling with recent data
+	chartData := make([]float64, chartWidth)
+	now := time.Now()
+		// Fill chart from right to left with most recent data
+	// Each character represents 2 seconds, so 30 chars = 60 seconds of history
+	for i := 0; i < chartWidth; i++ {
+		// Calculate the time for this chart position (going back in time from right to left)
+		targetTime := now.Add(-time.Duration(2*(chartWidth-1-i)) * time.Second)
+		
+		// Find the closest activity data point for this time
+		var activity float64 = 0.0 // Default to no activity
+		
+		if len(activityData) > 0 && len(activityTimes) > 0 {
+			// Find the data point closest to our target time
+			minDiff := time.Hour // Large initial value
+			for j, t := range activityTimes {
+				diff := targetTime.Sub(t)
+				if diff < 0 {
+					diff = -diff
+				}
+				if diff < minDiff && diff < 5*time.Second { // Within 5 seconds tolerance (since each char = 3 sec)
+					minDiff = diff
+					activity = activityData[j]
+				}
+			}
+		}
+		
+		chartData[i] = activity
+	}
+	
+	var result strings.Builder
+	
+	// Render each data point
+	for _, activity := range chartData {
+		// Convert activity level (0.0-1.0) to character index
+		charIdx := int(activity * float64(len(chars)-1))
+		if charIdx >= len(chars) {
+			charIdx = len(chars) - 1
+		}
+		if charIdx < 0 {
+			charIdx = 0
+		}
+		
+		char := chars[charIdx]
+		
+		// Color coding based on activity level:
+		// Black/dark for no activity, green for low, yellow for medium, red for high
+		var color string
+		if activity <= 0.1 {
+			// Very low/no activity - dark gray
+			color = "#374151"
+		} else if activity <= 0.3 {
+			// Low activity - green
+			color = "#22C55E"
+		} else if activity <= 0.6 {
+			// Medium activity - yellow
+			color = "#FBBF24"
+		} else if activity <= 0.8 {
+			// High activity - orange
+			color = "#F97316"
+		} else {
+			// Very high activity - red
+			color = "#EF4444"
+		}
+		
+		// Apply color styling
+		styledChar := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(color)).
+			Render(char)
+		
+		result.WriteString(styledChar)
+	}
+	
+	// Add current activity percentage if we have recent data
+	if len(activityData) > 0 {
+		currentActivity := activityData[len(activityData)-1]
+		pctText := fmt.Sprintf(" %2.0f%%", currentActivity*100)
+		pctStyled := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6B7280")).
+			Faint(true).
+			Render(pctText)
+		
+		result.WriteString(pctStyled)
+	} else {
+		// Show 0% when no data
+		pctStyled := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6B7280")).
+			Faint(true).
+			Render("  0%")
+		
+		result.WriteString(pctStyled)
+	}
+	
+	return result.String()
 }
