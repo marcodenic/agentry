@@ -28,7 +28,7 @@ func TestAgentToolContext(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	ctx := team.WithContext(context.Background(), tm)
-	tl, ok := tool.DefaultRegistry()["agent-call"]
+	tl, ok := tool.DefaultRegistry()["agent"]
 	if !ok {
 		t.Fatalf("agent tool missing")
 	}

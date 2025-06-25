@@ -1,0 +1,1 @@
+read the readme.md and delegate tasks for development

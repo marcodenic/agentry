@@ -33,7 +33,7 @@ func newTestTeam(t *testing.T, reply string) *converse.Team {
 func TestAgentToolDelegates(t *testing.T) {
 	tm := newTestTeam(t, "ok")
 	ctx := team.WithContext(context.Background(), tm)
-	tl, ok := tool.DefaultRegistry().Use("agent-call")
+	tl, ok := tool.DefaultRegistry().Use("agent")
 	if !ok {
 		t.Fatal("agent tool missing")
 	}
@@ -49,7 +49,7 @@ func TestAgentToolDelegates(t *testing.T) {
 func TestAgentToolUnknown(t *testing.T) {
 	tm := newTestTeam(t, "ok")
 	ctx := team.WithContext(context.Background(), tm)
-	tl, _ := tool.DefaultRegistry().Use("agent-call")
+	tl, _ := tool.DefaultRegistry().Use("agent")
 	out, err := tl.Execute(ctx, map[string]any{"agent": "coder", "input": "hi"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

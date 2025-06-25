@@ -43,7 +43,7 @@
 ```go
 type Model struct {
     // Replace single agent with agent orchestrator
-    masterAgent *core.Agent           // Agent 0 - primary interface
+    systemAgent *core.Agent           // Agent 0 - primary interface
     agents      map[uuid.UUID]*AgentInfo  // All active agents    // Enhanced UI components
     chatPanel    viewport.Model       // Left main - conversation
     memoryPanel  viewport.Model       // Left alt - debug/memory
@@ -282,7 +282,7 @@ func (m Model) handleSpawnCommand(args []string) (Model, tea.Cmd) {
     }
 
     // Spawn new agent
-    subAgent := m.masterAgent.Spawn()
+    subAgent := m.systemAgent.Spawn()
     agentInfo := &AgentInfo{
         ID:       subAgent.ID,
         Name:     name,

@@ -1,0 +1,27 @@
+# Simple test config to force bash tool usage
+models:
+  - name: gpt-4o-mini
+    provider: openai
+    options:
+      temperature: 0
+
+routes:
+  - if_contains: ["bash tool"]
+    model: gpt-4o-mini
+
+tools:
+  - name: bash
+    type: builtin
+    description: Execute shell commands
+
+sandbox:
+  engine: "disabled"
+
+agents:
+  test-agent:
+    role: Assistant
+    model: gpt-4o-mini
+    prompt: |
+      You are a command execution assistant. When the user asks you to use the bash tool, you MUST call the bash tool with the exact command they specify.
+      Always respond by calling the bash tool function.
+    tools: ["bash"]

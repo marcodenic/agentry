@@ -220,7 +220,7 @@ func main() {
 			fmt.Printf("server error: %v\n", err)
 			os.Exit(1)
 		}
-	case "eval":
+	case "eval", "test":
 		cfg, err := config.Load(configPath)
 		if err != nil {
 			fmt.Printf("failed to load config: %v\n", err)
@@ -384,8 +384,71 @@ func main() {
 	case "version":
 		fmt.Printf("agentry %s\n", agentry.Version)
 	default:
-		fmt.Println("unknown command. Usage: agentry [dev|serve|tui|eval|flow|analyze|cost|pprof|version] [--config path/to/config.yaml]")
-		os.Exit(1)
+		// If the first argument is not a recognized command, treat it as a prompt for direct execution
+		prompt := cmd
+		if len(args) > 0 {
+			prompt = cmd + " " + strings.Join(args, " ")
+		}
+		
+		cfg, err := config.Load(configPath)
+		if err != nil {
+			fmt.Printf("failed to load config: %v\n", err)
+			os.Exit(1)
+		}
+		if *theme != "" {
+			if cfg.Themes == nil {
+				cfg.Themes = map[string]string{}
+			}
+			cfg.Themes["active"] = *theme
+			cfg.Theme = *theme
+		}
+		if cfg.Theme != "" {
+			os.Setenv("AGENTRY_THEME", cfg.Theme)
+		}
+		if *keybinds != "" {
+			if b, err := os.ReadFile(*keybinds); err == nil {
+				_ = json.Unmarshal(b, &cfg.Keybinds)
+			}
+		}
+		if *credsPath != "" {
+			if b, err := os.ReadFile(*credsPath); err == nil {
+				_ = json.Unmarshal(b, &cfg.Credentials)
+			}
+		}
+		if *mcpFlag != "" {
+			if cfg.MCPServers == nil {
+				cfg.MCPServers = map[string]string{}
+			}
+			parts := strings.Split(*mcpFlag, ",")
+			for i, p := range parts {
+				cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = strings.TrimSpace(p)
+			}
+		}
+		ag, err := buildAgent(cfg)
+		if err != nil {
+			panic(err)
+		}
+		if *maxIter > 0 {
+			ag.MaxIterations = *maxIter
+		}
+		if *resumeID != "" {
+			_ = ag.LoadState(context.Background(), *resumeID)
+		}
+		
+		// Execute the prompt directly
+		col := trace.NewCollector(nil)
+		ag.Tracer = col
+		out, err := ag.Run(context.Background(), prompt)
+		if err != nil {
+			fmt.Printf("ERR: %v\n", err)
+			os.Exit(1)
+		}
+		sum := trace.Analyze(prompt, col.Events())
+		fmt.Println(out)
+		fmt.Printf("tokens: %d cost: $%.4f\n", sum.Tokens, sum.Cost)
+		if *saveID != "" {
+			_ = ag.SaveState(context.Background(), *saveID)
+		}
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"runtime"
 )
 
 // Options controls sandboxed execution.
@@ -31,6 +32,23 @@ func Exec(ctx context.Context, cmdStr string, opts Options) (string, error) {
 		return "", fmt.Errorf("unknown engine %s", engine)
 	}
 	cmd := RunCommand(ctx, args[0], args[1:]...)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+// ExecDirect runs a shell command directly without any sandboxing.
+// This is used when sandboxing is disabled.
+func ExecDirect(ctx context.Context, cmdStr string) (string, error) {
+	// Use runtime.GOOS to determine the platform
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		// Windows - use PowerShell with full path for better compatibility
+		powershellPath := "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+		cmd = RunCommand(ctx, powershellPath, "-Command", cmdStr)
+	} else {
+		// Unix-like systems - use sh
+		cmd = RunCommand(ctx, "sh", "-c", cmdStr)
+	}
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }

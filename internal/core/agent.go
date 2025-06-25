@@ -90,6 +90,25 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		// DEBUG: Show Agent 0 raw response for debugging in the TUI
+		if a.Prompt != "" && strings.Contains(a.Prompt, "Agent 0") {
+			debugInfo := fmt.Sprintf("🔍 [AGENT 0 DEBUG] Raw AI Response:\n   Content: %s\n   Tool Calls: %d\n", res.Content, len(res.ToolCalls))
+			for j, tc := range res.ToolCalls {
+				debugInfo += fmt.Sprintf("   Tool Call %d: %s(%s)\n", j+1, tc.Name, string(tc.Arguments))
+			}
+			debugInfo += "───────────────────────────────────────\n"
+			// Prepend debug info to make it more visible
+			res.Content = debugInfo + res.Content
+			
+			// Also log for console debugging
+			log.Printf("🔍 AGENT_0_DEBUG: Raw AI Response:")
+			log.Printf("  Content: %s", res.Content)
+			log.Printf("  Tool Calls Count: %d", len(res.ToolCalls))
+			for j, tc := range res.ToolCalls {
+				log.Printf("  Tool Call %d: Name=%s, Args=%s", j+1, tc.Name, string(tc.Arguments))
+			}
+		}
+		
 		a.Trace(ctx, trace.EventStepStart, res)
 		outTok := len(strings.Fields(res.Content))
 		tokenCounter.WithLabelValues(a.ID.String()).Add(float64(outTok))
@@ -109,7 +128,22 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		for _, tc := range res.ToolCalls {
 			t, ok := a.Tools.Use(tc.Name)
 			if !ok {
-				return "", fmt.Errorf("unknown tool: %s", tc.Name)
+				// DEBUG: Show available tools when agent tool lookup fails
+				debugMsg := ""
+				if a.Prompt != "" && strings.Contains(a.Prompt, "Agent 0") {
+					debugMsg = fmt.Sprintf("\n🔍 AGENT_0_DEBUG: Tool lookup failed!\n  Requested tool: %s\n  Available tools:\n", tc.Name)
+					for toolName := range a.Tools {
+						debugMsg += fmt.Sprintf("    - %s\n", toolName)
+					}
+					
+					// Also log for console debugging
+					log.Printf("🔍 AGENT_0_DEBUG: Tool lookup failed!")
+					log.Printf("  Requested tool: %s", tc.Name)
+					log.Printf("  Available tools:")
+					for toolName := range a.Tools {
+						log.Printf("    - %s", toolName)					}
+				}
+				return debugMsg + fmt.Sprintf("ERR: unknown tool: %s", tc.Name), fmt.Errorf("unknown tool: %s", tc.Name)
 			}
 			var args map[string]any
 			if err := json.Unmarshal(tc.Arguments, &args); err != nil {
@@ -122,6 +156,17 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			toolLatency.WithLabelValues(a.ID.String(), tc.Name).Observe(time.Since(start).Seconds())
 			if err != nil {
 				return "", err
+			}
+			
+			// DEBUG: Show tool execution results for Agent 0
+			if a.Prompt != "" && strings.Contains(a.Prompt, "Agent 0") {
+				log.Printf("🔍 AGENT_0_DEBUG: Tool '%s' executed successfully", tc.Name)
+				log.Printf("  Result length: %d chars", len(r))
+				if len(r) > 200 {
+					log.Printf("  Result preview: %s...", r[:200])
+				} else {
+					log.Printf("  Result: %s", r)
+				}
 			}
 			tok := len(strings.Fields(r))
 			tokenCounter.WithLabelValues(a.ID.String()).Add(float64(tok))
@@ -214,6 +259,10 @@ func BuildMessages(prompt string, vars map[string]string, hist []memory.Step, in
 	if prompt == "" {
 		prompt = defaultPrompt()
 	}
+	
+	// Inject platform-specific guidance
+	prompt = InjectPlatformContext(prompt)
+	
 	prompt = applyVars(prompt, vars)
 	msgs := []model.ChatMessage{{Role: "system", Content: prompt}}
 	for _, h := range hist {

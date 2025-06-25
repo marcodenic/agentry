@@ -1,0 +1,17 @@
+models:
+  - name: gpt-4o-mini
+    provider: openai
+routes:
+  - if_contains: [""]
+    model: gpt-4o-mini
+sandbox:
+  engine: disabled
+tools:
+  - name: powershell
+    type: builtin
+  - name: agent
+    type: builtin
+  - name: echo
+    type: builtin
+tasks:
+  - input: "read the readme.md and delegate tasks for development"

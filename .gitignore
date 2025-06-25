@@ -7,8 +7,13 @@ node_modules/
 
 # Go build artifacts
 *.exe
+*.exe~
 agentry
 agentry.exe
+main.exe
+bin/
+build/
+dist/
 
 # Built files
 ts-sdk/dist/
