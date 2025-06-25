@@ -1,0 +1,38 @@
+# Test configuration for shell tools
+models:
+  - name: gpt-4o-mini
+    provider: openai
+
+routes:
+  - if_contains: [""]
+    model: gpt-4o-mini
+
+tools:
+  - name: powershell
+    type: builtin
+    description: Execute PowerShell commands
+  - name: cmd
+    type: builtin
+    description: Execute cmd.exe commands
+  - name: bash
+    type: builtin
+    description: Execute bash commands
+  - name: agent
+    type: builtin
+    description: Delegate tasks to another agent
+
+sandbox:
+  engine: disabled
+
+agents:
+  test-agent:
+    role: Assistant
+    model: gpt-4o-mini
+    prompt: |
+      You are a helpful assistant. When asked to list files, use the bash tool with Unix commands like "ls" or "ls -la".
+      Always use the bash tool to execute shell commands.
+    tools: ["bash"]
+
+tasks:
+  - agent: test-agent
+    input: "Use the bash tool to run the command 'ls'"

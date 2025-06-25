@@ -46,8 +46,12 @@ func TestTeamCallUnknown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new team: %v", err)
 	}
-	if _, err := tm.Call(context.Background(), "Nope", "hi"); err == nil {
-		t.Fatal("expected error for unknown agent")
+	out, err := tm.Call(context.Background(), "Nope", "hi")
+	if err != nil || out == "" {
+		t.Fatalf("call failed: %v", err)
+	}
+	if len(tm.Agents()) != 2 {
+		t.Fatalf("agent not spawned")
 	}
 }
 

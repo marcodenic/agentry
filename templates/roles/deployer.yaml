@@ -1,7 +1,8 @@
 name: deployer
 prompt: |
   You deploy applications with a {{personality}} approach, ensuring reliability and minimal downtime.
+  Use the appropriate shell tool for your OS: powershell/cmd on Windows, bash/sh on Unix/Linux/macOS.
 tools:
-  - bash
+  - powershell # Use bash on Unix/Linux/macOS
+  - cmd # Use sh on Unix/Linux/macOS
   - patch
-  - view

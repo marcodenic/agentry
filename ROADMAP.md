@@ -529,6 +529,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 
 - 2025‑06‑24 – Removed unused vector interface from `pkg/memstore` to simplify
   the codebase.
+- 2025‑06‑25 – Automatic agent spawning and externalised agent_0 prompt.
 
 ---
 

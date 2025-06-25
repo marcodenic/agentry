@@ -171,39 +171,36 @@ tools:
     type: builtin
   - name: ping # 📡 ping a host
     type: builtin
-  - name: bash # 🖥️ run a bash command
+  - name: powershell # 🖥️ run PowerShell commands (Windows)
+    type: builtin
+  - name: cmd # 🖥️ run cmd.exe commands (Windows)
+    type: builtin
+  - name: bash # 🖥️ run bash commands (Unix/Linux/macOS)
+    type: builtin
+  - name: sh # �️ run shell commands (Unix/Linux/macOS)
     type: builtin
   - name: branch-tidy # 🧹 clean up old local Git branches
     type: builtin
   - name: fetch # 🌍 download content from a URL
     type: builtin
-  - name: glob # 🗂️ find files by pattern
-    type: builtin
-  - name: grep # 🔎 search file contents
-    type: builtin
-  - name: ls # 📁 list directory contents
-    type: builtin
-  - name: view # 👀 read a file
-    type: builtin
-  - name: write # ✍️ create or overwrite a file
-    type: builtin
-  - name: edit # 📝 update an existing file
-    type: builtin
   - name: patch # 🩹 apply a unified diff
     type: builtin
-  - name: sourcegraph # 🔍 search public repositories
-    type: builtin
   - name: agent # 🤖 delegate tasks to another agent
-    type: builtin
-  - name: flow # 🗺️ run a flow file
-    type: builtin
-  - name: team # 👥 run a multi-agent chat
     type: builtin
   - name: mcp # 🎮 connect to MCP servers
     type: builtin
 ```
 
-The example configuration already lists these tools so they appear in the TUI's "Tools" panel. The agent decides when to use them based on model output. When no `OPENAI_KEY` is provided, the mock model only exercises the `echo` tool. To leverage the rest, set your key in `.env.local`.
+The shell tools are **OS-specific**: on Windows you get `powershell` and `cmd`, on Unix systems you get `bash` and `sh`. This provides maximum power and flexibility - agents can execute any command the underlying shell supports.
+
+Common operations are handled through shell commands:
+
+- **List files**: `powershell {"command": "Get-ChildItem *.go"}` or `bash {"command": "ls -la *.go"}`
+- **Read files**: `powershell {"command": "Get-Content README.md"}` or `bash {"command": "cat README.md"}`
+- **Write files**: `powershell {"command": "Set-Content -Path file.txt -Value 'content'"}` or `bash {"command": "echo 'content' > file.txt"}`
+- **Find text**: `powershell {"command": "Select-String -Pattern 'TODO' -Path *.go"}` or `bash {"command": "grep 'TODO' *.go"}`
+
+The example configuration already lists these tools so they appear in the TUI's "Tools" panel. The agent decides when to use them based on model output and the platform context automatically provided.
 
 Use the `mcp` tool to connect to Multi-User Connection Protocol servers. Set its
 address in your YAML config and the agent can send MCP commands and read the
@@ -384,6 +381,8 @@ tasks:
 
 The template's prompt and tools merge with the agent definition. Paths are
 resolved relative to the flow file.
+
+The default system prompt for solo mode lives in `templates/roles/agent_0.yaml`.
 
 ---
 

@@ -12,7 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
-	"github.com/marcodenic/agentry/internal/teamctx"
+	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
@@ -36,7 +36,7 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 		info.Agent.Tracer = tracer
 	}
 	info.Scanner = bufio.NewScanner(pr)
-	ctx := context.WithValue(context.Background(), teamctx.Key{}, m.team)
+	ctx := team.WithContext(context.Background(), m.team)
 	ctx, cancel := context.WithCancel(ctx)
 	info.Cancel = cancel
 	m.infos[id] = info

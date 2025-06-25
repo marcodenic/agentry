@@ -20,42 +20,34 @@ tools:
   - name: ping
     type: builtin
     description: Ping a host
-  - name: bash
+  # OS-specific shell tools (only register tools available on your OS)
+  # On Windows: powershell, cmd
+  # On Unix/Linux/macOS: bash, sh
+  - name: powershell
     type: builtin
-    description: Execute a bash command
+    description: Execute PowerShell commands (Windows only)
+  - name: cmd
+    type: builtin
+    description: Execute cmd.exe commands (Windows only)
+  # Uncomment these on Unix/Linux/macOS:
+  # - name: bash
+  #   type: builtin
+  #   description: Execute bash commands (Unix/Linux/macOS only)
+  # - name: sh
+  #   type: builtin
+  #   description: Execute shell commands (Unix/Linux/macOS only)
   - name: branch-tidy
     type: builtin
     description: Delete all local Git branches except the current one
   - name: fetch
     type: builtin
     description: Download content from a URL
-  - name: glob
-    type: builtin
-    description: Find files by pattern
-  - name: grep
-    type: builtin
-    description: Search file contents
-  - name: ls
-    type: builtin
-    description: List directory contents
-  - name: view
-    type: builtin
-    description: View file contents
-  - name: write
-    type: builtin
-    description: Create or overwrite a file
-  - name: edit
-    type: builtin
-    description: Update an existing file
   - name: patch
     type: builtin
     description: Apply a unified diff patch
-  - name: sourcegraph
-    type: builtin
-    description: Search public repositories via Sourcegraph
   - name: agent
     type: builtin
-    description: Launch a search agent
+    description: Delegate tasks to another agent
   - name: mcp
     type: builtin
     description: Connect to an MCP server
@@ -67,7 +59,7 @@ tools:
 metrics: true
 # default sandbox engine for unprivileged tools
 sandbox:
-  engine: docker
+  engine: disabled
 # send spans to an OTLP collector
 # collector: localhost:4318
 # path to SQLite DB for conversation history

@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"runtime"
 	"time"
 
 	"github.com/marcodenic/agentry/internal/patch"
 	"github.com/marcodenic/agentry/internal/team"
+	"github.com/marcodenic/agentry/pkg/sbox"
 )
 
 // builtinSpec defines builtin schema and execution.
@@ -55,6 +57,35 @@ var builtinMap = map[string]builtinSpec{
 			return fmt.Sprintf("pong in %v", time.Since(start)), nil
 		},
 	},
+	"fetch": {
+		Desc: "Download content from a URL",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"url": map[string]any{"type": "string"}},
+			"required":   []string{"url"},
+			"example":    map[string]any{"url": "https://example.com"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			url, _ := args["url"].(string)
+			if url == "" {
+				return "", errors.New("missing url")
+			}
+			// Cross-platform URL fetching
+			if runtime.GOOS == "windows" {
+				// Use PowerShell Invoke-WebRequest
+				cmd := fmt.Sprintf("(Invoke-WebRequest -Uri '%s').Content", url)
+				return ExecSandbox(ctx, cmd, sbox.Options{})
+			} else {
+				// Try curl first, fallback to wget if available
+				result, err := ExecSandbox(ctx, "curl -s "+url, sbox.Options{})
+				if err != nil {
+					// Fallback to wget if curl is not available
+					result, err = ExecSandbox(ctx, "wget -qO- "+url, sbox.Options{})
+				}
+				return result, err
+			}
+		},
+	},
 	"mcp": {
 		Desc: "Execute an MCP command",
 		Schema: map[string]any{
@@ -71,7 +102,7 @@ var builtinMap = map[string]builtinSpec{
 			host, _ := args["host"].(string)
 			port, _ := args["port"].(float64)
 			cmd, _ := args["command"].(string)
-			addr := fmt.Sprintf("%s:%d", host, int(port))
+			addr := net.JoinHostPort(host, fmt.Sprintf("%d", int(port)))
 			conn, err := net.DialTimeout("tcp", addr, 3*time.Second)
 			if err != nil {
 				return "", err
@@ -83,7 +114,7 @@ var builtinMap = map[string]builtinSpec{
 			return string(buf[:n]), nil
 		},
 	},
-	"agent-call": {
+	"agent": {
 		Desc: "Delegate to another agent",
 		Schema: map[string]any{
 			"type": "object",
@@ -110,6 +141,7 @@ var builtinMap = map[string]builtinSpec{
 }
 
 func init() {
+	// Add patch tool
 	builtinMap["patch"] = builtinSpec{
 		Desc: "Apply a unified diff patch",
 		Schema: map[string]any{
@@ -129,5 +161,98 @@ func init() {
 			}
 			return patch.MarshalResult(res)
 		},
+	}
+
+	// Add OS-specific shell tools
+	if runtime.GOOS == "windows" {
+		builtinMap["powershell"] = builtinSpec{
+			Desc: "Execute PowerShell commands on Windows",
+			Schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"command": map[string]any{
+						"type":        "string",
+						"description": "PowerShell command to execute (e.g., 'Get-ChildItem', 'Get-Content file.txt')",
+					},
+				},
+				"required": []string{"command"},
+				"example":  map[string]any{"command": "Get-ChildItem -Name '*.go'"},
+			},
+			Exec: func(ctx context.Context, args map[string]any) (string, error) {
+				cmd, _ := args["command"].(string)
+				if cmd == "" {
+					return "", errors.New("missing command")
+				}
+				return ExecSandbox(ctx, cmd, sbox.Options{})
+			},
+		}
+
+		builtinMap["cmd"] = builtinSpec{
+			Desc: "Execute cmd.exe commands on Windows",
+			Schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"command": map[string]any{
+						"type":        "string",
+						"description": "Command prompt command to execute",
+					},
+				},
+				"required": []string{"command"},
+				"example":  map[string]any{"command": "dir *.go"},
+			},
+			Exec: func(ctx context.Context, args map[string]any) (string, error) {
+				cmd, _ := args["command"].(string)
+				if cmd == "" {
+					return "", errors.New("missing command")
+				}
+				// Execute using cmd.exe
+				cmdLine := fmt.Sprintf("cmd /c %s", cmd)
+				return ExecSandbox(ctx, cmdLine, sbox.Options{})
+			},
+		}
+	} else {
+		builtinMap["bash"] = builtinSpec{
+			Desc: "Execute bash commands on Unix/Linux/macOS",
+			Schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"command": map[string]any{
+						"type":        "string",
+						"description": "Bash command to execute (e.g., 'ls -la', 'cat file.txt')",
+					},
+				},
+				"required": []string{"command"},
+				"example":  map[string]any{"command": "ls -la *.go"},
+			},
+			Exec: func(ctx context.Context, args map[string]any) (string, error) {
+				cmd, _ := args["command"].(string)
+				if cmd == "" {
+					return "", errors.New("missing command")
+				}
+				return ExecSandbox(ctx, cmd, sbox.Options{})
+			},
+		}
+
+		builtinMap["sh"] = builtinSpec{
+			Desc: "Execute sh commands on Unix/Linux/macOS",
+			Schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"command": map[string]any{
+						"type":        "string",
+						"description": "Shell command to execute",
+					},
+				},
+				"required": []string{"command"},
+				"example":  map[string]any{"command": "find . -name '*.go'"},
+			},
+			Exec: func(ctx context.Context, args map[string]any) (string, error) {
+				cmd, _ := args["command"].(string)
+				if cmd == "" {
+					return "", errors.New("missing command")
+				}
+				return ExecSandbox(ctx, cmd, sbox.Options{})
+			},
+		}
 	}
 }

@@ -5,6 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -12,10 +17,6 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"io"
-	"os"
-	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/converse"
@@ -74,7 +75,7 @@ type AgentInfo struct {
 	Cancel          context.CancelFunc
 	Spinner         spinner.Model
 	Name            string
-	Role            string // Agent role for display (e.g., "Master", "Research", "DevOps")
+	Role            string // Agent role for display (e.g., "System", "Research", "DevOps")
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -115,8 +116,8 @@ func New(ag *core.Agent) Model {
 		Agent:   ag,
 		Status:  StatusIdle,
 		Spinner: spinner.New(),
-		Name:    "master",
-		Role:    "Master", ActivityData: make([]float64, 0),
+		Name:    "Agent 0",
+		Role:    "System", ActivityData: make([]float64, 0),
 		ActivityTimes:   make([]time.Time, 0),
 		CurrentActivity: 0,
 		LastActivity:    time.Time{}, // Start with zero time so first tick will initialize properly

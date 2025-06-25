@@ -23,6 +23,9 @@ func (simpleMock) Complete(ctx context.Context, msgs []model.ChatMessage, tools 
 }
 
 func TestBuiltinsCrossPlatform(t *testing.T) {
+	// Set sandbox to disabled for direct execution
+	tool.SetSandboxEngine("disabled")
+	
 	// Set up team context for agent tool
 	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: simpleMock{}}}
 	ag := core.New(route, tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
@@ -54,8 +57,14 @@ func TestBuiltinsCrossPlatform(t *testing.T) {
 				t.Skip("skip network-dependent tool")
 			}
 			if name == "edit" {
-				path := ex["path"].(string)
-				viewT, _ := tool.DefaultRegistry().Use("view")
+				path, ok := ex["path"].(string)
+				if !ok {
+					t.Skip("edit tool requires path")
+				}
+				viewT, exists := tool.DefaultRegistry().Use("view")
+				if !exists {
+					t.Skip("view tool not available")
+				}
 				if _, err := viewT.Execute(ctx, map[string]any{"path": path}); err != nil {
 					t.Fatalf("setup view: %v", err)
 				}

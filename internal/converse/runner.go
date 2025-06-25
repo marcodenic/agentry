@@ -93,9 +93,12 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 	specs := tool.BuildSpecs(ag.Tools)
 	limit := ag.MaxIterations
 	if limit <= 0 {
-		limit = 8
+		limit = 8 // Default for agents without explicit limit
 	}
-	for i := 0; i < limit; i++ {
+	// Special case: if MaxIterations is set to -1, allow unlimited iterations
+	unlimited := ag.MaxIterations == -1
+	
+	for i := 0; unlimited || i < limit; i++ {
 		res, err := client.Complete(ctx, msgs, specs)
 		if err != nil {
 			return "", err

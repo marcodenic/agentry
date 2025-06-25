@@ -47,15 +47,17 @@ func TestAgentToolDelegates(t *testing.T) {
 }
 
 func TestAgentToolUnknown(t *testing.T) {
-	tm := newTestTeam(t, "ignore")
+	tm := newTestTeam(t, "ok")
 	ctx := team.WithContext(context.Background(), tm)
 	tl, _ := tool.DefaultRegistry().Use("agent")
-	_, err := tl.Execute(ctx, map[string]any{"agent": "Bogus", "input": "hi"})
-	if err == nil {
-		t.Fatal("expected unknown agent error")
+	out, err := tl.Execute(ctx, map[string]any{"agent": "coder", "input": "hi"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	expectedErr := "unknown agent: Bogus"
-	if err.Error() != expectedErr {
-		t.Fatalf("expected '%s' error, got %v", expectedErr, err)
+	if out != "ok" {
+		t.Fatalf("unexpected output %s", out)
+	}
+	if len(tm.Agents()) != 3 {
+		t.Fatalf("agent not spawned, got %d", len(tm.Agents()))
 	}
 }

@@ -1,0 +1,26 @@
+# Test configuration for Windows shell tools
+models:
+  - name: gpt-4o-mini
+    provider: openai
+
+routes:
+  - if_contains: [""]
+    model: gpt-4o-mini
+
+tools:
+  - name: powershell
+    type: builtin
+    description: Execute PowerShell commands
+  - name: cmd
+    type: builtin
+    description: Execute cmd.exe commands
+  - name: agent
+    type: builtin
+    description: Delegate tasks to another agent
+
+sandbox:
+  engine: disabled
+
+agents:
+  test-agent:
+    role: Assistant
