@@ -326,8 +326,7 @@ func main() {
 			}
 			parts := strings.Split(*mcpFlag, ",")
 			for i, p := range parts {
-				cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = strings.TrimSpace(p)
-			}
+				cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = strings.TrimSpace(p)			}
 		}
 		ag, err := buildAgent(cfg)
 		if err != nil {
@@ -347,11 +346,22 @@ func main() {
 		if *teamSize > 0 {
 			size = *teamSize
 		}
-		cm, err := tui.NewChat(ag, size, *topic)
-		if err != nil {
-			panic(err)
+		
+		// Use the main Model which has proper streaming and agent panel functionality
+		var model tea.Model
+		if size > 1 || *topic != "" {
+			// Multi-agent chat model for team conversations
+			cm, err := tui.NewChat(ag, size, *topic)
+			if err != nil {
+				panic(err)
+			}
+			model = cm
+		} else {
+			// Single agent model with full streaming and agent panel
+			model = tui.New(ag)
 		}
-		p := tea.NewProgram(cm)
+		
+		p := tea.NewProgram(model)
 		if err := p.Start(); err != nil {
 			panic(err)
 		}

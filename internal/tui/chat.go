@@ -47,7 +47,8 @@ func NewChat(parent *core.Agent, n int, topic string) (ChatModel, error) {
 		infos[ag.ID] = &AgentInfo{Agent: ag, Status: StatusIdle, Name: t.Names()[i]}
 	}
 	ti := textinput.New()
-	ti.Placeholder = "Message"
+	ti.Placeholder = "Message (Shift+Enter for new line)"
+	ti.CharLimit = 1000  // Set reasonable character limit
 	ti.Focus()
 	return ChatModel{parent: parent, team: t, infos: infos, names: t.Names(), active: t.Agents()[0].ID,
 		vps: vps, input: ti, theme: th, keys: th.Keybinds}, nil
@@ -77,11 +78,16 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		// Set input width to match viewport width
+		inputWidth := int(float64(msg.Width)*0.75) - 2
+		m.input.Width = inputWidth
 		for i := range m.vps {
-			m.vps[i].Width = int(float64(msg.Width)*0.75) - 2
+			m.vps[i].Width = inputWidth
 			m.vps[i].Height = msg.Height - 5
 			if info, ok := m.infos[m.team.Agents()[i].ID]; ok {
-				m.vps[i].SetContent(info.History)
+				// Apply text wrapping when setting content
+				wrappedContent := lipgloss.NewStyle().Width(m.vps[i].Width).Render(info.History)
+				m.vps[i].SetContent(wrappedContent)
 			}
 		}
 	}
@@ -94,9 +100,27 @@ func (m ChatModel) View() string {
 	vp := viewport.Model{}
 	if info, ok := m.infos[m.active]; ok {
 		vp = m.vps[m.indexOf(m.active)]
-		vp.SetContent(info.History)
+		// Apply text wrapping when setting content
+		wrappedContent := lipgloss.NewStyle().Width(vp.Width).Render(info.History)
+		vp.SetContent(wrappedContent)
 	}
-	main := vp.View() + "\n" + m.input.View()
+	
+	// Create left panel (chat + input)
+	leftContent := vp.View() + "\n" + m.input.View()
+	
+	// Create right panel (agent sidebar)
+	rightContent := m.agentPanel()
+	
+	// Layout
+	base := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+		Background(lipgloss.Color(m.theme.Palette.Background))
+	
+	left := base.Copy().Width(int(float64(m.width) * 0.75)).Render(leftContent)
+	right := base.Copy().Width(int(float64(m.width) * 0.25)).Render(rightContent)
+	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+	
+	// Footer
 	tokens := 0
 	costVal := 0.0
 	if m.parent != nil && m.parent.Cost != nil {
@@ -104,7 +128,9 @@ func (m ChatModel) View() string {
 		costVal = m.parent.Cost.TotalCost()
 	}
 	footer := fmt.Sprintf("agents: %d | tokens: %d cost: $%.4f", len(m.infos), tokens, costVal)
-	return fmt.Sprintf("%s\n%s", main, footer)
+	footer = base.Copy().Width(m.width).Render(footer)
+	
+	return lipgloss.JoinVertical(lipgloss.Left, main, footer)
 }
 
 func (m ChatModel) indexOf(id uuid.UUID) int {
@@ -120,6 +146,14 @@ func (m ChatModel) callActive(input string) (ChatModel, tea.Cmd) {
 	agName := m.names[m.indexOf(m.active)]
 	info := m.infos[m.active]
 	info.History += m.userBar() + " " + input + "\n"
+	
+	// Update viewport immediately to show user message
+	idx := m.indexOf(m.active)
+	wrappedContent := lipgloss.NewStyle().Width(m.vps[idx].Width).Render(info.History)
+	m.vps[idx].SetContent(wrappedContent)
+	m.vps[idx].GotoBottom()
+	m.infos[m.active] = info
+	
 	ctx := context.WithValue(context.Background(), teamctx.Key{}, m.team)
 	out, err := m.team.Call(ctx, agName, input)
 	if err != nil {
@@ -128,8 +162,8 @@ func (m ChatModel) callActive(input string) (ChatModel, tea.Cmd) {
 	}
 	info.History += m.aiBar() + " " + out + "\n"
 	m.infos[m.active] = info
-	idx := m.indexOf(m.active)
-	m.vps[idx].SetContent(info.History)
+	wrappedContent = lipgloss.NewStyle().Width(m.vps[idx].Width).Render(info.History)
+	m.vps[idx].SetContent(wrappedContent)
 	m.vps[idx].GotoBottom()
 	return m, nil
 }
@@ -237,6 +271,44 @@ func (m ChatModel) userBar() string {
 
 func (m ChatModel) aiBar() string {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor)).Render("┃")
+}
+
+// agentPanel creates the right sidebar showing agent status
+func (m ChatModel) agentPanel() string {
+	lines := []string{}
+	for _, ag := range m.team.Agents() {
+		info := m.infos[ag.ID]
+		
+		dot := m.statusDot(info.Status)
+		line := fmt.Sprintf("%s %s", dot, info.Name)
+		if ag.ID == m.active {
+			line = "*" + line[1:]
+		}
+		lines = append(lines, line)
+		
+		// Token info if available
+		if m.parent != nil && m.parent.Cost != nil {
+			tokens := m.parent.Cost.TotalTokens()
+			tokLine := fmt.Sprintf("  tokens: %d", tokens)
+			lines = append(lines, tokLine)
+		}
+		lines = append(lines, "")
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
+// statusDot returns a colored dot indicating agent status
+func (m ChatModel) statusDot(st AgentStatus) string {
+	color := m.theme.IdleColor
+	switch st {
+	case StatusRunning:
+		color = m.theme.RunningColor
+	case StatusError:
+		color = m.theme.ErrorColor
+	case StatusStopped:
+		color = m.theme.StoppedColor
+	}
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render("●")
 }
 
 // Agents exposes the team's agents for tests.

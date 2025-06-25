@@ -102,9 +102,9 @@ func New(ag *core.Agent) Model {
 	l.KeyMap.CloseFullHelp = NoNavKeyMap.CloseFullHelp
 	l.KeyMap.Quit = NoNavKeyMap.Quit
 	l.KeyMap.ForceQuit = NoNavKeyMap.ForceQuit
-
 	ti := textinput.New()
-	ti.Placeholder = "Message"
+	ti.Placeholder = "Type your message... (Press Enter to send)"
+	ti.CharLimit = 2000  // Allow longer messages
 	ti.Focus()
 
 	vp := viewport.New(0, 0)
