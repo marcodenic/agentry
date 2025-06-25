@@ -15,10 +15,21 @@ import (
 	"github.com/marcodenic/agentry/internal/teamctx"
 )
 
-// ChatModel is a unified model that manages a converse.Team of any size.
-// DEPRECATED: Use Model (tui.New) instead for a unified interface that handles
+// DEPRECATED: ChatModel is a legacy unified model that manages a converse.Team.
+// 
+// This model is DEPRECATED and will be removed in a future version. 
+// Use Model (tui.New) instead for the unified interface that handles
 // both single agents and teams through the agent panel and spawn commands.
-// This model will be removed in a future version.
+// 
+// The unified Model provides:
+// - Consistent btop-style agent panel for all scenarios
+// - Advanced real-time status indicators and token tracking
+// - Streamlined command interface (/spawn, /switch, /stop, /converse)
+// - Better performance and code maintainability
+// - Full-screen optimized layout with no empty space
+// 
+// Migration: Replace calls to NewChat() with tui.New() and use /spawn commands
+// to create additional agents as needed.
 type ChatModel struct {
 	parent *core.Agent
 	team   *converse.Team
@@ -37,9 +48,17 @@ type ChatModel struct {
 }
 
 // NewChat creates a team with n agents talking about topic.
-// DEPRECATED: Use tui.New() instead for a unified interface.
-// The unified interface supports spawning multiple agents via /spawn commands
-// and provides a consistent agent panel for all scenarios.
+// 
+// DEPRECATED: This function is deprecated and will be removed in a future version.
+// Use tui.New() instead for the unified interface. The unified Model supports
+// spawning multiple agents via /spawn commands and provides a consistent,
+// advanced agent panel for all scenarios.
+// 
+// Migration example:
+//   Old: model, err := tui.NewChat(agent, 3, "topic")
+//   New: model := tui.New(agent)
+//        // Then use /spawn commands to create additional agents
+//        // Use /converse command for team conversations
 func NewChat(parent *core.Agent, n int, topic string) (ChatModel, error) {
 	th := LoadTheme()
 	t, err := converse.NewTeam(parent, n, topic)

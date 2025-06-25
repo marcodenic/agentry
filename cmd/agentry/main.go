@@ -347,8 +347,7 @@ func main() {
 		if *teamSize > 0 {
 			size = *teamSize
 		}
-		
-		// Use unified Model interface for all TUI scenarios
+				// Use unified Model interface for all TUI scenarios
 		model := tui.New(ag)
 		
 		// Pre-spawn additional agents if team size > 1
@@ -360,7 +359,7 @@ func main() {
 		// If topic is specified, it can be used via /converse command
 		// This maintains the unified interface while supporting team scenarios
 		
-		p := tea.NewProgram(model)
+		p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 		if err := p.Start(); err != nil {
 			panic(err)
 		}

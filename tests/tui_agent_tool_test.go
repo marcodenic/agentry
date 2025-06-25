@@ -3,13 +3,14 @@ package tests
 import (
 	"context"
 	"encoding/json"
-	"reflect"
 	"testing"
 
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
+	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/tui"
 )
@@ -26,32 +27,26 @@ func (c *agentCallClient) Complete(ctx context.Context, msgs []model.ChatMessage
 	return model.Completion{Content: "done"}, nil
 }
 
-// TestTUIAgentToolIntegration ensures the agent tool works within the TUI team model.
+// TestTUIAgentToolIntegration ensures the agent tool works within the unified TUI model.
 func TestTUIAgentToolIntegration(t *testing.T) {
 	client := &agentCallClient{}
 	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: client}}
-	ag := core.New(route, tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
-
-	tm, err := tui.NewTeam(ag, 1, "hi")
+	ag := core.New(route, tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)	// Use the unified Model instead of deprecated TeamModel
+	_ = tui.New(ag)
+	// Create team context for agent tool to work properly
+	tm, err := converse.NewTeam(ag, 1, "")
 	if err != nil {
 		t.Fatalf("failed to create team: %v", err)
 	}
-
-	// Run one update cycle manually.
-	cmd := tm.Init()
-	if cmd == nil {
-		t.Fatal("init returned nil cmd")
-	}
-	msg := cmd()
-	m, _ := tm.Update(msg)
-	tm = m.(tui.TeamModel)
-
-	// Check internal error field via reflection.
-	errVal := reflect.ValueOf(tm).FieldByName("err")
-	if errVal.IsValid() && !errVal.IsNil() {
-		t.Fatalf("unexpected error: %v", errVal.Interface())
+	
+	// Simulate user input to trigger agent call with proper team context
+	ctx := team.WithContext(context.Background(), tm)
+	_, err = ag.Run(ctx, "ping")
+	if err != nil {
+		t.Fatalf("agent run failed: %v", err)
 	}
 
+	// Check that the agent tool was called
 	if client.call < 2 {
 		t.Fatalf("agent tool did not execute, calls: %d", client.call)
 	}

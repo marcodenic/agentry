@@ -35,6 +35,11 @@ type Theme struct {
 	RunningColor string `json:"runningColor"`
 	ErrorColor   string `json:"errorColor"`
 	StoppedColor string `json:"stoppedColor"`
+	
+	// Advanced agent panel colors
+	RoleColor    string `json:"roleColor"`
+	ToolColor    string `json:"toolColor"`
+	PanelTitleColor string `json:"panelTitleColor"`
 
 	Keybinds Keybinds `json:"keybinds"`
 }
@@ -56,6 +61,9 @@ func DefaultTheme() Theme {
 		RunningColor: "#FBBF24",
 		ErrorColor:   "#EF4444",
 		StoppedColor: "#6B7280",
+		RoleColor:    "#10B981",  // Green for agent roles
+		ToolColor:    "#8B5CF6",  // Purple for current tools
+		PanelTitleColor: "#9CA3AF", // Gray for panel titles
 		Keybinds: Keybinds{
 			Quit:      "ctrl+c",
 			ToggleTab: "tab",

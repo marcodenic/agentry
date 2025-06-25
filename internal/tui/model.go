@@ -73,6 +73,7 @@ type AgentInfo struct {
 	Cancel       context.CancelFunc
 	Spinner      spinner.Model
 	Name         string
+	Role         string  // Agent role for display (e.g., "Master", "Research", "DevOps")
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -110,7 +111,7 @@ func New(ag *core.Agent) Model {
 	vp := viewport.New(0, 0)
 	cwd, _ := os.Getwd()
 
-	info := &AgentInfo{Agent: ag, Status: StatusIdle, Spinner: spinner.New(), Name: "master"}
+	info := &AgentInfo{Agent: ag, Status: StatusIdle, Spinner: spinner.New(), Name: "master", Role: "Master"}
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
 	tm, err := converse.NewTeam(ag, 1, "")
@@ -243,13 +244,17 @@ func (m Model) Init() tea.Cmd { return nil }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
-
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Enhanced agent navigation
 		if key.Matches(msg, PrevAgentKey) {
 			m = m.cycleActive(-1)
 		} else if key.Matches(msg, NextAgentKey) {
 			m = m.cycleActive(1)
+		} else if key.Matches(msg, FirstAgentKey) {
+			m = m.jumpToAgent(0)
+		} else if key.Matches(msg, LastAgentKey) {
+			m = m.jumpToAgent(len(m.order) - 1)
 		}
 		switch msg.String() {
 		case m.keys.Quit:
@@ -327,8 +332,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.input.Width = int(float64(msg.Width)*0.75) - 2
-		m.vp.Width = int(float64(msg.Width)*0.75) - 2
-		m.vp.Height = msg.Height - 5
+		m.vp.Width = int(float64(msg.Width)*0.75) - 2		// Calculate viewport height: total height - input line - footer line
+		m.vp.Height = msg.Height - 2
 		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, msg.Height-2)
 		if info, ok := m.infos[m.active]; ok {
 			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
@@ -401,26 +406,134 @@ func renderMemory(ag *core.Agent) string {
 }
 
 func (m Model) agentPanel() string {
-	lines := []string{}
-	for _, id := range m.order {
+	var lines []string
+	
+	// Panel title with emoji - btop style
+	title := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(m.theme.PanelTitleColor)).
+		Bold(true).
+		Render("🤖 AGENTS")
+	lines = append(lines, title)
+	
+	// Summary stats line
+	totalTokens := 0
+	runningCount := 0
+	for _, ag := range m.infos {
+		totalTokens += ag.TokenCount
+		if ag.Status == StatusRunning {
+			runningCount++
+		}
+	}
+	statsLine := fmt.Sprintf("Total: %d | Running: %d", len(m.infos), runningCount)
+	lines = append(lines, lipgloss.NewStyle().
+		Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+		Faint(true).
+		Render(statsLine))
+	lines = append(lines, "") // Empty line for spacing
+
+	for i, id := range m.order {
 		ag := m.infos[id]
 
-		dot := m.statusDot(ag.Status)
-		line := fmt.Sprintf("%s %s %s", dot, ag.Spinner.View(), ag.Name)
+		// Agent name line with enhanced status indicator and index
+		var nameeLine string
+		statusDot := m.getAdvancedStatusDot(ag.Status)
+		agentIndex := fmt.Sprintf("[%d]", i)
+		
+		if ag.Status == StatusRunning {
+			nameeLine = fmt.Sprintf("%s %s %s %s", agentIndex, statusDot, ag.Spinner.View(), ag.Name)
+		} else {
+			nameeLine = fmt.Sprintf("%s %s %s", agentIndex, statusDot, ag.Name)
+		}
+		
+		// Mark active agent with different styling
 		if id == m.active {
-			line = "*" + line[1:]
+			nameeLine = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(m.theme.UserBarColor)).
+				Bold(true).
+				Render("▶ " + nameeLine)
 		}
-		lines = append(lines, line)
+		lines = append(lines, nameeLine)
 
-		tokLine := fmt.Sprintf("  tokens: %d", ag.TokenCount)
-		bar := m.renderTokenBar(ag.TokenCount, 1000)
-		lines = append(lines, tokLine)
-		lines = append(lines, "  "+bar)
-		if spark := m.renderSparkline(ag.TokenHistory); spark != "" {
-			lines = append(lines, "  "+spark)
+		// Role line (if available) - more prominent
+		if ag.Role != "" {
+			roleLine := fmt.Sprintf("  role: %s", ag.Role)
+			roleLine = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(m.theme.RoleColor)).
+				Italic(true).
+				Render(roleLine)
+			lines = append(lines, roleLine)
 		}
-		lines = append(lines, "")
+
+		// Current tool line (if active) - with icon
+		if ag.CurrentTool != "" {
+			toolLine := fmt.Sprintf("  🔧 %s", ag.CurrentTool)
+			toolLine = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(m.theme.ToolColor)).
+				Render(toolLine)
+			lines = append(lines, toolLine)
+		}
+
+		// Model name (if available)
+		if ag.ModelName != "" {
+			modelLine := fmt.Sprintf("  model: %s", ag.ModelName)
+			modelLine = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+				Faint(true).
+				Render(modelLine)
+			lines = append(lines, modelLine)
+		}
+
+		// Token count line with percentage
+		maxTokens := 8000
+		if ag.ModelName != "" && strings.Contains(strings.ToLower(ag.ModelName), "gpt-4") {
+			maxTokens = 128000
+		}
+		tokenPct := float64(ag.TokenCount) / float64(maxTokens) * 100
+		tokenLine := fmt.Sprintf("  tokens: %d (%.1f%%)", ag.TokenCount, tokenPct)
+		lines = append(lines, tokenLine)
+
+		// Token usage bar - always show for consistency
+		bar := m.renderTokenBar(ag.TokenCount, maxTokens)
+		lines = append(lines, "  "+bar)
+
+		// Token activity sparkline (if we have history)
+		if len(ag.TokenHistory) > 0 {
+			sparkline := m.renderSparkline(ag.TokenHistory)
+			sparkPrefix := lipgloss.NewStyle().
+				Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+				Faint(true).
+				Render("  activity: ")
+			lines = append(lines, sparkPrefix+sparkline)
+		}
+
+		// Cost information if available
+		if ag.Agent.Cost != nil && ag.Agent.Cost.TotalCost() > 0 {
+			costLine := fmt.Sprintf("  cost: $%.4f", ag.Agent.Cost.TotalCost())
+			costLine = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(m.theme.AIBarColor)).
+				Render(costLine)
+			lines = append(lines, costLine)
+		}
+
+		lines = append(lines, "") // Spacing between agents
 	}
+
+	// Add help section at bottom
+	if len(m.infos) > 0 {
+		lines = append(lines, lipgloss.NewStyle().
+			Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+			Faint(true).
+			Render("Controls:"))
+		lines = append(lines, lipgloss.NewStyle().
+			Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+			Faint(true).
+			Render("  ←→ cycle agents"))
+		lines = append(lines, lipgloss.NewStyle().
+			Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+			Faint(true).
+			Render("  Tab switch view"))
+	}
+
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
@@ -477,8 +590,12 @@ func (m Model) handleCommand(cmd string) (Model, tea.Cmd) {
 
 func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 	name := "agent"
+	role := ""
 	if len(args) > 0 {
 		name = args[0]
+	}
+	if len(args) > 1 {
+		role = args[1]
 	}
 	if len(m.agents) == 0 {
 		return m, nil
@@ -487,7 +604,7 @@ func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 	sp := spinner.New()
 	sp.Spinner = spinner.Line
 	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
-	info := &AgentInfo{Agent: ag, Status: StatusIdle, Spinner: sp, Name: name}
+	info := &AgentInfo{Agent: ag, Status: StatusIdle, Spinner: sp, Name: name, Role: role}
 	m.infos[ag.ID] = info
 	m.order = append(m.order, ag.ID)
 	if m.team != nil {
@@ -554,7 +671,7 @@ func (m Model) handleConverse(args []string) (Model, tea.Cmd) {
 		m.err = err
 		return m, nil
 	}
-	go func() { _ = tea.NewProgram(tm).Start() }()
+	go func() { _ = tea.NewProgram(tm, tea.WithAltScreen(), tea.WithMouseCellMotion()).Start() }()
 	return m, nil
 }
 
@@ -572,19 +689,49 @@ func (m Model) cycleActive(delta int) Model {
 	idx = (idx + delta + len(m.order)) % len(m.order)
 	m.active = m.order[idx]
 	if info, ok := m.infos[m.active]; ok {
-		m.vp.SetContent(info.History)
+		base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+		m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+	}
+	return m
+}
+
+func (m Model) jumpToAgent(index int) Model {
+	if len(m.order) == 0 {
+		return m
+	}
+	if index < 0 {
+		index = 0
+	}
+	if index >= len(m.order) {
+		index = len(m.order) - 1
+	}
+	m.active = m.order[index]
+	if info, ok := m.infos[m.active]; ok {
+		base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+		m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 	}
 	return m
 }
 
 func helpView() string {
 	return strings.Join([]string{
-		"/spawn <name>       - create a new agent",
-		"/switch <prefix>    - focus an agent", 
-		"/stop <prefix>      - stop an agent",
-		"/converse <n> <topic> - multi-agent conversation",
-		"Tab                 - switch between chat and memory view",
-		"Ctrl+C / q          - quit",
+		"AGENTRY TUI - Unified Agent Interface",
+		"",
+		"Commands:",
+		"/spawn <name> [role]     - create a new agent with optional role",
+		"/switch <prefix>         - focus an agent by name or ID prefix", 
+		"/stop <prefix>           - stop an agent",
+		"/converse <n> <topic>    - start multi-agent conversation",
+		"",
+		"Controls:",
+		"←→ / Ctrl+P/N           - cycle between agents",
+		"Tab                     - switch between chat and memory view",
+		"Enter                   - send message / execute command",
+		"Ctrl+C / q              - quit",
+		"",
+		"Agent Panel:",
+		"● idle  🟡 running  ❌ error  ⏸️ stopped",
+		"[index] shows agent position, ▶ shows active agent",
 	}, "\n")
 }
 
@@ -599,6 +746,21 @@ func (m Model) statusDot(st AgentStatus) string {
 		color = m.theme.StoppedColor
 	}
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render("●")
+}
+
+func (m Model) getAdvancedStatusDot(status AgentStatus) string {
+	switch status {
+	case StatusIdle:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.IdleColor)).Render("●")
+	case StatusRunning:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.RunningColor)).Render("🟡") // Yellow circle emoji
+	case StatusError:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.ErrorColor)).Render("❌")   // Red X emoji
+	case StatusStopped:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.StoppedColor)).Render("⏸️")  // Pause emoji
+	default:
+		return "○"
+	}
 }
 
 func (m Model) renderTokenBar(count, max int) string {

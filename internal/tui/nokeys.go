@@ -2,10 +2,26 @@ package tui
 
 import "github.com/charmbracelet/bubbles/key"
 
-// Arrow keys used for cycling agents in the main TUI model.
+// Enhanced key bindings for cycling agents in the unified TUI model.
 var (
-	PrevAgentKey = key.NewBinding(key.WithKeys("up"))
-	NextAgentKey = key.NewBinding(key.WithKeys("down"))
+	PrevAgentKey = key.NewBinding(
+		key.WithKeys("up", "left", "ctrl+p"),
+		key.WithHelp("↑/←/ctrl+p", "prev agent"),
+	)
+	NextAgentKey = key.NewBinding(
+		key.WithKeys("down", "right", "ctrl+n"),
+		key.WithHelp("↓/→/ctrl+n", "next agent"),
+	)
+	
+	// Additional navigation keys for better UX
+	FirstAgentKey = key.NewBinding(
+		key.WithKeys("home", "ctrl+a"),
+		key.WithHelp("home/ctrl+a", "first agent"),
+	)
+	LastAgentKey = key.NewBinding(
+		key.WithKeys("end", "ctrl+e"),
+		key.WithHelp("end/ctrl+e", "last agent"),
+	)
 )
 
 // NoNavKeyMap disables all navigation keys for the list.

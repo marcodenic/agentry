@@ -23,7 +23,21 @@ type teamMsg struct {
 
 type startMsg struct{ idx int }
 
-// TeamModel displays a multi-agent conversation.
+// DEPRECATED: TeamModel displays a multi-agent conversation.
+// 
+// This model is DEPRECATED and will be removed in a future version.
+// Use Model (tui.New) instead for the unified interface that handles
+// both single agents and teams through the agent panel and spawn commands.
+// 
+// The unified Model provides:
+// - Consistent btop-style agent panel for all scenarios  
+// - Advanced real-time status indicators and token tracking
+// - Streamlined command interface (/spawn, /switch, /stop, /converse)
+// - Better performance and code maintainability
+// - Full-screen optimized layout with proper agent management
+// 
+// Migration: Replace calls to NewTeam() with tui.New() and use /spawn and
+// /converse commands to manage team conversations.
 type TeamModel struct {
 	team     *converse.Team
 	vps      []viewport.Model
@@ -45,6 +59,17 @@ type TeamModel struct {
 }
 
 // NewTeam creates a TeamModel with n agents talking about topic.
+// 
+// DEPRECATED: This function is deprecated and will be removed in a future version.
+// Use tui.New() instead for the unified interface. The unified Model supports
+// spawning multiple agents via /spawn commands and team conversations via
+// /converse commands, providing a consistent, advanced agent panel.
+// 
+// Migration example:
+//   Old: model, err := tui.NewTeam(agent, 3, "topic")  
+//   New: model := tui.New(agent)
+//        // Then use /spawn commands to create additional agents
+//        // Use /converse command for team conversations
 func NewTeam(parent *core.Agent, n int, topic string) (TeamModel, error) {
 	th := LoadTheme()
 	t, err := converse.NewTeam(parent, n, topic)

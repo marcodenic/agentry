@@ -1,10 +1,23 @@
-                              *�� | master
-                                tokens: 
-                              0         
+                              🤖 AGENTS 
+                              Total: 1 |
+                              Running: 0
+                                        
+                              ▶ [0] ●   
+                              master    
+                                role:   
+                              Master    
+> Type your message... (Press   tokens: 
+Enter to send)                0 (0.0%)  
                                         
                               ░░░░░░░░░░
-> Type your message... (Press 0%        
-Enter to send)                          
+                              0%        
+                                        
+                              Controls: 
+                                ←→ cycle
+                              agents    
+                                Tab     
+                              switch    
+                              view      
 cwd:                                    
 C:\Users\marco\Documents\GitHub\agentry\
 internal\tui | agents: 1 | tokens: 0    

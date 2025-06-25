@@ -73,6 +73,47 @@ The agentry executable has been successfully built with all TUI fixes applied:
 - Added `statusDot()` method for colored status indicators
 - Properly sized panels using 75%/25% split
 
+### Viewport Sizing Fix ✅ FIXED
+**Issue**: Empty black space at the bottom of the TUI, with the status bar not flush against the bottom edge of the terminal.
+
+**Root Cause**: Viewport height calculation was too conservative, leaving unnecessary empty space.
+
+**Fix Applied**:
+- ✅ Changed viewport height calculation from `msg.Height - 5` to `msg.Height - 2`
+- ✅ Removed extra padding that was causing empty space
+- ✅ Status bar now appears flush against the bottom edge of the terminal
+- ✅ Maximum viewport space utilization for chat content
+
+**Technical Details**:
+- Modified `WindowSizeMsg` handler in `model.go`
+- Viewport height = total height - input line - footer line (exactly 2 lines)
+- Updated theme snapshots to reflect improved layout
+- All tests pass with tighter layout
+
+## UI/UX Improvements ✅ COMPLETED
+
+### Full Screen TUI Experience ✅ ADDED
+**Enhancement**: Modified TUI to use the full terminal screen instead of sharing space with previous command history.
+
+**Changes Made**:
+- ✅ Added `tea.WithAltScreen()` option to TUI initialization
+- ✅ Added `tea.WithMouseCellMotion()` for better mouse support
+- ✅ Applied to both main TUI and team conversation interfaces
+- ✅ TUI now takes over the entire terminal window
+- ✅ Previous commands and prompt are hidden during TUI use
+- ✅ Terminal is properly restored when exiting TUI
+
+**Benefits**:
+- **Immersive Experience**: TUI now feels like a dedicated application
+- **More Space**: Full terminal height available for chat content
+- **Professional Feel**: No distracting command history visible
+- **Clean Interface**: TUI starts with a fresh, full-screen view
+
+**Technical Details**:
+- Modified `cmd/agentry/main.go` to use `tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())`
+- Updated `/converse` command TUI to also use alternate screen
+- All tests continue to pass
+
 ## Root Cause Analysis
 
 ### Issue #1: User message not immediately displayed
