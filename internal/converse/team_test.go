@@ -80,3 +80,49 @@ func TestTeamAdd(t *testing.T) {
 		t.Fatalf("expected msg1 got %s", out)
 	}
 }
+
+func TestTeamCallToolNameRejection(t *testing.T) {
+	mock := &seqMock{}
+	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: mock}}
+	parent := core.New(route, nil, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+
+	tm, err := NewTeam(parent, 1, "hi")
+	if err != nil {
+		t.Fatalf("new team: %v", err)
+	}
+
+	// Test tool names that should be rejected
+	toolNames := []string{"echo", "ping", "read_lines", "web_search", "api_request", "agent"}
+	for _, toolName := range toolNames {
+		_, err := tm.Call(context.Background(), toolName, "test")
+		if err == nil {
+			t.Fatalf("expected error when calling with tool name '%s', but call succeeded", toolName)
+		}
+		if len(tm.Agents()) != 1 { // Should still have only the original agent
+			t.Fatalf("tool name '%s' incorrectly created an agent, agent count: %d", toolName, len(tm.Agents()))
+		}
+	}
+}
+
+func TestTeamCallInvalidNameRejection(t *testing.T) {
+	mock := &seqMock{}
+	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: mock}}
+	parent := core.New(route, nil, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+
+	tm, err := NewTeam(parent, 1, "hi")
+	if err != nil {
+		t.Fatalf("new team: %v", err)
+	}
+
+	// Test invalid agent names that should be rejected
+	invalidNames := []string{"123invalid", "", "agent-with-@-symbol", "agent with spaces", "very-long-name-that-definitely-exceeds-fifty-characters-limit"}
+	for _, invalidName := range invalidNames {
+		_, err := tm.Call(context.Background(), invalidName, "test")
+		if err == nil {
+			t.Fatalf("expected error when calling with invalid name '%s', but call succeeded", invalidName)
+		}
+		if len(tm.Agents()) != 1 { // Should still have only the original agent
+			t.Fatalf("invalid name '%s' incorrectly created an agent, agent count: %d", invalidName, len(tm.Agents()))
+		}
+	}
+}

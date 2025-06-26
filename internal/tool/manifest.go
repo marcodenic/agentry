@@ -121,6 +121,12 @@ func checkForOverwrite(path string) error {
 	return nil
 }
 
+// IsBuiltinTool checks if the given name is a builtin tool
+func IsBuiltinTool(name string) bool {
+	_, exists := builtinMap[name]
+	return exists
+}
+
 // DefaultRegistry returns all builtin tools.
 func DefaultRegistry() Registry {
 	r := make(Registry, len(builtinMap))

@@ -88,7 +88,7 @@ func (m *Model) readEvent(id uuid.UUID) tea.Msg {
 			}
 		case trace.EventStepStart:
 			// Show thinking indicator when agent starts reasoning
-			return thinkingMsg{id: id, text: "🤔 Thinking..."}
+			return thinkingMsg{id: id, text: "Thinking..."}
 		case trace.EventToolStart:
 			if m2, ok := ev.Data.(map[string]any); ok {
 				if name, ok := m2["name"].(string); ok {

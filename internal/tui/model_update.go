@@ -43,8 +43,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case tokenMsg:
+		// DISABLED: Token streaming is disabled to prevent duplicate content
+		// The finalMsg handler will display the complete response instead
+		// info := m.infos[msg.id]
+		// info.History += msg.token
 		info := m.infos[msg.id]
-		info.History += msg.token
 		info.TokenCount++
 		info.CurrentActivity++ // Just increment counter, let activityTickMsg handle data points
 
@@ -61,14 +64,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		info.LastToken = now
 		m.infos[msg.id] = info // IMPORTANT: Save the updated info back to the map
-		if msg.id == m.active {
-			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
-			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
-			m.vp.GotoBottom()
-		}
+		// Do NOT update viewport content here - let finalMsg handle the display
 	case finalMsg:
 		info := m.infos[msg.id]
-		info.History += m.aiBar() + " "
+		info.History += m.aiBar() + " " + msg.text + "\n"
 		if msg.id == m.active {
 			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
 			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
@@ -76,7 +75,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		info.Status = StatusIdle
 		m.infos[msg.id] = info
-		return m, tea.Batch(streamTokens(msg.id, msg.text+"\n"), m.readCmd(msg.id))
+		// DO NOT continue reading after finalMsg - this is the end of the trace stream
+		// The agentCompleteMsg will handle final cleanup
+		return m, nil
 	case toolUseMsg:
 		info := m.infos[msg.id]
 		info.CurrentTool = msg.name
@@ -92,7 +93,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.readCmd(msg.id)
 	case thinkingMsg:
 		info := m.infos[msg.id]
-		info.History += fmt.Sprintf("\n%s %s", m.statusBar(), msg.text)
+		info.History += fmt.Sprintf("\n%s %s", m.thinkingBar(), msg.text)
 		if msg.id == m.active {
 			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
 			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
@@ -223,15 +224,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case agentCompleteMsg:
 		info := m.infos[msg.id]
 		info.Status = StatusIdle
-		// Display the final agent response
-		if msg.result != "" {
-			info.History += fmt.Sprintf("\n%s %s", m.aiBar(), msg.result)
-			if msg.id == m.active {
-				base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
-				m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
-				m.vp.GotoBottom()
-			}
-		}
+		// Only update status - do NOT add content to history as finalMsg already handles that
+		// The agentCompleteMsg is just for completion signaling, finalMsg handles the actual response display
 		m.infos[msg.id] = info
 	case tea.WindowSizeMsg:
 		m.width = msg.Width

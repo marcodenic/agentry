@@ -20,6 +20,11 @@ func (m Model) aiBar() string {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor)).Render("┃")
 }
 
+// thinkingBar returns the glyph used to prefix thinking messages.
+func (m Model) thinkingBar() string {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor)).Render("🤔")
+}
+
 // statusBar returns the glyph used to prefix status messages.
 func (m Model) statusBar() string {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor)).Render("⚡")

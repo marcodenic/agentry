@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/marcodenic/agentry/internal/core"
@@ -16,6 +17,17 @@ import (
 	"github.com/marcodenic/agentry/internal/tool"
 	"gopkg.in/yaml.v3"
 )
+
+// agentNameRegex defines valid agent name pattern: starts with letter, contains letters, numbers, underscores, hyphens
+var agentNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+
+// isValidAgentName checks if an agent name follows the required conventions
+func isValidAgentName(name string) bool {
+	if name == "" || len(name) > 50 {
+		return false
+	}
+	return agentNameRegex.MatchString(name)
+}
 
 func contextWithTeam(ctx context.Context, t *Team) context.Context {
 	return team.WithContext(ctx, t)
@@ -185,8 +197,17 @@ var ErrUnknownAgent = errors.New("unknown agent")
 
 // Call runs the named agent with the provided input once.
 func (t *Team) Call(ctx context.Context, name, input string) (string, error) {
+	// Check if the name is a tool - tools should not be created as agents
+	if tool.IsBuiltinTool(name) {
+		return "", fmt.Errorf("cannot create agent with tool name '%s': tool names are reserved", name)
+	}
+	
 	ag, ok := t.agentsByName[name]
 	if !ok {
+		// Additional validation: enforce agent naming conventions
+		if !isValidAgentName(name) {
+			return "", fmt.Errorf("invalid agent name '%s': agent names must start with a letter and contain only letters, numbers, underscores, and hyphens", name)
+		}
 		ag, _ = t.AddAgent(name)
 	}
 	ctx = contextWithTeam(ctx, t)

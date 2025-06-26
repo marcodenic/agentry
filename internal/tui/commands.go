@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"io"
-	"strconv"
 	"strings"
 	"time"
 
@@ -67,7 +66,6 @@ func (m Model) handleCommand(cmd string) (Model, tea.Cmd) {
 		return m.handleSwitch(fields[1:])
 	case "/stop":
 		return m.handleStop(fields[1:])
-		return m.handleConverse(fields[1:])
 	default:
 		return m, nil
 	}
@@ -150,28 +148,6 @@ func (m Model) handleStop(args []string) (Model, tea.Cmd) {
 		info.Status = StatusStopped
 		m.infos[id] = info
 	}
-	return m, nil
-}
-
-// handleConverse launches a temporary team conversation.
-func (m Model) handleConverse(args []string) (Model, tea.Cmd) {
-	if len(args) < 2 {
-		return m, nil
-	}
-	n, err := strconv.Atoi(args[0])
-	if err != nil {
-		return m, nil
-	}
-	topic := strings.Join(args[1:], " ")
-	if len(m.agents) == 0 {
-		return m, nil
-	}
-	tm, err := NewTeam(m.agents[0], n, topic)
-	if err != nil {
-		m.err = err
-		return m, nil
-	}
-	go func() { _ = tea.NewProgram(tm, tea.WithAltScreen(), tea.WithMouseCellMotion()).Start() }()
 	return m, nil
 }
 
