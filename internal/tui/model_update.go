@@ -325,7 +325,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	var leftContent string
 	if m.activeTab == 0 {
-		leftContent = m.vp.View() + "\n" + m.input.View()
+		// Add a horizontal line above the input for visual separation
+		inputWidth := int(float64(m.width) * 0.75) - 2
+		if inputWidth < 0 {
+			inputWidth = 0
+		}
+		horizontalLine := strings.Repeat("─", inputWidth)
+		leftContent = m.vp.View() + "\n" + horizontalLine + "\n" + m.input.View()
 	} else {
 		if info, ok := m.infos[m.active]; ok {
 			leftContent = renderMemory(info.Agent)
