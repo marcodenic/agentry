@@ -362,7 +362,9 @@ func (m Model) View() string {
 		tokens = info.Agent.Cost.TotalTokens()
 		costVal = info.Agent.Cost.TotalCost()
 	}
-	footer := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.infos), tokens, costVal)
-	footer = base.Copy().Width(m.width).Render(footer)
-	return lipgloss.JoinVertical(lipgloss.Left, content, footer)
+	footerText := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.infos), tokens, costVal)
+	footer := base.Copy().Width(m.width).Align(lipgloss.Right).Render(footerText)
+	
+	// Add empty line between input and footer
+	return lipgloss.JoinVertical(lipgloss.Left, content, "", footer)
 }
