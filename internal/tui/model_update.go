@@ -306,10 +306,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.input.Width = int(float64(msg.Width)*0.75) - 2
-		m.vp.Width = int(float64(msg.Width)*0.75) - 2 // Calculate viewport height: total height - input line - footer line
-		m.vp.Height = msg.Height - 2
-		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, msg.Height-2)
+		m.input.Width = msg.Width - 2  // Full width minus padding for input
+		m.vp.Width = int(float64(msg.Width)*0.75) - 2  // 75% width for chat area
+		// Calculate viewport height: total height - horizontal separator line - input line - footer line
+		m.vp.Height = msg.Height - 4   // Account for separator + input + footer + spacing
+		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, msg.Height-4) // 25% width for agent panel
 		if info, ok := m.infos[m.active]; ok {
 			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
 			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
@@ -323,28 +324,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	var leftContent string
+	var chatContent string
 	if m.activeTab == 0 {
-		// Add a horizontal line above the input for visual separation
-		inputWidth := int(float64(m.width) * 0.75) - 2
-		if inputWidth < 0 {
-			inputWidth = 0
-		}
-		horizontalLine := strings.Repeat("─", inputWidth)
-		leftContent = m.vp.View() + "\n" + horizontalLine + "\n" + m.input.View()
+		chatContent = m.vp.View()
 	} else {
 		if info, ok := m.infos[m.active]; ok {
-			leftContent = renderMemory(info.Agent)
+			chatContent = renderMemory(info.Agent)
 		}
 	}
 	if m.err != nil {
-		leftContent += "\nERR: " + m.err.Error()
+		chatContent += "\nERR: " + m.err.Error()
 	}
+	
 	base := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.theme.Palette.Foreground))
-	left := base.Copy().Width(int(float64(m.width) * 0.75)).Render(leftContent)
+	
+	// Create top section with chat (left) and agents (right)
+	left := base.Copy().Width(int(float64(m.width) * 0.75)).Render(chatContent)
 	right := base.Copy().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
-	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+	topSection := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+	
+	// Add full-width horizontal line
+	horizontalLine := strings.Repeat("─", m.width)
+	if m.width < 0 {
+		horizontalLine = ""
+	}
+	
+	// Add full-width input
+	inputSection := base.Copy().Width(m.width).Render(m.input.View())
+	
+	// Stack everything vertically
+	content := lipgloss.JoinVertical(lipgloss.Left, topSection, horizontalLine, inputSection)
 
 	tokens := 0
 	costVal := 0.0
@@ -354,5 +364,5 @@ func (m Model) View() string {
 	}
 	footer := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.infos), tokens, costVal)
 	footer = base.Copy().Width(m.width).Render(footer)
-	return lipgloss.JoinVertical(lipgloss.Left, main, footer)
+	return lipgloss.JoinVertical(lipgloss.Left, content, footer)
 }
