@@ -197,6 +197,59 @@ To run all tests:
 
 ---
 
+---
+
+## 🎯 Advanced File Operations
+
+Agentry includes VS Code-level file editing capabilities through advanced builtin tools that provide atomic, line-precise, and cross-platform file operations:
+
+### ✅ Available File Operation Tools
+
+- **`read_lines`** - Read specific lines from files with line-precise access
+- **`edit_range`** - Replace a range of lines atomically (no shell commands needed)
+- **`insert_at`** - Insert lines at specific positions with atomic writes
+- **`search_replace`** - Advanced search and replace with regex support
+- **`get_file_info`** - Comprehensive file analysis (size, lines, encoding, type detection)
+- **`view_file`** - Enhanced file viewing with line numbers and syntax awareness
+- **`create_file`** - Create new files with built-in overwrite protection
+
+### 🔧 Technical Features
+
+- **Atomic Operations**: All edits use temporary files and atomic moves
+- **Cross-Platform**: Pure Go implementation, no shell dependencies
+- **Line-Precise**: Edit specific lines without affecting the rest of the file
+- **Safety First**: Built-in overwrite protection and file modification tracking
+- **JSON Results**: All tools return structured JSON with operation metadata
+
+### 📖 Usage Example
+
+```yaml
+tools:
+  - name: read_lines
+    type: builtin
+  - name: edit_range
+    type: builtin
+  - name: search_replace
+    type: builtin
+```
+
+Agents can use these tools for sophisticated code editing:
+
+```bash
+# Read lines 10-20 from a Go file
+agentry call read_lines '{"path": "main.go", "start_line": 10, "end_line": 20}'
+
+# Atomically replace lines 15-17 with new implementation
+agentry call edit_range '{"path": "main.go", "start_line": 15, "end_line": 17, "content": "// New code here"}'
+
+# Use regex to refactor function calls across a file
+agentry call search_replace '{"path": "main.go", "search": "fmt\\.Println\\(([^)]+)\\)", "replace": "log.Println($1)", "regex": true}'
+```
+
+These tools make Agentry's code editing capabilities comparable to VS Code, enabling agents to perform precise, professional-grade file modifications.
+
+---
+
 ## Contribution Guidelines
 
 - To propose a new agent or entrypoint, open an issue or pull request.

@@ -40,6 +40,11 @@ type activityTickMsg struct{}
 
 type errMsg struct{ error }
 
+type agentCompleteMsg struct {
+	id     uuid.UUID
+	result string
+}
+
 type finalMsg struct {
 	id   uuid.UUID
 	text string
@@ -160,6 +165,13 @@ func waitErr(ch <-chan error) tea.Cmd {
 			return errMsg{err}
 		}
 		return nil
+	}
+}
+
+func waitComplete(id uuid.UUID, ch <-chan string) tea.Cmd {
+	return func() tea.Msg {
+		result := <-ch
+		return agentCompleteMsg{id: id, result: result}
 	}
 }
 

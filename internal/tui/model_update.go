@@ -220,6 +220,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			info.Status = StatusError
 			m.infos[m.active] = info
 		}
+	case agentCompleteMsg:
+		info := m.infos[msg.id]
+		info.Status = StatusIdle
+		// Display the final agent response
+		if msg.result != "" {
+			info.History += fmt.Sprintf("\n%s %s", m.aiBar(), msg.result)
+			if msg.id == m.active {
+				base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+				m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+				m.vp.GotoBottom()
+			}
+		}
+		m.infos[msg.id] = info
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height

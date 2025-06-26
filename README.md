@@ -191,9 +191,83 @@ tools:
     type: builtin
 ```
 
+### 🎯 Advanced File Operations
+
+Agentry includes VS Code-level file editing capabilities with atomic, line-precise operations:
+
+```yaml
+tools:
+  - name: read_lines # 📖 read specific lines from files with line-precise access
+    type: builtin
+  - name: edit_range # ✏️ replace a range of lines atomically
+    type: builtin
+  - name: insert_at # ➕ insert lines at specific positions
+    type: builtin
+  - name: search_replace # 🔍 search and replace with regex support
+    type: builtin
+  - name: get_file_info # ℹ️ get comprehensive file information
+    type: builtin
+  - name: view_file # 👀 enhanced file viewing with line numbers
+    type: builtin
+  - name: create_file # 📝 create new files with content
+    type: builtin
+```
+
+#### Example Usage
+
+**Reading specific lines:**
+```json
+{
+  "tool": "read_lines",
+  "args": {
+    "path": "src/main.go",
+    "start_line": 10,
+    "end_line": 20
+  }
+}
+```
+
+**Atomic line range editing:**
+```json
+{
+  "tool": "edit_range", 
+  "args": {
+    "path": "src/main.go",
+    "start_line": 15,
+    "end_line": 17,
+    "content": "// New implementation\nfunc main() {\n    fmt.Println(\"Hello World\")"
+  }
+}
+```
+
+**Regex search and replace:**
+```json
+{
+  "tool": "search_replace",
+  "args": {
+    "path": "src/main.go",
+    "search": "fmt\\.Println\\(([^)]+)\\)",
+    "replace": "log.Println($1)",
+    "regex": true
+  }
+}
+```
+
+### File Operation Strategy
+
+Modern file operations use Agentry's advanced built-in tools rather than shell commands:
+
+- **Read files**: Use `view_file` or `read_lines` for precise, efficient access
+- **Edit files**: Use `edit_range` and `insert_at` for atomic, line-precise edits  
+- **Create files**: Use `create_file` with built-in overwrite protection
+- **Analyze files**: Use `get_file_info` for size, lines, encoding, and type detection
+- **Search/replace**: Use `search_replace` with regex support for complex transformations
+
+These tools provide cross-platform compatibility, atomic operations, and line-precise editing that rivals VS Code's capabilities.
+
 The shell tools are **OS-specific**: on Windows you get `powershell` and `cmd`, on Unix systems you get `bash` and `sh`. This provides maximum power and flexibility - agents can execute any command the underlying shell supports.
 
-Common operations are handled through shell commands:
+**Legacy shell-based file operations** (still supported but discouraged):
 
 - **List files**: `powershell {"command": "Get-ChildItem *.go"}` or `bash {"command": "ls -la *.go"}`
 - **Read files**: `powershell {"command": "Get-Content README.md"}` or `bash {"command": "cat README.md"}`

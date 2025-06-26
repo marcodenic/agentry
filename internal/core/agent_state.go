@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/marcodenic/agentry/internal/model"
 
 	"github.com/marcodenic/agentry/internal/memory"
@@ -83,7 +84,7 @@ func BuildMessages(prompt string, vars map[string]string, hist []memory.Step, in
 	}
 
 	// Inject platform-specific guidance
-	prompt = InjectPlatformContext(prompt)
+	prompt = InjectPlatformContextLegacy(prompt)
 
 	prompt = applyVars(prompt, vars)
 	msgs := []model.ChatMessage{{Role: "system", Content: prompt}}

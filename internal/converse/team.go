@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
@@ -43,9 +44,12 @@ type Team struct {
 
 // RoleConfig represents a role configuration from YAML
 type RoleConfig struct {
-	Name   string   `yaml:"name"`
-	Prompt string   `yaml:"prompt"`
-	Tools  []string `yaml:"tools,omitempty"`
+	Name        string   `yaml:"name"`
+	Prompt      string   `yaml:"prompt"`
+	Tools       []string `yaml:"tools,omitempty"`       // Legacy support
+	Commands    []string `yaml:"commands,omitempty"`    // New semantic commands
+	Builtins    []string `yaml:"builtins,omitempty"`    // Allowed builtin tools
+	Personality string   `yaml:"personality,omitempty"` // For template substitution
 }
 
 // loadRoleConfig loads a complete role configuration from the templates/roles directory
@@ -223,13 +227,40 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	
 	// Load role-specific configuration for the named agent
 	if roleConfig, err := loadRoleConfig(name); err == nil {
-		ag.Prompt = roleConfig.Prompt
+		// Apply template substitution if personality is provided
+		prompt := roleConfig.Prompt
+		if roleConfig.Personality != "" {
+			prompt = strings.ReplaceAll(prompt, "{{personality}}", roleConfig.Personality)
+		}
 		
-		// Create filtered tool registry based on role config
-		if len(roleConfig.Tools) > 0 {
+		// Determine which command and builtin lists to use
+		var allowedCommands []string
+		var allowedBuiltins []string
+		
+		// Use new semantic commands if available, otherwise fall back to legacy tools
+		if len(roleConfig.Commands) > 0 {
+			allowedCommands = roleConfig.Commands
+		} else if len(roleConfig.Tools) > 0 {
+			// Legacy support: map old tool names to semantic commands
+			allowedCommands = mapLegacyToolsToCommands(roleConfig.Tools)
+		}
+		
+		if len(roleConfig.Builtins) > 0 {
+			allowedBuiltins = roleConfig.Builtins
+		}
+		
+		// Inject platform-specific guidance with filtered commands
+		if len(allowedCommands) > 0 || len(allowedBuiltins) > 0 {
+			ag.Prompt = core.InjectPlatformContext(prompt, allowedCommands, allowedBuiltins)
+		} else {
+			ag.Prompt = prompt
+		}
+		
+		// Create filtered tool registry based on builtins (if specified)
+		if len(allowedBuiltins) > 0 {
 			filteredTools := make(tool.Registry)
 			
-			for _, toolName := range roleConfig.Tools {
+			for _, toolName := range allowedBuiltins {
 				if t, ok := t.parent.Tools.Use(toolName); ok {
 					filteredTools[toolName] = t
 				}
@@ -237,6 +268,7 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 			
 			ag.Tools = filteredTools
 		}
+		// If no builtins specified, inherit all tools from parent
 	}
 	// If loading fails, keep the inherited prompt and tools as fallback
 	
@@ -247,4 +279,39 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	t.names = append(t.names, name)
 	t.agentsByName[name] = ag
 	return ag, name
+}
+
+// mapLegacyToolsToCommands converts old tool names to semantic commands for backward compatibility
+func mapLegacyToolsToCommands(legacyTools []string) []string {
+	toolMap := map[string][]string{
+		"bash":       {"run", "list", "view", "write", "search", "find", "cwd", "env"},
+		"powershell": {"run", "list", "view", "write", "search", "find", "cwd", "env"},
+		"cmd":        {"run", "list", "view", "write", "search", "find", "cwd", "env"},
+		"sh":         {"run", "list", "view", "write", "search", "find", "cwd", "env"},
+		"ls":         {"list"},
+		"view":       {"view"},
+		"read":       {"view"},
+		"write":      {"write"},
+		"edit":       {"write"},
+		"patch":      {"write"},
+		"grep":       {"search"},
+		"find":       {"find"},
+		"fetch":      {}, // fetch is a builtin, not a semantic command
+	}
+	
+	commandSet := make(map[string]bool)
+	for _, tool := range legacyTools {
+		if commands, exists := toolMap[tool]; exists {
+			for _, cmd := range commands {
+				commandSet[cmd] = true
+			}
+		}
+	}
+	
+	var result []string
+	for cmd := range commandSet {
+		result = append(result, cmd)
+	}
+	
+	return result
 }

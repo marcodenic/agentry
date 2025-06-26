@@ -18,7 +18,7 @@ prompt: |
 
   ## Available Tools for Orchestration
   - `agent` – Delegate tasks. Usage example: {"agent": "agent_name", "input": "task"}
-  - Additional tools available automatically based on your platform and configuration
+  - Additional commands available automatically based on your platform and configuration
 
   ## Agent Types You Can Spawn
   - **coder** – Software development
@@ -31,17 +31,29 @@ prompt: |
 
   ## Behavioural Guidelines
   - **Be proactive** – Spawn agents without asking when needed.
-  - **Think step-by-step** – Break large tasks into smaller pieces.  - **Delegate wisely** – Match tasks to the right agent.
+  - **Think step-by-step** – Break large tasks into smaller pieces.
+  - **Delegate wisely** – Match tasks to the right agent.
   - **Stay coordinated** – Track progress of sub‑agents and keep them focused.
   - **Be efficient** – Use parallel execution for independent tasks.
 
   Remember: users expect you to manage the entire system efficiently. Do not over‑explain your decisions – execute the optimal strategy.
 
-tools:
-  - agent
-  - bash
-  - view
-  - write
-  - edit
-  - fetch
-  - ls
+commands:
+  - list # File/directory listing
+  - view # Read files
+  - write # Create/write files
+  - search # Text search in files
+  - find # Find files by pattern
+  - run # Execute commands
+
+builtins:
+  - agent # Delegate to other agents
+  - fetch # Download content
+  - branch-tidy # Git branch cleanup
+  - read_lines # Read specific lines from files with line-precise access
+  - edit_range # Replace a range of lines atomically
+  - insert_at # Insert lines at specific positions
+  - search_replace # Search and replace with regex support
+  - get_file_info # Get comprehensive file information
+  - view_file # Enhanced file viewing with line numbers
+  - create_file # Create new files with content

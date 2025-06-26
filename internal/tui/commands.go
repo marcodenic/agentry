@@ -29,6 +29,7 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 
 	pr, pw := io.Pipe()
 	errCh := make(chan error, 1)
+	completeCh := make(chan string, 1)
 	tracer := trace.NewJSONL(pw)
 	if info.Agent.Tracer != nil {
 		info.Agent.Tracer = trace.NewMulti(info.Agent.Tracer, tracer)
@@ -41,12 +42,16 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	info.Cancel = cancel
 	m.infos[id] = info
 	go func() {
-		_, err := info.Agent.Run(ctx, input)
+		result, err := info.Agent.Run(ctx, input)
 		pw.Close()
-		errCh <- err
+		if err != nil {
+			errCh <- err
+		} else {
+			completeCh <- result
+		}
 	}()
 	m.infos[id] = info
-	return m, tea.Batch(m.readCmd(id), waitErr(errCh), info.Spinner.Tick)
+	return m, tea.Batch(m.readCmd(id), waitErr(errCh), waitComplete(id, completeCh), info.Spinner.Tick)
 }
 
 // handleCommand parses a slash command and dispatches to the appropriate handler.
