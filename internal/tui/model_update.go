@@ -71,8 +71,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.infos[msg.id] = info // Save the updated info back to the map
 	case finalMsg:
 		info := m.infos[msg.id]
-		// Add the AI bar prefix before streaming the response
-		info.History += m.aiBar() + " "
+		// Clear any thinking animation spinner character
+		if len(info.History) > 0 && (strings.HasSuffix(info.History, "|") || 
+		   strings.HasSuffix(info.History, "/") || 
+		   strings.HasSuffix(info.History, "-") || 
+		   strings.HasSuffix(info.History, "\\")) {
+			// Remove the last spinner character
+			info.History = info.History[:len(info.History)-1]
+		}
+		
 		if msg.id == m.active {
 			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
 			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
@@ -89,16 +96,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Show completion message
 		completionText := m.formatToolCompletion(msg.name, msg.args)
 		info.History += fmt.Sprintf("\n%s %s", m.statusBar(), completionText)
-		if msg.id == m.active {
-			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
-			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
-			m.vp.GotoBottom()
-		}
-		m.infos[msg.id] = info
-		return m, m.readCmd(msg.id)
-	case thinkingMsg:
-		info := m.infos[msg.id]
-		info.History += fmt.Sprintf("\n%s %s", m.thinkingBar(), msg.text)
 		if msg.id == m.active {
 			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
 			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
@@ -237,6 +234,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.vp.GotoBottom()
 		}
 		m.infos[msg.id] = info
+	case thinkingAnimationMsg:
+		info := m.infos[msg.id]
+		if info.Status == StatusRunning {
+			// ASCII spinner frames
+			frames := []string{"|", "/", "-", "\\"}
+			
+			// Replace the last character with the new spinner frame
+			if len(info.History) > 0 && (strings.HasSuffix(info.History, "|") || 
+			   strings.HasSuffix(info.History, "/") || 
+			   strings.HasSuffix(info.History, "-") || 
+			   strings.HasSuffix(info.History, "\\")) {
+				// Remove the last spinner character
+				info.History = info.History[:len(info.History)-1]
+			}
+			// Add the new spinner frame
+			info.History += frames[msg.frame]
+			
+			if msg.id == m.active {
+				base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+				m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+				m.vp.GotoBottom()
+			}
+			m.infos[msg.id] = info
+			// Continue the animation if still running
+			return m, startThinkingAnimation(msg.id)
+		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height

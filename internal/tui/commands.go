@@ -22,9 +22,14 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	info.Spinner = spinner.New()
 	info.Spinner.Spinner = spinner.Line
 	info.Spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
+	
+	// Add user input and immediately show thinking animation for responsive UX
 	info.History += m.userBar() + " " + input + "\n"
+	info.History += m.aiBar() + " " // Add AI bar immediately
+	
 	base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
 	m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+	m.vp.GotoBottom()
 
 	pr, pw := io.Pipe()
 	errCh := make(chan error, 1)
@@ -50,7 +55,7 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 		}
 	}()
 	m.infos[id] = info
-	return m, tea.Batch(m.readCmd(id), waitErr(errCh), waitComplete(id, completeCh), info.Spinner.Tick)
+	return m, tea.Batch(m.readCmd(id), waitErr(errCh), waitComplete(id, completeCh), info.Spinner.Tick, startThinkingAnimation(id))
 }
 
 // handleCommand parses a slash command and dispatches to the appropriate handler.

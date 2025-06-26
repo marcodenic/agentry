@@ -26,6 +26,11 @@ type thinkingMsg struct {
 	text string
 }
 
+type thinkingAnimationMsg struct {
+	id    uuid.UUID
+	frame int
+}
+
 type actionMsg struct {
 	id   uuid.UUID
 	text string
@@ -49,6 +54,9 @@ type finalMsg struct {
 	id   uuid.UUID
 	text string
 }
+
+// ASCII spinner frames for thinking animation
+var spinnerFrames = []string{"|", "/", "-", "\\"}
 
 func streamTokens(id uuid.UUID, out string) tea.Cmd {
 	runes := []rune(out)
@@ -87,8 +95,8 @@ func (m *Model) readEvent(id uuid.UUID) tea.Msg {
 				return modelMsg{id: id, name: name}
 			}
 		case trace.EventStepStart:
-			// Show thinking indicator when agent starts reasoning
-			return thinkingMsg{id: id, text: "Thinking..."}
+			// Skip - thinking animation is handled immediately when user sends input
+			continue
 		case trace.EventToolStart:
 			if m2, ok := ev.Data.(map[string]any); ok {
 				if name, ok := m2["name"].(string); ok {
@@ -179,5 +187,13 @@ func (m Model) Init() tea.Cmd {
 	// Start the activity chart ticker (update every second)
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
 		return activityTickMsg{}
+	})
+}
+
+// startThinkingAnimation generates a thinking animation command
+func startThinkingAnimation(id uuid.UUID) tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
+		frame := int(t.UnixMilli()/100) % len(spinnerFrames)
+		return thinkingAnimationMsg{id: id, frame: frame}
 	})
 }
