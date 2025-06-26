@@ -32,6 +32,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeTab = 1 - m.activeTab
 		case m.keys.Submit:
 			if m.input.Focused() {
+				// Check if the active agent is idle before accepting new input
+				if info, ok := m.infos[m.active]; ok && info.Status != StatusIdle {
+					// Agent is busy, ignore input
+					return m, nil
+				}
+				
 				txt := m.input.Value()
 				m.input.SetValue("")
 				if strings.HasPrefix(txt, "/") {
@@ -45,6 +51,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tokenMsg:
 		// ENABLED: Real-time token streaming for smooth UX
 		info := m.infos[msg.id]
+		
+		// Stop thinking animation on first token
+		if !info.TokensStarted {
+			info.TokensStarted = true
+			// Clear thinking animation spinner on first token (same-line streaming)
+			if len(info.History) > 0 {
+				// Check if the last character is a spinner character
+				lastChar := info.History[len(info.History)-1:]
+				if lastChar == "|" || lastChar == "/" || lastChar == "-" || lastChar == "\\" {
+					// Remove the spinner character and add space before response
+					info.History = info.History[:len(info.History)-1] + " "
+				}
+			}
+		}
+		
+		// Stream the token directly
 		info.History += msg.token
 		info.TokenCount++
 		info.CurrentActivity++ // Just increment counter, let activityTickMsg handle data points
@@ -69,16 +91,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		info.LastToken = now
 		m.infos[msg.id] = info // Save the updated info back to the map
+		
+		// Continue reading trace stream for more events (including EventFinal)
+		return m, m.readCmd(msg.id)
 	case finalMsg:
 		info := m.infos[msg.id]
-		// Clear any thinking animation spinner character
-		if len(info.History) > 0 && (strings.HasSuffix(info.History, "|") || 
-		   strings.HasSuffix(info.History, "/") || 
-		   strings.HasSuffix(info.History, "-") || 
-		   strings.HasSuffix(info.History, "\\")) {
-			// Remove the last spinner character
-			info.History = info.History[:len(info.History)-1]
-		}
+		// The response has already been streamed via tokenMsg events
+		// Set status to idle and add newline - this is the authoritative completion
+		info.Status = StatusIdle
+		info.History += "\n"
 		
 		if msg.id == m.active {
 			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
@@ -86,10 +107,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.vp.GotoBottom()
 		}
 		m.infos[msg.id] = info
-		// Stream the response text for smooth UX, then set status to idle when complete
-		return m, tea.Batch(streamTokens(msg.id, msg.text), tea.Tick(time.Duration(len([]rune(msg.text))*30)*time.Millisecond+100*time.Millisecond, func(t time.Time) tea.Msg {
-			return agentCompleteMsg{id: msg.id, result: msg.text}
-		}))
+		return m, nil
 	case toolUseMsg:
 		info := m.infos[msg.id]
 		info.CurrentTool = msg.name
@@ -153,6 +171,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						CurrentActivity: 0,
 						LastActivity:    time.Time{},
 						TokenHistory:    []int{},
+						TokensStarted:   false,
 					}
 					m.infos[agent.ID] = info
 					m.order = append(m.order, agent.ID)
@@ -224,42 +243,47 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.infos[m.active] = info
 		}
 	case agentCompleteMsg:
+		// finalMsg already handled completion - this is just cleanup
 		info := m.infos[msg.id]
-		info.Status = StatusIdle
-		// Add a newline to properly end the streamed response
-		info.History += "\n"
+		if info.Status != StatusIdle {
+			info.Status = StatusIdle
+			m.infos[msg.id] = info
+		}
+	case thinkingAnimationMsg:
+		info := m.infos[msg.id]
+		// Stop thinking animation if tokens have started or agent is not running
+		if info.Status != StatusRunning || info.TokensStarted {
+			return m, nil
+		}
+		
+		// ASCII spinner frames
+		frames := []string{"|", "/", "-", "\\"}
+		
+		// Check if we need to replace an existing spinner or this is the first spinner
+		if len(info.History) > 0 {
+			lastChar := info.History[len(info.History)-1:]
+			if lastChar == "|" || lastChar == "/" || lastChar == "-" || lastChar == "\\" {
+				// Replace the existing spinner character
+				info.History = info.History[:len(info.History)-1]
+			} else if lastChar == " " && strings.HasSuffix(info.History, " ") {
+				// This is the first spinner - replace the trailing space after AI bar
+				// Check if this looks like an AI bar line (ends with space after non-space)
+				if len(info.History) >= 2 && info.History[len(info.History)-2] != ' ' {
+					info.History = info.History[:len(info.History)-1] // Remove the space
+				}
+			}
+		}
+		// Add the new spinner frame
+		info.History += frames[msg.frame]
+		
 		if msg.id == m.active {
 			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
 			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 			m.vp.GotoBottom()
 		}
 		m.infos[msg.id] = info
-	case thinkingAnimationMsg:
-		info := m.infos[msg.id]
-		if info.Status == StatusRunning {
-			// ASCII spinner frames
-			frames := []string{"|", "/", "-", "\\"}
-			
-			// Replace the last character with the new spinner frame
-			if len(info.History) > 0 && (strings.HasSuffix(info.History, "|") || 
-			   strings.HasSuffix(info.History, "/") || 
-			   strings.HasSuffix(info.History, "-") || 
-			   strings.HasSuffix(info.History, "\\")) {
-				// Remove the last spinner character
-				info.History = info.History[:len(info.History)-1]
-			}
-			// Add the new spinner frame
-			info.History += frames[msg.frame]
-			
-			if msg.id == m.active {
-				base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
-				m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
-				m.vp.GotoBottom()
-			}
-			m.infos[msg.id] = info
-			// Continue the animation if still running
-			return m, startThinkingAnimation(msg.id)
-		}
+		// Continue the animation if still running and no tokens have started
+		return m, startThinkingAnimation(msg.id)
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height

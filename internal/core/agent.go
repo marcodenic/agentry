@@ -104,6 +104,16 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		if len(res.ToolCalls) == 0 {
 			a.Mem.AddStep(step)
 			_ = a.Checkpoint(ctx)
+			
+			// Emit token events for streaming effect (simulate real-time streaming)
+			// TODO: Replace with actual streaming from model API
+			words := strings.Fields(res.Content)
+			for _, word := range words {
+				a.Trace(ctx, trace.EventToken, word+" ")
+				// Small delay to simulate real streaming
+				time.Sleep(50 * time.Millisecond)
+			}
+			
 			a.Trace(ctx, trace.EventFinal, res.Content)
 			return res.Content, nil
 		}

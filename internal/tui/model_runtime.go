@@ -86,6 +86,10 @@ func (m *Model) readEvent(id uuid.UUID) tea.Msg {
 			return errMsg{err}
 		}
 		switch ev.Type {
+		case trace.EventToken:
+			if s, ok := ev.Data.(string); ok {
+				return tokenMsg{id: id, token: s}
+			}
 		case trace.EventFinal:
 			if s, ok := ev.Data.(string); ok {
 				return finalMsg{id: id, text: s}

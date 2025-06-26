@@ -1,0 +1,7 @@
+agents:
+  - name: test-agent
+    llm:
+      provider: openai
+      model: gpt-4o-mini
+      temperature: 0.1
+    tools: []

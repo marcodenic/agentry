@@ -71,6 +71,7 @@ type AgentInfo struct {
 	Spinner         spinner.Model
 	Name            string
 	Role            string // Agent role for display (e.g., "System", "Research", "DevOps")
+	TokensStarted   bool   // Flag to stop thinking animation when tokens start
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -118,6 +119,7 @@ func New(ag *core.Agent) Model {
 		LastActivity:    time.Time{}, // Start with zero time so first tick will initialize properly
 		// Initialize with empty activity for real-time chart
 		TokenHistory: []int{},
+		TokensStarted: false,
 	}
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 

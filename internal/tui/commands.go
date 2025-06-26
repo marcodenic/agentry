@@ -19,13 +19,15 @@ import (
 func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	info := m.infos[id]
 	info.Status = StatusRunning
+	info.TokenCount = 0 // Reset token count for new conversation
+	info.TokensStarted = false // Reset tokens started flag
 	info.Spinner = spinner.New()
 	info.Spinner.Spinner = spinner.Line
 	info.Spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
 	
 	// Add user input and immediately show thinking animation for responsive UX
 	info.History += m.userBar() + " " + input + "\n"
-	info.History += m.aiBar() + " " // Add AI bar immediately
+	info.History += m.aiBar() + " " // Add AI bar with space for content
 	
 	base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
 	m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
@@ -55,7 +57,7 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 		}
 	}()
 	m.infos[id] = info
-	return m, tea.Batch(m.readCmd(id), waitErr(errCh), waitComplete(id, completeCh), info.Spinner.Tick, startThinkingAnimation(id))
+	return m, tea.Batch(m.readCmd(id), waitErr(errCh), waitComplete(id, completeCh), startThinkingAnimation(id))
 }
 
 // handleCommand parses a slash command and dispatches to the appropriate handler.
@@ -104,6 +106,7 @@ func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 		CurrentActivity: 0,
 		LastActivity:    time.Time{},
 		TokenHistory:    []int{},
+		TokensStarted:   false,
 	}
 	m.infos[ag.ID] = info
 	m.order = append(m.order, ag.ID)
