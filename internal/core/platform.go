@@ -5,68 +5,61 @@ import (
 	"strings"
 )
 
-// GetPlatformContext returns OS-specific guidance for agents with filtered commands
+// GetPlatformContext returns OS-specific guidance for agents with tiered tool hierarchy
 func GetPlatformContext(allowedCommands []string, allowedBuiltins []string) string {
-	// Define command mappings for each OS
-	var commandMap map[string]string
 	var platformInfo string
 	
 	switch runtime.GOOS {
 	case "windows":
-		platformInfo = "PLATFORM: Windows with PowerShell\nSHELL TOOLS: powershell, cmd"
-		commandMap = map[string]string{
-			"list":   `List files: powershell {"command": "Get-ChildItem -Name '*.go'"}`,
-			"view":   `View file: powershell {"command": "Get-Content README.md"}`,
-			"write":  `Write file: powershell {"command": "Set-Content -Path test.txt -Value 'hello'"}`,
-			"run":    `Run command: powershell {"command": "go test ./..."}`,
-			"search": `Search text: powershell {"command": "Select-String -Pattern 'TODO' -Path *.go"}`,
-			"find":   `Find files: powershell {"command": "Get-ChildItem -Recurse -Name '*.txt'"}`,
-			"cwd":    `Current dir: powershell {"command": "Get-Location"}`,
-			"env":    `Environment: powershell {"command": "$env:PATH"}`,
-		}
+		platformInfo = "PLATFORM: Windows with PowerShell"
 	case "darwin":
-		platformInfo = "PLATFORM: macOS with Unix shell\nSHELL TOOLS: bash, sh"
-		commandMap = map[string]string{
-			"list":   `List files: bash {"command": "ls -la *.go"}`,
-			"view":   `View file: bash {"command": "cat README.md"}`,
-			"write":  `Write file: bash {"command": "echo 'hello' > test.txt"}`,
-			"run":    `Run command: bash {"command": "go test ./..."}`,
-			"search": `Search text: bash {"command": "grep 'TODO' *.go"}`,
-			"find":   `Find files: bash {"command": "find . -name '*.txt'"}`,
-			"cwd":    `Current dir: bash {"command": "pwd"}`,
-			"env":    `Environment: bash {"command": "echo $PATH"}`,
-		}
+		platformInfo = "PLATFORM: macOS with Unix shell"
 	case "linux":
-		platformInfo = "PLATFORM: Linux with Unix shell\nSHELL TOOLS: bash, sh"
-		commandMap = map[string]string{
-			"list":   `List files: bash {"command": "ls -la *.go"}`,
-			"view":   `View file: bash {"command": "cat README.md"}`,
-			"write":  `Write file: bash {"command": "echo 'hello' > test.txt"}`,
-			"run":    `Run command: bash {"command": "go test ./..."}`,
-			"search": `Search text: bash {"command": "grep 'TODO' *.go"}`,
-			"find":   `Find files: bash {"command": "find . -name '*.txt'"}`,
-			"cwd":    `Current dir: bash {"command": "pwd"}`,
-			"env":    `Environment: bash {"command": "echo $PATH"}`,
-		}
+		platformInfo = "PLATFORM: Linux with Unix shell"
 	default:
-		platformInfo = "PLATFORM: Unknown OS\nSHELL TOOLS: Use fetch, agent, ping, echo tools when possible"
-		commandMap = map[string]string{
-			"list":   `List files: Use platform-specific listing command`,
-			"view":   `View file: Use platform-specific file reading command`,
-			"write":  `Write file: Use platform-specific file writing command`,
-			"run":    `Run command: Use platform-specific execution command`,
-			"search": `Search text: Use platform-specific text search command`,
-			"find":   `Find files: Use platform-specific file finding command`,
-			"cwd":    `Current dir: Use platform-specific directory command`,
-			"env":    `Environment: Use platform-specific environment command`,
+		platformInfo = "PLATFORM: Unknown OS"
+	}
+	
+	result := platformInfo + "\n\n"
+	
+	// Tier 1: Enterprise-grade builtin tools (PREFERRED)
+	if len(allowedBuiltins) > 0 {
+		fileOpsTools := getFileOperationTools(allowedBuiltins)
+		webTools := getWebTools(allowedBuiltins)
+		otherTools := getOtherBuiltinTools(allowedBuiltins)
+		
+		if len(fileOpsTools) > 0 || len(webTools) > 0 || len(otherTools) > 0 {
+			result += "🎯 PREFERRED TOOLS (use these first):\n"
+			
+			if len(fileOpsTools) > 0 {
+				result += "\n📁 File Operations (enterprise-grade, atomic, cross-platform):\n"
+				for _, tool := range fileOpsTools {
+					result += "- " + tool + ": " + getBuiltinDescription(tool) + "\n"
+				}
+			}
+			
+			if len(webTools) > 0 {
+				result += "\n🌐 Web & Network Operations:\n"
+				for _, tool := range webTools {
+					result += "- " + tool + ": " + getBuiltinDescription(tool) + "\n"
+				}
+			}
+			
+			if len(otherTools) > 0 {
+				result += "\n🔧 Other Tools:\n"
+				for _, tool := range otherTools {
+					result += "- " + tool + ": " + getBuiltinDescription(tool) + "\n"
+				}
+			}
+			
+			result += "\n"
 		}
 	}
 	
-	result := platformInfo + "\n"
-	
-	// Add allowed commands section
+	// Tier 2: Shell commands (FALLBACK)
 	if len(allowedCommands) > 0 {
-		result += "\nALLOWED COMMANDS:\n"
+		result += "⚙️ SYSTEM COMMANDS (for system operations and special cases):\n"
+		commandMap := getCommandMap()
 		for _, cmd := range allowedCommands {
 			if cmdExample, exists := commandMap[cmd]; exists {
 				result += "- " + cmdExample + "\n"
@@ -74,15 +67,122 @@ func GetPlatformContext(allowedCommands []string, allowedBuiltins []string) stri
 		}
 	}
 	
-	// Add builtin tools section
-	if len(allowedBuiltins) > 0 {
-		result += "\nBUILTIN TOOLS:\n"
-		for _, builtin := range allowedBuiltins {
-			result += "- " + builtin + "\n"
+	return result
+}
+
+// getFileOperationTools returns file operation builtins
+func getFileOperationTools(allowedBuiltins []string) []string {
+	fileOps := []string{"read_lines", "edit_range", "insert_at", "search_replace", "get_file_info", "view_file", "create_file"}
+	var result []string
+	for _, tool := range fileOps {
+		if contains(allowedBuiltins, tool) {
+			result = append(result, tool)
 		}
 	}
-	
 	return result
+}
+
+// getWebTools returns web-related builtins
+func getWebTools(allowedBuiltins []string) []string {
+	webOps := []string{"web_search", "read_webpage", "api_request", "download_file", "fetch"}
+	var result []string
+	for _, tool := range webOps {
+		if contains(allowedBuiltins, tool) {
+			result = append(result, tool)
+		}
+	}
+	return result
+}
+
+// getOtherBuiltinTools returns other builtin tools
+func getOtherBuiltinTools(allowedBuiltins []string) []string {
+	fileOps := []string{"read_lines", "edit_range", "insert_at", "search_replace", "get_file_info", "view_file", "create_file"}
+	webOps := []string{"web_search", "read_webpage", "api_request", "download_file", "fetch"}
+	var result []string
+	
+	for _, tool := range allowedBuiltins {
+		if !contains(fileOps, tool) && !contains(webOps, tool) {
+			result = append(result, tool)
+		}
+	}
+	return result
+}
+
+// getBuiltinDescription returns a description for builtin tools
+func getBuiltinDescription(tool string) string {
+	descriptions := map[string]string{
+		"read_lines":     "Read specific lines with line-precise access",
+		"edit_range":     "Replace line ranges atomically",
+		"insert_at":      "Insert lines at specific positions",
+		"search_replace": "Advanced search/replace with regex",
+		"get_file_info":  "Comprehensive file analysis",
+		"view_file":      "Enhanced file viewing with line numbers",
+		"create_file":    "Create files with overwrite protection",
+		"web_search":     "Search the web for information",
+		"read_webpage":   "Extract content from web pages",
+		"api_request":    "Make HTTP/REST API calls",
+		"download_file":  "Download files from URLs",
+		"fetch":          "Download content from URLs",
+		"agent":          "Delegate tasks to specialized agents",
+		"patch":          "Apply unified diff patches",
+		"echo":           "Repeat/output text",
+		"ping":           "Test network connectivity",
+		"branch-tidy":    "Clean up Git branches",
+		"mcp":            "Connect to MCP servers",
+	}
+	if desc, exists := descriptions[tool]; exists {
+		return desc
+	}
+	return "Advanced tool"
+}
+
+// getCommandMap returns OS-specific command examples
+func getCommandMap() map[string]string {
+	switch runtime.GOOS {
+	case "windows":
+		return map[string]string{
+			"list":   `List files: powershell {"command": "Get-ChildItem -Name '*.go'"}`,
+			"view":   `View file: powershell {"command": "Get-Content README.md"} (prefer view_file builtin)`,
+			"write":  `Write file: powershell {"command": "Set-Content -Path test.txt -Value 'hello'"} (prefer create_file builtin)`,
+			"run":    `Run command: powershell {"command": "go test ./..."}`,
+			"search": `Search text: powershell {"command": "Select-String -Pattern 'TODO' -Path *.go"} (prefer search_replace builtin)`,
+			"find":   `Find files: powershell {"command": "Get-ChildItem -Recurse -Name '*.txt'"}`,
+			"cwd":    `Current dir: powershell {"command": "Get-Location"}`,
+			"env":    `Environment: powershell {"command": "$env:PATH"}`,
+		}
+	case "darwin", "linux":
+		return map[string]string{
+			"list":   `List files: bash {"command": "ls -la *.go"}`,
+			"view":   `View file: bash {"command": "cat README.md"} (prefer view_file builtin)`,
+			"write":  `Write file: bash {"command": "echo 'hello' > test.txt"} (prefer create_file builtin)`,
+			"run":    `Run command: bash {"command": "go test ./..."}`,
+			"search": `Search text: bash {"command": "grep 'TODO' *.go"} (prefer search_replace builtin)`,
+			"find":   `Find files: bash {"command": "find . -name '*.txt'"}`,
+			"cwd":    `Current dir: bash {"command": "pwd"}`,
+			"env":    `Environment: bash {"command": "echo $PATH"}`,
+		}
+	default:
+		return map[string]string{
+			"list":   `List files: Use platform-specific listing command`,
+			"view":   `View file: Use view_file builtin (preferred)`,
+			"write":  `Write file: Use create_file builtin (preferred)`,
+			"run":    `Run command: Use platform-specific execution command`,
+			"search": `Search text: Use search_replace builtin (preferred)`,
+			"find":   `Find files: Use platform-specific file finding command`,
+			"cwd":    `Current dir: Use platform-specific directory command`,
+			"env":    `Environment: Use platform-specific environment command`,
+		}
+	}
+}
+
+// contains checks if a slice contains a string
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
 
 // GetPlatformContextLegacy returns the old format for backward compatibility

@@ -216,6 +216,7 @@ tools:
 #### Example Usage
 
 **Reading specific lines:**
+
 ```json
 {
   "tool": "read_lines",
@@ -228,9 +229,10 @@ tools:
 ```
 
 **Atomic line range editing:**
+
 ```json
 {
-  "tool": "edit_range", 
+  "tool": "edit_range",
   "args": {
     "path": "src/main.go",
     "start_line": 15,
@@ -241,6 +243,7 @@ tools:
 ```
 
 **Regex search and replace:**
+
 ```json
 {
   "tool": "search_replace",
@@ -258,7 +261,7 @@ tools:
 Modern file operations use Agentry's advanced built-in tools rather than shell commands:
 
 - **Read files**: Use `view_file` or `read_lines` for precise, efficient access
-- **Edit files**: Use `edit_range` and `insert_at` for atomic, line-precise edits  
+- **Edit files**: Use `edit_range` and `insert_at` for atomic, line-precise edits
 - **Create files**: Use `create_file` with built-in overwrite protection
 - **Analyze files**: Use `get_file_info` for size, lines, encoding, and type detection
 - **Search/replace**: Use `search_replace` with regex support for complex transformations

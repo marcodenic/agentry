@@ -57,3 +57,7 @@ builtins:
   - get_file_info # Get comprehensive file information
   - view_file # Enhanced file viewing with line numbers
   - create_file # Create new files with content
+  - web_search # Search the web for information
+  - read_webpage # Extract content from web pages
+  - api_request # Make HTTP/REST API calls
+  - download_file # Download files from URLs

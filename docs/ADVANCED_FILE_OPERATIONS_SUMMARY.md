@@ -8,7 +8,7 @@ Successfully implemented **7 new advanced file operation tools** that bring VS C
 
 1. **`read_lines`** - Line-precise file reading with range support
 2. **`edit_range`** - Atomic line range replacement
-3. **`insert_at`** - Precise line insertion 
+3. **`insert_at`** - Precise line insertion
 4. **`search_replace`** - Advanced search/replace with regex support
 5. **`get_file_info`** - Comprehensive file analysis (type, size, lines, encoding)
 6. **`view_file`** - Enhanced file viewing with line numbers
@@ -26,11 +26,13 @@ Successfully implemented **7 new advanced file operation tools** that bring VS C
 ### 📁 Files Created/Modified
 
 #### New Files:
+
 - `internal/tool/file_builtins.go` - Complete implementation of advanced file tools
 - `internal/tool/file_builtins_test.go` - Comprehensive test suite
 - `cmd/file-ops-demo/main.go` - Working demonstration of all tools
 
 #### Updated Files:
+
 - `templates/roles/coder.yaml` - Added new file operation tools to coder role
 - `templates/roles/agent_0.yaml` - Added new file operation tools to system agent
 - `README.md` - Documented new file operation capabilities with examples
@@ -63,18 +65,21 @@ Successfully implemented **7 new advanced file operation tools** that bring VS C
 ## 🚀 IMPACT & BENEFITS
 
 ### For Agents:
+
 - **Precise Code Editing**: Can modify specific lines without affecting the rest of the file
 - **Safe Operations**: Built-in protection against accidental overwrites
 - **Rich Analysis**: Deep file inspection capabilities (encoding, type, structure)
 - **Professional Workflows**: Atomic operations prevent corrupted edits
 
 ### For Developers:
+
 - **Reliable Automation**: Agents can perform complex file operations safely
 - **Cross-Platform**: Same tool set works across Windows, Linux, and macOS
 - **VS Code Equivalent**: Professional-grade editing capabilities in agent workflows
 - **Easy Integration**: Simple JSON API for all file operations
 
 ### For the Agentry Project:
+
 - **Competitive Advantage**: Advanced file operations rival commercial IDE capabilities
 - **Foundation for Future**: Enables sophisticated code generation and refactoring agents
 - **Enterprise Ready**: Professional-grade safety and reliability features
@@ -83,6 +88,7 @@ Successfully implemented **7 new advanced file operation tools** that bring VS C
 ## 📊 COMPARISON: Before vs After
 
 ### Before:
+
 - Shell-based file operations (`cat`, `echo`, `grep`)
 - Platform-specific commands (PowerShell vs bash)
 - No line-precise editing
@@ -90,6 +96,7 @@ Successfully implemented **7 new advanced file operation tools** that bring VS C
 - Limited regex support
 
 ### After:
+
 - Pure Go file operations with atomic guarantees
 - Cross-platform unified API
 - Line-precise editing with range support
