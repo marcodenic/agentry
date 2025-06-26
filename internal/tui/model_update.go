@@ -43,17 +43,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case tokenMsg:
-		// DISABLED: Token streaming is disabled to prevent duplicate content
-		// The finalMsg handler will display the complete response instead
-		// info := m.infos[msg.id]
-		// info.History += msg.token
+		// ENABLED: Real-time token streaming for smooth UX
 		info := m.infos[msg.id]
+		info.History += msg.token
 		info.TokenCount++
 		info.CurrentActivity++ // Just increment counter, let activityTickMsg handle data points
 
+		// Update viewport with streamed content in real-time
+		if msg.id == m.active {
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+			m.vp.GotoBottom()
+		}
+
 		now := time.Now()
 
-		// Legacy token history update (keep for compatibility)
+		// Token history update for activity monitoring
 		if info.LastToken.IsZero() || now.Sub(info.LastToken) > time.Second {
 			info.TokenHistory = append(info.TokenHistory, 1)
 			if len(info.TokenHistory) > 20 {
@@ -63,21 +68,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			info.TokenHistory[len(info.TokenHistory)-1]++
 		}
 		info.LastToken = now
-		m.infos[msg.id] = info // IMPORTANT: Save the updated info back to the map
-		// Do NOT update viewport content here - let finalMsg handle the display
+		m.infos[msg.id] = info // Save the updated info back to the map
 	case finalMsg:
 		info := m.infos[msg.id]
-		info.History += m.aiBar() + " " + msg.text + "\n"
+		// Add the AI bar prefix before streaming the response
+		info.History += m.aiBar() + " "
 		if msg.id == m.active {
 			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
 			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 			m.vp.GotoBottom()
 		}
-		info.Status = StatusIdle
 		m.infos[msg.id] = info
-		// DO NOT continue reading after finalMsg - this is the end of the trace stream
-		// The agentCompleteMsg will handle final cleanup
-		return m, nil
+		// Stream the response text for smooth UX, then set status to idle when complete
+		return m, tea.Batch(streamTokens(msg.id, msg.text), tea.Tick(time.Duration(len([]rune(msg.text))*30)*time.Millisecond+100*time.Millisecond, func(t time.Time) tea.Msg {
+			return agentCompleteMsg{id: msg.id, result: msg.text}
+		}))
 	case toolUseMsg:
 		info := m.infos[msg.id]
 		info.CurrentTool = msg.name
@@ -224,8 +229,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case agentCompleteMsg:
 		info := m.infos[msg.id]
 		info.Status = StatusIdle
-		// Only update status - do NOT add content to history as finalMsg already handles that
-		// The agentCompleteMsg is just for completion signaling, finalMsg handles the actual response display
+		// Add a newline to properly end the streamed response
+		info.History += "\n"
+		if msg.id == m.active {
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+			m.vp.GotoBottom()
+		}
 		m.infos[msg.id] = info
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
