@@ -21,15 +21,16 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	info.Status = StatusRunning
 	info.TokenCount = 0 // Reset token count for new conversation
 	info.TokensStarted = false // Reset tokens started flag
+	info.StreamingResponse = "" // Reset streaming response
 	info.Spinner = spinner.New()
 	info.Spinner.Spinner = spinner.Line
 	info.Spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
 	
-	// Add user input and immediately show thinking animation for responsive UX
-	info.History += m.userBar() + " " + input + "\n"
-	info.History += m.aiBar() + " " // Add AI bar with space for content
+	// Add user input with proper line wrapping and show thinking animation for responsive UX
+	userMessage := m.formatWithBar(m.userBar(), input, m.vp.Width)
+	info.History += userMessage + "\n\n"  // Add extra newline for spacing
 	
-	base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+	base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
 	m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 	m.vp.GotoBottom()
 
@@ -107,6 +108,7 @@ func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 		LastActivity:    time.Time{},
 		TokenHistory:    []int{},
 		TokensStarted:   false,
+		StreamingResponse: "",
 	}
 	m.infos[ag.ID] = info
 	m.order = append(m.order, ag.ID)
@@ -128,7 +130,7 @@ func (m Model) handleSwitch(args []string) (Model, tea.Cmd) {
 		if strings.HasPrefix(id.String(), prefix) {
 			m.active = id
 			if info, ok := m.infos[id]; ok {
-				base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+				base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
 				m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 			}
 			break
@@ -174,7 +176,7 @@ func (m Model) cycleActive(delta int) Model {
 	idx = (idx + delta + len(m.order)) % len(m.order)
 	m.active = m.order[idx]
 	if info, ok := m.infos[m.active]; ok {
-		base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+		base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
 		m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 	}
 	return m
@@ -193,7 +195,7 @@ func (m Model) jumpToAgent(index int) Model {
 	}
 	m.active = m.order[index]
 	if info, ok := m.infos[m.active]; ok {
-		base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+		base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
 		m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 	}
 	return m

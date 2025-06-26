@@ -72,6 +72,7 @@ type AgentInfo struct {
 	Name            string
 	Role            string // Agent role for display (e.g., "System", "Research", "DevOps")
 	TokensStarted   bool   // Flag to stop thinking animation when tokens start
+	StreamingResponse string // Current AI response being streamed (unformatted)
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -120,6 +121,7 @@ func New(ag *core.Agent) Model {
 		// Initialize with empty activity for real-time chart
 		TokenHistory: []int{},
 		TokensStarted: false,
+		StreamingResponse: "",
 	}
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 

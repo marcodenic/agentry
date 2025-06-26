@@ -218,3 +218,139 @@ func helpView() string {
 		"[index] shows agent position, ▶ shows active agent",
 	}, "\n")
 }
+
+// min returns the smaller of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// formatWithBar formats text with a vertical bar on the first line and continuation bars on wrapped lines
+func (m Model) formatWithBar(bar, text string, width int) string {
+	if text == "" {
+		return bar + " "
+	}
+
+	// Clean the text - remove any existing vertical bars and normalize whitespace
+	cleanText := strings.ReplaceAll(text, "┃", "")
+	cleanText = strings.ReplaceAll(cleanText, "\n", " ")
+	cleanText = strings.TrimSpace(cleanText)
+	
+	// Remove spinner characters only if they appear at the beginning of the text
+	for len(cleanText) > 0 {
+		firstChar := cleanText[:1]
+		if firstChar == "|" || firstChar == "/" || firstChar == "-" || firstChar == "\\" {
+			cleanText = strings.TrimSpace(cleanText[1:])
+		} else {
+			break
+		}
+	}
+	
+	if cleanText == "" {
+		return bar + " "
+	}
+
+	// Calculate available width for text (subtract bar + space)
+	barWidth := lipgloss.Width(bar) + 1 // +1 for space after bar
+	textWidth := width - barWidth
+	if textWidth <= 0 {
+		textWidth = 1
+	}
+
+	// Split text into words
+	words := strings.Fields(cleanText)
+	if len(words) == 0 {
+		return bar + " "
+	}
+
+	var lines []string
+	var currentLine strings.Builder
+
+	for _, word := range words {
+		// Check if adding this word would exceed the line width
+		testLine := currentLine.String()
+		if testLine != "" {
+			testLine += " "
+		}
+		testLine += word
+
+		if len(testLine) <= textWidth {
+			// Word fits on current line
+			if currentLine.Len() > 0 {
+				currentLine.WriteString(" ")
+			}
+			currentLine.WriteString(word)
+		} else {
+			// Word doesn't fit, start new line
+			if currentLine.Len() > 0 {
+				lines = append(lines, currentLine.String())
+				currentLine.Reset()
+			}
+			currentLine.WriteString(word)
+		}
+	}
+
+	// Add remaining content
+	if currentLine.Len() > 0 {
+		lines = append(lines, currentLine.String())
+	}
+
+	// Format lines with bars
+	if len(lines) == 0 {
+		return bar + " "
+	}
+
+	// First line gets the original bar
+	result := bar + " " + lines[0]
+
+	// Continuation lines get the same bar
+	for i := 1; i < len(lines); i++ {
+		result += "\n" + bar + " " + lines[i]
+	}
+
+	return result
+}
+
+// formatHistoryWithBars reformats the entire chat history to apply proper line wrapping with vertical bars
+func (m Model) formatHistoryWithBars(history string, width int) string {
+	if history == "" {
+		return ""
+	}
+
+	lines := strings.Split(history, "\n")
+	var result strings.Builder
+
+	for i, line := range lines {
+		if i > 0 {
+			result.WriteString("\n")
+		}
+
+		// Skip empty lines
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+
+		// Check if line starts with a user bar
+		userBar := m.userBar()
+		aiBar := m.aiBar()
+
+		if strings.HasPrefix(line, userBar+" ") {
+			// User message - reformat with proper wrapping
+			content := strings.TrimPrefix(line, userBar+" ")
+			formatted := m.formatWithBar(userBar, content, width)
+			result.WriteString(formatted)
+		} else if strings.HasPrefix(line, aiBar+" ") {
+			// AI message - reformat with proper wrapping
+			content := strings.TrimPrefix(line, aiBar+" ")
+			formatted := m.formatWithBar(aiBar, content, width)
+			result.WriteString(formatted)
+		} else {
+			// Other content (status messages, etc.) - pass through as-is
+			result.WriteString(line)
+		}
+	}
+
+	return result.String()
+}

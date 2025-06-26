@@ -55,26 +55,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Stop thinking animation on first token
 		if !info.TokensStarted {
 			info.TokensStarted = true
-			// Clear thinking animation spinner on first token (same-line streaming)
+			info.StreamingResponse = "" // Initialize streaming response
+			
+			// Clean up any leftover spinner characters from the end of History
 			if len(info.History) > 0 {
-				// Check if the last character is a spinner character
+				// Check for and remove spinner characters at the end
 				lastChar := info.History[len(info.History)-1:]
-				if lastChar == "|" || lastChar == "/" || lastChar == "-" || lastChar == "\\" {
-					// Remove the spinner character and add space before response
-					info.History = info.History[:len(info.History)-1] + " "
+				for lastChar == "|" || lastChar == "/" || lastChar == "-" || lastChar == "\\" {
+					info.History = info.History[:len(info.History)-1]
+					if len(info.History) == 0 {
+						break
+					}
+					lastChar = info.History[len(info.History)-1:]
 				}
 			}
 		}
 		
-		// Stream the token directly
-		info.History += msg.token
+		// Add token to streaming response
+		info.StreamingResponse += msg.token
 		info.TokenCount++
 		info.CurrentActivity++ // Just increment counter, let activityTickMsg handle data points
 
-		// Update viewport with streamed content in real-time
+		// Update viewport with formatted streaming content in real-time
 		if msg.id == m.active {
-			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
-			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+			// Build display history with current streaming response
+			displayHistory := info.History
+			if info.StreamingResponse != "" {
+				formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
+				displayHistory += formattedResponse
+			}
+			
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
+			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(displayHistory))
 			m.vp.GotoBottom()
 		}
 
@@ -96,13 +108,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.readCmd(msg.id)
 	case finalMsg:
 		info := m.infos[msg.id]
-		// The response has already been streamed via tokenMsg events
-		// Set status to idle and add newline - this is the authoritative completion
+		// Finalize the AI response with proper formatting
+		if info.StreamingResponse != "" {
+			formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
+			info.History += formattedResponse
+			info.StreamingResponse = "" // Clear streaming response
+		}
+		
+		// Set status to idle and add spacing after AI message
 		info.Status = StatusIdle
-		info.History += "\n"
+		info.History += "\n\n" // Add extra spacing after AI response
 		
 		if msg.id == m.active {
-			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
 			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 			m.vp.GotoBottom()
 		}
@@ -115,7 +133,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		completionText := m.formatToolCompletion(msg.name, msg.args)
 		info.History += fmt.Sprintf("\n%s %s", m.statusBar(), completionText)
 		if msg.id == m.active {
-			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
 			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 			m.vp.GotoBottom()
 		}
@@ -125,7 +143,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		info := m.infos[msg.id]
 		info.History += fmt.Sprintf("\n%s %s", m.statusBar(), msg.text)
 		if msg.id == m.active {
-			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
 			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 			m.vp.GotoBottom()
 		}
@@ -172,6 +190,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						LastActivity:    time.Time{},
 						TokenHistory:    []int{},
 						TokensStarted:   false,
+						StreamingResponse: "",
 					}
 					m.infos[agent.ID] = info
 					m.order = append(m.order, agent.ID)
@@ -277,7 +296,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		info.History += frames[msg.frame]
 		
 		if msg.id == m.active {
-			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
 			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 			m.vp.GotoBottom()
 		}
@@ -292,7 +311,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.vp.Height = msg.Height - 2
 		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, msg.Height-2)
 		if info, ok := m.infos[m.active]; ok {
-			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground)).Background(lipgloss.Color(m.theme.Palette.Background))
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
 			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
 		}
 	}
@@ -316,8 +335,7 @@ func (m Model) View() string {
 		leftContent += "\nERR: " + m.err.Error()
 	}
 	base := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
-		Background(lipgloss.Color(m.theme.Palette.Background))
+		Foreground(lipgloss.Color(m.theme.Palette.Foreground))
 	left := base.Copy().Width(int(float64(m.width) * 0.75)).Render(leftContent)
 	right := base.Copy().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
 	main := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
