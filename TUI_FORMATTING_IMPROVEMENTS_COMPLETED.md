@@ -1,12 +1,15 @@
 # TUI Formatting and Performance Improvements - Completed
 
 ## Summary
+
 Fixed multiple TUI issues to improve user experience, visual clarity, and real-time updates in the Agentry multi-agent orchestrator.
 
 ## Completed Fixes
 
 ### 1. Spinner Cleanup and Animation ✅
+
 **Files Changed**: `internal/tui/model_update.go`
+
 - **Fixed**: Spinners getting stuck and not clearing properly
 - **Improvements**:
   - Spinners now only update when agents are actively running and haven't started streaming
@@ -15,7 +18,9 @@ Fixed multiple TUI issues to improve user experience, visual clarity, and real-t
   - Better spinner state management to prevent visual artifacts
 
 ### 2. Live Token/Cost Tracking ✅
+
 **Files Changed**: `internal/tui/model_update.go`, `internal/tui/model_runtime.go`
+
 - **Fixed**: Footer showing static tokens/cost instead of live updates
 - **Improvements**:
   - Footer now shows totals across ALL agents, not just the active one
@@ -24,7 +29,9 @@ Fixed multiple TUI issues to improve user experience, visual clarity, and real-t
   - Real-time cost tracking that updates as agents work
 
 ### 3. Command Output Formatting ✅
+
 **Files Changed**: `internal/tui/viewhelpers.go`, `internal/tui/model_update.go`, `internal/tui/commands.go`
+
 - **Fixed**: Poor spacing and grouping of command outputs
 - **Improvements**:
   - Added `formatSingleCommand()` function for consistent command formatting
@@ -34,7 +41,9 @@ Fixed multiple TUI issues to improve user experience, visual clarity, and real-t
   - Standardized status message formatting with consistent spacing
 
 ### 4. Message Flow and Spacing ✅
+
 **Files Changed**: `internal/tui/model_update.go`, `internal/tui/commands.go`
+
 - **Fixed**: Inconsistent spacing between different message types
 - **Improvements**:
   - Better spacing management between user input and AI responses
@@ -45,7 +54,9 @@ Fixed multiple TUI issues to improve user experience, visual clarity, and real-t
 ## Technical Details
 
 ### Key Changes Made:
+
 1. **Enhanced Spinner Management**:
+
    ```go
    // Only update spinner for agents that are actually running and not finished streaming
    if ag.Status == StatusRunning && !ag.TokensStarted {
@@ -57,6 +68,7 @@ Fixed multiple TUI issues to improve user experience, visual clarity, and real-t
    ```
 
 2. **Improved Token Cleanup**:
+
    ```go
    // Remove spinner artifacts and ensure proper spacing
    cleaned := strings.TrimRight(info.History, "|/-\\")
@@ -67,6 +79,7 @@ Fixed multiple TUI issues to improve user experience, visual clarity, and real-t
    ```
 
 3. **Live Cost Tracking**:
+
    ```go
    // Calculate total tokens and cost across all agents
    totalTokens := 0
@@ -88,6 +101,7 @@ Fixed multiple TUI issues to improve user experience, visual clarity, and real-t
    ```
 
 ### Files Modified:
+
 - `internal/tui/model_update.go` - Core TUI update logic, spinner handling, live updates
 - `internal/tui/model_runtime.go` - Added refreshMsg type
 - `internal/tui/viewhelpers.go` - Added command formatting functions
@@ -96,12 +110,14 @@ Fixed multiple TUI issues to improve user experience, visual clarity, and real-t
 ## Testing Recommendations
 
 To verify the improvements:
+
 1. **Spinner Test**: Start an agent, verify spinner appears during "thinking" and disappears when tokens arrive
 2. **Cost Tracking**: Monitor footer during multi-agent operations - tokens/cost should update live
 3. **Command Formatting**: Execute commands and check for proper spacing and visual grouping
 4. **State Cleanup**: Stop agents mid-stream and verify no visual artifacts remain
 
 ## Impact
+
 - **User Experience**: Much cleaner, more professional-looking TUI interface
 - **Performance**: Live updates provide better feedback on token usage and costs
 - **Visual Clarity**: Better organized command outputs and message flow

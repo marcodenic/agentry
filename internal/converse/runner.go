@@ -3,7 +3,6 @@ package converse
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -101,7 +100,7 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 	for i := 0; unlimited || i < limit; i++ {
 		res, err := client.Complete(ctx, msgs, specs)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("agent '%s' completion failed on iteration %d: %w", name, i+1, err)
 		}
 		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
 		step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
@@ -112,20 +111,20 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 		for _, tc := range res.ToolCalls {
 			t, ok := ag.Tools.Use(tc.Name)
 			if !ok {
-				return "", fmt.Errorf("unknown tool: %s", tc.Name)
+				return "", fmt.Errorf("agent '%s' tried to use unknown tool '%s' on iteration %d", name, tc.Name, i+1)
 			}
 			var args map[string]any
 			if err := json.Unmarshal(tc.Arguments, &args); err != nil {
-				return "", err
+				return "", fmt.Errorf("agent '%s' tool '%s' has invalid arguments on iteration %d: %w", name, tc.Name, i+1, err)
 			}
 			r, err := t.Execute(ctx, args)
 			if err != nil {
-				return "", err
+				return "", fmt.Errorf("agent '%s' tool '%s' execution failed on iteration %d with args %v: %w", name, tc.Name, i+1, args, err)
 			}
 			step.ToolResults[tc.ID] = r
 			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})
 		}
 		ag.Mem.AddStep(step)
 	}
-	return "", errors.New("max iterations")
+	return "", fmt.Errorf("agent '%s' exceeded maximum iterations (%d)", name, limit)
 }

@@ -87,14 +87,20 @@ func (m Model) handleCommand(cmd string) (Model, tea.Cmd) {
 
 // handleSpawn creates a new agent and adds it to the panel.
 func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
-	name := "agent"
+	requestedName := "coder" // default role
 	role := ""
 	if len(args) > 0 {
-		name = args[0]
+		requestedName = args[0]
+		role = args[0] // The requested name is the role
 	}
 	if len(args) > 1 {
-		role = args[1]
+		role = args[1] // If second arg provided, use it as role
 	}
+	
+	// Generate sequential agent name
+	agentNumber := len(m.infos) // This gives us the next agent number (0-based, so Agent 0, Agent 1, etc.)
+	displayName := fmt.Sprintf("Agent %d", agentNumber)
+	
 	if len(m.agents) == 0 {
 		return m, nil
 	}
@@ -106,8 +112,8 @@ func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 		Agent:           ag,
 		Status:          StatusIdle,
 		Spinner:         sp,
-		Name:            name,
-		Role:            role,
+		Name:            displayName, // Use sequential name like "Agent 1"
+		Role:            role,        // Role is what was requested (coder, researcher, etc.)
 		ActivityData:    make([]float64, 0),
 		ActivityTimes:   make([]time.Time, 0),
 		CurrentActivity: 0,
@@ -119,7 +125,7 @@ func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 	m.infos[ag.ID] = info
 	m.order = append(m.order, ag.ID)
 	if m.team != nil {
-		m.team.Add(name, ag)
+		m.team.Add(requestedName, ag) // Use the requested name for team registration
 	}
 	m.active = ag.ID
 	m.vp.SetContent("")

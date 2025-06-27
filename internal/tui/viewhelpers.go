@@ -238,39 +238,74 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 	cleanText := strings.ReplaceAll(text, "┃", "")
 	cleanText = strings.TrimSpace(cleanText)
 
-	// Remove spinner characters only if they appear at the beginning or end
-	for len(cleanText) > 0 {
-		firstChar := cleanText[:1]
-		if firstChar == "|" || firstChar == "/" || firstChar == "-" || firstChar == "\\" {
-			cleanText = strings.TrimSpace(cleanText[1:])
-		} else {
-			break
-		}
-	}
-	
-	// Also remove spinner characters from the end
-	for len(cleanText) > 0 {
-		lastChar := cleanText[len(cleanText)-1:]
-		if lastChar == "|" || lastChar == "/" || lastChar == "-" || lastChar == "\\" {
-			cleanText = strings.TrimSpace(cleanText[:len(cleanText)-1])
-		} else {
-			break
-		}
-	}
-
 	if cleanText == "" {
 		return bar + " "
 	}
 
-	// Split by existing newlines to preserve AI formatting
+	// Calculate available width for text (subtract bar + space)
+	barWidth := lipgloss.Width(bar) + 1 // +1 for space after bar
+	textWidth := width - barWidth
+	if textWidth <= 20 { // Minimum reasonable width
+		textWidth = 60 // Default fallback width
+	}
+
+	// Split by existing newlines to preserve AI formatting, then wrap each line
 	lines := strings.Split(cleanText, "\n")
 	
 	var result strings.Builder
-	for i, line := range lines {
-		if i > 0 {
+	first := true
+	
+	for _, line := range lines {
+		if !first {
 			result.WriteString("\n")
 		}
-		result.WriteString(bar + " " + line)
+		first = false
+		
+		// Wrap this line if it's too long
+		if len(line) <= textWidth {
+			result.WriteString(bar + " " + line)
+		} else {
+			// Word wrap this line
+			words := strings.Fields(line)
+			var currentLine strings.Builder
+			lineFirst := true
+			
+			for _, word := range words {
+				// Check if adding this word would exceed the line width
+				testLine := currentLine.String()
+				if testLine != "" {
+					testLine += " "
+				}
+				testLine += word
+
+				if len(testLine) <= textWidth {
+					// Word fits on current line
+					if currentLine.Len() > 0 {
+						currentLine.WriteString(" ")
+					}
+					currentLine.WriteString(word)
+				} else {
+					// Word doesn't fit, wrap to new line
+					if currentLine.Len() > 0 {
+						if !lineFirst {
+							result.WriteString("\n")
+						}
+						lineFirst = false
+						result.WriteString(bar + " " + currentLine.String())
+						currentLine.Reset()
+					}
+					currentLine.WriteString(word)
+				}
+			}
+
+			// Add remaining content
+			if currentLine.Len() > 0 {
+				if !lineFirst {
+					result.WriteString("\n")
+				}
+				result.WriteString(bar + " " + currentLine.String())
+			}
+		}
 	}
 
 	return result.String()

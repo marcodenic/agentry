@@ -85,25 +85,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !info.TokensStarted {
 			info.TokensStarted = true
 			info.StreamingResponse = "" // Initialize streaming response
-			
-			// Clean up any leftover spinner characters from the end of History
-			if len(info.History) > 0 {
-				// More aggressive spinner cleanup - remove all trailing spinner artifacts
-				cleaned := info.History
-				for len(cleaned) > 0 {
-					lastChar := cleaned[len(cleaned)-1:]
-					if lastChar == "|" || lastChar == "/" || lastChar == "-" || lastChar == "\\" || lastChar == " " {
-						cleaned = cleaned[:len(cleaned)-1]
-					} else {
-						break
-					}
-				}
-				// Add a newline if we don't have proper spacing
-				if !strings.HasSuffix(cleaned, "\n") {
-					cleaned += "\n"
-				}
-				info.History = cleaned
-			}
+			// No need to clean up spinners since they were never added to history!
 		}
 		
 		// Add token to streaming response
@@ -304,26 +286,48 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg:
 		m.err = msg
 		if info, ok := m.infos[m.active]; ok {
-			// Clean up any running state when there's an error
+			// Immediately clear spinner and set error status
 			info.Status = StatusError
 			info.TokensStarted = false
 			
-			// Clear any stuck spinners or partial messages
-			if len(info.History) > 0 {
-				cleaned := info.History
-				for len(cleaned) > 0 {
-					lastChar := cleaned[len(cleaned)-1:]
-					if lastChar == "|" || lastChar == "/" || lastChar == "-" || lastChar == "\\" {
-						cleaned = cleaned[:len(cleaned)-1]
-					} else {
-						break
-					}
+			// No spinner cleanup needed since spinners are display-only now!
+			
+			// Create detailed error message with context and better debugging
+			var errorMsg string
+			errorStr := msg.Error()
+			
+			// Enhanced error analysis
+			if strings.Contains(errorStr, "fetch") && strings.Contains(errorStr, "exit status 1") {
+				if strings.Contains(errorStr, "roadmap.md") {
+					errorMsg = "❌ Error: fetch tool called with local file path instead of URL\n"
+					errorMsg += "   Context: Tool 'fetch' requires URLs (http/https), not local file paths\n"
+					errorMsg += "   💡 Tip: Use 'view' tool for local files, 'fetch' for web URLs"
+				} else {
+					errorMsg = "❌ Error: fetch tool execution failed\n"
+					errorMsg += "   💡 Tip: Check network connectivity and URL validity"
 				}
-				info.History = cleaned
+			} else if strings.Contains(errorStr, "agent") && strings.Contains(errorStr, "tool") && strings.Contains(errorStr, "execution failed") {
+				// Split error to show the main error and context separately
+				parts := strings.SplitN(errorStr, ": ", 2)
+				if len(parts) == 2 {
+					errorMsg = fmt.Sprintf("❌ Error: %s\n   Context: %s", parts[0], parts[1])
+				} else {
+					errorMsg = fmt.Sprintf("❌ Error: %s", errorStr)
+				}
+				
+				// Add specific tips based on error content
+				if strings.Contains(errorStr, "exit status") {
+					errorMsg += "\n   💡 Tip: Tool or command execution failed - check syntax and permissions"
+				} else if strings.Contains(errorStr, "unknown tool") {
+					errorMsg += "\n   💡 Tip: Agent tried to use a tool that doesn't exist"
+				}
+			} else if strings.Contains(errorStr, "max iterations") {
+				errorMsg = fmt.Sprintf("❌ Error: %s", errorStr)
+				errorMsg += "\n   💡 Tip: Agent reached iteration limit - try simplifying the request"
+			} else {
+				errorMsg = fmt.Sprintf("❌ Error: %s", errorStr)
 			}
 			
-			// Add error message with proper formatting
-			errorMsg := fmt.Sprintf("❌ Error: %s", msg.Error())
 			errorFormatted := m.formatSingleCommand(errorMsg)
 			info.History += errorFormatted
 			
@@ -346,53 +350,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		info := m.infos[msg.id]
 		// Stop thinking animation if tokens have started or agent is not running
 		if info.Status != StatusRunning || info.TokensStarted {
-			// Clean up any remaining spinner artifacts when stopping
-			if len(info.History) > 0 {
-				cleaned := info.History
-				for len(cleaned) > 0 {
-					lastChar := cleaned[len(cleaned)-1:]
-					if lastChar == "|" || lastChar == "/" || lastChar == "-" || lastChar == "\\" {
-						cleaned = cleaned[:len(cleaned)-1]
-					} else {
-						break
-					}
-				}
-				info.History = cleaned
-				m.infos[msg.id] = info
-				
-				if msg.id == m.active {
-					m.vp.SetContent(info.History)
-					m.vp.GotoBottom()
-				}
+			// When stopping thinking animation, just refresh display with clean history
+			if msg.id == m.active {
+				m.vp.SetContent(info.History)
+				m.vp.GotoBottom()
 			}
 			return m, nil
 		}
 		
 		// ASCII spinner frames
 		frames := []string{"|", "/", "-", "\\"}
+		currentSpinner := frames[msg.frame]
 		
-		// Check if we need to replace an existing spinner or this is the first spinner
-		if len(info.History) > 0 {
-			lastChar := info.History[len(info.History)-1:]
-			if lastChar == "|" || lastChar == "/" || lastChar == "-" || lastChar == "\\" {
-				// Replace the existing spinner character
-				info.History = info.History[:len(info.History)-1]
-			} else if lastChar == " " && strings.HasSuffix(info.History, " ") {
-				// This is the first spinner - replace the trailing space after AI bar
-				// Check if this looks like an AI bar line (ends with space after non-space)
-				if len(info.History) >= 2 && info.History[len(info.History)-2] != ' ' {
-					info.History = info.History[:len(info.History)-1] // Remove the space
-				}
-			}
+		// Build display content WITHOUT modifying history
+		displayHistory := info.History
+		
+		// Add spinner to display only if history doesn't end with newline
+		if len(displayHistory) > 0 && !strings.HasSuffix(displayHistory, "\n") {
+			// Add AI bar and spinner for display only
+			displayHistory += "\n" + m.aiBar() + " " + currentSpinner
+		} else {
+			// Add AI bar and spinner for display only
+			displayHistory += m.aiBar() + " " + currentSpinner
 		}
-		// Add the new spinner frame
-		info.History += frames[msg.frame]
 		
 		if msg.id == m.active {
-			m.vp.SetContent(info.History)
+			m.vp.SetContent(displayHistory)
 			m.vp.GotoBottom()
 		}
-		m.infos[msg.id] = info
+		
 		// Continue the animation if still running and no tokens have started
 		return m, startThinkingAnimation(msg.id)
 	case tea.WindowSizeMsg:
@@ -413,10 +399,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Set agent panel size (25% width)
 		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, viewportHeight)
 		
-		// Refresh the viewport content with proper sizing
+		// Refresh the viewport content with proper sizing and re-wrap if needed
 		if info, ok := m.infos[m.active]; ok {
-			// Don't wrap content in extra styles - let the viewport handle it
-			m.vp.SetContent(info.History)
+			// For normal history, re-wrap the content to the new width
+			if !m.showInitialLogo && info.History != "" {
+				// Re-format the entire history with the new width for proper wrapping
+				reformattedHistory := m.formatHistoryWithBars(info.History, chatWidth)
+				m.vp.SetContent(reformattedHistory)
+			} else {
+				// For initial logo or empty history, use as-is
+				m.vp.SetContent(info.History)
+			}
 			m.vp.GotoBottom() // Ensure we're at the bottom after resize
 		}
 	}
@@ -449,9 +442,6 @@ func (m Model) View() string {
 		if info, ok := m.infos[m.active]; ok {
 			chatContent = renderMemory(info.Agent)
 		}
-	}
-	if m.err != nil {
-		chatContent += "\nERR: " + m.err.Error()
 	}
 	
 	base := lipgloss.NewStyle().

@@ -2,12 +2,14 @@
 
 ## Issues Addressed
 
-### 1. ✅ Prompt Text Not Wrapping 
+### 1. ✅ Prompt Text Not Wrapping
+
 **Problem**: Long user prompts were being cut off instead of wrapping to multiple lines
 **Root Cause**: `formatWithBar` was redesigned for AI responses but user input needs word wrapping
 **Solution**: Created separate `formatUserInput` function with proper word wrapping logic
 
 **Files Changed**: `internal/tui/viewhelpers.go`, `internal/tui/commands.go`
+
 ```go
 // NEW: formatUserInput with word wrapping for user prompts
 func (m Model) formatUserInput(bar, text string, width int) string {
@@ -21,11 +23,13 @@ userMessage := m.formatUserInput(m.userBar(), input, m.vp.Width)
 ```
 
 ### 2. ✅ Spinners Still Getting Stuck
+
 **Problem**: "Delegating to coder agent..." spinner remained stuck when delegation failed
 **Root Cause**: No cleanup mechanism when errors occur during agent delegation
 **Solution**: Enhanced error handling to clean up spinners and stuck messages
 
 **Files Changed**: `internal/tui/model_update.go`
+
 ```go
 case errMsg:
     // Clean up any stuck spinners or partial messages
@@ -41,7 +45,7 @@ case errMsg:
         }
         info.History = cleaned
     }
-    
+
     // Add error message with proper formatting
     errorMsg := fmt.Sprintf("❌ Error: %s", msg.Error())
     errorFormatted := m.formatSingleCommand(errorMsg)
@@ -49,9 +53,11 @@ case errMsg:
 ```
 
 ### 3. ✅ Application Crash with "ERR: exit status 1"
+
 **Problem**: Agent delegation was failing with exit status 1, causing application crashes
 **Root Cause**: Tool execution failures (likely shell commands) in spawned agents were not being handled gracefully
 **Analysis**: The error originates from:
+
 - `runAgent` function in `internal/converse/runner.go`
 - Tool execution failures: `t.Execute(ctx, args)` returning exit status 1
 - Could be shell commands, file operations, or other tool failures in the coder agent
@@ -63,15 +69,17 @@ case errMsg:
 ### Key Improvements Made:
 
 1. **Separate User Input Formatting**:
+
    ```go
    // User input - needs word wrapping
    userMessage := m.formatUserInput(m.userBar(), input, m.vp.Width)
-   
-   // AI responses - preserve original formatting  
+
+   // AI responses - preserve original formatting
    formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
    ```
 
 2. **Enhanced Error Cleanup**:
+
    ```go
    // Clean up stuck spinners when errors occur
    case errMsg:
@@ -91,6 +99,7 @@ case errMsg:
 ## Root Cause of "exit status 1"
 
 The crash likely occurs when:
+
 1. User asks to delegate to coder agent
 2. Agent tool calls `t.Call(ctx, "coder", input)`
 3. Coder agent tries to execute shell commands or file operations
@@ -110,6 +119,7 @@ The crash likely occurs when:
 ## Testing Verification
 
 Users should now see:
+
 1. Long prompts properly wrapped with vertical bars on each line
 2. Clean error messages when delegation fails (❌ Error: ...)
 3. No stuck "Delegating to..." spinners

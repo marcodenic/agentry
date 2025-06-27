@@ -3,14 +3,17 @@
 ## Issues Addressed from Screenshots
 
 ### 1. ✅ Spinners Getting Stuck
+
 **Problem**: Spinners (|/-\) were not being properly cleared when AI responses started
 **Root Cause**: Thinking animation continued running even after tokens started arriving
 **Solution**:
+
 - **Enhanced spinner cleanup** in `tokenMsg` handler - more aggressive removal of trailing spinner artifacts
 - **Improved thinking animation stopping** - added cleanup when animation stops due to tokens starting
 - **Better spinner detection** - check for spinner characters at both beginning and end of text
 
 **Files Changed**: `internal/tui/model_update.go`
+
 ```go
 // More aggressive spinner cleanup in tokenMsg handler
 for len(cleaned) > 0 {
@@ -31,14 +34,17 @@ if info.Status != StatusRunning || info.TokensStarted {
 ```
 
 ### 2. ✅ Single-Line Formatting Issue
+
 **Problem**: AI responses were being flattened to single lines instead of preserving formatting
 **Root Cause**: `formatWithBar` function was removing all newlines with `strings.ReplaceAll(cleanText, "\n", " ")`
-**Solution**: 
+**Solution**:
+
 - **Completely rewrote `formatWithBar`** to preserve original formatting
 - **Removed line wrapping logic** that was destroying AI response structure
 - **Preserved newlines** by splitting on existing newlines instead of removing them
 
 **Files Changed**: `internal/tui/viewhelpers.go`
+
 ```go
 // OLD: cleanText = strings.ReplaceAll(cleanText, "\n", " ")  // ❌ Destroyed formatting
 // NEW: Split by existing newlines to preserve AI formatting
@@ -54,14 +60,17 @@ for i, line := range lines {
 ```
 
 ### 3. ✅ Token/Cost Tracking Not Updating
+
 **Problem**: Footer showed 0 tokens and $0.0000 cost despite active API usage
 **Root Cause**: Agent Cost manager was not being initialized - created with `Cost: nil`
 **Solution**:
+
 - **Initialized Cost manager** in `buildAgent` function
 - **Added cost import** to agent.go
 - **Enabled proper cost tracking** for all agents (spawned agents inherit from parent)
 
 **Files Changed**: `cmd/agentry/agent.go`
+
 ```go
 // Added cost import
 "github.com/marcodenic/agentry/internal/cost"
@@ -73,11 +82,13 @@ ag.Cost = cost.New(0, 0.0) // No budget limits, just tracking
 ## Additional Improvements
 
 ### 4. ✅ Better Spinner Character Removal
+
 - Enhanced `formatWithBar` to remove spinner characters from both beginning AND end of text
 - More robust detection of spinner artifacts in various positions
 - Prevents spinner characters from appearing in final formatted output
 
 ### 5. ✅ Preserved Multi-Agent Cost Aggregation
+
 - The footer already aggregates costs across all agents correctly
 - With Cost managers now initialized, this will show live updates
 - Spawned agents share the same cost pool via inheritance
@@ -87,6 +98,7 @@ ag.Cost = cost.New(0, 0.0) // No budget limits, just tracking
 ### Key Changes Made:
 
 1. **Spinner Cleanup Logic**:
+
    ```go
    // Remove spinner characters from both ends
    for len(cleanText) > 0 {
@@ -100,8 +112,9 @@ ag.Cost = cost.New(0, 0.0) // No budget limits, just tracking
    ```
 
 2. **Formatting Preservation**:
+
    ```go
-   // Split by existing newlines to preserve AI formatting  
+   // Split by existing newlines to preserve AI formatting
    lines := strings.Split(cleanText, "\n")
    // Format each line with bar prefix while preserving structure
    ```
@@ -120,7 +133,9 @@ ag.Cost = cost.New(0, 0.0) // No budget limits, just tracking
 ✅ **Visual Polish**: Clean, professional appearance without artifacts or formatting issues
 
 ## Testing Verification
+
 Users should now see:
+
 1. Smooth spinner animations that cleanly disappear
 2. Properly formatted AI responses (poems with line breaks, structured lists, etc.)
 3. Live-updating token counts and costs in the footer

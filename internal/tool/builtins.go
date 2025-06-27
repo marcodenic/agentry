@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/marcodenic/agentry/internal/team"
@@ -57,10 +58,10 @@ var builtinMap = map[string]builtinSpec{
 		},
 	},
 	"fetch": {
-		Desc: "Download content from a URL",
+		Desc: "Download content from HTTP/HTTPS URLs (not for local files - use 'view' for local files)",
 		Schema: map[string]any{
 			"type":       "object",
-			"properties": map[string]any{"url": map[string]any{"type": "string"}},
+			"properties": map[string]any{"url": map[string]any{"type": "string", "description": "HTTP or HTTPS URL to fetch"}},
 			"required":   []string{"url"},
 			"example":    map[string]any{"url": "https://example.com"},
 		},
@@ -69,6 +70,12 @@ var builtinMap = map[string]builtinSpec{
 			if url == "" {
 				return "", errors.New("missing url")
 			}
+			
+			// Validate that this is actually a URL and not a file path
+			if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+				return "", fmt.Errorf("fetch tool requires HTTP/HTTPS URLs, got '%s'. Use 'view' tool for local files", url)
+			}
+			
 			// Cross-platform URL fetching
 			if runtime.GOOS == "windows" {
 				// Use PowerShell Invoke-WebRequest
