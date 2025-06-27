@@ -15,6 +15,17 @@ type tokenMsg struct {
 	token string
 }
 
+type startTokenStream struct {
+	id   uuid.UUID
+	text string
+}
+
+type tokenStreamTick struct {
+	id       uuid.UUID
+	text     string
+	position int
+}
+
 type toolUseMsg struct {
 	id   uuid.UUID
 	name string
@@ -61,14 +72,10 @@ type finalMsg struct {
 var spinnerFrames = []string{"|", "/", "-", "\\"}
 
 func streamTokens(id uuid.UUID, out string) tea.Cmd {
-	runes := []rune(out)
-	cmds := make([]tea.Cmd, len(runes))
-	for i, r := range runes {
-		tok := string(r)
-		delay := time.Duration(i*30) * time.Millisecond
-		cmds[i] = tea.Tick(delay, func(t time.Time) tea.Msg { return tokenMsg{id: id, token: tok} })
+	// PERFORMANCE FIX: Use a single recurring timer instead of hundreds of individual timers
+	return func() tea.Msg {
+		return startTokenStream{id: id, text: out}
 	}
-	return tea.Batch(cmds...)
 }
 
 func (m *Model) readEvent(id uuid.UUID) tea.Msg {

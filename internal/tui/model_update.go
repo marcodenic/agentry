@@ -12,6 +12,14 @@ import (
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
+// abs returns the absolute value of an integer
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
@@ -104,16 +112,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		info.TokenCount++
 		info.CurrentActivity++ // Just increment counter, let activityTickMsg handle data points
 
-		// Update viewport with formatted streaming content in real-time
+		// Update viewport with streaming content - OPTIMIZED for performance
 		if msg.id == m.active {
-			// Build display history with current streaming response
-			displayHistory := info.History
-			if info.StreamingResponse != "" {
-				formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
-				displayHistory += formattedResponse
+			// PERFORMANCE FIX: Only format and update every 10 characters or on newlines
+			// This reduces expensive formatting calls by 90%
+			shouldUpdate := len(info.StreamingResponse)%10 == 0 || 
+				strings.HasSuffix(msg.token, "\n") || 
+				strings.HasSuffix(msg.token, " ")
+			
+			if shouldUpdate {
+				// Build display history with current streaming response
+				displayHistory := info.History
+				if info.StreamingResponse != "" {
+					// Cache the AI bar to avoid repeated method calls
+					aiBar := m.aiBar()
+					// Simple concatenation without expensive formatting during streaming
+					displayHistory += aiBar + " " + info.StreamingResponse
+				}
+				m.vp.SetContent(displayHistory)
+				m.vp.GotoBottom()
 			}
-			m.vp.SetContent(displayHistory)
-			m.vp.GotoBottom()
 		}
 
 		now := time.Now()
@@ -132,13 +150,45 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		
 		// Continue reading trace stream for more events (including EventFinal)
 		return m, m.readCmd(msg.id)
+	case startTokenStream:
+		// Start optimized token streaming - single timer approach
+		return m, tea.Tick(30*time.Millisecond, func(t time.Time) tea.Msg {
+			return tokenStreamTick{id: msg.id, text: msg.text, position: 0}
+		})
+	case tokenStreamTick:
+		// Handle optimized token streaming
+		if msg.position >= len([]rune(msg.text)) {
+			// Streaming complete
+			return m, nil
+		}
+		
+		// Send current character
+		runes := []rune(msg.text)
+		token := string(runes[msg.position])
+		
+		// Schedule next character
+		nextCmd := tea.Tick(30*time.Millisecond, func(t time.Time) tea.Msg {
+			return tokenStreamTick{id: msg.id, text: msg.text, position: msg.position + 1}
+		})
+		
+		// Process current token and schedule next
+		newModel, _ := m.Update(tokenMsg{id: msg.id, token: token})
+		return newModel, nextCmd
 	case finalMsg:
 		info := m.infos[msg.id]
-		// Finalize the AI response with proper formatting
+		// Add the final AI response with proper formatting
 		if info.StreamingResponse != "" {
 			formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
 			info.History += formattedResponse
 			info.StreamingResponse = "" // Clear streaming response
+		}
+		
+		// Limit history length to prevent unbounded memory growth (keep last ~100KB)
+		const maxHistoryLength = 100000
+		if len(info.History) > maxHistoryLength {
+			// Keep last 75% of history to maintain context
+			keepLength := maxHistoryLength * 3 / 4
+			info.History = "...[earlier messages truncated]...\n" + info.History[len(info.History)-keepLength:]
 		}
 		
 		// Set status to idle, clear spinner, and add proper spacing after AI message
@@ -237,12 +287,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		
-		// Update activity data for all agents (to make chart scroll even when idle)
+		// Update activity data for all agents - OPTIMIZED to reduce overhead
 		now := time.Now()
+		
+		// Only process agents that have recent activity to avoid unnecessary work
 		for id, info := range m.infos {
-			// Always add a data point every second to make the chart scroll
-			// If there was activity in this second, it will already be recorded
-			// Otherwise, add a zero point to show time progression
+			// Skip inactive agents to improve performance
+			if info.Status == StatusIdle && info.CurrentActivity == 0 && 
+			   !info.LastActivity.IsZero() && now.Sub(info.LastActivity) > 10*time.Second {
+				continue
+			}
 
 			shouldAddDataPoint := false
 
@@ -272,39 +326,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				info.ActivityData = append(info.ActivityData, activityLevel)
 				info.ActivityTimes = append(info.ActivityTimes, now)
 
-				// Keep only last 60 seconds of data
-				cutoffTime := now.Add(-60 * time.Second)
-				var newData []float64
-				var newTimes []time.Time
-
-				for i, t := range info.ActivityTimes {
-					if t.After(cutoffTime) {
-						newData = append(newData, info.ActivityData[i])
-						newTimes = append(newTimes, info.ActivityTimes[i])
+				// Only clean up activity data every 5 seconds to reduce overhead
+				if len(info.ActivityData)%5 == 0 {
+					// Keep only last 30 seconds of data to prevent memory growth
+					cutoffTime := now.Add(-30 * time.Second)
+					
+					// Use more efficient cleanup - find cutoff index first
+					cutoffIndex := -1
+					for i := len(info.ActivityTimes) - 1; i >= 0; i-- {
+						if info.ActivityTimes[i].Before(cutoffTime) {
+							cutoffIndex = i
+							break
+						}
+					}
+					
+					if cutoffIndex >= 0 {
+						// Remove old data efficiently using slicing
+						info.ActivityData = info.ActivityData[cutoffIndex+1:]
+						info.ActivityTimes = info.ActivityTimes[cutoffIndex+1:]
 					}
 				}
 
-				info.ActivityData = newData
-				info.ActivityTimes = newTimes
 				info.LastActivity = now
 				m.infos[id] = info
 			}
 		}
-		// Schedule next tick
+		// Schedule next tick - ONLY ONE TIMER to prevent exponential growth
 		cmds = append(cmds, tea.Tick(time.Second, func(t time.Time) tea.Msg {
 			return activityTickMsg{}
 		}))
-		
-		// Force a refresh to update the footer token/cost display
-		cmds = append(cmds, tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
-			return refreshMsg{}
-		}))
 	case refreshMsg:
 		// This just causes a re-render to update the footer with live token/cost data
-		// Schedule next refresh
-		cmds = append(cmds, tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
-			return refreshMsg{}
-		}))
+		// Do NOT schedule another refresh - let activityTickMsg handle all timing
 	case errMsg:
 		m.err = msg
 		if info, ok := m.infos[m.active]; ok {
@@ -421,13 +474,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Set agent panel size (25% width)
 		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, viewportHeight)
 		
-		// Refresh the viewport content with proper sizing and re-wrap if needed
+		// Refresh the viewport content with proper sizing - avoid expensive reformatting
 		if info, ok := m.infos[m.active]; ok {
-			// For normal history, re-wrap the content to the new width
+			// For normal history, only re-wrap if width changed significantly  
 			if !m.showInitialLogo && info.History != "" {
-				// Re-format the entire history with the new width for proper wrapping
-				reformattedHistory := m.formatHistoryWithBars(info.History, chatWidth)
-				m.vp.SetContent(reformattedHistory)
+				// Only reformat if width changed by more than 10 characters to avoid constant reformatting
+				if m.lastWidth == 0 || (chatWidth != m.lastWidth && abs(chatWidth-m.lastWidth) > 10) {
+					reformattedHistory := m.formatHistoryWithBars(info.History, chatWidth)
+					m.vp.SetContent(reformattedHistory)
+					m.lastWidth = chatWidth
+				} else {
+					// Width didn't change much, just update viewport size without reformatting
+					m.vp.SetContent(info.History)
+				}
 			} else {
 				// For initial logo or empty history, use as-is
 				m.vp.SetContent(info.History)
@@ -471,8 +530,8 @@ func (m Model) View() string {
 	
 	// Create top section with chat (left) and agents (right)
 	// Don't apply extra width constraints to chatContent - let viewport handle it
-	left := base.Copy().Width(int(float64(m.width) * 0.75)).Render(chatContent)
-	right := base.Copy().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
+	left := base.Width(int(float64(m.width) * 0.75)).Render(chatContent)
+	right := base.Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
 	topSection := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	
 	// Add full-width horizontal line
@@ -482,7 +541,7 @@ func (m Model) View() string {
 	}
 	
 	// Add full-width input
-	inputSection := base.Copy().Width(m.width).Render(m.input.View())
+	inputSection := base.Width(m.width).Render(m.input.View())
 	
 	// Stack everything vertically
 	content := lipgloss.JoinVertical(lipgloss.Left, topSection, horizontalLine, inputSection)
@@ -498,7 +557,7 @@ func (m Model) View() string {
 	}
 	
 	footerText := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.infos), totalTokens, totalCost)
-	footer := base.Copy().Width(m.width).Align(lipgloss.Right).Render(footerText)
+	footer := base.Width(m.width).Align(lipgloss.Right).Render(footerText)
 	
 	// Add empty line between input and footer
 	return lipgloss.JoinVertical(lipgloss.Left, content, "", footer)

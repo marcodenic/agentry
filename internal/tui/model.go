@@ -37,6 +37,7 @@ type Model struct {
 	activeTab int
 	width     int
 	height    int
+	lastWidth int // Track width changes to avoid expensive reformatting
 
 	// Splash screen state
 	showInitialLogo bool
