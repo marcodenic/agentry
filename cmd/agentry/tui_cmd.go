@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/marcodenic/agentry/internal/config"
 	"os"
+	"os/signal"
+	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
+	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/tui"
 )
 
@@ -34,10 +36,23 @@ func runTui(args []string) {
 		_ = ag.LoadState(context.Background(), opts.resumeID)
 	}
 	model := tui.New(ag)
-	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	
+	// Set up signal handling for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	
+	go func() {
+		<-sigCh
+		cancel() // Cancel context to signal shutdown
+	}()
+	
+	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithContext(ctx))
 	if err := p.Start(); err != nil {
 		panic(err)
 	}
+	
+	cancel() // Ensure cleanup even if program exits normally
 	if opts.saveID != "" {
 		_ = ag.SaveState(context.Background(), opts.saveID)
 	}

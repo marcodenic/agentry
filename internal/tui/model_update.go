@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/marcodenic/agentry/internal/tool"
 )
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -27,6 +28,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch msg.String() {
 		case m.keys.Quit:
+			// Clean up all running agents before quitting
+			for id, info := range m.infos {
+				if info.Cancel != nil {
+					info.Cancel() // Cancel all running agent contexts
+				}
+				if info.Status == StatusRunning {
+					info.Status = StatusStopped
+					m.infos[id] = info
+				}
+			}
 			return m, tea.Quit
 		case m.keys.ToggleTab:
 			m.activeTab = 1 - m.activeTab
@@ -191,16 +202,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					sp := spinner.New()
 					sp.Spinner = spinner.Line
 					sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
-					agentName := "agent"
+					
+					// Generate sequential agent name and use team name as role
+					agentNumber := len(m.infos) // This gives us the next agent number
+					displayName := fmt.Sprintf("Agent %d", agentNumber)
+					
+					// Use team name as role, but validate it's not a tool name
+					role := "agent" // default role
 					if i < len(teamNames) {
-						agentName = teamNames[i]
+						candidateRole := teamNames[i]
+						// Only use the team name as role if it's not a builtin tool
+						if !tool.IsBuiltinTool(candidateRole) {
+							role = candidateRole
+						}
 					}
+					
 					info := &AgentInfo{
 						Agent:           agent,
 						Status:          StatusIdle,
 						Spinner:         sp,
-						Name:            agentName,
-						Role:            agentName,
+						Name:            displayName, // Sequential name like "Agent 1"
+						Role:            role,        // Role from team, validated not to be a tool
 						ActivityData:    make([]float64, 0),
 						ActivityTimes:   make([]time.Time, 0),
 						CurrentActivity: 0,

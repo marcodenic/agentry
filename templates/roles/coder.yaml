@@ -18,6 +18,11 @@ prompt: |
   - Use search_replace with regex for complex text transformations
   - Break down large tasks into smaller, focused steps
 
+  CRITICAL TOOL SELECTION RULES:
+  - ALWAYS use 'view' for local files (anything without http/https)
+  - ONLY use 'fetch' for web URLs starting with http:// or https://
+  - Never use 'fetch' for local file paths, filenames, or relative paths
+
   CAPABILITIES: Advanced file operations (line-precise reads/writes, atomic edits), 
   code analysis, regex search/replace, and cross-platform development.
 
@@ -38,13 +43,13 @@ commands:
 builtins:
   - agent # Delegate to other agents
   - patch # Apply code patches
-  - fetch # Download content from URLs (web only)
+  - fetch # Download content from URLs (web only - requires http/https)
   - read_lines # Read specific lines from files with line-precise access
   - edit_range # Replace a range of lines atomically
   - insert_at # Insert lines at specific positions
   - search_replace # Search and replace with regex support
   - fileinfo # Get comprehensive file information
-  - view # Enhanced file viewing with line numbers
+  - view # Enhanced file viewing with line numbers (for LOCAL files)
   - create # Create new files with content
   - web_search # Search the web for information
   - read_webpage # Extract content from web pages

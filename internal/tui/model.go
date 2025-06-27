@@ -201,3 +201,17 @@ func (d listItemDelegate) Render(w io.Writer, m list.Model, index int, item list
 		io.WriteString(w, "  "+it.name)
 	}
 }
+
+// Cleanup cancels all running agents and performs necessary cleanup.
+// This should be called when the application is shutting down.
+func (m *Model) Cleanup() {
+	for id, info := range m.infos {
+		if info.Cancel != nil {
+			info.Cancel() // Cancel all running agent contexts
+		}
+		if info.Status == StatusRunning {
+			info.Status = StatusStopped
+			m.infos[id] = info
+		}
+	}
+}

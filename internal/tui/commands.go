@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/team"
+	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
@@ -95,6 +96,23 @@ func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 	}
 	if len(args) > 1 {
 		role = args[1] // If second arg provided, use it as role
+	}
+	
+	// Check if name is a tool - tools should not be created as agents
+	if tool.IsBuiltinTool(requestedName) {
+		suggestions := []string{"coder", "researcher", "analyst", "writer", "planner", "tester", "devops"}
+		errorMsg := fmt.Sprintf("❌ Error: '%s' is a tool name, not an agent name. Use agent names like: %s", 
+			requestedName, strings.Join(suggestions, ", "))
+		
+		// Add error message to current agent's history
+		if info, ok := m.infos[m.active]; ok {
+			errorFormatted := m.formatSingleCommand(errorMsg)
+			info.History += errorFormatted
+			m.infos[m.active] = info
+			m.vp.SetContent(info.History)
+			m.vp.GotoBottom()
+		}
+		return m, nil
 	}
 	
 	// Generate sequential agent name
