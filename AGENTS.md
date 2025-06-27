@@ -209,9 +209,9 @@ Agentry includes VS Code-level file editing capabilities through advanced builti
 - **`edit_range`** - Replace a range of lines atomically (no shell commands needed)
 - **`insert_at`** - Insert lines at specific positions with atomic writes
 - **`search_replace`** - Advanced search and replace with regex support
-- **`get_file_info`** - Comprehensive file analysis (size, lines, encoding, type detection)
-- **`view_file`** - Enhanced file viewing with line numbers and syntax awareness
-- **`create_file`** - Create new files with built-in overwrite protection
+- **`fileinfo`** - Comprehensive file analysis (size, lines, encoding, type detection)
+- **`view`** - Enhanced file viewing with line numbers and syntax awareness
+- **`create`** - Create new files with built-in overwrite protection
 
 ### 🔧 Technical Features
 

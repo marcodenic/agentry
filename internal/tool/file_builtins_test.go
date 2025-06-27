@@ -19,7 +19,7 @@ func TestFileOperationTools(t *testing.T) {
 
 	testFile := filepath.Join(tempDir, "test.go")
 	
-	t.Run("create_file", func(t *testing.T) {
+	t.Run("create", func(t *testing.T) {
 		content := `package main
 
 import "fmt"
@@ -35,12 +35,12 @@ func main() {
 
 		result, err := createFileExec(context.Background(), args)
 		if err != nil {
-			t.Fatalf("create_file failed: %v", err)
+			t.Fatalf("create failed: %v", err)
 		}
 
 		var resultData map[string]any
 		if err := json.Unmarshal([]byte(result), &resultData); err != nil {
-			t.Fatalf("Failed to parse create_file result: %v", err)
+			t.Fatalf("Failed to parse create result: %v", err)
 		}
 
 		if resultData["created"] != true {
@@ -58,7 +58,7 @@ func main() {
 		}
 	})
 
-	t.Run("view_file", func(t *testing.T) {
+	t.Run("view", func(t *testing.T) {
 		args := map[string]any{
 			"path":              testFile,
 			"show_line_numbers": true,
@@ -66,7 +66,7 @@ func main() {
 
 		result, err := viewFileExec(context.Background(), args)
 		if err != nil {
-			t.Fatalf("view_file failed: %v", err)
+			t.Fatalf("view failed: %v", err)
 		}
 
 		lines := strings.Split(result, "\n")
@@ -104,19 +104,19 @@ func main() {
 		}
 	})
 
-	t.Run("get_file_info", func(t *testing.T) {
+	t.Run("fileinfo", func(t *testing.T) {
 		args := map[string]any{
 			"path": testFile,
 		}
 
 		result, err := getFileInfoExec(context.Background(), args)
 		if err != nil {
-			t.Fatalf("get_file_info failed: %v", err)
+			t.Fatalf("fileinfo failed: %v", err)
 		}
 
 		var resultData map[string]any
 		if err := json.Unmarshal([]byte(result), &resultData); err != nil {
-			t.Fatalf("Failed to parse get_file_info result: %v", err)
+			t.Fatalf("Failed to parse fileinfo result: %v", err)
 		}
 
 		if resultData["file_type"] != "Go" {
@@ -304,9 +304,9 @@ func TestFileOperationToolsInRegistry(t *testing.T) {
 		"edit_range", 
 		"insert_at",
 		"search_replace",
-		"get_file_info",
-		"view_file",
-		"create_file",
+		"fileinfo",
+		"view",
+		"create",
 	}
 	
 	for _, toolName := range expectedTools {

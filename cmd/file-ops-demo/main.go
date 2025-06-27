@@ -28,7 +28,7 @@ func main() {
 	fmt.Println("=======================================")
 	
 	// 1. Create a file
-	createTool, _ := registry.Use("create_file")
+	createTool, _ := registry.Use("create")
 	createArgs := map[string]any{
 		"path": testFile,
 		"content": `package main
@@ -49,7 +49,7 @@ func main() {
 	fmt.Printf("Result: %s\n", result)
 	
 	// 2. Get file info
-	infoTool, _ := registry.Use("get_file_info")
+	infoTool, _ := registry.Use("fileinfo")
 	infoArgs := map[string]any{
 		"path": testFile,
 	}
@@ -66,7 +66,7 @@ func main() {
 		fileInfo["file_type"], fileInfo["lines"], fileInfo["size_bytes"])
 	
 	// 3. View file with line numbers
-	viewTool, _ := registry.Use("view_file")
+	viewTool, _ := registry.Use("view")
 	viewArgs := map[string]any{
 		"path":              testFile,
 		"show_line_numbers": true,

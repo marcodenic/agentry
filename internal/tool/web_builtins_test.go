@@ -80,10 +80,10 @@ func TestWebTools(t *testing.T) {
 		}
 	})
 
-	t.Run("api_request", func(t *testing.T) {
-		tool, exists := registry.Use("api_request")
+	t.Run("api", func(t *testing.T) {
+		tool, exists := registry.Use("api")
 		if !exists {
-			t.Fatal("api_request tool not found in registry")
+			t.Fatal("api tool not found in registry")
 		}
 
 		// Test with httpbin for reliable testing
@@ -98,13 +98,13 @@ func TestWebTools(t *testing.T) {
 
 		result, err := tool.Execute(context.Background(), args)
 		if err != nil {
-			t.Logf("api_request failed (may be network issue): %v", err)
+			t.Logf("api failed (may be network issue): %v", err)
 			t.Skip("Skipping due to network dependency")
 		}
 
 		var apiResult map[string]any
 		if err := json.Unmarshal([]byte(result), &apiResult); err != nil {
-			t.Fatalf("Failed to parse api_request result: %v", err)
+			t.Fatalf("Failed to parse api result: %v", err)
 		}
 
 		if apiResult["method"] != "GET" {
@@ -127,8 +127,8 @@ func TestWebToolsInRegistry(t *testing.T) {
 	expectedTools := []string{
 		"web_search",
 		"read_webpage",
-		"api_request",
-		"download_file",
+		"api",
+		"download",
 	}
 
 	for _, toolName := range expectedTools {

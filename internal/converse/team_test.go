@@ -92,7 +92,7 @@ func TestTeamCallToolNameRejection(t *testing.T) {
 	}
 
 	// Test tool names that should be rejected
-	toolNames := []string{"echo", "ping", "read_lines", "web_search", "api_request", "agent"}
+	toolNames := []string{"echo", "ping", "read_lines", "web_search", "api", "agent"}
 	for _, toolName := range toolNames {
 		_, err := tm.Call(context.Background(), toolName, "test")
 		if err == nil {

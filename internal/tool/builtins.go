@@ -58,12 +58,12 @@ var builtinMap = map[string]builtinSpec{
 		},
 	},
 	"fetch": {
-		Desc: "Download content from HTTP/HTTPS URLs (not for local files - use 'view' for local files)",
+		Desc: "Download content from HTTP/HTTPS URLs (web pages, APIs, etc.). ONLY for web URLs - NEVER use for local files! Use 'view' tool for reading local files.",
 		Schema: map[string]any{
 			"type":       "object",
-			"properties": map[string]any{"url": map[string]any{"type": "string", "description": "HTTP or HTTPS URL to fetch"}},
+			"properties": map[string]any{"url": map[string]any{"type": "string", "description": "HTTP or HTTPS URL to fetch (must start with http:// or https://)"}},
 			"required":   []string{"url"},
-			"example":    map[string]any{"url": "https://example.com"},
+			"example":    map[string]any{"url": "https://api.github.com/repos/owner/repo"},
 		},
 		Exec: func(ctx context.Context, args map[string]any) (string, error) {
 			url, _ := args["url"].(string)
@@ -142,6 +142,25 @@ var builtinMap = map[string]builtinSpec{
 				return "", errors.New("team not found in context")
 			}
 			return t.Call(ctx, name, input)
+		},
+	},
+	"sysinfo": {
+		Desc: "Get system information including CPU, memory, disk usage, OS details, and hardware specs",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+			"required":   []string{},
+			"example":    map[string]any{},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			// Cross-platform system information gathering
+			if runtime.GOOS == "windows" {
+				// Use simpler PowerShell commands for Windows
+				return ExecSandbox(ctx, "powershell -Command \"Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, TotalPhysicalMemory\"", sbox.Options{})
+			} else {
+				// Use standard Unix commands for system info
+				return ExecSandbox(ctx, "uname -a && free -h", sbox.Options{})
+			}
 		},
 	},
 }

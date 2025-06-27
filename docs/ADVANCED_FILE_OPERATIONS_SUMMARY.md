@@ -10,9 +10,9 @@ Successfully implemented **7 new advanced file operation tools** that bring VS C
 2. **`edit_range`** - Atomic line range replacement
 3. **`insert_at`** - Precise line insertion
 4. **`search_replace`** - Advanced search/replace with regex support
-5. **`get_file_info`** - Comprehensive file analysis (type, size, lines, encoding)
-6. **`view_file`** - Enhanced file viewing with line numbers
-7. **`create_file`** - Safe file creation with overwrite protection
+5. **`fileinfo`** - Comprehensive file analysis (type, size, lines, encoding)
+6. **`view`** - Enhanced file viewing with line numbers
+7. **`create`** - Safe file creation with overwrite protection
 
 ### 🔧 Technical Implementation
 
@@ -111,7 +111,7 @@ The foundation is now in place for even more advanced capabilities:
 1. **Language-Aware Tools**: `get_symbols`, `get_diagnostics`, `format_code`
 2. **Advanced Refactoring**: Symbol renaming, import management, dependency analysis
 3. **Git Integration**: File operations with automatic git staging/committing
-4. **Syntax Highlighting**: Enhanced view_file with language-specific highlighting
+4. **Syntax Highlighting**: Enhanced view with language-specific highlighting
 5. **Multi-File Operations**: Batch operations across multiple files
 
 ## ✅ STATUS: COMPLETE

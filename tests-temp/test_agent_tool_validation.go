@@ -64,7 +64,7 @@ func main() {
 	}
 
 	// Test 5: Verify tool names that should be blocked
-	toolNames := []string{"web_search", "read_webpage", "api_request", "download_file", "ping", "fetch", "mcp", "agent"}
+	toolNames := []string{"web_search", "read_webpage", "api", "download", "ping", "fetch", "mcp", "agent"}
 	fmt.Println("\nTest 5: Testing additional tool names...")
 	for _, toolName := range toolNames {
 		_, err := team.Call(ctx, toolName, "test")

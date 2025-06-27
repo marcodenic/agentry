@@ -72,7 +72,7 @@ func GetPlatformContext(allowedCommands []string, allowedBuiltins []string) stri
 
 // getFileOperationTools returns file operation builtins
 func getFileOperationTools(allowedBuiltins []string) []string {
-	fileOps := []string{"read_lines", "edit_range", "insert_at", "search_replace", "get_file_info", "view_file", "create_file"}
+	fileOps := []string{"read_lines", "edit_range", "insert_at", "search_replace", "fileinfo", "view", "create"}
 	var result []string
 	for _, tool := range fileOps {
 		if contains(allowedBuiltins, tool) {
@@ -84,7 +84,7 @@ func getFileOperationTools(allowedBuiltins []string) []string {
 
 // getWebTools returns web-related builtins
 func getWebTools(allowedBuiltins []string) []string {
-	webOps := []string{"web_search", "read_webpage", "api_request", "download_file", "fetch"}
+	webOps := []string{"web_search", "read_webpage", "api", "download", "fetch"}
 	var result []string
 	for _, tool := range webOps {
 		if contains(allowedBuiltins, tool) {
@@ -96,8 +96,8 @@ func getWebTools(allowedBuiltins []string) []string {
 
 // getOtherBuiltinTools returns other builtin tools
 func getOtherBuiltinTools(allowedBuiltins []string) []string {
-	fileOps := []string{"read_lines", "edit_range", "insert_at", "search_replace", "get_file_info", "view_file", "create_file"}
-	webOps := []string{"web_search", "read_webpage", "api_request", "download_file", "fetch"}
+	fileOps := []string{"read_lines", "edit_range", "insert_at", "search_replace", "fileinfo", "view", "create"}
+	webOps := []string{"web_search", "read_webpage", "api", "download", "fetch"}
 	var result []string
 	
 	for _, tool := range allowedBuiltins {
@@ -115,13 +115,13 @@ func getBuiltinDescription(tool string) string {
 		"edit_range":     "Replace line ranges atomically",
 		"insert_at":      "Insert lines at specific positions",
 		"search_replace": "Advanced search/replace with regex",
-		"get_file_info":  "Comprehensive file analysis",
-		"view_file":      "Enhanced file viewing with line numbers",
-		"create_file":    "Create files with overwrite protection",
+		"fileinfo":       "Comprehensive file analysis",
+		"view":           "Enhanced file viewing with line numbers",
+		"create":         "Create files with overwrite protection",
 		"web_search":     "Search the web for information",
 		"read_webpage":   "Extract content from web pages",
-		"api_request":    "Make HTTP/REST API calls",
-		"download_file":  "Download files from URLs",
+		"api":            "Make HTTP/REST API calls",
+		"download":       "Download files from URLs",
 		"fetch":          "Download content from URLs",
 		"agent":          "Delegate tasks to specialized agents",
 		"patch":          "Apply unified diff patches",
@@ -129,6 +129,7 @@ func getBuiltinDescription(tool string) string {
 		"ping":           "Test network connectivity",
 		"branch-tidy":    "Clean up Git branches",
 		"mcp":            "Connect to MCP servers",
+		"sysinfo":        "Get system information and hardware specs",
 	}
 	if desc, exists := descriptions[tool]; exists {
 		return desc
@@ -142,8 +143,8 @@ func getCommandMap() map[string]string {
 	case "windows":
 		return map[string]string{
 			"list":   `List files: powershell {"command": "Get-ChildItem -Name '*.go'"}`,
-			"view":   `View file: powershell {"command": "Get-Content README.md"} (prefer view_file builtin)`,
-			"write":  `Write file: powershell {"command": "Set-Content -Path test.txt -Value 'hello'"} (prefer create_file builtin)`,
+			"view":   `View file: powershell {"command": "Get-Content README.md"} (prefer view builtin)`,
+			"write":  `Write file: powershell {"command": "Set-Content -Path test.txt -Value 'hello'"} (prefer create builtin)`,
 			"run":    `Run command: powershell {"command": "go test ./..."}`,
 			"search": `Search text: powershell {"command": "Select-String -Pattern 'TODO' -Path *.go"} (prefer search_replace builtin)`,
 			"find":   `Find files: powershell {"command": "Get-ChildItem -Recurse -Name '*.txt'"}`,
@@ -153,8 +154,8 @@ func getCommandMap() map[string]string {
 	case "darwin", "linux":
 		return map[string]string{
 			"list":   `List files: bash {"command": "ls -la *.go"}`,
-			"view":   `View file: bash {"command": "cat README.md"} (prefer view_file builtin)`,
-			"write":  `Write file: bash {"command": "echo 'hello' > test.txt"} (prefer create_file builtin)`,
+			"view":   `View file: bash {"command": "cat README.md"} (prefer view builtin)`,
+			"write":  `Write file: bash {"command": "echo 'hello' > test.txt"} (prefer create builtin)`,
 			"run":    `Run command: bash {"command": "go test ./..."}`,
 			"search": `Search text: bash {"command": "grep 'TODO' *.go"} (prefer search_replace builtin)`,
 			"find":   `Find files: bash {"command": "find . -name '*.txt'"}`,
@@ -164,8 +165,8 @@ func getCommandMap() map[string]string {
 	default:
 		return map[string]string{
 			"list":   `List files: Use platform-specific listing command`,
-			"view":   `View file: Use view_file builtin (preferred)`,
-			"write":  `Write file: Use create_file builtin (preferred)`,
+			"view":   `View file: Use view builtin (preferred)`,
+			"write":  `Write file: Use create builtin (preferred)`,
 			"run":    `Run command: Use platform-specific execution command`,
 			"search": `Search text: Use search_replace builtin (preferred)`,
 			"find":   `Find files: Use platform-specific file finding command`,

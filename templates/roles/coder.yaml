@@ -12,8 +12,8 @@ prompt: |
 
   IMPORTANT FILE READING STRATEGY:
   - For large files (>100 lines), use read_lines for specific sections or search for content
-  - Use get_file_info to understand file structure (lines, size, type) before editing
-  - Use view_file with line numbers for code review and understanding context
+  - Use fileinfo to understand file structure (lines, size, type) before editing
+  - Use view with line numbers for code review and understanding context
   - For editing, prefer edit_range and insert_at for precise, atomic changes
   - Use search_replace with regex for complex text transformations
   - Break down large tasks into smaller, focused steps
@@ -38,15 +38,15 @@ commands:
 builtins:
   - agent # Delegate to other agents
   - patch # Apply code patches
-  - fetch # Download content
+  - fetch # Download content from URLs (web only)
   - read_lines # Read specific lines from files with line-precise access
   - edit_range # Replace a range of lines atomically
   - insert_at # Insert lines at specific positions
   - search_replace # Search and replace with regex support
-  - get_file_info # Get comprehensive file information
-  - view_file # Enhanced file viewing with line numbers
-  - create_file # Create new files with content
+  - fileinfo # Get comprehensive file information
+  - view # Enhanced file viewing with line numbers
+  - create # Create new files with content
   - web_search # Search the web for information
   - read_webpage # Extract content from web pages
-  - api_request # Make HTTP/REST API calls
-  - download_file # Download files from URLs
+  - api # Make HTTP/REST API calls
+  - download # Download files from URLs

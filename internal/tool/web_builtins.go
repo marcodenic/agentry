@@ -90,8 +90,8 @@ func addWebTools() {
 		Exec: readWebpageExec,
 	}
 
-	// api_request - Generic HTTP/REST API calls
-	builtinMap["api_request"] = builtinSpec{
+	// api - Generic HTTP/REST API calls
+	builtinMap["api"] = builtinSpec{
 		Desc: "Make HTTP/REST API requests",
 		Schema: map[string]any{
 			"type": "object",
@@ -135,8 +135,8 @@ func addWebTools() {
 		Exec: apiRequestExec,
 	}
 
-	// download_file - Download files from URLs
-	builtinMap["download_file"] = builtinSpec{
+	// download - Download files from URLs
+	builtinMap["download"] = builtinSpec{
 		Desc: "Download files from URLs to local filesystem",
 		Schema: map[string]any{
 			"type": "object",
@@ -498,7 +498,7 @@ func extractLinksSimple(html string, baseURL *url.URL) []map[string]any {
 	return links
 }
 
-// apiRequestExec implements the api_request tool
+// apiRequestExec implements the api tool
 func apiRequestExec(ctx context.Context, args map[string]any) (string, error) {
 	urlStr, _ := args["url"].(string)
 	if urlStr == "" {
@@ -585,7 +585,7 @@ func apiRequestExec(ctx context.Context, args map[string]any) (string, error) {
 	return string(jsonResult), nil
 }
 
-// downloadFileExec implements the download_file tool
+// downloadFileExec implements the download tool
 func downloadFileExec(ctx context.Context, args map[string]any) (string, error) {
 	urlStr, _ := args["url"].(string)
 	if urlStr == "" {

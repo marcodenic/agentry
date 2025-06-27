@@ -205,11 +205,11 @@ tools:
     type: builtin
   - name: search_replace # 🔍 search and replace with regex support
     type: builtin
-  - name: get_file_info # ℹ️ get comprehensive file information
+  - name: fileinfo # ℹ️ get comprehensive file information
     type: builtin
-  - name: view_file # 👀 enhanced file viewing with line numbers
+  - name: view # 👀 enhanced file viewing with line numbers
     type: builtin
-  - name: create_file # 📝 create new files with content
+  - name: create # 📝 create new files with content
     type: builtin
 ```
 
@@ -260,10 +260,10 @@ tools:
 
 Modern file operations use Agentry's advanced built-in tools rather than shell commands:
 
-- **Read files**: Use `view_file` or `read_lines` for precise, efficient access
+- **Read files**: Use `view` or `read_lines` for precise, efficient access
 - **Edit files**: Use `edit_range` and `insert_at` for atomic, line-precise edits
-- **Create files**: Use `create_file` with built-in overwrite protection
-- **Analyze files**: Use `get_file_info` for size, lines, encoding, and type detection
+- **Create files**: Use `create` with built-in overwrite protection
+- **Analyze files**: Use `fileinfo` for size, lines, encoding, and type detection
 - **Search/replace**: Use `search_replace` with regex support for complex transformations
 
 These tools provide cross-platform compatibility, atomic operations, and line-precise editing that rivals VS Code's capabilities.

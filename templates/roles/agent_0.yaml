@@ -50,16 +50,16 @@ commands:
 
 builtins:
   - agent # Delegate to other agents
-  - fetch # Download content
+  - fetch # Download content from URLs (web only)
   - branch-tidy # Git branch cleanup
   - read_lines # Read specific lines from files with line-precise access
   - edit_range # Replace a range of lines atomically
   - insert_at # Insert lines at specific positions
   - search_replace # Search and replace with regex support
-  - get_file_info # Get comprehensive file information
-  - view_file # Enhanced file viewing with line numbers
-  - create_file # Create new files with content
+  - fileinfo # Get comprehensive file information
+  - view # Enhanced file viewing with line numbers
+  - create # Create new files with content
   - web_search # Search the web for information
   - read_webpage # Extract content from web pages
-  - api_request # Make HTTP/REST API calls
-  - download_file # Download files from URLs
+  - api # Make HTTP/REST API calls
+  - download # Download files from URLs

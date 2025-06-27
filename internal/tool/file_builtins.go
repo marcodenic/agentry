@@ -161,8 +161,8 @@ func addFileOperationTools() {
 		Exec: searchReplaceExec,
 	}
 
-	// get_file_info - Get comprehensive file information
-	builtinMap["get_file_info"] = builtinSpec{
+	// fileinfo - Get comprehensive file information
+	builtinMap["fileinfo"] = builtinSpec{
 		Desc: "Get comprehensive information about a file (size, lines, encoding, etc.)",
 		Schema: map[string]any{
 			"type": "object",
@@ -180,8 +180,8 @@ func addFileOperationTools() {
 		Exec: getFileInfoExec,
 	}
 
-	// view_file - Enhanced file viewing with line numbers and syntax awareness
-	builtinMap["view_file"] = builtinSpec{
+	// view - Enhanced file viewing with line numbers and syntax awareness
+	builtinMap["view"] = builtinSpec{
 		Desc: "View file contents with line numbers and optional syntax highlighting information",
 		Schema: map[string]any{
 			"type": "object",
@@ -224,8 +224,8 @@ func addFileOperationTools() {
 		Exec: viewFileExec,
 	}
 
-	// create_file - Create a new file with content
-	builtinMap["create_file"] = builtinSpec{
+	// create - Create a new file with content
+	builtinMap["create"] = builtinSpec{
 		Desc: "Create a new file with specified content",
 		Schema: map[string]any{
 			"type": "object",
@@ -252,6 +252,7 @@ func addFileOperationTools() {
 		},
 		Exec: createFileExec,
 	}
+
 }
 
 // readLinesExec implements the read_lines tool
@@ -629,7 +630,7 @@ func searchReplaceExec(ctx context.Context, args map[string]any) (string, error)
 	return string(jsonResult), nil
 }
 
-// getFileInfoExec implements the get_file_info tool
+// getFileInfoExec implements the fileinfo tool
 func getFileInfoExec(ctx context.Context, args map[string]any) (string, error) {
 	path, _ := args["path"].(string)
 	if path == "" {
@@ -722,7 +723,7 @@ func getFileInfoExec(ctx context.Context, args map[string]any) (string, error) {
 	return string(jsonResult), nil
 }
 
-// viewFileExec implements the view_file tool
+// viewFileExec implements the view tool
 func viewFileExec(ctx context.Context, args map[string]any) (string, error) {
 	path, _ := args["path"].(string)
 	if path == "" {
@@ -785,7 +786,7 @@ func viewFileExec(ctx context.Context, args map[string]any) (string, error) {
 	return strings.Join(lines, "\n"), nil
 }
 
-// createFileExec implements the create_file tool
+// createFileExec implements the create tool
 func createFileExec(ctx context.Context, args map[string]any) (string, error) {
 	path, _ := args["path"].(string)
 	if path == "" {
