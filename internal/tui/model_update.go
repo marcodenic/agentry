@@ -30,6 +30,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case m.keys.ToggleTab:
 			m.activeTab = 1 - m.activeTab
+		case m.keys.Pause:
+			// Stop the active agent if it's running
+			if info, ok := m.infos[m.active]; ok && info.Status == StatusRunning {
+				if info.Cancel != nil {
+					info.Cancel() // Cancel the agent's context
+				}
+				info.Status = StatusStopped
+				info.History += fmt.Sprintf("\n%s Agent stopped by user", m.statusBar())
+				m.infos[m.active] = info
+				
+				// Update viewport to show the stop message
+				base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
+				m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+				m.vp.GotoBottom()
+			}
 		case m.keys.Submit:
 			if m.input.Focused() {
 				// Check if the active agent is idle before accepting new input
