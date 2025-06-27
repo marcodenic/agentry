@@ -1,4 +1,51 @@
-# Known Issues - ✅ RESOLVED
+# Known Issues and Current Status
+
+## NEW CRITICAL ISSUES - Current Session
+
+### TUI/Interface Issues
+- [ ] **Command formatting**: Commands lack proper spacing and grouping
+- [ ] **Spinner persistence**: Spinners getting stuck and not clearing properly  
+- [ ] **Token count**: Footer token count not updating during conversations
+- [ ] **Cost tracking**: Cost display stuck at $0.0000 despite API usage
+- [ ] **Status sync**: Agent status panel sometimes out of sync with actual state
+
+### Agent Orchestration Issues
+- [ ] **Auto-delegation failure**: Agent 0 identifies tasks but doesn't spawn agents automatically
+- [x] **Manual spawn error**: `/spawn coder` command fails with "tool names are reserved" error - FIXED
+- [ ] **Team coordination**: No inter-agent communication or status sharing
+- [ ] **Task assignment**: No proper task delegation workflow
+- [ ] **Progress tracking**: No way to monitor delegated task progress
+
+### Core Functionality Gaps
+- [ ] **Agent lifecycle**: No proper agent creation/destruction management
+- [x] **Tool restrictions**: Some tool names appear to be reserved/blocked (e.g., "powershell") - FIXED
+- [ ] **Context sharing**: Agents don't share context or results
+- [ ] **Workflow orchestration**: No multi-step task coordination
+
+## Test Cases Needed
+
+### Basic Orchestration Tests
+1. **Simple task delegation**: "Write a Python script to parse CSV files"
+2. **Multi-agent collaboration**: "Analyze this codebase and create documentation"
+3. **Team formation**: "Plan and implement a web application with tests"
+4. **Resource allocation**: "Research and implement best practices for 5 different topics"
+
+### Advanced Workflow Tests  
+1. **Project management**: Auto-assign team planner for complex projects
+2. **Cross-agent communication**: Agents sharing findings and collaborating
+3. **Dynamic scaling**: Adding/removing agents based on workload
+4. **Quality assurance**: Automatic testing and review workflows
+
+## Priority Order
+1. Fix immediate TUI bugs (spinners, formatting, counters)
+2. Resolve agent spawning and tool errors
+3. Implement proper task delegation
+4. Add inter-agent communication
+5. Build comprehensive test scenarios
+
+---
+
+## RESOLVED ISSUES ✅
 
 ## TUI Mode Issues - ALL FIXED
 

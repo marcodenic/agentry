@@ -199,7 +199,10 @@ var ErrUnknownAgent = errors.New("unknown agent")
 func (t *Team) Call(ctx context.Context, name, input string) (string, error) {
 	// Check if the name is a tool - tools should not be created as agents
 	if tool.IsBuiltinTool(name) {
-		return "", fmt.Errorf("cannot create agent with tool name '%s': tool names are reserved", name)
+		// Provide a helpful error message with suggestions for proper agent names
+		suggestions := []string{"coder", "researcher", "analyst", "writer", "planner", "tester", "devops"}
+		return "", fmt.Errorf("cannot create agent with tool name '%s': tool names are reserved. Use proper agent names like: %s", 
+			name, strings.Join(suggestions, ", "))
 	}
 	
 	ag, ok := t.agentsByName[name]

@@ -237,7 +237,7 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 	cleanText := strings.ReplaceAll(text, "┃", "")
 	cleanText = strings.ReplaceAll(cleanText, "\n", " ")
 	cleanText = strings.TrimSpace(cleanText)
-	
+
 	// Remove spinner characters only if they appear at the beginning of the text
 	for len(cleanText) > 0 {
 		firstChar := cleanText[:1]
@@ -247,7 +247,7 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 			break
 		}
 	}
-	
+
 	if cleanText == "" {
 		return bar + " "
 	}
@@ -353,4 +353,39 @@ func (m Model) formatHistoryWithBars(history string, width int) string {
 	}
 
 	return result.String()
+}
+
+// formatCommandGroup wraps related commands with proper spacing and visual grouping
+func (m Model) formatCommandGroup(commands []string) string {
+	if len(commands) == 0 {
+		return ""
+	}
+
+	// Create a visual separator for command groups
+	separator := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(m.theme.AIBarColor)).
+		Render("─────────────────────────────────────────────────")
+
+	var formatted strings.Builder
+	formatted.WriteString("\n")
+	formatted.WriteString(separator)
+	formatted.WriteString("\n")
+
+	for i, cmd := range commands {
+		formatted.WriteString(fmt.Sprintf("%s %s", m.statusBar(), cmd))
+		if i < len(commands)-1 {
+			formatted.WriteString("\n")
+		}
+	}
+
+	formatted.WriteString("\n")
+	formatted.WriteString(separator)
+	formatted.WriteString("\n\n")
+
+	return formatted.String()
+}
+
+// formatSingleCommand formats a single command with proper spacing
+func (m Model) formatSingleCommand(command string) string {
+	return fmt.Sprintf("\n%s %s\n", m.statusBar(), command)
 }

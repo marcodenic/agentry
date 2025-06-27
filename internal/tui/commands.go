@@ -33,12 +33,11 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 		m.showInitialLogo = false
 	}
 	
-	// Add user input with proper line wrapping and show thinking animation for responsive UX
+	// Add user input with proper line wrapping and formatting
 	userMessage := m.formatWithBar(m.userBar(), input, m.vp.Width)
-	info.History += userMessage + "\n\n"  // Add extra newline for spacing
+	info.History += fmt.Sprintf("%s\n", userMessage)  // Add user message with newline
 	
-	base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
-	m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+	m.vp.SetContent(info.History)
 	m.vp.GotoBottom()
 
 	pr, pw := io.Pipe()
@@ -137,8 +136,7 @@ func (m Model) handleSwitch(args []string) (Model, tea.Cmd) {
 		if strings.HasPrefix(id.String(), prefix) {
 			m.active = id
 			if info, ok := m.infos[id]; ok {
-				base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
-				m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+				m.vp.SetContent(info.History)
 			}
 			break
 		}
@@ -177,8 +175,7 @@ func (m Model) handleStop(args []string) (Model, tea.Cmd) {
 		
 		// Update viewport if this is the active agent
 		if id == m.active {
-			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
-			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+			m.vp.SetContent(info.History)
 			m.vp.GotoBottom()
 		}
 	}
@@ -200,8 +197,7 @@ func (m Model) cycleActive(delta int) Model {
 	idx = (idx + delta + len(m.order)) % len(m.order)
 	m.active = m.order[idx]
 	if info, ok := m.infos[m.active]; ok {
-		base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
-		m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+		m.vp.SetContent(info.History)
 	}
 	return m
 }
@@ -219,8 +215,7 @@ func (m Model) jumpToAgent(index int) Model {
 	}
 	m.active = m.order[index]
 	if info, ok := m.infos[m.active]; ok {
-		base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
-		m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+		m.vp.SetContent(info.History)
 	}
 	return m
 }

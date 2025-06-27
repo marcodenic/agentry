@@ -51,8 +51,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.infos[m.active] = info
 				
 				// Update viewport to show the stop message
-				base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
-				m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+				m.vp.SetContent(info.History)
 				m.vp.GotoBottom()
 			}
 		case m.keys.Submit:
@@ -89,15 +88,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			
 			// Clean up any leftover spinner characters from the end of History
 			if len(info.History) > 0 {
-				// Check for and remove spinner characters at the end
-				lastChar := info.History[len(info.History)-1:]
-				for lastChar == "|" || lastChar == "/" || lastChar == "-" || lastChar == "\\" {
-					info.History = info.History[:len(info.History)-1]
-					if len(info.History) == 0 {
-						break
-					}
-					lastChar = info.History[len(info.History)-1:]
+				// Remove spinner artifacts and ensure proper spacing
+				cleaned := strings.TrimRight(info.History, "|/-\\")
+				// Ensure proper spacing before AI response
+				if !strings.HasSuffix(cleaned, "\n\n") && !strings.HasSuffix(cleaned, "\n") {
+					cleaned += "\n"
 				}
+				info.History = cleaned
 			}
 		}
 		
@@ -114,9 +111,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
 				displayHistory += formattedResponse
 			}
-			
-			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
-			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(displayHistory))
+			m.vp.SetContent(displayHistory)
 			m.vp.GotoBottom()
 		}
 
@@ -145,13 +140,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			info.StreamingResponse = "" // Clear streaming response
 		}
 		
-		// Set status to idle and add spacing after AI message
+		// Set status to idle, clear spinner, and add proper spacing after AI message
 		info.Status = StatusIdle
+		info.TokensStarted = false // Reset streaming state
 		info.History += "\n\n" // Add extra spacing after AI response
 		
 		if msg.id == m.active {
-			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
-			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+			m.vp.SetContent(info.History)
 			m.vp.GotoBottom()
 		}
 		m.infos[msg.id] = info
@@ -159,22 +154,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case toolUseMsg:
 		info := m.infos[msg.id]
 		info.CurrentTool = msg.name
-		// Show completion message
+		// Show completion message with better formatting
 		completionText := m.formatToolCompletion(msg.name, msg.args)
-		info.History += fmt.Sprintf("\n%s %s", m.statusBar(), completionText)
+		commandFormatted := m.formatSingleCommand(completionText)
+		info.History += commandFormatted
 		if msg.id == m.active {
-			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
-			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+			m.vp.SetContent(info.History)
 			m.vp.GotoBottom()
 		}
 		m.infos[msg.id] = info
 		return m, m.readCmd(msg.id)
 	case actionMsg:
 		info := m.infos[msg.id]
-		info.History += fmt.Sprintf("\n%s %s", m.statusBar(), msg.text)
+		// Add action messages with better spacing
+		actionFormatted := m.formatSingleCommand(msg.text)
+		info.History += actionFormatted
 		if msg.id == m.active {
-			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
-			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+			m.vp.SetContent(info.History)
 			m.vp.GotoBottom()
 		}
 		m.infos[msg.id] = info
@@ -186,7 +182,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.readCmd(msg.id)
 	case spinner.TickMsg:
 		for id, ag := range m.infos {
-			if ag.Status == StatusRunning {
+			// Only update spinner for agents that are actually running and not finished streaming
+			if ag.Status == StatusRunning && !ag.TokensStarted {
 				var c tea.Cmd
 				ag.Spinner, c = ag.Spinner.Update(msg)
 				cmds = append(cmds, c)
@@ -285,6 +282,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, tea.Tick(time.Second, func(t time.Time) tea.Msg {
 			return activityTickMsg{}
 		}))
+		
+		// Force a refresh to update the footer token/cost display
+		cmds = append(cmds, tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
+			return refreshMsg{}
+		}))
+	case refreshMsg:
+		// This just causes a re-render to update the footer with live token/cost data
+		// Schedule next refresh
+		cmds = append(cmds, tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
+			return refreshMsg{}
+		}))
 	case errMsg:
 		m.err = msg
 		if info, ok := m.infos[m.active]; ok {
@@ -326,8 +334,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		info.History += frames[msg.frame]
 		
 		if msg.id == m.active {
-			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
-			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+			m.vp.SetContent(info.History)
 			m.vp.GotoBottom()
 		}
 		m.infos[msg.id] = info
@@ -337,13 +344,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.input.Width = msg.Width - 2  // Full width minus padding for input
-		m.vp.Width = int(float64(msg.Width)*0.75) - 2  // 75% width for chat area
-		// Calculate viewport height: total height - horizontal separator line - input line - footer line
-		m.vp.Height = msg.Height - 4   // Account for separator + input + footer + spacing
-		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, msg.Height-4) // 25% width for agent panel
+		
+		// Calculate chat area dimensions
+		chatWidth := int(float64(msg.Width)*0.75) - 2  // 75% width for chat area
+		
+		// Calculate viewport height more accurately:
+		// Total height - top section margin - horizontal separator (1) - input section height - footer section height - padding
+		viewportHeight := msg.Height - 5  // Leave space for separator, input, footer, and padding
+		
+		m.vp.Width = chatWidth
+		m.vp.Height = viewportHeight
+		
+		// Set agent panel size (25% width)
+		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, viewportHeight)
+		
+		// Refresh the viewport content with proper sizing
 		if info, ok := m.infos[m.active]; ok {
-			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
-			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+			// Don't wrap content in extra styles - let the viewport handle it
+			m.vp.SetContent(info.History)
+			m.vp.GotoBottom() // Ensure we're at the bottom after resize
 		}
 	}
 
@@ -356,15 +375,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	var chatContent string
 	if m.activeTab == 0 {
+		// Use viewport content directly for proper scrolling
 		chatContent = m.vp.View()
 		
-		// Center the logo if we're showing the initial logo
+		// Special handling for centered logo
 		if m.showInitialLogo {
 			if info, ok := m.infos[m.active]; ok {
 				// Apply centering to the logo content
 				logoStyle := lipgloss.NewStyle().
 					Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
-					Width(int(float64(m.width) * 0.75)).
+					Width(m.vp.Width).
 					Height(m.vp.Height).
 					Align(lipgloss.Center, lipgloss.Center)
 				chatContent = logoStyle.Render(info.History)
@@ -383,6 +403,7 @@ func (m Model) View() string {
 		Foreground(lipgloss.Color(m.theme.Palette.Foreground))
 	
 	// Create top section with chat (left) and agents (right)
+	// Don't apply extra width constraints to chatContent - let viewport handle it
 	left := base.Copy().Width(int(float64(m.width) * 0.75)).Render(chatContent)
 	right := base.Copy().Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
 	topSection := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
@@ -399,13 +420,17 @@ func (m Model) View() string {
 	// Stack everything vertically
 	content := lipgloss.JoinVertical(lipgloss.Left, topSection, horizontalLine, inputSection)
 
-	tokens := 0
-	costVal := 0.0
-	if info, ok := m.infos[m.active]; ok && info.Agent.Cost != nil {
-		tokens = info.Agent.Cost.TotalTokens()
-		costVal = info.Agent.Cost.TotalCost()
+	// Calculate total tokens and cost across all agents
+	totalTokens := 0
+	totalCost := 0.0
+	for _, info := range m.infos {
+		if info.Agent.Cost != nil {
+			totalTokens += info.Agent.Cost.TotalTokens()
+			totalCost += info.Agent.Cost.TotalCost()
+		}
 	}
-	footerText := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.infos), tokens, costVal)
+	
+	footerText := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.infos), totalTokens, totalCost)
 	footer := base.Copy().Width(m.width).Align(lipgloss.Right).Render(footerText)
 	
 	// Add empty line between input and footer

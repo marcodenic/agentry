@@ -123,7 +123,7 @@ func New(ag *core.Agent) Model {
                       ▒█   ▓█████▓▒  █▒                      
                       ▒█▓███▓▓█▓▓███▓█▒                      
                    ▒▓███▓▒   ▒▓▒   ▒▓███▓▒                   
-                  ███▓▓█     ▒▓▒     █▓▓▓██▒                 
+                 ▒███▓▓█     ▒▓▒     █▓▓▓██▒                 
                       ▒█     ▒▓▒     █▒                      
                       ▒█     ▒▓▒     █▒                      
                       ▒█     ▒▓▒     █▒                      
@@ -136,7 +136,7 @@ func New(ag *core.Agent) Model {
                  █▀█ █▀▀ █▀▀ █▀█ ▀█▀ █▀▄ █ █                 
                  █▀█ █ █ █▀▀ █ █  █  █▀▄  █                  
                  ▀ ▀ ▀▀▀ ▀▀▀ ▀ ▀  ▀  ▀ ▀  ▀                  
-                AGENT ORCHESTRATION FRAMEWORK                
+               AGENT  ORCHESTRATION  FRAMEWORK               
                                                              `
 
 	info := &AgentInfo{

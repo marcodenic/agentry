@@ -43,6 +43,8 @@ type modelMsg struct {
 
 type activityTickMsg struct{}
 
+type refreshMsg struct{}
+
 type errMsg struct{ error }
 
 type agentCompleteMsg struct {
