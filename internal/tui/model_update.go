@@ -31,13 +31,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case m.keys.ToggleTab:
 			m.activeTab = 1 - m.activeTab
 		case m.keys.Pause:
-			// Stop the active agent if it's running
-			if info, ok := m.infos[m.active]; ok && info.Status == StatusRunning {
+			// Stop the active agent if it's running or streaming
+			if info, ok := m.infos[m.active]; ok && (info.Status == StatusRunning || info.TokensStarted) {
 				if info.Cancel != nil {
 					info.Cancel() // Cancel the agent's context
 				}
+				
+				// Clean up streaming response if in progress
+				if info.StreamingResponse != "" {
+					// Add the partial streaming response to history before stopping
+					formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
+					info.History += formattedResponse
+					info.StreamingResponse = ""
+				}
+				
 				info.Status = StatusStopped
-				info.History += fmt.Sprintf("\n%s Agent stopped by user", m.statusBar())
+				info.TokensStarted = false // Reset streaming state
+				info.History += fmt.Sprintf("\n\n%s Agent stopped by user\n", m.statusBar())
 				m.infos[m.active] = info
 				
 				// Update viewport to show the stop message
@@ -64,8 +74,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case tokenMsg:
-		// ENABLED: Real-time token streaming for smooth UX
+		// Check if agent has been stopped - if so, ignore further tokens
 		info := m.infos[msg.id]
+		if info.Status == StatusStopped {
+			return m, nil
+		}
+		
+		// ENABLED: Real-time token streaming for smooth UX
 		
 		// Stop thinking animation on first token
 		if !info.TokensStarted {

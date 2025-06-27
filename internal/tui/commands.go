@@ -3,6 +3,7 @@ package tui
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -161,8 +162,25 @@ func (m Model) handleStop(args []string) (Model, tea.Cmd) {
 		if info.Cancel != nil {
 			info.Cancel()
 		}
+		
+		// Clean up streaming response if in progress
+		if info.StreamingResponse != "" {
+			formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
+			info.History += formattedResponse
+			info.StreamingResponse = ""
+		}
+		
 		info.Status = StatusStopped
+		info.TokensStarted = false // Reset streaming state
+		info.History += fmt.Sprintf("\n\n%s Agent stopped by user\n", m.statusBar())
 		m.infos[id] = info
+		
+		// Update viewport if this is the active agent
+		if id == m.active {
+			base := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Palette.Foreground))
+			m.vp.SetContent(base.Copy().Width(m.vp.Width).Render(info.History))
+			m.vp.GotoBottom()
+		}
 	}
 	return m, nil
 }
