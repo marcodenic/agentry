@@ -26,6 +26,12 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	info.Spinner.Spinner = spinner.Line
 	info.Spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
 	
+	// Clear initial logo on first user input
+	if m.showInitialLogo {
+		info.History = "" // Clear the logo content
+		m.showInitialLogo = false
+	}
+	
 	// Add user input with proper line wrapping and show thinking animation for responsive UX
 	userMessage := m.formatWithBar(m.userBar(), input, m.vp.Width)
 	info.History += userMessage + "\n\n"  // Add extra newline for spacing
