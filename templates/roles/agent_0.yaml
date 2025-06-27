@@ -63,3 +63,4 @@ builtins:
   - read_webpage # Extract content from web pages
   - api # Make HTTP/REST API calls
   - download # Download files from URLs
+  - sysinfo # Get system information and hardware specs

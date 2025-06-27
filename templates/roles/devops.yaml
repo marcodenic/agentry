@@ -31,3 +31,4 @@ builtins:
   - agent # Delegate to specialists
   - fetch # Download resources
   - branch-tidy # Git maintenance
+  - sysinfo # Get system information and hardware specs
