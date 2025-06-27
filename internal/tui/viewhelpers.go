@@ -228,21 +228,31 @@ func min(a, b int) int {
 }
 
 // formatWithBar formats text with a vertical bar on the first line and continuation bars on wrapped lines
+// This version preserves original formatting including newlines from AI responses
 func (m Model) formatWithBar(bar, text string, width int) string {
 	if text == "" {
 		return bar + " "
 	}
 
-	// Clean the text - remove any existing vertical bars and normalize whitespace
+	// Clean the text - remove any existing vertical bars but preserve newlines
 	cleanText := strings.ReplaceAll(text, "┃", "")
-	cleanText = strings.ReplaceAll(cleanText, "\n", " ")
 	cleanText = strings.TrimSpace(cleanText)
 
-	// Remove spinner characters only if they appear at the beginning of the text
+	// Remove spinner characters only if they appear at the beginning or end
 	for len(cleanText) > 0 {
 		firstChar := cleanText[:1]
 		if firstChar == "|" || firstChar == "/" || firstChar == "-" || firstChar == "\\" {
 			cleanText = strings.TrimSpace(cleanText[1:])
+		} else {
+			break
+		}
+	}
+	
+	// Also remove spinner characters from the end
+	for len(cleanText) > 0 {
+		lastChar := cleanText[len(cleanText)-1:]
+		if lastChar == "|" || lastChar == "/" || lastChar == "-" || lastChar == "\\" {
+			cleanText = strings.TrimSpace(cleanText[:len(cleanText)-1])
 		} else {
 			break
 		}
@@ -252,65 +262,18 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 		return bar + " "
 	}
 
-	// Calculate available width for text (subtract bar + space)
-	barWidth := lipgloss.Width(bar) + 1 // +1 for space after bar
-	textWidth := width - barWidth
-	if textWidth <= 0 {
-		textWidth = 1
-	}
-
-	// Split text into words
-	words := strings.Fields(cleanText)
-	if len(words) == 0 {
-		return bar + " "
-	}
-
-	var lines []string
-	var currentLine strings.Builder
-
-	for _, word := range words {
-		// Check if adding this word would exceed the line width
-		testLine := currentLine.String()
-		if testLine != "" {
-			testLine += " "
+	// Split by existing newlines to preserve AI formatting
+	lines := strings.Split(cleanText, "\n")
+	
+	var result strings.Builder
+	for i, line := range lines {
+		if i > 0 {
+			result.WriteString("\n")
 		}
-		testLine += word
-
-		if len(testLine) <= textWidth {
-			// Word fits on current line
-			if currentLine.Len() > 0 {
-				currentLine.WriteString(" ")
-			}
-			currentLine.WriteString(word)
-		} else {
-			// Word doesn't fit, start new line
-			if currentLine.Len() > 0 {
-				lines = append(lines, currentLine.String())
-				currentLine.Reset()
-			}
-			currentLine.WriteString(word)
-		}
+		result.WriteString(bar + " " + line)
 	}
 
-	// Add remaining content
-	if currentLine.Len() > 0 {
-		lines = append(lines, currentLine.String())
-	}
-
-	// Format lines with bars
-	if len(lines) == 0 {
-		return bar + " "
-	}
-
-	// First line gets the original bar
-	result := bar + " " + lines[0]
-
-	// Continuation lines get the same bar
-	for i := 1; i < len(lines); i++ {
-		result += "\n" + bar + " " + lines[i]
-	}
-
-	return result
+	return result.String()
 }
 
 // formatHistoryWithBars reformats the entire chat history to apply proper line wrapping with vertical bars
@@ -388,4 +351,80 @@ func (m Model) formatCommandGroup(commands []string) string {
 // formatSingleCommand formats a single command with proper spacing
 func (m Model) formatSingleCommand(command string) string {
 	return fmt.Sprintf("\n%s %s\n", m.statusBar(), command)
+}
+
+// formatUserInput formats user input with proper word wrapping
+func (m Model) formatUserInput(bar, text string, width int) string {
+	if text == "" {
+		return bar + " "
+	}
+
+	// Clean the text - remove any existing vertical bars  
+	cleanText := strings.ReplaceAll(text, "┃", "")
+	cleanText = strings.TrimSpace(cleanText)
+
+	if cleanText == "" {
+		return bar + " "
+	}
+
+	// Calculate available width for text (subtract bar + space)
+	barWidth := lipgloss.Width(bar) + 1 // +1 for space after bar
+	textWidth := width - barWidth
+	if textWidth <= 10 { // Minimum reasonable width
+		textWidth = 40
+	}
+
+	// Split text into words for wrapping
+	words := strings.Fields(cleanText)
+	if len(words) == 0 {
+		return bar + " "
+	}
+
+	var lines []string
+	var currentLine strings.Builder
+
+	for _, word := range words {
+		// Check if adding this word would exceed the line width
+		testLine := currentLine.String()
+		if testLine != "" {
+			testLine += " "
+		}
+		testLine += word
+
+		if len(testLine) <= textWidth {
+			// Word fits on current line
+			if currentLine.Len() > 0 {
+				currentLine.WriteString(" ")
+			}
+			currentLine.WriteString(word)
+		} else {
+			// Word doesn't fit, start new line
+			if currentLine.Len() > 0 {
+				lines = append(lines, currentLine.String())
+				currentLine.Reset()
+			}
+			currentLine.WriteString(word)
+		}
+	}
+
+	// Add remaining content
+	if currentLine.Len() > 0 {
+		lines = append(lines, currentLine.String())
+	}
+
+	// Format lines with bars
+	if len(lines) == 0 {
+		return bar + " "
+	}
+
+	// Format each line with the bar
+	var result strings.Builder
+	for i, line := range lines {
+		if i > 0 {
+			result.WriteString("\n")
+		}
+		result.WriteString(bar + " " + line)
+	}
+
+	return result.String()
 }

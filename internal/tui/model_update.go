@@ -88,10 +88,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			
 			// Clean up any leftover spinner characters from the end of History
 			if len(info.History) > 0 {
-				// Remove spinner artifacts and ensure proper spacing
-				cleaned := strings.TrimRight(info.History, "|/-\\")
-				// Ensure proper spacing before AI response
-				if !strings.HasSuffix(cleaned, "\n\n") && !strings.HasSuffix(cleaned, "\n") {
+				// More aggressive spinner cleanup - remove all trailing spinner artifacts
+				cleaned := info.History
+				for len(cleaned) > 0 {
+					lastChar := cleaned[len(cleaned)-1:]
+					if lastChar == "|" || lastChar == "/" || lastChar == "-" || lastChar == "\\" || lastChar == " " {
+						cleaned = cleaned[:len(cleaned)-1]
+					} else {
+						break
+					}
+				}
+				// Add a newline if we don't have proper spacing
+				if !strings.HasSuffix(cleaned, "\n") {
 					cleaned += "\n"
 				}
 				info.History = cleaned
@@ -296,7 +304,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg:
 		m.err = msg
 		if info, ok := m.infos[m.active]; ok {
+			// Clean up any running state when there's an error
 			info.Status = StatusError
+			info.TokensStarted = false
+			
+			// Clear any stuck spinners or partial messages
+			if len(info.History) > 0 {
+				cleaned := info.History
+				for len(cleaned) > 0 {
+					lastChar := cleaned[len(cleaned)-1:]
+					if lastChar == "|" || lastChar == "/" || lastChar == "-" || lastChar == "\\" {
+						cleaned = cleaned[:len(cleaned)-1]
+					} else {
+						break
+					}
+				}
+				info.History = cleaned
+			}
+			
+			// Add error message with proper formatting
+			errorMsg := fmt.Sprintf("❌ Error: %s", msg.Error())
+			errorFormatted := m.formatSingleCommand(errorMsg)
+			info.History += errorFormatted
+			
+			// Update viewport if this is the active agent
+			if m.active == info.Agent.ID {
+				m.vp.SetContent(info.History)
+				m.vp.GotoBottom()
+			}
+			
 			m.infos[m.active] = info
 		}
 	case agentCompleteMsg:
@@ -310,6 +346,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		info := m.infos[msg.id]
 		// Stop thinking animation if tokens have started or agent is not running
 		if info.Status != StatusRunning || info.TokensStarted {
+			// Clean up any remaining spinner artifacts when stopping
+			if len(info.History) > 0 {
+				cleaned := info.History
+				for len(cleaned) > 0 {
+					lastChar := cleaned[len(cleaned)-1:]
+					if lastChar == "|" || lastChar == "/" || lastChar == "-" || lastChar == "\\" {
+						cleaned = cleaned[:len(cleaned)-1]
+					} else {
+						break
+					}
+				}
+				info.History = cleaned
+				m.infos[msg.id] = info
+				
+				if msg.id == m.active {
+					m.vp.SetContent(info.History)
+					m.vp.GotoBottom()
+				}
+			}
 			return m, nil
 		}
 		

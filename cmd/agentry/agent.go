@@ -8,6 +8,7 @@ import (
 	"github.com/marcodenic/agentry/internal/audit"
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
@@ -94,6 +95,10 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	if cfg.MaxIterations > 0 {
 		ag.MaxIterations = cfg.MaxIterations
 	}
+	
+	// Initialize cost manager for token/cost tracking
+	ag.Cost = cost.New(0, 0.0) // No budget limits, just tracking
+	
 	return ag, nil
 }
 

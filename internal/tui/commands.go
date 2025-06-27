@@ -34,7 +34,7 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	}
 	
 	// Add user input with proper line wrapping and formatting
-	userMessage := m.formatWithBar(m.userBar(), input, m.vp.Width)
+	userMessage := m.formatUserInput(m.userBar(), input, m.vp.Width)
 	info.History += fmt.Sprintf("%s\n", userMessage)  // Add user message with newline
 	
 	m.vp.SetContent(info.History)
