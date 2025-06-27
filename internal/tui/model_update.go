@@ -57,8 +57,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case m.keys.Submit:
 			if m.input.Focused() {
-				// Check if the active agent is idle before accepting new input
-				if info, ok := m.infos[m.active]; ok && info.Status != StatusIdle {
+				// Check if the active agent is running before accepting new input
+				if info, ok := m.infos[m.active]; ok && info.Status == StatusRunning {
 					// Agent is busy, ignore input
 					return m, nil
 				}
