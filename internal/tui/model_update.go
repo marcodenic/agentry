@@ -327,6 +327,19 @@ func (m Model) View() string {
 	var chatContent string
 	if m.activeTab == 0 {
 		chatContent = m.vp.View()
+		
+		// Center the logo if we're showing the initial logo
+		if m.showInitialLogo {
+			if info, ok := m.infos[m.active]; ok {
+				// Apply centering to the logo content
+				logoStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+					Width(int(float64(m.width) * 0.75)).
+					Height(m.vp.Height).
+					Align(lipgloss.Center, lipgloss.Center)
+				chatContent = logoStyle.Render(info.History)
+			}
+		}
 	} else {
 		if info, ok := m.infos[m.active]; ok {
 			chatContent = renderMemory(info.Agent)
