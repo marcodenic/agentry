@@ -170,7 +170,7 @@ func (m Model) handleStop(args []string) (Model, tea.Cmd) {
 			info.StreamingResponse = ""
 		}
 		
-		info.Status = StatusStopped
+		info.Status = StatusIdle // Set to idle so new messages can be sent
 		info.TokensStarted = false // Reset streaming state
 		info.History += fmt.Sprintf("\n\n%s Agent stopped by user\n", m.statusBar())
 		m.infos[id] = info
