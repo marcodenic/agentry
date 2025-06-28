@@ -1,18 +1,24 @@
 # AGENTS.md
 
-> **🚨 CRITICAL: ROOT DIRECTORY HYGIENE**
+> **🚨 CRITICAL: ROOT DIRECTORY HYGIENE RULES**
 >
-> **NEVER CREATE TEST FILES, DEBUG SCRIPTS, OR TEMPORARY FILES IN THE ROOT DIRECTORY.**
+> **NEVER CREATE ANY OF THE FOLLOWING IN THE ROOT DIRECTORY:**
+> - *.md summary files (PERFORMANCE_FIXES_SUMMARY.md, REFACTORING_PLAN.md, etc.)
+> - Test files, debug scripts, or temporary files
+> - Any files ending in _COMPLETE.md, _FIX.md, _SUMMARY.md, etc.
 >
-> The root directory must remain pristine and contain only essential project files.
-> Any test files, debug scripts, experiments, or temporary files MUST go in appropriate subdirectories:
+> **ROOT DIRECTORY IS FOR ESSENTIAL PROJECT FILES ONLY:**
+> - README.md, ROADMAP.md, AGENTS.md, TODO.md, LICENSE
+> - Core project files (go.mod, Makefile, etc.)
+> - Essential config files (.agentry.yaml, docker-compose.yml)
 >
-> - `tests/` for test files
+> **ALL OTHER FILES MUST GO IN APPROPRIATE SUBDIRECTORIES:**
+> - `docs/` for documentation
+> - `tests/` for test files  
 > - `debug/` for debug scripts
-> - `examples/` for example files
-> - `test-programs/` for test programs
+> - `examples/` for examples
 >
-> **Violation of this rule is unacceptable and will break the build system.**
+> **THIS RULE IS NON-NEGOTIABLE. VIOLATION BREAKS THE PROJECT.**
 
 ---
 

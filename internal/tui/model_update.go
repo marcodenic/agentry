@@ -371,8 +371,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var errorMsg string
 			errorStr := msg.Error()
 			
-			// Enhanced error analysis
-			if strings.Contains(errorStr, "fetch") && strings.Contains(errorStr, "exit status 1") {
+			// Enhanced error analysis with better wrapping
+			if strings.Contains(errorStr, "cannot create agent with tool name") && strings.Contains(errorStr, "view") {
+				errorMsg = "❌ Error: Agent trying to create 'view' agent\n"
+				errorMsg += "   Context: Tool names like 'view', 'write', 'search' are reserved\n"
+				errorMsg += "   💡 Fix: Agent should use 'view filename' directly, not create a 'view' agent\n"
+				errorMsg += "   💡 This indicates the agent prompt needs adjustment"
+			} else if strings.Contains(errorStr, "cannot create agent with tool name") {
+				// Extract the tool name from the error
+				errorMsg = "❌ Error: Agent trying to create agent with reserved tool name\n"
+				errorMsg += "   Context: " + errorStr + "\n"
+				errorMsg += "   💡 Fix: Use the tool directly instead of creating an agent with that name"
+			} else if strings.Contains(errorStr, "fetch") && strings.Contains(errorStr, "exit status 1") {
 				if strings.Contains(errorStr, "roadmap.md") {
 					errorMsg = "❌ Error: fetch tool called with local file path instead of URL\n"
 					errorMsg += "   Context: Tool 'fetch' requires URLs (http/https), not local file paths\n"
