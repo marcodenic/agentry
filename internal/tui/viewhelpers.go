@@ -236,7 +236,8 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 
 	// Clean the text - remove any existing vertical bars but preserve newlines
 	cleanText := strings.ReplaceAll(text, "┃", "")
-	cleanText = strings.TrimSpace(cleanText)
+	// Only trim leading/trailing spaces, NOT newlines to preserve formatting
+	cleanText = strings.Trim(cleanText, " \t")
 
 	if cleanText == "" {
 		return bar + " "
@@ -396,7 +397,8 @@ func (m Model) formatUserInput(bar, text string, width int) string {
 
 	// Clean the text - remove any existing vertical bars  
 	cleanText := strings.ReplaceAll(text, "┃", "")
-	cleanText = strings.TrimSpace(cleanText)
+	// Only trim leading/trailing spaces, NOT newlines to preserve formatting
+	cleanText = strings.Trim(cleanText, " \t")
 
 	if cleanText == "" {
 		return bar + " "

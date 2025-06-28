@@ -114,11 +114,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Update viewport with streaming content - OPTIMIZED for performance
 		if msg.id == m.active {
-			// PERFORMANCE FIX: Only update every 10 characters, on newlines, or on spaces
-			// This reduces viewport updates by 90% while ensuring proper formatting
+			// PERFORMANCE FIX: Update every 10 characters, or immediately on formatting characters
+			// This preserves newlines and other formatting while maintaining good performance
 			shouldUpdate := len(info.StreamingResponse)%10 == 0 || 
 				strings.HasSuffix(msg.token, "\n") || 
-				strings.HasSuffix(msg.token, " ")
+				strings.HasSuffix(msg.token, " ") ||
+				strings.HasSuffix(msg.token, "\t") ||
+				strings.HasSuffix(msg.token, "\r")
 			
 			if shouldUpdate {
 				// Build display history with properly formatted streaming response
