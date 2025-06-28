@@ -29,6 +29,7 @@ type Model struct {
 	team *converse.Team
 
 	vp    viewport.Model
+	debugVp viewport.Model // Separate viewport for debug/memory view
 	input textinput.Model
 	tools list.Model
 
@@ -87,6 +88,7 @@ type AgentInfo struct {
 	StreamingResponse string // Current AI response being streamed (unformatted)
 	DebugTrace      []DebugTraceEvent // Detailed trace history for debug view
 	CurrentStep     int              // Current step number for trace events
+	DebugStreamingResponse string    // Separate streaming response for debug view
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -122,6 +124,7 @@ func New(ag *core.Agent) Model {
 	ti.Focus()
 
 	vp := viewport.New(0, 0)
+	debugVp := viewport.New(0, 0)
 	cwd, _ := os.Getwd()
 	
 	// Initialize with ASCII logo as welcome content
@@ -167,6 +170,7 @@ func New(ag *core.Agent) Model {
 		StreamingResponse: "",
 		DebugTrace: make([]DebugTraceEvent, 0), // Initialize debug trace
 		CurrentStep: 0,
+		DebugStreamingResponse: "", // Initialize debug streaming response
 	}
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
@@ -183,6 +187,7 @@ func New(ag *core.Agent) Model {
 		active: ag.ID,
 		team:   tm,
 		vp:     vp,
+		debugVp: debugVp,
 		input:  ti,
 		tools:  l,
 		cwd:    cwd,

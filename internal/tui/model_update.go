@@ -49,6 +49,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case m.keys.ToggleTab:
 			m.activeTab = 1 - m.activeTab
+			// When switching to debug tab, update debug viewport content
+			if m.activeTab == 1 {
+				if info, ok := m.infos[m.active]; ok {
+					debugContent := m.renderDetailedMemory(info.Agent)
+					m.debugVp.SetContent(debugContent)
+					m.debugVp.GotoBottom() // Start at bottom to see latest events
+				}
+			}
 		case m.keys.Pause:
 			// Stop the active agent if it's running or streaming
 			if info, ok := m.infos[m.active]; ok && (info.Status == StatusRunning || info.TokensStarted) {
@@ -177,12 +185,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return newModel, nextCmd
 	case finalMsg:
 		info := m.infos[msg.id]
-		// Add the final AI response with proper formatting
+		// Add the final AI response with proper formatting from accumulated streaming
 		if info.StreamingResponse != "" {
 			formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
 			info.History += formattedResponse
-			info.StreamingResponse = "" // Clear streaming response
+		} else if msg.text != "" {
+			// Fallback to final message text if no streaming occurred
+			formattedResponse := m.formatWithBar(m.aiBar(), msg.text, m.vp.Width)
+			info.History += formattedResponse
 		}
+		info.StreamingResponse = "" // Clear streaming response
 		
 		// Limit history length to prevent unbounded memory growth (keep last ~100KB)
 		const maxHistoryLength = 100000
@@ -283,6 +295,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						StreamingResponse: "",
 						DebugTrace:      make([]DebugTraceEvent, 0), // Initialize debug trace
 						CurrentStep:     0,
+						DebugStreamingResponse: "", // Initialize debug streaming response
 					}
 					m.infos[agent.ID] = info
 					m.order = append(m.order, agent.ID)
@@ -484,6 +497,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.vp.Width = chatWidth
 		m.vp.Height = viewportHeight
 		
+		// Also set debug viewport size
+		m.debugVp.Width = chatWidth
+		m.debugVp.Height = viewportHeight
+		
 		// Set agent panel size (25% width)
 		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, viewportHeight)
 		
@@ -506,6 +523,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.vp.GotoBottom() // Ensure we're at the bottom after resize
 		}
+	}
+
+	// Handle viewport scrolling based on active tab
+	if m.activeTab == 0 {
+		m.vp, _ = m.vp.Update(msg)
+	} else {
+		m.debugVp, _ = m.debugVp.Update(msg)
 	}
 
 	m.input, _ = m.input.Update(msg)
@@ -533,9 +557,15 @@ func (m Model) View() string {
 			}
 		}
 	} else {
+		// Use debug viewport for proper scrolling in debug mode
 		if info, ok := m.infos[m.active]; ok {
-			chatContent = m.renderDetailedMemory(info.Agent)
+			// Update debug viewport content if not already set
+			if m.debugVp.TotalLineCount() == 0 {
+				debugContent := m.renderDetailedMemory(info.Agent)
+				m.debugVp.SetContent(debugContent)
+			}
 		}
+		chatContent = m.debugVp.View()
 	}
 	
 	base := lipgloss.NewStyle().

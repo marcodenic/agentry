@@ -629,6 +629,34 @@ func (m Model) renderDetailedMemory(ag *core.Agent) string {
 	b.WriteString(strings.Repeat("═", 80))
 	b.WriteString("\n\n")
 	
+	// Show current streaming response if available
+	if info.DebugStreamingResponse != "" {
+		b.WriteString(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#88FF88")).
+			Bold(true).
+			Render("🔄 CURRENT RESPONSE BEING GENERATED:"))
+		b.WriteString("\n")
+		
+		responseBox := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFFFFF")).
+			Background(lipgloss.Color("#1a3a1a")).
+			Padding(1, 2).
+			Margin(0, 0, 1, 2).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#44AA44"))
+		
+		b.WriteString(responseBox.Render(truncateString(info.DebugStreamingResponse, 300)))
+		b.WriteString("\n\n")
+	}
+	
+	b.WriteString(lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#888888")).
+		Italic(true).
+		Render("📈 EVENT TIMELINE:"))
+	b.WriteString("\n")
+	b.WriteString(strings.Repeat("─", 80))
+	b.WriteString("\n\n")
+	
 	currentStep := 0
 	tokenCount := 0
 	for i, event := range info.DebugTrace {
@@ -680,16 +708,31 @@ func (m Model) renderDetailedMemory(ag *core.Agent) string {
 		
 		// Skip excessive token events for readability, but count them
 		if event.Type == "token" {
-			if tokenCount > 3 && i < len(info.DebugTrace)-1 && info.DebugTrace[i+1].Type == "token" {
-				continue // Skip intermediate tokens to avoid clutter
-			}
-			if tokenCount > 3 {
-				// Show token summary instead
-				b.WriteString(fmt.Sprintf("  💬 %s [%d tokens generated...]\n", 
-					lipgloss.NewStyle().Foreground(lipgloss.Color(eventColor)).Render("Streaming Response"), 
-					tokenCount))
-				tokenCount = 0 // Reset after showing summary
-				continue
+			// Show first few tokens individually, then aggregate
+			if tokenCount <= 5 {
+				// Show individual meaningful tokens
+				if strings.Contains(event.Details, "Character:") {
+					tokenCount++
+					continue // Skip individual characters
+				}
+			} else if tokenCount > 5 {
+				// Look ahead to see if more tokens are coming
+				hasMoreTokens := i < len(info.DebugTrace)-1
+				if hasMoreTokens {
+					nextEvent := info.DebugTrace[i+1]
+					if nextEvent.Type == "token" {
+						tokenCount++
+						continue // Skip this token, we'll show a summary
+					}
+				}
+				// Show token summary when we reach the end of a token sequence
+				if tokenCount > 5 {
+					b.WriteString(fmt.Sprintf("  💬 %s\n", 
+						lipgloss.NewStyle().Foreground(lipgloss.Color(eventColor)).Render(
+							fmt.Sprintf("Response Generated [%d tokens streamed]", tokenCount))))
+					tokenCount = 0 // Reset after showing summary
+					continue
+				}
 			}
 		}
 		

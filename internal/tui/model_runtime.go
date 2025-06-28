@@ -215,6 +215,15 @@ func startThinkingAnimation(id uuid.UUID) tea.Cmd {
 	})
 }
 
+// truncateString truncates a string to the specified length with ellipsis
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
+}
+
+
 // addDebugTraceEvent captures trace events for detailed debug view
 func (m *Model) addDebugTraceEvent(id uuid.UUID, ev trace.Event) {
 	info := m.infos[id]
@@ -242,20 +251,45 @@ func (m *Model) addDebugTraceEvent(id uuid.UUID, ev trace.Event) {
 		}
 	case trace.EventStepStart:
 		info.CurrentStep++
-		if res, ok := ev.Data.(string); ok && res != "" {
-			details = fmt.Sprintf("New reasoning step: %s", res)
+		// Reset debug streaming response for new step (don't interfere with main chat)
+		info.DebugStreamingResponse = ""
+		// Handle different data types for step start
+		if completion, ok := ev.Data.(map[string]interface{}); ok {
+			if content, ok := completion["Content"].(string); ok && content != "" {
+				details = fmt.Sprintf("New reasoning step with content: %s", truncateString(content, 100))
+			} else {
+				details = "Starting new reasoning step"
+			}
+		} else if res, ok := ev.Data.(string); ok && res != "" {
+			details = fmt.Sprintf("New reasoning step: %s", truncateString(res, 100))
 		} else {
 			details = "Starting new reasoning step"
 		}
 	case trace.EventToken:
 		if token, ok := ev.Data.(string); ok {
-			details = fmt.Sprintf("Token: %q", token)
+			// Accumulate tokens for debug display in separate field
+			if info.DebugStreamingResponse == "" {
+				info.DebugStreamingResponse = token
+			} else {
+				info.DebugStreamingResponse += token
+			}
+			// Only show details for significant tokens (words, punctuation, newlines)
+			if len(token) > 1 || token == " " || token == "\n" || token == "." || token == "!" || token == "?" {
+				details = fmt.Sprintf("Token: %q", token)
+			} else {
+				details = fmt.Sprintf("Character: %q", token)
+			}
 		}
 	case trace.EventToolStart:
 		if m2, ok := ev.Data.(map[string]any); ok {
 			if name, ok := m2["name"].(string); ok {
 				if argsRaw, ok := m2["args"]; ok {
-					details = fmt.Sprintf("Tool called: %s with args: %v", name, argsRaw)
+					// Format arguments more readably
+					argsStr := fmt.Sprintf("%v", argsRaw)
+					if len(argsStr) > 100 {
+						argsStr = argsStr[:100] + "... [truncated]"
+					}
+					details = fmt.Sprintf("Tool called: %s with args: %s", name, argsStr)
 				} else {
 					details = fmt.Sprintf("Tool called: %s", name)
 				}
@@ -265,7 +299,12 @@ func (m *Model) addDebugTraceEvent(id uuid.UUID, ev trace.Event) {
 		if m2, ok := ev.Data.(map[string]any); ok {
 			if name, ok := m2["name"].(string); ok {
 				if result, ok := m2["result"].(string); ok {
-					details = fmt.Sprintf("Tool %s completed: %s", name, result)
+					// Truncate very long results for readability
+					displayResult := result
+					if len(result) > 200 {
+						displayResult = result[:200] + "... [truncated]"
+					}
+					details = fmt.Sprintf("Tool %s completed: %s", name, displayResult)
 				} else {
 					details = fmt.Sprintf("Tool %s completed", name)
 				}
@@ -273,9 +312,15 @@ func (m *Model) addDebugTraceEvent(id uuid.UUID, ev trace.Event) {
 		}
 	case trace.EventFinal:
 		if result, ok := ev.Data.(string); ok && result != "" {
-			details = fmt.Sprintf("Final result: %s", result)
+			details = fmt.Sprintf("Final result: %s", truncateString(result, 150))
 		} else {
-			details = "Processing completed"
+			// Show the accumulated debug streaming response if no explicit final result
+			if info.DebugStreamingResponse != "" {
+				details = fmt.Sprintf("Processing completed - Response: %s", truncateString(info.DebugStreamingResponse, 150))
+				info.DebugStreamingResponse = "" // Reset for next interaction
+			} else {
+				details = "Processing completed"
+			}
 		}
 	case trace.EventYield:
 		details = "Agent yielded (iteration limit reached)"
@@ -294,4 +339,12 @@ func (m *Model) addDebugTraceEvent(id uuid.UUID, ev trace.Event) {
 	}
 
 	info.DebugTrace = append(info.DebugTrace, debugEvent)
+	
+	// Update debug viewport content if this is the active agent and we're in debug mode
+	if id == m.active && m.activeTab == 1 {
+		debugContent := m.renderDetailedMemory(info.Agent)
+		m.debugVp.SetContent(debugContent)
+		// Auto-scroll to bottom to show latest events
+		m.debugVp.GotoBottom()
+	}
 }

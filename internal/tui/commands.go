@@ -141,6 +141,7 @@ func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 		StreamingResponse: "",
 		DebugTrace:      make([]DebugTraceEvent, 0), // Initialize debug trace
 		CurrentStep:     0,
+		DebugStreamingResponse: "", // Initialize debug streaming response
 	}
 	m.infos[ag.ID] = info
 	m.order = append(m.order, ag.ID)
