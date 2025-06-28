@@ -29,7 +29,7 @@ tools:
   - name: sysinfo
     type: builtin
     description: Get system information
-  
+
   # File operation tools
   - name: read_lines
     type: builtin
@@ -52,7 +52,7 @@ tools:
   - name: create
     type: builtin
     description: Create a new file with content
-  
+
   # Web tools
   - name: web_search
     type: builtin
@@ -66,7 +66,7 @@ tools:
   - name: download
     type: builtin
     description: Download files from URLs
-  
+
   # Shell tools for Windows
   - name: powershell
     type: builtin
@@ -80,7 +80,7 @@ tools:
   - name: sh
     type: builtin
     description: Execute shell commands
-  
+
   # Git tools
   - name: branch-tidy
     type: builtin

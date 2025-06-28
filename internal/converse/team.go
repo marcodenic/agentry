@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
@@ -215,11 +215,11 @@ var ErrUnknownAgent = errors.New("unknown agent")
 
 // Call runs the named agent with the provided input once.
 func (t *Team) Call(ctx context.Context, name, input string) (string, error) {
-	log.Printf("[DEBUG] Team.Call invoked for agent '%s' with input: %s", name, input[:min(100, len(input))])
+	debug.Printf("Team.Call invoked for agent '%s' with input: %s", name, input[:min(100, len(input))])
 	
 	// Check if the name is a tool - tools should not be created as agents
 	if tool.IsBuiltinTool(name) {
-		log.Printf("[DEBUG] Rejecting tool name '%s' as agent name", name)
+		debug.Printf("Rejecting tool name '%s' as agent name", name)
 		// Provide a helpful error message with suggestions for proper agent names
 		suggestions := []string{"coder", "researcher", "analyst", "writer", "planner", "tester", "devops"}
 		return "", fmt.Errorf("cannot create agent with tool name '%s': tool names are reserved. Use proper agent names like: %s", 
@@ -228,14 +228,14 @@ func (t *Team) Call(ctx context.Context, name, input string) (string, error) {
 	
 	ag, ok := t.agentsByName[name]
 	if !ok {
-		log.Printf("[DEBUG] Agent '%s' not found, creating new agent", name)
+		debug.Printf("Agent '%s' not found, creating new agent", name)
 		// Additional validation: enforce agent naming conventions
 		if !isValidAgentName(name) {
 			return "", fmt.Errorf("invalid agent name '%s': agent names must start with a letter and contain only letters, numbers, underscores, and hyphens", name)
 		}
 		ag, _ = t.AddAgent(name)
 	} else {
-		log.Printf("[DEBUG] Using existing agent '%s'", name)
+		debug.Printf("Using existing agent '%s'", name)
 	}
 	ctx = contextWithTeam(ctx, t)
 	return runAgent(ctx, ag, input, name, t.names)
@@ -245,14 +245,14 @@ func (t *Team) Call(ctx context.Context, name, input string) (string, error) {
 // name can be used by callers. A default name is generated when none is
 // provided.
 func (t *Team) AddAgent(name string) (*core.Agent, string) {
-	log.Printf("[DEBUG] Creating agent '%s'", name)
+	debug.Printf("Creating agent '%s'", name)
 	
 	ag := t.parent.Spawn()
 	ag.Tracer = nil
 		// Debug: Log parent agent information
-	log.Printf("[DEBUG] Parent agent prompt length: %d chars", len(t.parent.Prompt))
-	log.Printf("[DEBUG] Parent agent tools: %v", getToolNames(t.parent.Tools))
-	log.Printf("[DEBUG] Spawned agent initial prompt: %s", ag.Prompt[:min(100, len(ag.Prompt))])
+	debug.Printf("Parent agent prompt length: %d chars", len(t.parent.Prompt))
+	debug.Printf("Parent agent tools: %v", getToolNames(t.parent.Tools))
+	debug.Printf("Spawned agent initial prompt: %s", ag.Prompt[:min(100, len(ag.Prompt))])
 
 	// Set up shared memory and routing - use existing from first agent or create new ones
 	if len(t.agents) > 0 {
@@ -281,7 +281,7 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	
 	// Load role-specific configuration for the named agent
 	if roleConfig, err := loadRoleConfig(name); err == nil {
-		log.Printf("[DEBUG] Loaded role config for '%s': prompt=%d chars, commands=%v, builtins=%v", 
+		debug.Printf("Loaded role config for '%s': prompt=%d chars, commands=%v, builtins=%v", 
 			name, len(roleConfig.Prompt), roleConfig.Commands, roleConfig.Builtins)
 		
 		// Apply template substitution if personality is provided
@@ -306,7 +306,7 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 			allowedBuiltins = roleConfig.Builtins
 		}
 		
-		log.Printf("[DEBUG] Agent '%s' allowed commands: %v, allowed builtins: %v", 
+		debug.Printf("Agent '%s' allowed commands: %v, allowed builtins: %v", 
 			name, allowedCommands, allowedBuiltins)
 		
 		// Inject platform-specific guidance with filtered commands
@@ -316,8 +316,8 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 			ag.Prompt = prompt
 		}
 		
-		log.Printf("[DEBUG] Agent '%s' final prompt length: %d chars", name, len(ag.Prompt))
-		log.Printf("[DEBUG] Agent '%s' final prompt preview: %s", name, ag.Prompt[:min(200, len(ag.Prompt))])
+		debug.Printf("Agent '%s' final prompt length: %d chars", name, len(ag.Prompt))
+		debug.Printf("Agent '%s' final prompt preview: %s", name, ag.Prompt[:min(200, len(ag.Prompt))])
 		
 		// Create filtered tool registry based on builtins (if specified)
 		if len(allowedBuiltins) > 0 {
@@ -326,20 +326,20 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 			for _, toolName := range allowedBuiltins {
 				if t, ok := t.parent.Tools.Use(toolName); ok {
 					filteredTools[toolName] = t
-					log.Printf("[DEBUG] Agent '%s' granted builtin tool: %s", name, toolName)
+					debug.Printf("Agent '%s' granted builtin tool: %s", name, toolName)
 				} else {
-					log.Printf("[DEBUG] Agent '%s' requested unknown builtin tool: %s", name, toolName)
+					debug.Printf("Agent '%s' requested unknown builtin tool: %s", name, toolName)
 				}
 			}
 			
 			ag.Tools = filteredTools
-			log.Printf("[DEBUG] Agent '%s' final tools: %v", name, getToolNames(ag.Tools))
+			debug.Printf("Agent '%s' final tools: %v", name, getToolNames(ag.Tools))
 		} else {
-			log.Printf("[DEBUG] Agent '%s' inheriting all parent tools: %v", name, getToolNames(ag.Tools))
+			debug.Printf("Agent '%s' inheriting all parent tools: %v", name, getToolNames(ag.Tools))
 		}
 		// If no builtins specified, inherit all tools from parent
 	} else {
-		log.Printf("[DEBUG] Failed to load role config for '%s': %v - using default prompt", name, err)
+		debug.Printf("Failed to load role config for '%s': %v - using default prompt", name, err)
 	}
 	// If loading fails, keep the inherited prompt and tools as fallback
 	
@@ -351,7 +351,7 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	t.agentsByName[name] = ag
 
 	// Debug logging
-	log.Printf("AddAgent: name=%s, agent=%v, prompt=%q, tools=%v", name, ag, ag.Prompt, ag.Tools)
+	debug.Printf("AddAgent: name=%s, agent=%v, prompt=%q, tools=%v", name, ag, ag.Prompt, ag.Tools)
 
 	return ag, name
 }

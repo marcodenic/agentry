@@ -10,15 +10,14 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/config"
+	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/tui"
 )
 
 func runTui(args []string) {
-	// Debug: Log working directory at TUI startup
-	if cwd, err := os.Getwd(); err == nil {
-		fmt.Printf("🏠 TUI starting in working directory: %s\n", cwd)
-	}
-
+	// Enable TUI mode to suppress debug output
+	debug.SetTUIMode(true)
+	
 	opts, _ := parseCommon("tui", args)
 	cfg, err := config.Load(opts.configPath)
 	if err != nil {

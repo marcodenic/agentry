@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/cost"
+	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
@@ -83,17 +83,17 @@ func (a *Agent) Spawn() *Agent {
 		MaxIterations: a.MaxIterations,
 	}
 	
-	log.Printf("[DEBUG] Agent.Spawn: Parent ID=%s, Spawned ID=%s", a.ID.String()[:8], spawned.ID.String()[:8])
-	log.Printf("[DEBUG] Agent.Spawn: Inherited prompt length=%d chars", len(spawned.Prompt))
-	log.Printf("[DEBUG] Agent.Spawn: Inherited prompt preview: %s", spawned.Prompt[:min(100, len(spawned.Prompt))])
+	debug.Printf("Agent.Spawn: Parent ID=%s, Spawned ID=%s", a.ID.String()[:8], spawned.ID.String()[:8])
+	debug.Printf("Agent.Spawn: Inherited prompt length=%d chars", len(spawned.Prompt))
+	debug.Printf("Agent.Spawn: Inherited prompt preview: %s", spawned.Prompt[:min(100, len(spawned.Prompt))])
 	
 	return spawned
 }
 
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
-	log.Printf("[DEBUG] Agent.Run: Agent ID=%s, Prompt length=%d chars", a.ID.String()[:8], len(a.Prompt))
-	log.Printf("[DEBUG] Agent.Run: Available tools: %v", getToolNames(a.Tools))
-	log.Printf("[DEBUG] Agent.Run: Input: %s", input[:min(100, len(input))])
+	debug.Printf("Agent.Run: Agent ID=%s, Prompt length=%d chars", a.ID.String()[:8], len(a.Prompt))
+	debug.Printf("Agent.Run: Available tools: %v", getToolNames(a.Tools))
+	debug.Printf("Agent.Run: Input: %s", input[:min(100, len(input))])
 	
 	client, name := a.Route.Select(input)
 	a.Trace(ctx, trace.EventModelStart, name)
@@ -104,7 +104,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	if a.Cost != nil {
 		if a.Cost.AddModel(name, inTok) {
 			if a.Cost.OverBudget() {
-				log.Printf("budget exceeded")
+				debug.Printf("budget exceeded")
 			}
 		}
 	}
@@ -123,7 +123,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		tokenCounter.WithLabelValues(a.ID.String()).Add(float64(outTok))
 		if a.Cost != nil {
 			if a.Cost.AddModel(name, outTok) && a.Cost.OverBudget() {
-				log.Printf("budget exceeded")
+				debug.Printf("budget exceeded")
 			}
 		}
 		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
@@ -156,24 +156,24 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			applyVarsMap(args, a.Vars)
 			
 			// Debug: Log tool execution details for coder agent
-			log.Printf("[DEBUG] Agent '%s' executing tool '%s' with args: %v", a.ID, tc.Name, args)
+			debug.Printf("Agent '%s' executing tool '%s' with args: %v", a.ID, tc.Name, args)
 			
 			a.Trace(ctx, trace.EventToolStart, map[string]any{"name": tc.Name, "args": args})
 			start := time.Now()
 			r, err := t.Execute(ctx, args)
 			toolLatency.WithLabelValues(a.ID.String(), tc.Name).Observe(time.Since(start).Seconds())
 			if err != nil {
-				log.Printf("[DEBUG] Agent '%s' tool '%s' failed: %v", a.ID, tc.Name, err)
+				debug.Printf("Agent '%s' tool '%s' failed: %v", a.ID, tc.Name, err)
 				return "", err
 			}
 			
-			log.Printf("[DEBUG] Agent '%s' tool '%s' succeeded, result length: %d", a.ID, tc.Name, len(r))
+			debug.Printf("Agent '%s' tool '%s' succeeded, result length: %d", a.ID, tc.Name, len(r))
 
 			tok := len(strings.Fields(r))
 			tokenCounter.WithLabelValues(a.ID.String()).Add(float64(tok))
 			if a.Cost != nil {
 				if a.Cost.AddTool(tc.Name, tok) && a.Cost.OverBudget() {
-					log.Printf("budget exceeded")
+					debug.Printf("budget exceeded")
 				}
 			}
 			a.Trace(ctx, trace.EventToolEnd, map[string]any{"name": tc.Name, "result": r})
