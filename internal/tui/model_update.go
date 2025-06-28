@@ -114,20 +114,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Update viewport with streaming content - OPTIMIZED for performance
 		if msg.id == m.active {
-			// PERFORMANCE FIX: Only format and update every 10 characters or on newlines
-			// This reduces expensive formatting calls by 90%
+			// PERFORMANCE FIX: Only update every 10 characters, on newlines, or on spaces
+			// This reduces viewport updates by 90% while ensuring proper formatting
 			shouldUpdate := len(info.StreamingResponse)%10 == 0 || 
 				strings.HasSuffix(msg.token, "\n") || 
 				strings.HasSuffix(msg.token, " ")
 			
 			if shouldUpdate {
-				// Build display history with current streaming response
+				// Build display history with properly formatted streaming response
 				displayHistory := info.History
 				if info.StreamingResponse != "" {
-					// Cache the AI bar to avoid repeated method calls
-					aiBar := m.aiBar()
-					// Simple concatenation without expensive formatting during streaming
-					displayHistory += aiBar + " " + info.StreamingResponse
+					// FIXED: Always use proper formatting to preserve newlines and wrapping
+					formattedStreamingResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
+					displayHistory += formattedStreamingResponse
 				}
 				m.vp.SetContent(displayHistory)
 				m.vp.GotoBottom()
