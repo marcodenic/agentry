@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/debug"
@@ -21,6 +22,12 @@ import (
 
 // agentNameRegex defines valid agent name pattern: starts with letter, contains letters, numbers, underscores, hyphens
 var agentNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+
+var (
+	roleConfigCache  sync.Map
+	roleDirOnce      sync.Once
+	roleTemplatesDir string
+)
 
 // getToolNames extracts tool names from a registry for debugging
 func getToolNames(reg tool.Registry) []string {
@@ -37,6 +44,20 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func findRoleTemplatesDir() string {
+	workDir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	for dir := workDir; dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
+		p := filepath.Join(dir, "templates", "roles")
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
 }
 
 // isValidAgentName checks if an agent name follows the required conventions
@@ -84,38 +105,31 @@ type RoleConfig struct {
 
 // loadRoleConfig loads a complete role configuration from the templates/roles directory
 func loadRoleConfig(roleName string) (*RoleConfig, error) {
-	// Try to find the templates/roles directory by searching up from the current directory
-	workDir, err := os.Getwd()
-	if err != nil {
-		return nil, err
+	if v, ok := roleConfigCache.Load(roleName); ok {
+		return v.(*RoleConfig), nil
 	}
-	
-	for dir := workDir; dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
-		templatesDir := filepath.Join(dir, "templates", "roles")
-		if _, err := os.Stat(templatesDir); err == nil {
-			roleFile := filepath.Join(templatesDir, roleName+".yaml")
-			if _, err := os.Stat(roleFile); err == nil {
-				data, err := os.ReadFile(roleFile)
-				if err != nil {
-					return nil, err
-				}
-				
-				var config RoleConfig
-				if err := yaml.Unmarshal(data, &config); err != nil {
-					return nil, err
-				}
-				
-				return &config, nil
+
+	roleDirOnce.Do(func() { roleTemplatesDir = findRoleTemplatesDir() })
+
+	if roleTemplatesDir != "" {
+		roleFile := filepath.Join(roleTemplatesDir, roleName+".yaml")
+		if data, err := os.ReadFile(roleFile); err == nil {
+			var config RoleConfig
+			if err := yaml.Unmarshal(data, &config); err != nil {
+				return nil, err
 			}
+			roleConfigCache.Store(roleName, &config)
+			return &config, nil
 		}
 	}
-	
-	// Fallback to a generic config if role file not found
-	return &RoleConfig{
+
+	cfg := &RoleConfig{
 		Name:   roleName,
 		Prompt: fmt.Sprintf("You are a %s assistant. Help the user with tasks related to your specialization.", roleName),
-		Tools:  []string{}, // Empty tools list for unknown roles
-	}, nil
+		Tools:  []string{},
+	}
+	roleConfigCache.Store(roleName, cfg)
+	return cfg, nil
 }
 
 // loadRolePrompt loads a role-specific prompt from the templates/roles directory (deprecated, use loadRoleConfig)
@@ -149,10 +163,10 @@ func (t *Team) Names() []string { return t.names }
 func NewTeamContext(parent *core.Agent) (*Team, error) {
 	return &Team{
 		parent:       parent,
-		agents:       make([]*core.Agent, 0), // Start with empty agent list
-		names:        make([]string, 0),      // Start with empty names list
+		agents:       make([]*core.Agent, 0),       // Start with empty agent list
+		names:        make([]string, 0),            // Start with empty names list
 		agentsByName: make(map[string]*core.Agent), // Start with empty map
-		msg:          "Hello agents, let's chat!", // Default initial message
+		msg:          "Hello agents, let's chat!",  // Default initial message
 		maxTurns:     maxTurns,
 	}, nil
 }
@@ -216,16 +230,16 @@ var ErrUnknownAgent = errors.New("unknown agent")
 // Call runs the named agent with the provided input once.
 func (t *Team) Call(ctx context.Context, name, input string) (string, error) {
 	debug.Printf("Team.Call invoked for agent '%s' with input: %s", name, input[:min(100, len(input))])
-	
+
 	// Check if the name is a tool - tools should not be created as agents
 	if tool.IsBuiltinTool(name) {
 		debug.Printf("Rejecting tool name '%s' as agent name", name)
 		// Provide a helpful error message with suggestions for proper agent names
 		suggestions := []string{"coder", "researcher", "analyst", "writer", "planner", "tester", "devops"}
-		return "", fmt.Errorf("cannot create agent with tool name '%s': tool names are reserved. Use proper agent names like: %s", 
+		return "", fmt.Errorf("cannot create agent with tool name '%s': tool names are reserved. Use proper agent names like: %s",
 			name, strings.Join(suggestions, ", "))
 	}
-	
+
 	ag, ok := t.agentsByName[name]
 	if !ok {
 		debug.Printf("Agent '%s' not found, creating new agent", name)
@@ -246,10 +260,10 @@ func (t *Team) Call(ctx context.Context, name, input string) (string, error) {
 // provided.
 func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	debug.Printf("Creating agent '%s'", name)
-	
+
 	ag := t.parent.Spawn()
 	ag.Tracer = nil
-		// Debug: Log parent agent information
+	// Debug: Log parent agent information
 	debug.Printf("Parent agent prompt length: %d chars", len(t.parent.Prompt))
 	debug.Printf("Parent agent tools: %v", getToolNames(t.parent.Tools))
 	debug.Printf("Spawned agent initial prompt: %s", ag.Prompt[:min(100, len(ag.Prompt))])
@@ -263,7 +277,7 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 		// This is the first agent being added, set up shared memory and routing
 		shared := memory.NewInMemory()
 		ag.Mem = shared
-		
+
 		convRoute := t.parent.Route
 		if rules, ok := t.parent.Route.(router.Rules); ok {
 			cpy := make(router.Rules, len(rules))
@@ -275,25 +289,25 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 		}
 		ag.Route = convRoute
 	}
-	
+
 	// Set higher iteration limit for specialized agents
 	ag.MaxIterations = 100 // Much higher limit for specialized agents
-	
+
 	// Load role-specific configuration for the named agent
 	if roleConfig, err := loadRoleConfig(name); err == nil {
-		debug.Printf("Loaded role config for '%s': prompt=%d chars, commands=%v, builtins=%v", 
+		debug.Printf("Loaded role config for '%s': prompt=%d chars, commands=%v, builtins=%v",
 			name, len(roleConfig.Prompt), roleConfig.Commands, roleConfig.Builtins)
-		
+
 		// Apply template substitution if personality is provided
 		prompt := roleConfig.Prompt
 		if roleConfig.Personality != "" {
 			prompt = strings.ReplaceAll(prompt, "{{personality}}", roleConfig.Personality)
 		}
-		
+
 		// Determine which command and builtin lists to use
 		var allowedCommands []string
 		var allowedBuiltins []string
-		
+
 		// Use new semantic commands if available, otherwise fall back to legacy tools
 		if len(roleConfig.Commands) > 0 {
 			allowedCommands = roleConfig.Commands
@@ -301,28 +315,28 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 			// Legacy support: map old tool names to semantic commands
 			allowedCommands = mapLegacyToolsToCommands(roleConfig.Tools)
 		}
-		
+
 		if len(roleConfig.Builtins) > 0 {
 			allowedBuiltins = roleConfig.Builtins
 		}
-		
-		debug.Printf("Agent '%s' allowed commands: %v, allowed builtins: %v", 
+
+		debug.Printf("Agent '%s' allowed commands: %v, allowed builtins: %v",
 			name, allowedCommands, allowedBuiltins)
-		
+
 		// Inject platform-specific guidance with filtered commands
 		if len(allowedCommands) > 0 || len(allowedBuiltins) > 0 {
 			ag.Prompt = core.InjectPlatformContext(prompt, allowedCommands, allowedBuiltins)
 		} else {
 			ag.Prompt = prompt
 		}
-		
+
 		debug.Printf("Agent '%s' final prompt length: %d chars", name, len(ag.Prompt))
 		debug.Printf("Agent '%s' final prompt preview: %s", name, ag.Prompt[:min(200, len(ag.Prompt))])
-		
+
 		// Create filtered tool registry based on builtins (if specified)
 		if len(allowedBuiltins) > 0 {
 			filteredTools := make(tool.Registry)
-			
+
 			for _, toolName := range allowedBuiltins {
 				if t, ok := t.parent.Tools.Use(toolName); ok {
 					filteredTools[toolName] = t
@@ -331,7 +345,7 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 					debug.Printf("Agent '%s' requested unknown builtin tool: %s", name, toolName)
 				}
 			}
-			
+
 			ag.Tools = filteredTools
 			debug.Printf("Agent '%s' final tools: %v", name, getToolNames(ag.Tools))
 		} else {
@@ -342,7 +356,7 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 		debug.Printf("Failed to load role config for '%s': %v - using default prompt", name, err)
 	}
 	// If loading fails, keep the inherited prompt and tools as fallback
-	
+
 	if name == "" {
 		name = fmt.Sprintf("Agent%d", len(t.agents)+1)
 	}
@@ -373,7 +387,7 @@ func mapLegacyToolsToCommands(legacyTools []string) []string {
 		"find":       {"find"},
 		"fetch":      {}, // fetch is a builtin, not a semantic command
 	}
-	
+
 	commandSet := make(map[string]bool)
 	for _, tool := range legacyTools {
 		if commands, exists := toolMap[tool]; exists {
@@ -382,11 +396,11 @@ func mapLegacyToolsToCommands(legacyTools []string) []string {
 			}
 		}
 	}
-	
+
 	var result []string
 	for cmd := range commandSet {
 		result = append(result, cmd)
 	}
-	
+
 	return result
 }
