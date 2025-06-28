@@ -3,18 +3,21 @@
 > **🚨 CRITICAL: ROOT DIRECTORY HYGIENE RULES**
 >
 > **NEVER CREATE ANY OF THE FOLLOWING IN THE ROOT DIRECTORY:**
-> - *.md summary files (PERFORMANCE_FIXES_SUMMARY.md, REFACTORING_PLAN.md, etc.)
+>
+> - \*.md summary files (PERFORMANCE_FIXES_SUMMARY.md, REFACTORING_PLAN.md, etc.)
 > - Test files, debug scripts, or temporary files
-> - Any files ending in _COMPLETE.md, _FIX.md, _SUMMARY.md, etc.
+> - Any files ending in \_COMPLETE.md, \_FIX.md, \_SUMMARY.md, etc.
 >
 > **ROOT DIRECTORY IS FOR ESSENTIAL PROJECT FILES ONLY:**
+>
 > - README.md, ROADMAP.md, AGENTS.md, TODO.md, LICENSE
 > - Core project files (go.mod, Makefile, etc.)
 > - Essential config files (.agentry.yaml, docker-compose.yml)
 >
 > **ALL OTHER FILES MUST GO IN APPROPRIATE SUBDIRECTORIES:**
+>
 > - `docs/` for documentation
-> - `tests/` for test files  
+> - `tests/` for test files
 > - `debug/` for debug scripts
 > - `examples/` for examples
 >

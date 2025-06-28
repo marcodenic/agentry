@@ -47,12 +47,29 @@ var (
 	}, []string{"agent", "tool"})
 )
 
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// getToolNames extracts tool names from a registry for debugging
+func getToolNames(reg tool.Registry) []string {
+	var names []string
+	for name := range reg {
+		names = append(names, name)
+	}
+	return names
+}
+
 func New(sel router.Selector, reg tool.Registry, mem memory.Store, store memstore.KV, vec memory.VectorStore, tr trace.Writer) *Agent {
 	return &Agent{ID: uuid.New(), Tools: reg, Mem: mem, Vector: vec, Route: sel, Tracer: tr, Store: store, Cost: nil, MaxIterations: 8}
 }
 
 func (a *Agent) Spawn() *Agent {
-	return &Agent{
+	spawned := &Agent{
 		ID:            uuid.New(),
 		Prompt:        a.Prompt, // Ensure prompt is inherited by sub-agents
 		Vars:          a.Vars,
@@ -65,9 +82,19 @@ func (a *Agent) Spawn() *Agent {
 		Cost:          a.Cost,
 		MaxIterations: a.MaxIterations,
 	}
+	
+	log.Printf("[DEBUG] Agent.Spawn: Parent ID=%s, Spawned ID=%s", a.ID.String()[:8], spawned.ID.String()[:8])
+	log.Printf("[DEBUG] Agent.Spawn: Inherited prompt length=%d chars", len(spawned.Prompt))
+	log.Printf("[DEBUG] Agent.Spawn: Inherited prompt preview: %s", spawned.Prompt[:min(100, len(spawned.Prompt))])
+	
+	return spawned
 }
 
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
+	log.Printf("[DEBUG] Agent.Run: Agent ID=%s, Prompt length=%d chars", a.ID.String()[:8], len(a.Prompt))
+	log.Printf("[DEBUG] Agent.Run: Available tools: %v", getToolNames(a.Tools))
+	log.Printf("[DEBUG] Agent.Run: Input: %s", input[:min(100, len(input))])
+	
 	client, name := a.Route.Select(input)
 	a.Trace(ctx, trace.EventModelStart, name)
 	msgs := BuildMessages(a.Prompt, a.Vars, a.Mem.History(), input)
@@ -127,13 +154,20 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 				return "", err
 			}
 			applyVarsMap(args, a.Vars)
+			
+			// Debug: Log tool execution details for coder agent
+			log.Printf("[DEBUG] Agent '%s' executing tool '%s' with args: %v", a.ID, tc.Name, args)
+			
 			a.Trace(ctx, trace.EventToolStart, map[string]any{"name": tc.Name, "args": args})
 			start := time.Now()
 			r, err := t.Execute(ctx, args)
 			toolLatency.WithLabelValues(a.ID.String(), tc.Name).Observe(time.Since(start).Seconds())
 			if err != nil {
+				log.Printf("[DEBUG] Agent '%s' tool '%s' failed: %v", a.ID, tc.Name, err)
 				return "", err
 			}
+			
+			log.Printf("[DEBUG] Agent '%s' tool '%s' succeeded, result length: %d", a.ID, tc.Name, len(r))
 
 			tok := len(strings.Fields(r))
 			tokenCounter.WithLabelValues(a.ID.String()).Add(float64(tok))

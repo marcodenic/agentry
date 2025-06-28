@@ -9,13 +9,48 @@ routes:
   - if_contains: [""]
     model: openai
 tools:
-  # Only custom/specialized tools - agents use native shell commands for basic operations
-  - name: branch-tidy
+  - name: cmd
     type: builtin
-    description: Delete all local Git branches except the current one
+    description: Run cmd.exe commands (Windows)
+  - name: powershell
+    type: builtin
+    description: Run PowerShell commands (Windows)
+  # Core agent tool for delegation
   - name: agent
     type: builtin
     description: Delegate to another agent
+  # File operation tools needed by coder agent
+  - name: view
+    type: builtin
+    description: Enhanced file viewing with line numbers
+  - name: create
+    type: builtin
+    description: Create a new file with content
+  - name: edit_range
+    type: builtin
+    description: Replace a range of lines in a file
+  - name: insert_at
+    type: builtin
+    description: Insert lines at a specific position
+  - name: search_replace
+    type: builtin
+    description: Advanced search/replace with regex
+  - name: read_lines
+    type: builtin
+    description: Read specific lines from a file
+  - name: fileinfo
+    type: builtin
+    description: Get comprehensive file information
+  - name: patch
+    type: builtin
+    description: Apply a unified diff patch
+  - name: fetch
+    type: builtin
+    description: Download content from HTTP/HTTPS URLs
+  # Git tools
+  - name: branch-tidy
+    type: builtin
+    description: Delete all local Git branches except the current one
 
 # Disable sandbox to avoid cri-shim dependencies for now
 sandbox:

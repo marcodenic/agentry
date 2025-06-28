@@ -14,6 +14,11 @@ import (
 )
 
 func runTui(args []string) {
+	// Debug: Log working directory at TUI startup
+	if cwd, err := os.Getwd(); err == nil {
+		fmt.Printf("🏠 TUI starting in working directory: %s\n", cwd)
+	}
+
 	opts, _ := parseCommon("tui", args)
 	cfg, err := config.Load(opts.configPath)
 	if err != nil {
@@ -36,22 +41,22 @@ func runTui(args []string) {
 		_ = ag.LoadState(context.Background(), opts.resumeID)
 	}
 	model := tui.New(ag)
-	
+
 	// Set up signal handling for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	
+
 	go func() {
 		<-sigCh
 		cancel() // Cancel context to signal shutdown
 	}()
-	
+
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithContext(ctx))
 	if err := p.Start(); err != nil {
 		panic(err)
 	}
-	
+
 	cancel() // Ensure cleanup even if program exits normally
 	if opts.saveID != "" {
 		_ = ag.SaveState(context.Background(), opts.saveID)

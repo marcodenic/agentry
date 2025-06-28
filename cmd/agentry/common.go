@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/marcodenic/agentry/internal/config"
@@ -41,7 +42,24 @@ func parseCommon(name string, args []string) (*commonOpts, []string) {
 		if fs.NArg() > 0 {
 			opts.configPath = fs.Arg(0)
 		} else {
-			opts.configPath = "examples/.agentry.yaml"
+			// Look for .agentry.yaml in current directory first
+			if _, err := os.Stat(".agentry.yaml"); err == nil {
+				opts.configPath = ".agentry.yaml"
+			} else {
+				// Fall back to config next to executable
+				if exe, err := os.Executable(); err == nil {
+					if exeDir := filepath.Dir(exe); exeDir != "" {
+						executableConfig := filepath.Join(exeDir, ".agentry.yaml")
+						if _, err := os.Stat(executableConfig); err == nil {
+							opts.configPath = executableConfig
+						} else {
+							opts.configPath = ".agentry.yaml" // Default fallback
+						}
+					}
+				} else {
+					opts.configPath = ".agentry.yaml" // Default fallback
+				}
+			}
 		}
 	}
 	return opts, fs.Args()

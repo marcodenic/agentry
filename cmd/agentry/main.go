@@ -18,6 +18,8 @@ func main() {
 	args := os.Args[2:]
 
 	switch cmd {
+	case "text":
+		runTextMode(args)
 	case "dev":
 		runDev(args)
 	case "serve":

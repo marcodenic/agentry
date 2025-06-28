@@ -1,23 +1,75 @@
 package main
 
 import (
-	"errors"
+	"context"
 	"fmt"
+	"log"
 	"os"
 
-	"github.com/marcodenic/agentry/internal/audit"
 	"github.com/marcodenic/agentry/internal/config"
+	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/core"
-	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
+	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
-	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/pkg/memstore"
 )
 
-// buildAgent constructs an Agent from configuration.
+func main() {
+	// Enable debug logging
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.Println("[DEBUG] Simulating exact TUI scenario")
+
+	// Show working directory
+	if cwd, err := os.Getwd(); err == nil {
+		fmt.Printf("🏠 Working directory: %s\n", cwd)
+	}
+
+	// Load config exactly like TUI
+	cfg, err := config.Load(".agentry.yaml")
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Build agent exactly like TUI
+	agent0, err := buildAgent(cfg)
+	if err != nil {
+		log.Fatalf("Failed to build agent: %v", err)
+	}
+
+	fmt.Printf("🤖 Agent 0 created with %d tools\n", len(agent0.Tools))
+
+	// Create team context exactly like TUI
+	teamCtx, err := converse.NewTeamContext(agent0)
+	if err != nil {
+		log.Fatalf("Failed to create team context: %v", err)
+	}
+
+	fmt.Printf("🎯 Team context created\n")
+
+	// Set up context with team exactly like TUI does
+	ctx := team.WithContext(context.Background(), teamCtx)
+
+	// Test the exact input that fails in TUI: "coder read TODO.md"
+	input := "coder read TODO.md"
+	fmt.Printf("\n📝 Running Agent 0 with input: %s\n", input)
+	fmt.Println("==========================================")
+
+	result, err := agent0.Run(ctx, input)
+	if err != nil {
+		fmt.Printf("❌ Agent 0 failed: %v\n", err)
+	} else {
+		fmt.Printf("✅ Agent 0 succeeded!\n")
+		fmt.Printf("📄 Result: %s\n", result)
+	}
+
+	fmt.Println("==========================================")
+	fmt.Printf("🔍 This simulates exactly what should happen in TUI mode\n")
+}
+
+// buildAgent constructs an Agent from configuration - copied from agent.go
 func buildAgent(cfg *config.File) (*core.Agent, error) {
 	tool.SetPermissions(cfg.Permissions.Tools)
 	tool.SetSandboxEngine(cfg.Sandbox.Engine)
@@ -25,20 +77,13 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	for _, m := range cfg.Tools {
 		tl, err := tool.FromManifest(m)
 		if err != nil {
-			if errors.Is(err, tool.ErrUnknownBuiltin) {
+			if err == tool.ErrUnknownBuiltin {
 				fmt.Printf("skipping builtin %s: not available\n", m.Name)
 				continue
 			}
 			return nil, err
 		}
 		reg[m.Name] = tl
-	}
-	var logWriter *audit.Log
-	if path := os.Getenv("AGENTRY_AUDIT_LOG"); path != "" {
-		if lw, err := audit.Open(path, 1<<20); err == nil {
-			logWriter = lw
-			reg = tool.WrapWithAudit(reg, lw)
-		}
 	}
 
 	clients := map[string]model.Client{}
@@ -89,27 +134,16 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	}
 
 	ag := core.New(rules, reg, memory.NewInMemory(), store, vec, nil)
-	
+
 	// Debug: check what tools the agent actually gets
 	fmt.Printf("🔧 buildAgent: registry has %d tools, agent has %d tools\n", len(reg), len(ag.Tools))
-	
-	if logWriter != nil {
-		ag.Tracer = trace.NewJSONL(logWriter)
-	}
+
 	if cfg.MaxIterations > 0 {
 		ag.MaxIterations = cfg.MaxIterations
 	}
-	
+
 	// Use default prompt for main agent - team.go will load role configs when spawning
 	ag.Prompt = "You are Agent 0, the system orchestrator. You can delegate to specialized agents using the agent tool."
-	
-	// Initialize cost manager for token/cost tracking
-	ag.Cost = cost.New(0, 0.0) // No budget limits, just tracking
-	
+
 	return ag, nil
 }
-
-func runCostCmd(args []string)   { fmt.Println("Cost command not implemented yet") }
-func runPProfCmd(args []string)  { fmt.Println("PProf command not implemented yet") }
-func runPluginCmd(args []string) { fmt.Println("Plugin command not implemented yet") }
-func runToolCmd(args []string)   { fmt.Println("Tool command not implemented yet") }
