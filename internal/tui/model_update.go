@@ -63,7 +63,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if info.Cancel != nil {
 					info.Cancel() // Cancel the agent's context
 				}
-				
+
 				// Clean up streaming response if in progress
 				if info.StreamingResponse != "" {
 					// Add the partial streaming response to history before stopping
@@ -71,12 +71,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					info.History += formattedResponse
 					info.StreamingResponse = ""
 				}
-				
-				info.Status = StatusIdle // Set to idle so new messages can be sent
+
+				info.Status = StatusIdle   // Set to idle so new messages can be sent
 				info.TokensStarted = false // Reset streaming state
 				info.History += fmt.Sprintf("\n\n%s Agent stopped by user\n", m.statusBar())
 				m.infos[m.active] = info
-				
+
 				// Update viewport to show the stop message
 				m.vp.SetContent(info.History)
 				m.vp.GotoBottom()
@@ -88,7 +88,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Agent is busy, ignore input
 					return m, nil
 				}
-				
+
 				txt := m.input.Value()
 				m.input.SetValue("")
 				if strings.HasPrefix(txt, "/") {
@@ -105,16 +105,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if info.Status == StatusStopped {
 			return m, nil
 		}
-		
+
 		// ENABLED: Real-time token streaming for smooth UX
-		
+
 		// Stop thinking animation on first token
 		if !info.TokensStarted {
 			info.TokensStarted = true
 			info.StreamingResponse = "" // Initialize streaming response
 			// No need to clean up spinners since they were never added to history!
 		}
-		
+
 		// Add token to streaming response
 		info.StreamingResponse += msg.token
 		info.TokenCount++
@@ -124,12 +124,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.id == m.active {
 			// PERFORMANCE FIX: Update every 10 characters, or immediately on formatting characters
 			// This preserves newlines and other formatting while maintaining good performance
-			shouldUpdate := len(info.StreamingResponse)%10 == 0 || 
-				strings.HasSuffix(msg.token, "\n") || 
+			shouldUpdate := len(info.StreamingResponse)%10 == 0 ||
+				strings.HasSuffix(msg.token, "\n") ||
 				strings.HasSuffix(msg.token, " ") ||
 				strings.HasSuffix(msg.token, "\t") ||
 				strings.HasSuffix(msg.token, "\r")
-			
+
 			if shouldUpdate {
 				// Build display history with properly formatted streaming response
 				displayHistory := info.History
@@ -156,30 +156,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		info.LastToken = now
 		m.infos[msg.id] = info // Save the updated info back to the map
-		
+
 		// Continue reading trace stream for more events (including EventFinal)
 		return m, m.readCmd(msg.id)
 	case startTokenStream:
-		// Start optimized token streaming - single timer approach
 		return m, tea.Tick(30*time.Millisecond, func(t time.Time) tea.Msg {
-			return tokenStreamTick{id: msg.id, text: msg.text, position: 0}
+			return tokenStreamTick{id: msg.id, runes: msg.runes, position: 0}
 		})
 	case tokenStreamTick:
-		// Handle optimized token streaming
-		if msg.position >= len([]rune(msg.text)) {
+		if msg.position >= len(msg.runes) {
 			// Streaming complete
 			return m, nil
 		}
-		
-		// Send current character
-		runes := []rune(msg.text)
-		token := string(runes[msg.position])
-		
+
+		token := string(msg.runes[msg.position])
+
 		// Schedule next character
 		nextCmd := tea.Tick(30*time.Millisecond, func(t time.Time) tea.Msg {
-			return tokenStreamTick{id: msg.id, text: msg.text, position: msg.position + 1}
+			return tokenStreamTick{id: msg.id, runes: msg.runes, position: msg.position + 1}
 		})
-		
+
 		// Process current token and schedule next
 		newModel, _ := m.Update(tokenMsg{id: msg.id, token: token})
 		return newModel, nextCmd
@@ -195,7 +191,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			info.History += formattedResponse
 		}
 		info.StreamingResponse = "" // Clear streaming response
-		
+
 		// Limit history length to prevent unbounded memory growth (keep last ~100KB)
 		const maxHistoryLength = 100000
 		if len(info.History) > maxHistoryLength {
@@ -203,12 +199,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			keepLength := maxHistoryLength * 3 / 4
 			info.History = "...[earlier messages truncated]...\n" + info.History[len(info.History)-keepLength:]
 		}
-		
+
 		// Set status to idle, clear spinner, and add proper spacing after AI message
 		info.Status = StatusIdle
 		info.TokensStarted = false // Reset streaming state
-		info.History += "\n\n" // Add extra spacing after AI response
-		
+		info.History += "\n\n"     // Add extra spacing after AI response
+
 		if msg.id == m.active {
 			m.vp.SetContent(info.History)
 			m.vp.GotoBottom()
@@ -265,11 +261,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					sp := spinner.New()
 					sp.Spinner = spinner.Line
 					sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
-					
+
 					// Generate sequential agent name and use team name as role
 					agentNumber := len(m.infos) // This gives us the next agent number
 					displayName := fmt.Sprintf("Agent %d", agentNumber)
-					
+
 					// Use team name as role, but validate it's not a tool name
 					role := "agent" // default role
 					if i < len(teamNames) {
@@ -279,22 +275,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							role = candidateRole
 						}
 					}
-					
+
 					info := &AgentInfo{
-						Agent:           agent,
-						Status:          StatusIdle,
-						Spinner:         sp,
-						Name:            displayName, // Sequential name like "Agent 1"
-						Role:            role,        // Role from team, validated not to be a tool
-						ActivityData:    make([]float64, 0),
-						ActivityTimes:   make([]time.Time, 0),
-						CurrentActivity: 0,
-						LastActivity:    time.Time{},
-						TokenHistory:    []int{},
-						TokensStarted:   false,
-						StreamingResponse: "",
-						DebugTrace:      make([]DebugTraceEvent, 0), // Initialize debug trace
-						CurrentStep:     0,
+						Agent:                  agent,
+						Status:                 StatusIdle,
+						Spinner:                sp,
+						Name:                   displayName, // Sequential name like "Agent 1"
+						Role:                   role,        // Role from team, validated not to be a tool
+						ActivityData:           make([]float64, 0),
+						ActivityTimes:          make([]time.Time, 0),
+						CurrentActivity:        0,
+						LastActivity:           time.Time{},
+						TokenHistory:           []int{},
+						TokensStarted:          false,
+						StreamingResponse:      "",
+						DebugTrace:             make([]DebugTraceEvent, 0), // Initialize debug trace
+						CurrentStep:            0,
 						DebugStreamingResponse: "", // Initialize debug streaming response
 					}
 					m.infos[agent.ID] = info
@@ -302,15 +298,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-		
+
 		// Update activity data for all agents - OPTIMIZED to reduce overhead
 		now := time.Now()
-		
+
 		// Only process agents that have recent activity to avoid unnecessary work
 		for id, info := range m.infos {
 			// Skip inactive agents to improve performance
-			if info.Status == StatusIdle && info.CurrentActivity == 0 && 
-			   !info.LastActivity.IsZero() && now.Sub(info.LastActivity) > 10*time.Second {
+			if info.Status == StatusIdle && info.CurrentActivity == 0 &&
+				!info.LastActivity.IsZero() && now.Sub(info.LastActivity) > 10*time.Second {
 				continue
 			}
 
@@ -346,7 +342,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(info.ActivityData)%5 == 0 {
 					// Keep only last 30 seconds of data to prevent memory growth
 					cutoffTime := now.Add(-30 * time.Second)
-					
+
 					// Use more efficient cleanup - find cutoff index first
 					cutoffIndex := -1
 					for i := len(info.ActivityTimes) - 1; i >= 0; i-- {
@@ -355,7 +351,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							break
 						}
 					}
-					
+
 					if cutoffIndex >= 0 {
 						// Remove old data efficiently using slicing
 						info.ActivityData = info.ActivityData[cutoffIndex+1:]
@@ -380,13 +376,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Immediately clear spinner and set error status
 			info.Status = StatusError
 			info.TokensStarted = false
-			
+
 			// No spinner cleanup needed since spinners are display-only now!
-			
+
 			// Create detailed error message with context and better debugging
 			var errorMsg string
 			errorStr := msg.Error()
-			
+
 			// Enhanced error analysis with better wrapping
 			if strings.Contains(errorStr, "cannot create agent with tool name") && strings.Contains(errorStr, "view") {
 				errorMsg = "❌ Error: Agent trying to create 'view' agent\n"
@@ -415,7 +411,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					errorMsg = fmt.Sprintf("❌ Error: %s", errorStr)
 				}
-				
+
 				// Add specific tips based on error content
 				if strings.Contains(errorStr, "exit status") {
 					errorMsg += "\n   💡 Tip: Tool or command execution failed - check syntax and permissions"
@@ -428,16 +424,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				errorMsg = fmt.Sprintf("❌ Error: %s", errorStr)
 			}
-			
+
 			errorFormatted := m.formatSingleCommand(errorMsg)
 			info.History += errorFormatted
-			
+
 			// Update viewport if this is the active agent
 			if m.active == info.Agent.ID {
 				m.vp.SetContent(info.History)
 				m.vp.GotoBottom()
 			}
-			
+
 			m.infos[m.active] = info
 		}
 	case agentCompleteMsg:
@@ -458,14 +454,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		
+
 		// ASCII spinner frames
 		frames := []string{"|", "/", "-", "\\"}
 		currentSpinner := frames[msg.frame]
-		
+
 		// Build display content WITHOUT modifying history
 		displayHistory := info.History
-		
+
 		// Add spinner to display only if history doesn't end with newline
 		if len(displayHistory) > 0 && !strings.HasSuffix(displayHistory, "\n") {
 			// Add AI bar and spinner for display only
@@ -474,39 +470,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Add AI bar and spinner for display only
 			displayHistory += m.aiBar() + " " + currentSpinner
 		}
-		
+
 		if msg.id == m.active {
 			m.vp.SetContent(displayHistory)
 			m.vp.GotoBottom()
 		}
-		
+
 		// Continue the animation if still running and no tokens have started
 		return m, startThinkingAnimation(msg.id)
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.input.Width = msg.Width - 2  // Full width minus padding for input
-		
+		m.input.Width = msg.Width - 2 // Full width minus padding for input
+
 		// Calculate chat area dimensions
-		chatWidth := int(float64(msg.Width)*0.75) - 2  // 75% width for chat area
-		
+		chatWidth := int(float64(msg.Width)*0.75) - 2 // 75% width for chat area
+
 		// Calculate viewport height more accurately:
 		// Total height - top section margin - horizontal separator (1) - input section height - footer section height - padding
-		viewportHeight := msg.Height - 5  // Leave space for separator, input, footer, and padding
-		
+		viewportHeight := msg.Height - 5 // Leave space for separator, input, footer, and padding
+
 		m.vp.Width = chatWidth
 		m.vp.Height = viewportHeight
-		
+
 		// Also set debug viewport size
 		m.debugVp.Width = chatWidth
 		m.debugVp.Height = viewportHeight
-		
+
 		// Set agent panel size (25% width)
 		m.tools.SetSize(int(float64(msg.Width)*0.25)-2, viewportHeight)
-		
+
 		// Refresh the viewport content with proper sizing - avoid expensive reformatting
 		if info, ok := m.infos[m.active]; ok {
-			// For normal history, only re-wrap if width changed significantly  
+			// For normal history, only re-wrap if width changed significantly
 			if !m.showInitialLogo && info.History != "" {
 				// Only reformat if width changed by more than 10 characters to avoid constant reformatting
 				if m.lastWidth == 0 || (chatWidth != m.lastWidth && abs(chatWidth-m.lastWidth) > 10) {
@@ -536,72 +532,4 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.tools, _ = m.tools.Update(msg)
 
 	return m, tea.Batch(cmds...)
-}
-
-func (m Model) View() string {
-	var chatContent string
-	if m.activeTab == 0 {
-		// Use viewport content directly for proper scrolling
-		chatContent = m.vp.View()
-		
-		// Special handling for centered logo
-		if m.showInitialLogo {
-			if info, ok := m.infos[m.active]; ok {
-				// Apply centering to the logo content
-				logoStyle := lipgloss.NewStyle().
-					Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
-					Width(m.vp.Width).
-					Height(m.vp.Height).
-					Align(lipgloss.Center, lipgloss.Center)
-				chatContent = logoStyle.Render(info.History)
-			}
-		}
-	} else {
-		// Use debug viewport for proper scrolling in debug mode
-		if info, ok := m.infos[m.active]; ok {
-			// Update debug viewport content if not already set
-			if m.debugVp.TotalLineCount() == 0 {
-				debugContent := m.renderDetailedMemory(info.Agent)
-				m.debugVp.SetContent(debugContent)
-			}
-		}
-		chatContent = m.debugVp.View()
-	}
-	
-	base := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.theme.Palette.Foreground))
-	
-	// Create top section with chat (left) and agents (right)
-	// Don't apply extra width constraints to chatContent - let viewport handle it
-	left := base.Width(int(float64(m.width) * 0.75)).Render(chatContent)
-	right := base.Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
-	topSection := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
-	
-	// Add full-width horizontal line
-	horizontalLine := strings.Repeat("─", m.width)
-	if m.width < 0 {
-		horizontalLine = ""
-	}
-	
-	// Add full-width input
-	inputSection := base.Width(m.width).Render(m.input.View())
-	
-	// Stack everything vertically
-	content := lipgloss.JoinVertical(lipgloss.Left, topSection, horizontalLine, inputSection)
-
-	// Calculate total tokens and cost across all agents
-	totalTokens := 0
-	totalCost := 0.0
-	for _, info := range m.infos {
-		if info.Agent.Cost != nil {
-			totalTokens += info.Agent.Cost.TotalTokens()
-			totalCost += info.Agent.Cost.TotalCost()
-		}
-	}
-	
-	footerText := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.infos), totalTokens, totalCost)
-	footer := base.Width(m.width).Align(lipgloss.Right).Render(footerText)
-	
-	// Add empty line between input and footer
-	return lipgloss.JoinVertical(lipgloss.Left, content, "", footer)
 }
