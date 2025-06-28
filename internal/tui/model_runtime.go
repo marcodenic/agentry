@@ -94,6 +94,10 @@ func (m *Model) readEvent(id uuid.UUID) tea.Msg {
 		if err := json.Unmarshal(info.Scanner.Bytes(), &ev); err != nil {
 			return errMsg{err}
 		}
+
+		// Capture all events for debug trace
+		m.addDebugTraceEvent(id, ev)
+
 		switch ev.Type {
 		case trace.EventToken:
 			if s, ok := ev.Data.(string); ok {
@@ -209,4 +213,85 @@ func startThinkingAnimation(id uuid.UUID) tea.Cmd {
 		frame := int(t.UnixMilli()/100) % len(spinnerFrames)
 		return thinkingAnimationMsg{id: id, frame: frame}
 	})
+}
+
+// addDebugTraceEvent captures trace events for detailed debug view
+func (m *Model) addDebugTraceEvent(id uuid.UUID, ev trace.Event) {
+	info := m.infos[id]
+	if info == nil {
+		return
+	}
+
+	// Convert trace data to map[string]interface{} for storage
+	var dataMap map[string]interface{}
+	if ev.Data != nil {
+		if dm, ok := ev.Data.(map[string]interface{}); ok {
+			dataMap = dm
+		} else {
+			dataMap = map[string]interface{}{"value": ev.Data}
+		}
+	}
+
+	var details string
+	switch ev.Type {
+	case trace.EventModelStart:
+		if name, ok := ev.Data.(string); ok {
+			details = fmt.Sprintf("Started model: %s", name)
+		} else {
+			details = "Model started"
+		}
+	case trace.EventStepStart:
+		info.CurrentStep++
+		if res, ok := ev.Data.(string); ok && res != "" {
+			details = fmt.Sprintf("New reasoning step: %s", res)
+		} else {
+			details = "Starting new reasoning step"
+		}
+	case trace.EventToken:
+		if token, ok := ev.Data.(string); ok {
+			details = fmt.Sprintf("Token: %q", token)
+		}
+	case trace.EventToolStart:
+		if m2, ok := ev.Data.(map[string]any); ok {
+			if name, ok := m2["name"].(string); ok {
+				if argsRaw, ok := m2["args"]; ok {
+					details = fmt.Sprintf("Tool called: %s with args: %v", name, argsRaw)
+				} else {
+					details = fmt.Sprintf("Tool called: %s", name)
+				}
+			}
+		}
+	case trace.EventToolEnd:
+		if m2, ok := ev.Data.(map[string]any); ok {
+			if name, ok := m2["name"].(string); ok {
+				if result, ok := m2["result"].(string); ok {
+					details = fmt.Sprintf("Tool %s completed: %s", name, result)
+				} else {
+					details = fmt.Sprintf("Tool %s completed", name)
+				}
+			}
+		}
+	case trace.EventFinal:
+		if result, ok := ev.Data.(string); ok && result != "" {
+			details = fmt.Sprintf("Final result: %s", result)
+		} else {
+			details = "Processing completed"
+		}
+	case trace.EventYield:
+		details = "Agent yielded (iteration limit reached)"
+	case trace.EventSummary:
+		details = "Summary with token and cost statistics"
+	default:
+		details = fmt.Sprintf("Event type: %s", string(ev.Type))
+	}
+
+	debugEvent := DebugTraceEvent{
+		Timestamp: ev.Timestamp,
+		Type:      string(ev.Type),
+		Data:      dataMap,
+		StepNum:   info.CurrentStep,
+		Details:   details,
+	}
+
+	info.DebugTrace = append(info.DebugTrace, debugEvent)
 }

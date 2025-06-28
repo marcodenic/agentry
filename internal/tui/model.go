@@ -57,6 +57,14 @@ const (
 	StatusStopped
 )
 
+type DebugTraceEvent struct {
+	Timestamp time.Time
+	Type      string
+	Data      map[string]interface{}
+	StepNum   int
+	Details   string
+}
+
 type AgentInfo struct {
 	Agent           *core.Agent
 	History         string
@@ -77,6 +85,8 @@ type AgentInfo struct {
 	Role            string // Agent role for display (e.g., "System", "Research", "DevOps")
 	TokensStarted   bool   // Flag to stop thinking animation when tokens start
 	StreamingResponse string // Current AI response being streamed (unformatted)
+	DebugTrace      []DebugTraceEvent // Detailed trace history for debug view
+	CurrentStep     int              // Current step number for trace events
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -155,6 +165,8 @@ func New(ag *core.Agent) Model {
 		TokenHistory: []int{},
 		TokensStarted: false,
 		StreamingResponse: "",
+		DebugTrace: make([]DebugTraceEvent, 0), // Initialize debug trace
+		CurrentStep: 0,
 	}
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 

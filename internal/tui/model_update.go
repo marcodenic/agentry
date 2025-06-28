@@ -281,6 +281,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						TokenHistory:    []int{},
 						TokensStarted:   false,
 						StreamingResponse: "",
+						DebugTrace:      make([]DebugTraceEvent, 0), // Initialize debug trace
+						CurrentStep:     0,
 					}
 					m.infos[agent.ID] = info
 					m.order = append(m.order, agent.ID)
@@ -532,7 +534,7 @@ func (m Model) View() string {
 		}
 	} else {
 		if info, ok := m.infos[m.active]; ok {
-			chatContent = renderMemory(info.Agent)
+			chatContent = m.renderDetailedMemory(info.Agent)
 		}
 	}
 	

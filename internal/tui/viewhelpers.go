@@ -3,7 +3,6 @@ package tui
 import (
 	"bytes"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -57,25 +56,166 @@ func (m Model) formatToolCompletion(toolName string, args map[string]any) string
 	}
 }
 
-// renderMemory formats an agent's memory history for display.
+// renderMemory formats an agent's memory history and detailed trace for display.
 func renderMemory(ag *core.Agent) string {
-	hist := ag.Mem.History()
 	var b bytes.Buffer
+	
+	b.WriteString(lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#00FFFF")).
+		Bold(true).
+		Render("🔍 AGENT DEBUG TRACE & MEMORY"))
+	b.WriteString("\n")
+	b.WriteString(lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#888888")).
+		Italic(true).
+		Render("Detailed view of agent reasoning, tool calls, and execution flow"))
+	b.WriteString("\n")
+	b.WriteString(strings.Repeat("═", 80))
+	b.WriteString("\n\n")
+	
+	hist := ag.Mem.History()
+	if len(hist) == 0 {
+		b.WriteString(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#888888")).
+			Italic(true).
+			Render("No execution history available yet..."))
+		return b.String()
+	}
+	
 	for i, s := range hist {
-		b.WriteString("Step ")
-		b.WriteString(strconv.Itoa(i))
-		b.WriteString(": ")
-		b.WriteString(s.Output)
-		for _, tc := range s.ToolCalls {
-			if r, ok := s.ToolResults[tc.ID]; ok {
-				b.WriteString(" -> ")
-				b.WriteString(tc.Name)
-				b.WriteString(": ")
-				b.WriteString(r)
+		// Step header with enhanced styling
+		stepHeader := fmt.Sprintf("📋 EXECUTION STEP %d", i+1)
+		b.WriteString(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFFF00")).
+			Bold(true).
+			Background(lipgloss.Color("#333333")).
+			Padding(0, 1).
+			Render(stepHeader))
+		b.WriteString("\n")
+		b.WriteString(strings.Repeat("─", 60))
+		b.WriteString("\n\n")
+		
+		// Agent reasoning/output section
+		if s.Output != "" {
+			b.WriteString(lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#00FF88")).
+				Bold(true).
+				Render("� AGENT REASONING & ANALYSIS:"))
+			b.WriteString("\n")
+			
+			// Format the output with better presentation
+			outputBox := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FFFFFF")).
+				Background(lipgloss.Color("#1a1a1a")).
+				Padding(1, 2).
+				Margin(0, 0, 1, 2).
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#444444"))
+			
+			// Clean and format the output text
+			cleanOutput := strings.TrimSpace(s.Output)
+			lines := strings.Split(cleanOutput, "\n")
+			var formattedLines []string
+			for _, line := range lines {
+				trimmed := strings.TrimSpace(line)
+				if trimmed != "" {
+					formattedLines = append(formattedLines, trimmed)
+				}
+			}
+			
+			if len(formattedLines) > 0 {
+				b.WriteString(outputBox.Render(strings.Join(formattedLines, "\n")))
+				b.WriteString("\n\n")
 			}
 		}
-		b.WriteString("\n")
+		
+		// Tool execution section
+		if len(s.ToolCalls) > 0 {
+			b.WriteString(lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FF8844")).
+				Bold(true).
+				Render("🔧 TOOL EXECUTIONS:"))
+			b.WriteString("\n\n")
+			
+			for j, tc := range s.ToolCalls {
+				// Tool call header
+				toolHeader := fmt.Sprintf("▶ Tool #%d: %s", j+1, tc.Name)
+				b.WriteString(lipgloss.NewStyle().
+					Foreground(lipgloss.Color("#FF6666")).
+					Bold(true).
+					Render(toolHeader))
+				b.WriteString("\n")
+				
+				// Tool arguments section
+				if len(tc.Arguments) > 0 {
+					b.WriteString(lipgloss.NewStyle().
+						Foreground(lipgloss.Color("#AAAAAA")).
+						Render("   📝 Arguments:"))
+					b.WriteString("\n")
+					
+					argsBox := lipgloss.NewStyle().
+						Foreground(lipgloss.Color("#CCCCCC")).
+						Background(lipgloss.Color("#2a2a2a")).
+						Padding(0, 1).
+						Margin(0, 0, 0, 6).
+						Border(lipgloss.NormalBorder()).
+						BorderForeground(lipgloss.Color("#555555"))
+					
+					b.WriteString(argsBox.Render(string(tc.Arguments)))
+					b.WriteString("\n\n")
+				}
+				
+				// Tool result section
+				if result, ok := s.ToolResults[tc.ID]; ok {
+					b.WriteString(lipgloss.NewStyle().
+						Foreground(lipgloss.Color("#44FF88")).
+						Bold(true).
+						Render("   ✅ Result:"))
+					b.WriteString("\n")
+					
+					resultBox := lipgloss.NewStyle().
+						Foreground(lipgloss.Color("#FFFFFF")).
+						Background(lipgloss.Color("#1a3a1a")).
+						Padding(1, 2).
+						Margin(0, 0, 1, 6).
+						Border(lipgloss.RoundedBorder()).
+						BorderForeground(lipgloss.Color("#44AA44"))
+					
+					// Format result with proper handling of long text
+					cleanResult := strings.TrimSpace(result)
+					if len(cleanResult) > 500 {
+						// Truncate very long results but show key information
+						cleanResult = cleanResult[:497] + "..."
+					}
+					
+					b.WriteString(resultBox.Render(cleanResult))
+					b.WriteString("\n")
+				} else {
+					b.WriteString(lipgloss.NewStyle().
+						Foreground(lipgloss.Color("#FF4444")).
+						Render("   ❌ No result available"))
+					b.WriteString("\n\n")
+				}
+			}
+		}
+		
+		// Add visual separator between steps
+		if i < len(hist)-1 {
+			b.WriteString("\n")
+			b.WriteString(lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#666666")).
+				Render(strings.Repeat("═", 80)))
+			b.WriteString("\n\n")
+		}
 	}
+	
+	// Add footer with summary information
+	b.WriteString("\n")
+	b.WriteString(lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#888888")).
+		Italic(true).
+		Render(fmt.Sprintf("📊 Summary: %d execution steps completed", len(hist))))
+	
 	return b.String()
 }
 
@@ -464,4 +604,130 @@ func (m Model) formatUserInput(bar, text string, width int) string {
 	}
 
 	return result.String()
+}
+
+// renderDetailedMemory provides even more detailed trace information when debug data is available
+func (m Model) renderDetailedMemory(ag *core.Agent) string {
+	info := m.infos[ag.ID]
+	if info == nil || len(info.DebugTrace) == 0 {
+		// Fall back to standard memory view
+		return renderMemory(ag)
+	}
+	
+	var b bytes.Buffer
+	
+	b.WriteString(lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#00FFFF")).
+		Bold(true).
+		Render("🔍 COMPREHENSIVE AGENT DEBUG TRACE"))
+	b.WriteString("\n")
+	b.WriteString(lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#888888")).
+		Italic(true).
+		Render("Real-time trace of all agent decisions, tool calls, and system events"))
+	b.WriteString("\n")
+	b.WriteString(strings.Repeat("═", 80))
+	b.WriteString("\n\n")
+	
+	currentStep := 0
+	tokenCount := 0
+	for i, event := range info.DebugTrace {
+		// Show step progression
+		if event.StepNum > currentStep {
+			currentStep = event.StepNum
+			stepHeader := fmt.Sprintf("📋 STEP %d", currentStep)
+			b.WriteString(lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FFFF00")).
+				Bold(true).
+				Background(lipgloss.Color("#333333")).
+				Padding(0, 1).
+				Render(stepHeader))
+			b.WriteString("\n")
+			b.WriteString(strings.Repeat("─", 60))
+			b.WriteString("\n")
+		}
+		
+		// Event timestamp and type
+		timeStr := event.Timestamp.Format("15:04:05.000")
+		eventHeader := fmt.Sprintf("[%s] %s", timeStr, event.Type)
+		
+		var eventColor string
+		var eventIcon string
+		switch event.Type {
+		case "model_start":
+			eventColor = "#88FF88"
+			eventIcon = "🤖"
+		case "step_start":
+			eventColor = "#FFFF88"
+			eventIcon = "🚀"
+		case "tool_start":
+			eventColor = "#FF8888"
+			eventIcon = "🔧"
+		case "tool_end":
+			eventColor = "#88FFFF"
+			eventIcon = "✅"
+		case "token":
+			eventColor = "#CCCCCC"
+			eventIcon = "💬"
+			tokenCount++
+		case "final":
+			eventColor = "#FF88FF"
+			eventIcon = "🏁"
+		default:
+			eventColor = "#AAAAAA"
+			eventIcon = "📌"
+		}
+		
+		// Skip excessive token events for readability, but count them
+		if event.Type == "token" {
+			if tokenCount > 3 && i < len(info.DebugTrace)-1 && info.DebugTrace[i+1].Type == "token" {
+				continue // Skip intermediate tokens to avoid clutter
+			}
+			if tokenCount > 3 {
+				// Show token summary instead
+				b.WriteString(fmt.Sprintf("  💬 %s [%d tokens generated...]\n", 
+					lipgloss.NewStyle().Foreground(lipgloss.Color(eventColor)).Render("Streaming Response"), 
+					tokenCount))
+				tokenCount = 0 // Reset after showing summary
+				continue
+			}
+		}
+		
+		b.WriteString(fmt.Sprintf("  %s ", eventIcon))
+		b.WriteString(lipgloss.NewStyle().
+			Foreground(lipgloss.Color(eventColor)).
+			Bold(true).
+			Render(eventHeader))
+		b.WriteString("\n")
+		
+		// Event details
+		if event.Details != "" {
+			detailsBox := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FFFFFF")).
+				Background(lipgloss.Color("#1a1a1a")).
+				Padding(0, 1).
+				Margin(0, 0, 0, 4).
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(lipgloss.Color("#444444"))
+			
+			// Limit detail length for readability
+			details := event.Details
+			if len(details) > 200 {
+				details = details[:197] + "..."
+			}
+			
+			b.WriteString(detailsBox.Render(details))
+			b.WriteString("\n")
+		}
+		
+		b.WriteString("\n")
+	}
+	
+	// Summary footer
+	b.WriteString(lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#888888")).
+		Italic(true).
+		Render(fmt.Sprintf("📊 Total events: %d | Steps completed: %d", len(info.DebugTrace), currentStep)))
+	
+	return b.String()
 }
