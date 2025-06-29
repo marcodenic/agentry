@@ -14,6 +14,7 @@ const (
 	StatusRunning     AgentStatus = "running"
 	StatusIdle        AgentStatus = "idle"
 	StatusBusy        AgentStatus = "busy"
+	StatusWorking     AgentStatus = "working"
 	StatusStopping    AgentStatus = "stopping"
 	StatusStopped     AgentStatus = "stopped"
 	StatusError       AgentStatus = "error"

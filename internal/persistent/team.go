@@ -27,6 +27,7 @@ type PersistentAgent struct {
 	Status     registry.AgentStatus `json:"status"`
 	StartedAt  time.Time           `json:"started_at"`
 	LastSeen   time.Time           `json:"last_seen"`
+	Role       string              `json:"role,omitempty"`
 	mutex      sync.RWMutex
 }
 
@@ -98,6 +99,7 @@ func (pt *PersistentTeam) SpawnAgent(ctx context.Context, agentID, role string) 
 		Status:    registry.StatusStarting,
 		StartedAt: time.Now(),
 		LastSeen:  time.Now(),
+		Role:      role,
 	}
 
 	// Start HTTP server for agent communication
@@ -115,7 +117,7 @@ func (pt *PersistentTeam) SpawnAgent(ctx context.Context, agentID, role string) 
 		Status:       registry.StatusRunning,
 		RegisteredAt: time.Now(),
 		LastSeen:     time.Now(),
-		Role:         role,
+		Metadata:     map[string]string{"role": role, "spawned_by": "persistent_team"},
 	}
 
 	if err := pt.registry.RegisterAgent(ctx, agentInfo); err != nil {
@@ -270,7 +272,7 @@ func (pt *PersistentTeam) startAgentServer(agent *PersistentAgent) error {
 		json.NewEncoder(w).Encode(response)
 	})
 
-	// Message endpoint
+	// Message endpoint - now processes tasks through agent.Agent.Run()
 	mux.HandleFunc("/message", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -280,13 +282,56 @@ func (pt *PersistentTeam) startAgentServer(agent *PersistentAgent) error {
 		// Update last seen
 		agent.mutex.Lock()
 		agent.LastSeen = time.Now()
+		agent.Status = registry.StatusWorking
 		agent.mutex.Unlock()
 
-		// For now, just acknowledge the message
-		// TODO: Integrate with agent.Agent.Run() for actual processing
-		response := map[string]string{
-			"status":  "received",
-			"message": "Message processed by " + agent.ID,
+		// Parse request body
+		var msgRequest struct {
+			Input    string            `json:"input"`
+			From     string            `json:"from,omitempty"`
+			TaskID   string            `json:"task_id,omitempty"`
+			Metadata map[string]string `json:"metadata,omitempty"`
+		}
+		
+		if err := json.NewDecoder(r.Body).Decode(&msgRequest); err != nil {
+			agent.mutex.Lock()
+			agent.Status = registry.StatusIdle
+			agent.mutex.Unlock()
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		// Execute task through the actual agent
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
+		defer cancel()
+		
+		// Create team context for the agent (required for agent.Run())
+		teamCtx := context.WithValue(ctx, "team", pt)
+		
+		result, err := agent.Agent.Run(teamCtx, msgRequest.Input)
+		
+		// Update status back to idle
+		agent.mutex.Lock()
+		agent.Status = registry.StatusIdle
+		agent.mutex.Unlock()
+
+		if err != nil {
+			response := map[string]interface{}{
+				"status": "error",
+				"error":  err.Error(),
+				"agent_id": agent.ID,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		response := map[string]interface{}{
+			"status":   "success",
+			"result":   result,
+			"agent_id": agent.ID,
+			"task_id":  msgRequest.TaskID,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -330,7 +375,30 @@ func (pt *PersistentTeam) stopAgent(agent *PersistentAgent) {
 }
 
 // Call implements the team.Caller interface for compatibility with existing system
+// This is the integration point where ephemeral delegation becomes persistent agents
 func (pt *PersistentTeam) Call(ctx context.Context, agentID, input string) (string, error) {
+	pt.mutex.RLock()
+	agent, exists := pt.agents[agentID]
+	pt.mutex.RUnlock()
+
+	if !exists {
+		// Agent doesn't exist yet - spawn it as a persistent agent
+		// Try to determine role from agentID (coder, writer, tester, etc.)
+		role := agentID
+		if role == "" {
+			role = "general"
+		}
+
+		var err error
+		agent, err = pt.SpawnAgent(ctx, agentID, role)
+		if err != nil {
+			return "", fmt.Errorf("failed to spawn persistent agent %s: %w", agentID, err)
+		}
+		
+		fmt.Printf("✅ Spawned persistent agent: %s (port %d)\n", agentID, agent.Port)
+	}
+
+	// Send task to persistent agent via HTTP
 	return pt.SendMessage(ctx, agentID, input)
 }
 
