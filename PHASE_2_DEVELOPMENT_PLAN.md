@@ -18,8 +18,22 @@
 
 ## 🚀 Phase 2: Advanced Coordination Testing
 
+### **🧠 Revised Focus: Coordination Intelligence Over Language Specialization**
+
+**Key Insight**: Rather than creating language-specific agents, we focus on testing Agent 0's **coordination intelligence** using the existing flexible coder agents. The real challenges are:
+
+- **Task Decomposition**: Breaking complex projects into logical, ordered tasks
+- **Dependency Management**: Understanding what must be built first vs. what can be parallel
+- **Context Coherence**: Maintaining consistency across multiple files and technologies
+- **Cross-Reference Intelligence**: Ensuring APIs, imports, and configurations align
+- **Error Recovery**: Graceful handling of coordination failures and conflicts
+
+This approach leverages the existing coder agent's multi-language capabilities while focusing on the orchestration patterns that make multi-agent systems truly powerful.
+
+---
+
 ### **Priority 1: Multi-Language Project Coordination**
-**Goal**: Test Agent 0's ability to coordinate polyglot projects
+**Goal**: Test Agent 0's ability to coordinate complex polyglot projects using existing coder agents
 
 **Test Scenario**: 
 ```
@@ -32,16 +46,17 @@
 ```
 
 **Success Criteria**:
-- Agent 0 identifies different technology requirements
-- Delegates to appropriate specialist agents (python, javascript, devops)
-- Creates coherent project structure across languages
-- Files work together as a functional application
+- Agent 0 identifies different technology requirements and task dependencies
+- Delegates appropriately to existing coder agents with proper context
+- Creates coherent project structure across languages and technologies
+- Files work together as a functional application with proper cross-references
+- Demonstrates intelligent task decomposition and ordering
 
 **Implementation Plan**:
-- Create `test_multilang_coordination.sh`
-- Extend agent registry with language-specific agents
-- Test cross-language imports and dependencies
-- Validate end-to-end functionality
+- Create `test_multilang_coordination.sh` focusing on coordination patterns
+- Test cross-language imports, API contracts, and configuration consistency
+- Validate end-to-end functionality and file coherence
+- Measure coordination quality vs simple delegation
 
 ---
 
@@ -139,10 +154,10 @@
 ## 🔧 Technical Implementation Roadmap
 
 ### **Week 1: Multi-Language Coordination**
-- [ ] Create language-specific agent profiles
-- [ ] Implement cross-language dependency detection
-- [ ] Test with Python + JavaScript + SQL project
-- [ ] Validate functional integration
+- [ ] Create coordination-focused test suite
+- [ ] Implement cross-technology project coordination test
+- [ ] Test task decomposition and dependency ordering intelligence
+- [ ] Validate functional integration and file coherence
 
 ### **Week 2: Parallel Coordination & Performance**
 - [ ] Implement parallel task execution
