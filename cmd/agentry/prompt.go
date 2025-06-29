@@ -38,6 +38,13 @@ func runPrompt(cmd string, args []string) {
 	if err != nil {
 		panic(err)
 	}
+	
+	// Apply agent_0 role configuration to restrict tools
+	fmt.Printf("🔧 Before agent_0 config: agent has %d tools\n", len(ag.Tools))
+	if err := applyAgent0RoleConfig(ag); err != nil {
+		fmt.Printf("Warning: Failed to apply agent_0 role configuration: %v\n", err)
+	}
+	fmt.Printf("🔧 After agent_0 config: agent has %d tools\n", len(ag.Tools))
 	if opts.maxIter > 0 {
 		ag.MaxIterations = opts.maxIter
 	}
