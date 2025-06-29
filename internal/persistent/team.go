@@ -15,29 +15,33 @@ import (
 	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/registry"
+	"github.com/marcodenic/agentry/internal/sessions"
 )
 
 // PersistentAgent wraps a core.Agent with TCP server for persistent communication
 type PersistentAgent struct {
-	ID         string              `json:"id"`
-	Agent      *core.Agent         `json:"-"`
-	Port       int                 `json:"port"`
-	PID        int                 `json:"pid"`
-	Server     *http.Server        `json:"-"`
-	Status     registry.AgentStatus `json:"status"`
-	StartedAt  time.Time           `json:"started_at"`
-	LastSeen   time.Time           `json:"last_seen"`
-	Role       string              `json:"role,omitempty"`
-	mutex      sync.RWMutex
+	ID            string                   `json:"id"`
+	Agent         *core.Agent              `json:"-"`
+	SessionAgent  *sessions.SessionAgent   `json:"-"`
+	Port          int                      `json:"port"`
+	PID           int                      `json:"pid"`
+	Server        *http.Server             `json:"-"`
+	Status        registry.AgentStatus     `json:"status"`
+	StartedAt     time.Time                `json:"started_at"`
+	LastSeen      time.Time                `json:"last_seen"`
+	Role          string                   `json:"role,omitempty"`
+	CurrentSession *sessions.SessionState  `json:"current_session,omitempty"`
+	mutex         sync.RWMutex
 }
 
 // PersistentTeam manages a collection of persistent agents
 type PersistentTeam struct {
-	parent      *core.Agent
-	agents      map[string]*PersistentAgent
-	registry    registry.AgentRegistry
-	portRange   registry.PortRange
-	mutex       sync.RWMutex
+	parent         *core.Agent
+	agents         map[string]*PersistentAgent
+	registry       registry.AgentRegistry
+	sessionManager sessions.SessionManager
+	portRange      registry.PortRange
+	mutex          sync.RWMutex
 }
 
 // DefaultPortRange returns the default port range for agents
@@ -53,11 +57,18 @@ func NewPersistentTeam(parent *core.Agent, portRange registry.PortRange) (*Persi
 		return nil, fmt.Errorf("failed to create registry: %w", err)
 	}
 
+	// Create session manager
+	sessionManager, err := sessions.NewFileSessionManager("./sessions")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create session manager: %w", err)
+	}
+
 	return &PersistentTeam{
-		parent:    parent,
-		agents:    make(map[string]*PersistentAgent),
-		registry:  reg,
-		portRange: portRange,
+		parent:         parent,
+		agents:         make(map[string]*PersistentAgent),
+		registry:       reg,
+		sessionManager: sessionManager,
+		portRange:      portRange,
 	}, nil
 }
 
@@ -90,16 +101,20 @@ func (pt *PersistentTeam) SpawnAgent(ctx context.Context, agentID, role string) 
 	// Add agent to team using existing system
 	agent, _ := team.AddAgent(agentID)
 
+	// Create session-aware agent wrapper
+	sessionAgent := sessions.NewSessionAgent(agent, pt.sessionManager)
+
 	// Create persistent agent wrapper
 	persistentAgent := &PersistentAgent{
-		ID:        agentID,
-		Agent:     agent,
-		Port:      port,
-		PID:       os.Getpid(), // For now, same process
-		Status:    registry.StatusStarting,
-		StartedAt: time.Now(),
-		LastSeen:  time.Now(),
-		Role:      role,
+		ID:           agentID,
+		Agent:        agent,
+		SessionAgent: sessionAgent,
+		Port:         port,
+		PID:          os.Getpid(), // For now, same process
+		Status:       registry.StatusStarting,
+		StartedAt:    time.Now(),
+		LastSeen:     time.Now(),
+		Role:         role,
 	}
 
 	// Start HTTP server for agent communication
@@ -301,14 +316,22 @@ func (pt *PersistentTeam) startAgentServer(agent *PersistentAgent) error {
 			return
 		}
 
-		// Execute task through the actual agent
+		// Execute task through the session-aware agent if available, otherwise use regular agent
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 		defer cancel()
 		
 		// Create team context for the agent (required for agent.Run())
 		teamCtx := context.WithValue(ctx, "team", pt)
 		
-		result, err := agent.Agent.Run(teamCtx, msgRequest.Input)
+		var result string
+		var err error
+		
+		// Use session-aware execution if available
+		if agent.SessionAgent != nil && agent.CurrentSession != nil {
+			result, err = agent.SessionAgent.RunWithSession(teamCtx, msgRequest.Input)
+		} else {
+			result, err = agent.Agent.Run(teamCtx, msgRequest.Input)
+		}
 		
 		// Update status back to idle
 		agent.mutex.Lock()
@@ -336,6 +359,103 @@ func (pt *PersistentTeam) startAgentServer(agent *PersistentAgent) error {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
+	})
+
+	// Session management endpoints
+	mux.HandleFunc("/sessions", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "GET":
+			// List sessions
+			sessions, err := agent.ListSessions(r.Context())
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(sessions)
+			
+		case "POST":
+			// Create new session
+			var req struct {
+				Name        string `json:"name"`
+				Description string `json:"description"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "Invalid JSON", http.StatusBadRequest)
+				return
+			}
+			
+			session, err := agent.CreateSession(r.Context(), req.Name, req.Description)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(session)
+			
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/sessions/", func(w http.ResponseWriter, r *http.Request) {
+		// Extract session ID from path
+		sessionID := r.URL.Path[len("/sessions/"):]
+		if sessionID == "" {
+			http.Error(w, "Session ID required", http.StatusBadRequest)
+			return
+		}
+
+		switch r.Method {
+		case "POST":
+			// Load/resume session
+			err := agent.LoadSession(r.Context(), sessionID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{
+				"status": "session loaded",
+				"session_id": sessionID,
+			})
+			
+		case "DELETE":
+			// Terminate session
+			err := agent.TerminateCurrentSession(r.Context())
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{
+				"status": "session terminated",
+				"session_id": sessionID,
+			})
+			
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/sessions/current", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		
+		sessionInfo := agent.GetCurrentSessionInfo()
+		if sessionInfo == nil {
+			http.Error(w, "No active session", http.StatusNotFound)
+			return
+		}
+		
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(sessionInfo)
 	})
 
 	server := &http.Server{
@@ -423,4 +543,177 @@ func NewPersistentTeamFromConfig(parent *core.Agent, cfg *config.PersistentAgent
 		Start: portStart,
 		End:   portEnd,
 	})
+}
+
+// Session Management Methods for PersistentAgent
+
+// CreateSession creates a new session for this persistent agent
+func (pa *PersistentAgent) CreateSession(ctx context.Context, name, description string) (*sessions.SessionState, error) {
+	pa.mutex.Lock()
+	defer pa.mutex.Unlock()
+	
+	if pa.SessionAgent == nil {
+		return nil, fmt.Errorf("session agent not initialized")
+	}
+	
+	session, err := pa.SessionAgent.CreateSession(ctx, name, description)
+	if err != nil {
+		return nil, err
+	}
+	
+	pa.CurrentSession = session
+	return session, nil
+}
+
+// LoadSession loads an existing session for this persistent agent
+func (pa *PersistentAgent) LoadSession(ctx context.Context, sessionID string) error {
+	pa.mutex.Lock()
+	defer pa.mutex.Unlock()
+	
+	if pa.SessionAgent == nil {
+		return fmt.Errorf("session agent not initialized")
+	}
+	
+	err := pa.SessionAgent.LoadSession(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	
+	pa.CurrentSession = pa.SessionAgent.GetCurrentSession()
+	return nil
+}
+
+// SaveCurrentSession saves the current session state
+func (pa *PersistentAgent) SaveCurrentSession(ctx context.Context) error {
+	pa.mutex.RLock()
+	defer pa.mutex.RUnlock()
+	
+	if pa.SessionAgent == nil {
+		return fmt.Errorf("session agent not initialized")
+	}
+	
+	return pa.SessionAgent.SaveSession(ctx)
+}
+
+// ListSessions returns all sessions for this agent
+func (pa *PersistentAgent) ListSessions(ctx context.Context) ([]*sessions.SessionInfo, error) {
+	pa.mutex.RLock()
+	defer pa.mutex.RUnlock()
+	
+	if pa.SessionAgent == nil {
+		return nil, fmt.Errorf("session agent not initialized")
+	}
+	
+	return pa.SessionAgent.ListSessions(ctx)
+}
+
+// TerminateCurrentSession terminates the current session
+func (pa *PersistentAgent) TerminateCurrentSession(ctx context.Context) error {
+	pa.mutex.Lock()
+	defer pa.mutex.Unlock()
+	
+	if pa.SessionAgent == nil {
+		return fmt.Errorf("session agent not initialized")
+	}
+	
+	err := pa.SessionAgent.TerminateCurrentSession(ctx)
+	if err == nil {
+		pa.CurrentSession = nil
+	}
+	return err
+}
+
+// SuspendCurrentSession suspends the current session
+func (pa *PersistentAgent) SuspendCurrentSession(ctx context.Context) error {
+	pa.mutex.Lock()
+	defer pa.mutex.Unlock()
+	
+	if pa.SessionAgent == nil {
+		return fmt.Errorf("session agent not initialized")
+	}
+	
+	err := pa.SessionAgent.SuspendSession(ctx)
+	if err == nil {
+		pa.CurrentSession = pa.SessionAgent.GetCurrentSession()
+	}
+	return err
+}
+
+// ResumeSession resumes a suspended session
+func (pa *PersistentAgent) ResumeSession(ctx context.Context, sessionID string) error {
+	pa.mutex.Lock()
+	defer pa.mutex.Unlock()
+	
+	if pa.SessionAgent == nil {
+		return fmt.Errorf("session agent not initialized")
+	}
+	
+	err := pa.SessionAgent.ResumeSession(ctx, sessionID)
+	if err == nil {
+		pa.CurrentSession = pa.SessionAgent.GetCurrentSession()
+	}
+	return err
+}
+
+// GetCurrentSessionInfo returns information about the current session
+func (pa *PersistentAgent) GetCurrentSessionInfo() *sessions.SessionInfo {
+	pa.mutex.RLock()
+	defer pa.mutex.RUnlock()
+	
+	if pa.CurrentSession == nil {
+		return nil
+	}
+	
+	return &sessions.SessionInfo{
+		ID:             pa.CurrentSession.ID,
+		AgentID:        pa.CurrentSession.AgentID,
+		Name:           pa.CurrentSession.Name,
+		Description:    pa.CurrentSession.Description,
+		CreatedAt:      pa.CurrentSession.CreatedAt,
+		LastAccessedAt: pa.CurrentSession.LastAccessedAt,
+		Status:         pa.CurrentSession.Status,
+		WorkingDir:     pa.CurrentSession.WorkingDir,
+	}
+}
+
+// Session Management Methods for PersistentTeam
+
+// CreateAgentSession creates a new session for a specific agent
+func (pt *PersistentTeam) CreateAgentSession(ctx context.Context, agentID, sessionName, description string) (*sessions.SessionState, error) {
+	agent, exists := pt.GetAgent(agentID)
+	if !exists {
+		return nil, fmt.Errorf("agent %s not found", agentID)
+	}
+	
+	return agent.CreateSession(ctx, sessionName, description)
+}
+
+// LoadAgentSession loads a session for a specific agent
+func (pt *PersistentTeam) LoadAgentSession(ctx context.Context, agentID, sessionID string) error {
+	agent, exists := pt.GetAgent(agentID)
+	if !exists {
+		return fmt.Errorf("agent %s not found", agentID)
+	}
+	
+	return agent.LoadSession(ctx, sessionID)
+}
+
+// ListAgentSessions lists all sessions for a specific agent
+func (pt *PersistentTeam) ListAgentSessions(ctx context.Context, agentID string) ([]*sessions.SessionInfo, error) {
+	agent, exists := pt.GetAgent(agentID)
+	if !exists {
+		return nil, fmt.Errorf("agent %s not found", agentID)
+	}
+	
+	return agent.ListSessions(ctx)
+}
+
+// ListAllSessions lists all sessions across all agents
+func (pt *PersistentTeam) ListAllSessions(ctx context.Context) ([]*sessions.SessionInfo, error) {
+	return pt.sessionManager.ListSessions(ctx, "")
+}
+
+// CleanupOldSessions removes old sessions based on retention policy
+func (pt *PersistentTeam) CleanupOldSessions(ctx context.Context, maxAge time.Duration) error {
+	return pt.sessionManager.CleanupOldSessions(ctx, maxAge)
 }
