@@ -235,7 +235,7 @@ func (to *TeamOrchestrator) GetSystemPrompt() string {
 	teamStatus += fmt.Sprintf("\nAVAILABLE AGENTS: %v\n", availableAgents)
 	
 	basePrompt := to.systemAgent.Prompt
-	return fmt.Sprintf("%s\n\n%s\nYou can coordinate with team members by:\n- Spawning new agents: /spawn <name> <role>\n- Assigning tasks: assign task to <agent>\n- Checking status: team status\n- Sending messages: message <agent> <content>", basePrompt, teamStatus)
+	return fmt.Sprintf("%s\n\n%s\nYou can coordinate with team members using your tools:\n- Use the 'agent' tool to delegate tasks: {\"agent\": \"coder\", \"input\": \"create hello.py\"}\n- Use 'team_status' to check team state\n- Use 'assign_task' to formally assign tasks\n- Use 'send_message' to communicate with agents", basePrompt, teamStatus)
 }
 
 // CoordinateTask breaks down a complex task and assigns parts to team members
