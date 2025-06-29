@@ -1,5 +1,7 @@
 # TEST.md
 
+**⚠️ CRITICAL: READ [CRITICAL_INSTRUCTIONS.md](./CRITICAL_INSTRUCTIONS.md) FIRST ⚠️**
+
 > For a human-friendly guide, see [docs/testing.md](docs/testing.md).
 
 This file is the canonical, machine-readable checklist for validating all Agentry functionality. It is optimized for agents, automation, and contributors.

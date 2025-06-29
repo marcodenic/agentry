@@ -1,5 +1,7 @@
 # 🤖 Agentry — Minimal, Performant AI-Agent Framework (Go core + TS SDK)
 
+**⚠️ CRITICAL: READ [CRITICAL_INSTRUCTIONS.md](./CRITICAL_INSTRUCTIONS.md) FIRST ⚠️**
+
 ![Demo](agentry.gif)
 
 Agentry is a production-ready **agent runtime** written in Go with an optional TypeScript client.

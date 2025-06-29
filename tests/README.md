@@ -1,5 +1,7 @@
 # Agentry Test Scripts
 
+**⚠️ CRITICAL: READ [../CRITICAL_INSTRUCTIONS.md](../CRITICAL_INSTRUCTIONS.md) FIRST ⚠️**
+
 ## Structure
 
 ### `/tests/coordination/`
