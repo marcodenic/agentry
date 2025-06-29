@@ -41,6 +41,21 @@ tools:
   - name: fileinfo
     type: builtin
     description: Get comprehensive file information
+  - name: project_tree
+    type: builtin
+    description: Get intelligent project structure with smart filtering
+  - name: team_status
+    type: builtin
+    description: Get current status of all team agents
+  - name: send_message
+    type: builtin
+    description: Send messages to other agents for coordination
+  - name: assign_task
+    type: builtin
+    description: Formally assign tasks with priority levels
+  - name: check_agent
+    type: builtin
+    description: Check if a specific agent is available
   - name: patch
     type: builtin
     description: Apply a unified diff patch

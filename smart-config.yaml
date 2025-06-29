@@ -9,6 +9,7 @@ routes:
   - if_contains: [""]
     model: openai
 
+# Enhanced tool set with better exploration capabilities
 tools:
   # Core built-in tools
   - name: echo
@@ -30,7 +31,7 @@ tools:
     type: builtin
     description: Get system information
 
-  # File operation tools
+  # File operation tools - Critical for intelligent agents
   - name: read_lines
     type: builtin
     description: Read specific lines from a file
@@ -55,12 +56,17 @@ tools:
   - name: grep
     type: builtin
     description: Search file contents - ESSENTIAL for smart discovery
-  - name: find
-    type: builtin
-    description: Find files by pattern - CRITICAL for file discovery
+
+  # Enhanced exploration tools
   - name: ls
     type: builtin
     description: List directory contents - USE FIRST for exploration
+  - name: find
+    type: builtin
+    description: Find files by pattern - CRITICAL for file discovery
+  - name: glob
+    type: builtin
+    description: Find files by glob pattern
 
   # Web tools
   - name: web_search
@@ -76,7 +82,7 @@ tools:
     type: builtin
     description: Download files from URLs
 
-  # Shell tools for Windows
+  # Shell tools for all platforms
   - name: powershell
     type: builtin
     description: Execute PowerShell commands
@@ -94,3 +100,7 @@ tools:
   - name: branch-tidy
     type: builtin
     description: Delete all local Git branches except the current one
+
+# Include smart agent configurations
+include:
+  - templates/smart_dev_team.yaml
