@@ -28,10 +28,123 @@ message TraceEvent {
   int64 timestamp = 4;
 }
 
+// Registry messages
+message RegisterAgentRequest {
+  string agent_id = 1;
+  repeated string capabilities = 2;
+  string endpoint = 3;
+  map<string, string> metadata = 4;
+  string session_id = 5;
+  string role = 6;
+  string version = 7;
+}
+
+message AgentInfo {
+  string id = 1;
+  repeated string capabilities = 2;
+  string endpoint = 3;
+  string status = 4;
+  map<string, string> metadata = 5;
+  int64 last_seen = 6;
+  int64 registered_at = 7;
+  string session_id = 8;
+  string role = 9;
+  string version = 10;
+}
+
+message HealthMetrics {
+  double cpu_usage = 1;
+  int64 memory_usage = 2;
+  int64 tasks_completed = 3;
+  int32 tasks_active = 4;
+  int64 error_count = 5;
+  int64 uptime_seconds = 6;
+}
+
+message ListAgentsRequest {
+  // Optional filters
+  repeated string capabilities = 1;
+  repeated string statuses = 2;
+  string role = 3;
+}
+
+message ListAgentsResponse {
+  repeated AgentInfo agents = 1;
+}
+
+message GetAgentRequest {
+  string agent_id = 1;
+}
+
+message GetAgentResponse {
+  AgentInfo agent = 1;
+}
+
+message UpdateAgentStatusRequest {
+  string agent_id = 1;
+  string status = 2;
+}
+
+message UpdateHealthRequest {
+  string agent_id = 1;
+  HealthMetrics health = 2;
+}
+
+message HeartbeatRequest {
+  string agent_id = 1;
+}
+
+message FindAgentsRequest {
+  repeated string required_capabilities = 1;
+  repeated string preferred_capabilities = 2;
+  repeated string exclude_agents = 3;
+  repeated string required_status = 4;
+  int32 max_results = 5;
+  string sort_by = 6;
+}
+
+message AgentScore {
+  AgentInfo agent = 1;
+  double score = 2;
+}
+
+message FindAgentsResponse {
+  repeated AgentScore agents = 1;
+}
+
+message ClusterStatus {
+  int32 total_agents = 1;
+  map<string, int32> status_counts = 2;
+  map<string, int32> capabilities = 3;
+  map<string, int32> roles = 4;
+  int64 average_uptime_seconds = 5;
+  int64 total_tasks_completed = 6;
+  int64 total_errors = 7;
+  int64 last_updated = 8;
+}
+
+message GetClusterStatusRequest {
+}
+
+message GetClusterStatusResponse {
+  ClusterStatus status = 1;
+}
+
 service AgentHub {
   rpc Spawn(SpawnRequest) returns (SpawnResponse);
   rpc SendMessage(SendMessageRequest) returns (Ack);
   rpc Trace(TraceRequest) returns (stream TraceEvent);
+  
+  // Registry methods
+  rpc RegisterAgent(RegisterAgentRequest) returns (Ack);
+  rpc DeregisterAgent(GetAgentRequest) returns (Ack);
+  rpc GetAgent(GetAgentRequest) returns (GetAgentResponse);
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+  rpc UpdateAgentStatus(UpdateAgentStatusRequest) returns (Ack);
+  rpc UpdateHealth(UpdateHealthRequest) returns (Ack);
+  rpc Heartbeat(HeartbeatRequest) returns (Ack);
+  rpc FindAgents(FindAgentsRequest) returns (FindAgentsResponse);
+  rpc GetClusterStatus(GetClusterStatusRequest) returns (GetClusterStatusResponse);
 }
 
 service AgentNode {

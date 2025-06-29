@@ -1,0 +1,36 @@
+models:
+  - name: openai
+    provider: openai
+    options:
+      model: gpt-4o-mini
+      temperature: 0.1
+
+routes:
+  - if_contains: [""]
+    model: openai
+
+tools:
+  # Core agent delegation tool
+  - name: agent
+    type: builtin
+    description: Delegate tasks to another agent
+  
+  # Basic tools for testing
+  - name: echo
+    type: builtin
+    description: Repeat a string
+  - name: view
+    type: builtin
+    description: View file contents
+  - name: create
+    type: builtin
+    description: Create a new file
+  - name: ls
+    type: builtin
+    description: List directory contents
+
+# Phase 2A.1: Enable persistent agents
+persistent_agents:
+  enabled: true
+  port_start: 9001
+  port_end: 9010
