@@ -59,7 +59,7 @@ func (t *Team) Add(name string, ag *core.Agent) {
 			}
 		}
 		ag.Tools = newTools
-		fmt.Printf("🚫 CASCADE-FIX: Removed 'agent' tool from added agent '%s' (had %d tools, now %d)\n", name, len(ag.Tools)+1, len(newTools))
+
 	}
 	
 	// Create wrapper
@@ -98,7 +98,7 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 			}
 		}
 		coreAgent.Tools = newTools
-		fmt.Printf("🚫 CASCADE-FIX: Removed 'agent' tool from spawned agent '%s' (had %d tools, now %d)\n", name, len(coreAgent.Tools)+1, len(newTools))
+
 	}
 	
 	// Create wrapper

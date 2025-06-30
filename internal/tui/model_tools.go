@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"strings"
+	
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -11,6 +13,10 @@ func (m Model) handleToolUseMessage(msg toolUseMsg) (Model, tea.Cmd) {
 	// Show completion message with better formatting
 	completionText := m.formatToolCompletion(msg.name, msg.args)
 	commandFormatted := m.formatSingleCommand(completionText)
+	// Add spacing before first status message in a sequence
+	if !strings.HasSuffix(info.History, "\n") && info.History != "" {
+		info.History += "\n"
+	}
 	info.History += commandFormatted
 	if msg.id == m.active {
 		m.vp.SetContent(info.History)
@@ -25,6 +31,10 @@ func (m Model) handleActionMessage(msg actionMsg) (Model, tea.Cmd) {
 	info := m.infos[msg.id]
 	// Add action messages with better spacing
 	actionFormatted := m.formatSingleCommand(msg.text)
+	// Add spacing before first status message in a sequence
+	if !strings.HasSuffix(info.History, "\n") && info.History != "" {
+		info.History += "\n"
+	}
 	info.History += actionFormatted
 	if msg.id == m.active {
 		m.vp.SetContent(info.History)

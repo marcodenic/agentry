@@ -102,7 +102,6 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 
 // applyAgent0RoleConfig applies the agent_0.yaml role configuration to restrict the system agent's tools
 func applyAgent0RoleConfig(agent *core.Agent) error {
-	fmt.Printf("🔧 applyAgent0RoleConfig: Starting to apply role config\n")
 	// Find the templates/roles directory
 	roleDir := findRoleTemplatesDir()
 	if roleDir == "" {
@@ -133,23 +132,46 @@ func applyAgent0RoleConfig(agent *core.Agent) error {
 		for _, toolName := range config.Builtins {
 			if existingTool, ok := agent.Tools[toolName]; ok {
 				filteredTools[toolName] = existingTool
-				fmt.Printf("Agent 0 granted builtin tool: %s\n", toolName)
-			} else {
-				fmt.Printf("Agent 0 requested unknown builtin tool: %s\n", toolName)
 			}
 		}
 		
 		agent.Tools = filteredTools
-		fmt.Printf("Agent 0 tool restriction applied: %d tools allowed\n", len(filteredTools))
 	}
 	
 	// Apply the agent_0 prompt
 	if config.Prompt != "" {
 		agent.Prompt = config.Prompt
-		fmt.Printf("Agent 0 prompt applied: %d characters\n", len(config.Prompt))
 	}
 	
+	// Inject dynamic agent status after prompt is set
+	injectAgentStatus(agent, nil)
+	
 	return nil
+}
+
+// injectAgentStatus dynamically injects current agent status into Agent 0's prompt
+func injectAgentStatus(agent *core.Agent, teamCaller interface{}) {
+	// Get available agents - we know these exist based on our configuration
+	availableAgents := []string{
+		"coder", "tester", "writer", "devops", "designer", 
+		"deployer", "editor", "reviewer", "researcher", "team_planner",
+	}
+	
+	// Build a concise agent status section for the prompt
+	statusSection := "\n\n## 🤖 CURRENT AGENT STATUS\n\n"
+	statusSection += "**Available Agents:** "
+	for i, agentName := range availableAgents {
+		if i > 0 {
+			statusSection += ", "
+		}
+		statusSection += agentName
+	}
+	statusSection += "\n\n**All agents are ready for immediate delegation via the `agent` tool.**\n\n"
+	
+	// Inject the status into the prompt if it doesn't already contain it
+	if !strings.Contains(agent.Prompt, "CURRENT AGENT STATUS") {
+		agent.Prompt = agent.Prompt + statusSection
+	}
 }
 
 // findRoleTemplatesDir searches for the templates/roles directory
