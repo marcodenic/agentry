@@ -17,21 +17,7 @@ import (
 func runTui(args []string) {
 	// Enable TUI mode to suppress debug output
 	debug.SetTUIMode(true)
-	
-	// Redirect stdout/stderr to prevent debug output from interfering with TUI
-	origStdout := os.Stdout
-	origStderr := os.Stderr
-	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0666)
-	if err == nil {
-		os.Stdout = devNull
-		os.Stderr = devNull
-		defer func() {
-			devNull.Close()
-			os.Stdout = origStdout
-			os.Stderr = origStderr
-		}()
-	}
-	
+
 	opts, _ := parseCommon("tui", args)
 	cfg, err := config.Load(opts.configPath)
 	if err != nil {

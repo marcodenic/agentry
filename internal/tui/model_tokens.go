@@ -99,14 +99,36 @@ func (m Model) handleTokenStreamTick(msg tokenStreamTick) (Model, tea.Cmd) {
 // handleFinalMessage processes final completion messages
 func (m Model) handleFinalMessage(msg finalMsg) (Model, tea.Cmd) {
 	info := m.infos[msg.id]
-	// Add the final AI response with proper formatting from accumulated streaming
+	
+	// Determine if we need spacing before the AI response
+	needsSpacing := false
+	if info.History != "" {
+		// Check if the last content was a status message (contains status bar emoji)
+		lines := strings.Split(strings.TrimRight(info.History, "\n"), "\n")
+		if len(lines) > 0 {
+			lastLine := lines[len(lines)-1]
+			// If last line contains status indicators, we need spacing
+			if strings.Contains(lastLine, "🤖") || strings.Contains(lastLine, "✅") || strings.Contains(lastLine, "📁") || strings.Contains(lastLine, "⚡") || strings.Contains(lastLine, "🔍") || strings.Contains(lastLine, "🌐") {
+				needsSpacing = true
+			}
+		}
+	}
+	
+	// Add the final AI response with proper spacing
+	spacingPrefix := ""
+	if needsSpacing {
+		spacingPrefix = "\n\n"  // Double spacing after status messages
+	} else {
+		spacingPrefix = "\n"    // Single spacing for other cases
+	}
+	
 	if info.StreamingResponse != "" {
 		formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
-		info.History += "\n" + formattedResponse
+		info.History += spacingPrefix + formattedResponse
 	} else if msg.text != "" {
 		// Fallback to final message text if no streaming occurred
 		formattedResponse := m.formatWithBar(m.aiBar(), msg.text, m.vp.Width)
-		info.History += "\n" + formattedResponse
+		info.History += spacingPrefix + formattedResponse
 	}
 	info.StreamingResponse = "" // Clear streaming response
 
@@ -118,10 +140,10 @@ func (m Model) handleFinalMessage(msg finalMsg) (Model, tea.Cmd) {
 		info.History = "...[earlier messages truncated]...\n" + info.History[len(info.History)-keepLength:]
 	}
 
-	// Set status to idle, clear spinner, and add spacing after AI message
+	// Set status to idle, clear spinner, and add spacing after AI message for next user input
 	info.Status = StatusIdle
 	info.TokensStarted = false // Reset streaming state
-	info.History += "\n"       // Add spacing after AI response
+	info.History += "\n"       // Add spacing after AI response for next user input
 
 	if msg.id == m.active {
 		m.vp.SetContent(info.History)
