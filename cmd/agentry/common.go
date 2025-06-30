@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/yaml.v3"
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/tool"
+	"gopkg.in/yaml.v3"
 )
 
 type commonOpts struct {
@@ -107,14 +107,14 @@ func applyAgent0RoleConfig(agent *core.Agent) error {
 	if roleDir == "" {
 		return fmt.Errorf("templates/roles directory not found")
 	}
-	
+
 	// Load agent_0.yaml configuration
 	roleFile := filepath.Join(roleDir, "agent_0.yaml")
 	data, err := os.ReadFile(roleFile)
 	if err != nil {
 		return fmt.Errorf("failed to read agent_0.yaml: %v", err)
 	}
-	
+
 	// Parse YAML configuration
 	var config struct {
 		Name     string   `yaml:"name"`
@@ -124,28 +124,28 @@ func applyAgent0RoleConfig(agent *core.Agent) error {
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return fmt.Errorf("failed to parse agent_0.yaml: %v", err)
 	}
-	
+
 	// Apply tool restrictions if builtins are specified
 	if len(config.Builtins) > 0 {
 		filteredTools := make(tool.Registry)
-		
+
 		for _, toolName := range config.Builtins {
 			if existingTool, ok := agent.Tools[toolName]; ok {
 				filteredTools[toolName] = existingTool
 			}
 		}
-		
+
 		agent.Tools = filteredTools
 	}
-	
+
 	// Apply the agent_0 prompt
 	if config.Prompt != "" {
 		agent.Prompt = config.Prompt
 	}
-	
+
 	// Inject dynamic agent status after prompt is set
 	injectAgentStatus(agent, nil)
-	
+
 	return nil
 }
 
@@ -153,10 +153,10 @@ func applyAgent0RoleConfig(agent *core.Agent) error {
 func injectAgentStatus(agent *core.Agent, teamCaller interface{}) {
 	// Get available agents - we know these exist based on our configuration
 	availableAgents := []string{
-		"coder", "tester", "writer", "devops", "designer", 
+		"coder", "tester", "writer", "devops", "designer",
 		"deployer", "editor", "reviewer", "researcher", "team_planner",
 	}
-	
+
 	// Build a concise agent status section for the prompt
 	statusSection := "\n\n## 🤖 CURRENT AGENT STATUS\n\n"
 	statusSection += "**Available Agents:** "
@@ -167,7 +167,7 @@ func injectAgentStatus(agent *core.Agent, teamCaller interface{}) {
 		statusSection += agentName
 	}
 	statusSection += "\n\n**All agents are ready for immediate delegation via the `agent` tool.**\n\n"
-	
+
 	// Inject the status into the prompt if it doesn't already contain it
 	if !strings.Contains(agent.Prompt, "CURRENT AGENT STATUS") {
 		agent.Prompt = agent.Prompt + statusSection
@@ -180,7 +180,7 @@ func findRoleTemplatesDir() string {
 	if _, err := os.Stat("templates/roles"); err == nil {
 		return "templates/roles"
 	}
-	
+
 	// Try walking up the directory tree
 	cwd, _ := os.Getwd()
 	dir := cwd
@@ -189,13 +189,13 @@ func findRoleTemplatesDir() string {
 		if _, err := os.Stat(templatePath); err == nil {
 			return templatePath
 		}
-		
+
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			break // reached root
 		}
 		dir = parent
 	}
-	
+
 	return ""
 }

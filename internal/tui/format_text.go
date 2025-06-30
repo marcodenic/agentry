@@ -151,7 +151,7 @@ func (m Model) formatCommandGroup(commands []string) string {
 }
 
 func (m Model) formatSingleCommand(command string) string {
-	return fmt.Sprintf("\n%s %s\n", m.statusBar(), command)
+	return fmt.Sprintf("%s %s", m.statusBar(), command)
 }
 
 func (m Model) formatUserInput(bar, text string, width int) string {

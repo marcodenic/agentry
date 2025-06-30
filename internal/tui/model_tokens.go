@@ -102,11 +102,11 @@ func (m Model) handleFinalMessage(msg finalMsg) (Model, tea.Cmd) {
 	// Add the final AI response with proper formatting from accumulated streaming
 	if info.StreamingResponse != "" {
 		formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
-		info.History += formattedResponse
+		info.History += "\n" + formattedResponse
 	} else if msg.text != "" {
 		// Fallback to final message text if no streaming occurred
 		formattedResponse := m.formatWithBar(m.aiBar(), msg.text, m.vp.Width)
-		info.History += formattedResponse
+		info.History += "\n" + formattedResponse
 	}
 	info.StreamingResponse = "" // Clear streaming response
 
@@ -118,10 +118,10 @@ func (m Model) handleFinalMessage(msg finalMsg) (Model, tea.Cmd) {
 		info.History = "...[earlier messages truncated]...\n" + info.History[len(info.History)-keepLength:]
 	}
 
-	// Set status to idle, clear spinner, and add proper spacing after AI message
+	// Set status to idle, clear spinner, and add spacing after AI message
 	info.Status = StatusIdle
 	info.TokensStarted = false // Reset streaming state
-	info.History += "\n\n"     // Add extra spacing after AI response
+	info.History += "\n"       // Add spacing after AI response
 
 	if msg.id == m.active {
 		m.vp.SetContent(info.History)

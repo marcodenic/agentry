@@ -18,8 +18,8 @@ import (
 // from converse.Team and maintains compatibility.
 type Team struct {
 	parent       *core.Agent
-	agents       map[string]*Agent       // Changed to use Agent type
-	agentsByName map[string]*Agent       // Changed to use Agent type
+	agents       map[string]*Agent // Changed to use Agent type
+	agentsByName map[string]*Agent // Changed to use Agent type
 	names        []string
 	tasks        map[string]*Task
 	messages     []Message
@@ -61,7 +61,7 @@ func (t *Team) Add(name string, ag *core.Agent) {
 		ag.Tools = newTools
 
 	}
-	
+
 	// Create wrapper
 	agent := &Agent{
 		ID:        name,
@@ -72,10 +72,10 @@ func (t *Team) Add(name string, ag *core.Agent) {
 		LastSeen:  time.Now(),
 		Metadata:  make(map[string]string),
 	}
-	
+
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	
+
 	t.agents[name] = agent
 	t.agentsByName[name] = agent
 	t.names = append(t.names, name)
@@ -86,7 +86,7 @@ func (t *Team) Add(name string, ag *core.Agent) {
 func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	// Create a new agent by spawning from the parent
 	coreAgent := t.parent.Spawn()
-	
+
 	// CRITICAL: Remove the "agent" tool from spawned agents to prevent delegation cascading
 	// but keep other essential tools so they can actually complete tasks
 	if _, hasAgent := coreAgent.Tools["agent"]; hasAgent {
@@ -100,7 +100,7 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 		coreAgent.Tools = newTools
 
 	}
-	
+
 	// Create wrapper
 	agent := &Agent{
 		ID:        name, // Use name as ID for simplicity
@@ -111,14 +111,14 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 		LastSeen:  time.Now(),
 		Metadata:  make(map[string]string),
 	}
-	
+
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	
+
 	t.agents[name] = agent
 	t.agentsByName[name] = agent
 	t.names = append(t.names, name)
-	
+
 	return coreAgent, name
 }
 
@@ -128,16 +128,16 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	t.mutex.RLock()
 	agent, exists := t.agentsByName[agentID]
 	t.mutex.RUnlock()
-	
+
 	if !exists {
 		// If agent doesn't exist, create it
 		_, _ = t.AddAgent(agentID) // Create agent and ignore return values
-		
+
 		t.mutex.RLock()
 		agent = t.agentsByName[agentID] // Get the Agent wrapper
 		t.mutex.RUnlock()
 	}
-	
+
 	// Execute the input on the core agent using the same pattern as converse.runAgent
 	return runAgent(ctx, agent.Agent, input, agentID, t.names)
 }
@@ -153,7 +153,7 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 	}
 	// Special case: if MaxIterations is set to -1, allow unlimited iterations
 	unlimited := ag.MaxIterations == -1
-	
+
 	for i := 0; unlimited || i < limit; i++ {
 		res, err := client.Complete(ctx, msgs, specs)
 		if err != nil {
@@ -197,7 +197,7 @@ func (t *Team) GetAgents() []string {
 func (t *Team) Agents() []*core.Agent {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	
+
 	agents := make([]*core.Agent, 0, len(t.agents))
 	for _, agent := range t.agents {
 		agents = append(agents, agent.Agent)

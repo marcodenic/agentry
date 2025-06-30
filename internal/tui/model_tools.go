@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"strings"
-	
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -10,14 +8,11 @@ import (
 func (m Model) handleToolUseMessage(msg toolUseMsg) (Model, tea.Cmd) {
 	info := m.infos[msg.id]
 	info.CurrentTool = msg.name
-	// Show completion message with better formatting
+	// Show completion message with clean formatting
 	completionText := m.formatToolCompletion(msg.name, msg.args)
 	commandFormatted := m.formatSingleCommand(completionText)
-	// Add spacing before first status message in a sequence
-	if !strings.HasSuffix(info.History, "\n") && info.History != "" {
-		info.History += "\n"
-	}
-	info.History += commandFormatted
+	// Add consistent spacing
+	info.History += "\n" + commandFormatted
 	if msg.id == m.active {
 		m.vp.SetContent(info.History)
 		m.vp.GotoBottom()
@@ -29,13 +24,10 @@ func (m Model) handleToolUseMessage(msg toolUseMsg) (Model, tea.Cmd) {
 // handleActionMessage processes action notification messages
 func (m Model) handleActionMessage(msg actionMsg) (Model, tea.Cmd) {
 	info := m.infos[msg.id]
-	// Add action messages with better spacing
+	// Add action messages with clean formatting
 	actionFormatted := m.formatSingleCommand(msg.text)
-	// Add spacing before first status message in a sequence
-	if !strings.HasSuffix(info.History, "\n") && info.History != "" {
-		info.History += "\n"
-	}
-	info.History += actionFormatted
+	// Add consistent spacing
+	info.History += "\n" + actionFormatted
 	if msg.id == m.active {
 		m.vp.SetContent(info.History)
 		m.vp.GotoBottom()
