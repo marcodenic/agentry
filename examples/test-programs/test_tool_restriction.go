@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/marcodenic/agentry/internal/config"
-	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
+	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/pkg/memstore"
@@ -37,13 +37,13 @@ func TestAgentSpawningWithToolRestriction(t *testing.T) {
 			}
 			
 			// Get the team from context
-			team := converse.TeamFromContext(ctx)
-			if team == nil {
+			teamInstance := team.TeamFromContext(ctx)
+			if teamInstance == nil {
 				return "", fmt.Errorf("no team found in context")
 			}
 			
 			// Add the requested agent
-			ag, name := team.AddAgent(agentName)
+			ag, name := teamInstance.AddAgent(agentName)
 			
 			// Execute the task
 			msg, err := ag.Execute(ctx, input)

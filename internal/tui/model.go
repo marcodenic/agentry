@@ -15,8 +15,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/google/uuid"
-	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/team"
 )
 
 // Model is the root TUI model.
@@ -26,7 +26,7 @@ type Model struct {
 	order  []uuid.UUID
 	active uuid.UUID
 
-	team *converse.Team
+	team *team.Team
 
 	vp    viewport.Model
 	debugVp viewport.Model // Separate viewport for debug/memory view
@@ -175,7 +175,7 @@ func New(ag *core.Agent) Model {
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
 	// Create team context without pre-spawning agents
-	tm, err := converse.NewTeamContext(ag)
+	tm, err := team.NewTeam(ag, 10, "")
 	if err != nil {
 		panic(err) // For now, panic on error - TODO: handle gracefully
 	}

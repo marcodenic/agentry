@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
+	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/pkg/memstore"
@@ -32,6 +34,33 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 			return nil, err
 		}
 		reg[m.Name] = tl
+	}
+	
+	// Replace the default agent tool with proper team-context implementation
+	if _, hasAgent := reg["agent"]; hasAgent {
+		reg["agent"] = tool.NewWithSchema("agent", "Delegate to another agent", map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"agent": map[string]any{"type": "string"},
+				"input": map[string]any{"type": "string"},
+			},
+			"required": []string{"agent", "input"},
+			"example": map[string]any{
+				"agent": "Agent1",
+				"input": "Hello, how are you?",
+			},
+		}, func(ctx context.Context, args map[string]any) (string, error) {
+			name, _ := args["agent"].(string)
+			input, _ := args["input"].(string)
+			fmt.Printf("🤖 Agent tool called: delegating to '%s' with input: '%.50s...'\n", name, input)
+			t, ok := team.FromContext(ctx)
+			if !ok || t == nil {
+				fmt.Printf("❌ Agent tool: no team found in context\n")
+				return "", fmt.Errorf("team not found in context")
+			}
+			fmt.Printf("✅ Agent tool: team found, calling '%s'\n", name)
+			return t.Call(ctx, name, input)
+		})
 	}
 	var logWriter *audit.Log
 	if path := os.Getenv("AGENTRY_AUDIT_LOG"); path != "" {

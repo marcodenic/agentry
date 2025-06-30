@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/marcodenic/agentry/internal/config"
-	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/trace"
 	"os"
@@ -49,7 +48,7 @@ func runPrompt(cmd string, args []string) {
 	fmt.Printf("🔧 After agent_0 config: agent has %d tools\n", len(ag.Tools))
 	
 	// FIX: Create team context for coordination capabilities (unified architecture)
-	teamCtx, err := converse.NewTeamContext(ag)
+	teamCtx, err := team.NewTeam(ag, 10, "")
 	if err != nil {
 		fmt.Printf("Warning: Failed to create team context: %v\n", err)
 	} else {
