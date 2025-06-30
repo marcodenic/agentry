@@ -181,7 +181,6 @@ commands:
 builtins:
   - agent # Delegate to other agents
   - fetch # Download content from URLs (web only)
-  - branch-tidy # Git branch cleanup
   - read_lines # Read specific lines from files with line-precise access
   - fileinfo # Get comprehensive file information
   - view # Enhanced file viewing with line numbers
@@ -190,13 +189,10 @@ builtins:
   - api # Make HTTP/REST API calls
   - download # Download files from URLs
   - sysinfo # Get system information and hardware specs
-  - project_tree # Get intelligent project structure with smart filtering
   - team_status # Get current status of all team agents
   - send_message # Send messages to other agents for coordination
-  - assign_task # Formally assign tasks with priority levels
   - check_agent # Check if a specific agent is available
-  - powershell # Execute PowerShell commands (Windows)
-  - cmd # Execute cmd.exe commands (Windows)
   - bash # Execute bash commands (Unix/Linux/macOS)
   - sh # Execute shell commands (Unix/Linux/macOS)
   # REMOVED: create, edit_range, insert_at, search_replace, write - Agent 0 should NOT implement directly!
+  # REMOVED: project_tree, powershell, cmd, branch-tidy - not yet implemented or not available

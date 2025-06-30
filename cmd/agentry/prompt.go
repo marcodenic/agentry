@@ -53,6 +53,9 @@ func runPrompt(cmd string, args []string) {
 		fmt.Printf("Warning: Failed to create team context: %v\n", err)
 	} else {
 		fmt.Printf("🔧 Team context created: Agent 0 now has coordination capabilities\n")
+		// Register the agent delegation tool to replace the placeholder
+		teamCtx.RegisterAgentTool(ag.Tools)
+		fmt.Printf("🔧 Agent delegation tool registered with team\n")
 	}
 	
 	if opts.maxIter > 0 {

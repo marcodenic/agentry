@@ -16,11 +16,11 @@ func getTeamBuiltins() map[string]builtinSpec {
 				"type": "object",
 				"properties": map[string]any{
 					"agent": map[string]any{
-						"type":        "string",
+						"type": "string",
 						"description": "Name of the agent to delegate to",
 					},
 					"input": map[string]any{
-						"type":        "string",
+						"type": "string",
 						"description": "Task description or input for the agent",
 					},
 				},
@@ -38,9 +38,9 @@ func getTeamBuiltins() map[string]builtinSpec {
 		"team_status": {
 			Desc: "Get current status of all team agents",
 			Schema: map[string]any{
-				"type":       "object",
+				"type": "object",
 				"properties": map[string]any{},
-				"required":   []string{},
+				"required": []string{},
 			},
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
 				// Basic team status - will be enhanced with actual team data
@@ -53,17 +53,17 @@ func getTeamBuiltins() map[string]builtinSpec {
 				"type": "object",
 				"properties": map[string]any{
 					"to": map[string]any{
-						"type":        "string",
+						"type": "string",
 						"description": "Target agent name",
 					},
 					"message": map[string]any{
-						"type":        "string",
+						"type": "string", 
 						"description": "Message content",
 					},
 					"type": map[string]any{
-						"type":        "string",
+						"type": "string",
 						"description": "Message type (info, warning, task)",
-						"default":     "info",
+						"default": "info",
 					},
 				},
 				"required": []string{"to", "message"},
@@ -75,7 +75,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 				if msgType == "" {
 					msgType = "info"
 				}
-
+				
 				return fmt.Sprintf("✅ Message sent to %s [%s]: %s", to, msgType, message), nil
 			},
 		},
@@ -86,7 +86,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 				"type": "object",
 				"properties": map[string]any{
 					"agent": map[string]any{
-						"type":        "string",
+						"type": "string",
 						"description": "Agent name to check",
 					},
 				},
@@ -94,19 +94,19 @@ func getTeamBuiltins() map[string]builtinSpec {
 			},
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
 				agentName, _ := args["agent"].(string)
-
+				
 				// List of available agents - these match the agent_0.yaml configuration
 				availableAgents := []string{
-					"coder", "tester", "writer", "devops", "designer",
+					"coder", "tester", "writer", "devops", "designer", 
 					"deployer", "editor", "reviewer", "researcher", "team_planner",
 				}
-
+				
 				for _, available := range availableAgents {
 					if available == agentName {
 						return fmt.Sprintf("✅ Agent '%s' is available and ready", agentName), nil
 					}
 				}
-
+				
 				return fmt.Sprintf("❌ Agent '%s' is not available. Available agents: %s", agentName, strings.Join(availableAgents, ", ")), nil
 			},
 		},

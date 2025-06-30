@@ -10,7 +10,22 @@ import (
 // RegisterAgentTool registers the "agent" tool with the given tool registry.
 // This must be called after creating the team to avoid import cycles.
 func (t *Team) RegisterAgentTool(registry tool.Registry) {
-	registry["agent"] = tool.New("agent", "Delegate work to another agent", func(ctx context.Context, args map[string]any) (string, error) {
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"agent": map[string]any{
+				"type": "string",
+				"description": "Name of the agent to delegate to",
+			},
+			"input": map[string]any{
+				"type": "string", 
+				"description": "Task description or input for the agent",
+			},
+		},
+		"required": []string{"agent", "input"},
+	}
+	
+	registry["agent"] = tool.NewWithSchema("agent", "Delegate work to another agent", schema, func(ctx context.Context, args map[string]any) (string, error) {
 		name, ok := args["agent"].(string)
 		if !ok {
 			return "", errors.New("agent name is required")
