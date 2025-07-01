@@ -37,9 +37,9 @@ func (m *Model) formatToolAction(toolName string, args map[string]any) string {
 		return glyphs.OrangeTriangle() + " Running command"
 	case "agent":
 		if agent, ok := args["agent"].(string); ok {
-			return fmt.Sprintf("%s Delegating to %s agent", glyphs.PurpleLightning(), agent)
+			return fmt.Sprintf("%s Delegating to %s agent", glyphs.OrangeLightning(), agent)
 		}
-		return glyphs.PurpleLightning() + " Delegating task"
+		return glyphs.OrangeLightning() + " Delegating task"
 	case "grep", "search":
 		if query, ok := args["query"].(string); ok {
 			return fmt.Sprintf("%s Searching for '%s'", glyphs.YellowStar(), query)

@@ -13,7 +13,7 @@ const (
 	BulletEmpty  = "◦"
 
 	// Checkmarks and crosses
-	Checkmark = "✓"
+	Checkmark = "✔"
 	Crossmark = "✕"
 
 	// Arrows
@@ -119,9 +119,9 @@ func YellowStar() string {
 		Render(Star)
 }
 
-func PurpleLightning() string {
+func OrangeLightning() string {
 	return lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#9966FF")).
+		Foreground(lipgloss.Color("#FF8C00")).
 		Bold(true).
 		Render(Lightning)
 }
