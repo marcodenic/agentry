@@ -37,13 +37,19 @@ func (m Model) handleThinkingAnimation(msg thinkingAnimationMsg) (Model, tea.Cmd
 	// Build display content WITHOUT modifying history
 	displayHistory := info.History
 
-	// Add spinner to display only if history doesn't end with newline
-	if len(displayHistory) > 0 && !strings.HasSuffix(displayHistory, "\n") {
-		// Add AI bar and spinner for display only
-		displayHistory += "\n" + m.aiBar() + " " + currentSpinner
+	// Check if we should append spinner to last status message or show on new line
+	if info.LastContentType == ContentTypeStatusMessage {
+		// Append spinner to the end of the last status message
+		displayHistory += " " + currentSpinner
 	} else {
-		// Add AI bar and spinner for display only
-		displayHistory += m.aiBar() + " " + currentSpinner
+		// For user input or other content types, show spinner on new line with AI bar
+		if len(displayHistory) > 0 && !strings.HasSuffix(displayHistory, "\n") {
+			// Add AI bar and spinner for display only
+			displayHistory += "\n" + m.aiBar() + " " + currentSpinner
+		} else {
+			// Add AI bar and spinner for display only
+			displayHistory += m.aiBar() + " " + currentSpinner
+		}
 	}
 
 	if msg.id == m.active {
