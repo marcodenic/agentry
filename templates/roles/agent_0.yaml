@@ -192,6 +192,7 @@ builtins:
   - team_status # Get current status of all team agents
   - send_message # Send messages to other agents for coordination
   - check_agent # Check if a specific agent is available
+  - collaborate # Real-time multi-agent collaboration and coordination
   - bash # Execute bash commands (Unix/Linux/macOS)
   - sh # Execute shell commands (Unix/Linux/macOS)
   # REMOVED: create, edit_range, insert_at, search_replace, write - Agent 0 should NOT implement directly!

@@ -1,0 +1,3 @@
+team_status
+agent coder "Create a test file at /tmp/test-enhanced-communication.txt with content 'Enhanced agent communication is working!'"
+exit

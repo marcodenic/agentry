@@ -9,16 +9,16 @@ import (
 
 // Agent represents a team agent with metadata
 type Agent struct {
-	ID        string                 `json:"id"`
-	Name      string                 `json:"name"`
-	Role      string                 `json:"role,omitempty"`
-	Agent     *core.Agent            `json:"-"`
-	Port      int                    `json:"port,omitempty"`
-	Status    string                 `json:"status"`
-	StartedAt time.Time              `json:"started_at"`
-	LastSeen  time.Time              `json:"last_seen"`
-	Metadata  map[string]string      `json:"metadata"`
-	mutex     sync.RWMutex           `json:"-"`
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	Role      string            `json:"role,omitempty"`
+	Agent     *core.Agent       `json:"-"`
+	Port      int               `json:"port,omitempty"`
+	Status    string            `json:"status"`
+	StartedAt time.Time         `json:"started_at"`
+	LastSeen  time.Time         `json:"last_seen"`
+	Metadata  map[string]string `json:"metadata"`
+	mutex     sync.RWMutex      `json:"-"`
 }
 
 // SetStatus updates the agent's status
@@ -73,4 +73,15 @@ type RoleConfig struct {
 type PortRange struct {
 	Start int `json:"start"`
 	End   int `json:"end"`
+}
+
+// CoordinationEvent represents an event in agent coordination
+type CoordinationEvent struct {
+	ID        string                 `json:"id"`
+	Type      string                 `json:"type"` // "delegation", "message", "task_assign", "status_update"
+	From      string                 `json:"from"`
+	To        string                 `json:"to"`
+	Content   string                 `json:"content"`
+	Timestamp time.Time              `json:"timestamp"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }

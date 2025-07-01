@@ -1,0 +1,5 @@
+skipping builtin cmd: not available
+skipping builtin powershell: not available
+skipping builtin assign_task: not available
+skipping builtin branch-tidy: not available
+🔧 buildAgent: registry has 14 tools, agent has 14 tools
