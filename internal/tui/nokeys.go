@@ -1,18 +1,21 @@
 package tui
 
-import "github.com/charmbracelet/bubbles/key"
+import (
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/marcodenic/agentry/internal/glyphs"
+)
 
 // Enhanced key bindings for cycling agents in the unified TUI model.
 var (
 	PrevAgentKey = key.NewBinding(
 		key.WithKeys("up", "left", "ctrl+p"),
-		key.WithHelp("↑/←/ctrl+p", "prev agent"),
+		key.WithHelp(glyphs.ArrowUp+"/"+glyphs.ArrowLeft+"/ctrl+p", "prev agent"),
 	)
 	NextAgentKey = key.NewBinding(
 		key.WithKeys("down", "right", "ctrl+n"),
-		key.WithHelp("↓/→/ctrl+n", "next agent"),
+		key.WithHelp(glyphs.ArrowDown+"/"+glyphs.ArrowRight+"/ctrl+n", "next agent"),
 	)
-	
+
 	// Additional navigation keys for better UX
 	FirstAgentKey = key.NewBinding(
 		key.WithKeys("home", "ctrl+a"),

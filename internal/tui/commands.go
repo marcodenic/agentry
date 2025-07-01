@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/marcodenic/agentry/internal/glyphs"
+
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -102,7 +104,7 @@ func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 	// Check if name is a tool - tools should not be created as agents
 	if tool.IsBuiltinTool(requestedName) {
 		suggestions := []string{"coder", "researcher", "analyst", "writer", "planner", "tester", "devops"}
-		errorMsg := fmt.Sprintf("❌ Error: '%s' is a tool name, not an agent name. Use agent names like: %s",
+		errorMsg := fmt.Sprintf(glyphs.RedCrossmark()+" Error: '%s' is a tool name, not an agent name. Use agent names like: %s",
 			requestedName, strings.Join(suggestions, ", "))
 
 		// Add error message to current agent's history

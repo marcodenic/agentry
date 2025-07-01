@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/glyphs"
 )
 
 // renderDetailedMemory provides a detailed trace when debug data is available.
@@ -35,7 +36,7 @@ func (m Model) renderDetailedMemory(ag *core.Agent) string {
 		b.WriteString(lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#88FF88")).
 			Bold(true).
-			Render("🔄 CURRENT RESPONSE BEING GENERATED:"))
+			Render(glyphs.BlueCircle() + " CURRENT RESPONSE BEING GENERATED:"))
 		b.WriteString("\n")
 
 		responseBox := lipgloss.NewStyle().

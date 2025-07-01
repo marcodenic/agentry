@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/glyphs"
 	"github.com/marcodenic/agentry/internal/team"
 )
 
@@ -366,7 +367,7 @@ func (info *AgentInfo) completeProgressiveStatusUpdate(m Model) {
 		if strings.Contains(line, info.PendingStatusUpdate) {
 			// Replace orange bar with green bar and add tick
 			updatedLine := strings.Replace(line, m.statusBar(), m.completedStatusBar(), 1)
-			updatedLine += " ✓"
+			updatedLine += " " + glyphs.GreenCheckmark()
 			lines[i] = updatedLine
 			break
 		}

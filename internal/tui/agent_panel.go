@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/marcodenic/agentry/internal/glyphs"
 )
 
 // agentPanel renders the sidebar showing all agents and their status.
@@ -47,7 +48,7 @@ func (m Model) agentPanel() string {
 			nameLine = lipgloss.NewStyle().
 				Foreground(lipgloss.Color(m.theme.UserBarColor)).
 				Bold(true).
-				Render("▶ " + nameLine)
+				Render(glyphs.OrangeTriangle() + " " + nameLine)
 		}
 		lines = append(lines, nameLine)
 
@@ -114,7 +115,7 @@ func (m Model) agentPanel() string {
 		lines = append(lines, lipgloss.NewStyle().
 			Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
 			Faint(true).
-			Render("  ←→ cycle agents"))
+			Render("  "+glyphs.ArrowLeft+glyphs.ArrowRight+" cycle agents"))
 		lines = append(lines, lipgloss.NewStyle().
 			Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
 			Faint(true).

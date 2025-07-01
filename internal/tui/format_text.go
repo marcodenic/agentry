@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/marcodenic/agentry/internal/glyphs"
 )
 
 func helpView() string {
@@ -17,14 +18,14 @@ func helpView() string {
 		"Example: 'I need a coder to create a Python script'",
 		"",
 		"Controls:",
-		"←→ / Ctrl+P/N           - cycle between agents",
+		glyphs.ArrowLeft + glyphs.ArrowRight + " / Ctrl+P/N           - cycle between agents",
 		"Tab                     - switch between chat and memory view",
 		"Enter                   - send message",
 		"Ctrl+C / q              - quit",
 		"",
 		"Agent Panel:",
-		"● idle  🟡 running  ❌ error  ⏸️ stopped",
-		"[index] shows agent position, ▶ shows active agent",
+		glyphs.CircleFilled + " idle  " + glyphs.CircleFilled + " running  " + glyphs.Crossmark + " error  " + glyphs.CircleEmpty + " stopped",
+		"[index] shows agent position, " + glyphs.OrangeTriangle() + " shows active agent",
 	}, "\n")
 }
 

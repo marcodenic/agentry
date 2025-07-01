@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/marcodenic/agentry/internal/glyphs"
 )
 
 // statusDot renders a colored dot based on agent status.
@@ -19,22 +20,22 @@ func (m Model) statusDot(st AgentStatus) string {
 	case StatusStopped:
 		color = m.theme.StoppedColor
 	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render("●")
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true).Render(glyphs.CircleFilled)
 }
 
 // getAdvancedStatusDot renders a status icon with emoji.
 func (m Model) getAdvancedStatusDot(status AgentStatus) string {
 	switch status {
 	case StatusIdle:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.IdleColor)).Render("●")
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.IdleColor)).Bold(true).Render(glyphs.CircleFilled)
 	case StatusRunning:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.RunningColor)).Render("🟡")
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.RunningColor)).Bold(true).Render(glyphs.CircleFilled)
 	case StatusError:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.ErrorColor)).Render("❌")
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.ErrorColor)).Bold(true).Render(glyphs.Crossmark)
 	case StatusStopped:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.StoppedColor)).Render("⏸️")
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.StoppedColor)).Bold(true).Render(glyphs.CircleEmpty)
 	default:
-		return "○"
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#888888")).Bold(true).Render(glyphs.CircleEmpty)
 	}
 }
 
