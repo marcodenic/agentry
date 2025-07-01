@@ -25,24 +25,20 @@ func applyGradientToLogo(logo string) string {
 	lines := strings.Split(logo, "\n")
 	var styledLines []string
 
-	// Vibrant gradient: Magenta → Purple → Blue → Cyan (matching the stunning visuals)
+	// Define gradient colors - subtle purple to blue to teal (matching the image style)
 	colors := []string{
-		"#FF44FF", // Bright neon magenta
-		"#F542F5", // Magenta
-		"#EB40EB", // Pink-magenta
-		"#E13EE1", // Purple-pink
-		"#D73CD7", // Purple-magenta
-		"#CD3ACD", // Purple
-		"#C338C3", // Deep purple
-		"#B936B9", // Purple-blue
-		"#AF34AF", // Blue-purple
-		"#A532A5", // Purple-blue
-		"#9B309B", // Blue-purple
-		"#912E91", // Blue
-		"#872C87", // Deep blue-purple
-		"#7D2A7D", // Blue
-		"#732873", // Blue-cyan
-		"#44AAFF", // Bright cyan-blue
+		"#8B5FBF", // Soft purple
+		"#8B5FBF", // Purple-blue
+		"#6B76CF", // Lavender blue
+		"#5B82D7", // Medium blue
+		"#4B8EDF", // Light blue
+		"#3B9AE7", // Sky blue
+		"#2BA6EF", // Bright blue
+		"#1BB2F7", // Cyan blue
+		"#0BBEFF", // Light cyan
+		"#00CAF7", // Teal cyan
+		"#00D6EF", // Soft teal
+		"#00E2E7", // Light teal
 	}
 
 	totalLines := len(lines)
@@ -78,10 +74,10 @@ type Model struct {
 
 	team *team.Team
 
-	vp    viewport.Model
+	vp      viewport.Model
 	debugVp viewport.Model // Separate viewport for debug/memory view
-	input textinput.Model
-	tools list.Model
+	input   textinput.Model
+	tools   list.Model
 
 	cwd string
 
@@ -117,28 +113,28 @@ type DebugTraceEvent struct {
 }
 
 type AgentInfo struct {
-	Agent           *core.Agent
-	History         string
-	Status          AgentStatus
-	CurrentTool     string
-	TokenCount      int
-	TokenHistory    []int
-	ActivityData    []float64   // Activity level per second (0.0 to 1.0)
-	ActivityTimes   []time.Time // Timestamp for each activity data point
-	LastToken       time.Time
-	LastActivity    time.Time
-	CurrentActivity int // Tokens processed in current second
-	ModelName       string
-	Scanner         *bufio.Scanner
-	Cancel          context.CancelFunc
-	Spinner         spinner.Model
-	Name            string
-	Role            string // Agent role for display (e.g., "System", "Research", "DevOps")
-	TokensStarted   bool   // Flag to stop thinking animation when tokens start
-	StreamingResponse string // Current AI response being streamed (unformatted)
-	DebugTrace      []DebugTraceEvent // Detailed trace history for debug view
-	CurrentStep     int              // Current step number for trace events
-	DebugStreamingResponse string    // Separate streaming response for debug view
+	Agent                  *core.Agent
+	History                string
+	Status                 AgentStatus
+	CurrentTool            string
+	TokenCount             int
+	TokenHistory           []int
+	ActivityData           []float64   // Activity level per second (0.0 to 1.0)
+	ActivityTimes          []time.Time // Timestamp for each activity data point
+	LastToken              time.Time
+	LastActivity           time.Time
+	CurrentActivity        int // Tokens processed in current second
+	ModelName              string
+	Scanner                *bufio.Scanner
+	Cancel                 context.CancelFunc
+	Spinner                spinner.Model
+	Name                   string
+	Role                   string            // Agent role for display (e.g., "System", "Research", "DevOps")
+	TokensStarted          bool              // Flag to stop thinking animation when tokens start
+	StreamingResponse      string            // Current AI response being streamed (unformatted)
+	DebugTrace             []DebugTraceEvent // Detailed trace history for debug view
+	CurrentStep            int               // Current step number for trace events
+	DebugStreamingResponse string            // Separate streaming response for debug view
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -202,27 +198,27 @@ func New(ag *core.Agent) Model {
                  ▀ ▀ ▀▀▀ ▀▀▀ ▀ ▀  ▀  ▀ ▀  ▀                  
                AGENT  ORCHESTRATION  FRAMEWORK               
                                                              `
-	
+
 	// Apply beautiful gradient coloring to the logo
 	logoContent := applyGradientToLogo(rawLogoContent)
 
 	info := &AgentInfo{
-		Agent:   ag,
-		Status:  StatusIdle,
-		Spinner: spinner.New(),
-		Name:    "Agent 0",
-		Role:    "System", 
-		History: logoContent,
-		ActivityData: make([]float64, 0),
+		Agent:           ag,
+		Status:          StatusIdle,
+		Spinner:         spinner.New(),
+		Name:            "Agent 0",
+		Role:            "System",
+		History:         logoContent,
+		ActivityData:    make([]float64, 0),
 		ActivityTimes:   make([]time.Time, 0),
 		CurrentActivity: 0,
 		LastActivity:    time.Time{}, // Start with zero time so first tick will initialize properly
 		// Initialize with empty activity for real-time chart
-		TokenHistory: []int{},
-		TokensStarted: false,
-		StreamingResponse: "",
-		DebugTrace: make([]DebugTraceEvent, 0), // Initialize debug trace
-		CurrentStep: 0,
+		TokenHistory:           []int{},
+		TokensStarted:          false,
+		StreamingResponse:      "",
+		DebugTrace:             make([]DebugTraceEvent, 0), // Initialize debug trace
+		CurrentStep:            0,
 		DebugStreamingResponse: "", // Initialize debug streaming response
 	}
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
@@ -234,18 +230,18 @@ func New(ag *core.Agent) Model {
 	}
 
 	m := Model{
-		agents: []*core.Agent{ag},
-		infos:  infos,
-		order:  []uuid.UUID{ag.ID},
-		active: ag.ID,
-		team:   tm,
-		vp:     vp,
-		debugVp: debugVp,
-		input:  ti,
-		tools:  l,
-		cwd:    cwd,
-		theme:  th,
-		keys:   th.Keybinds,
+		agents:          []*core.Agent{ag},
+		infos:           infos,
+		order:           []uuid.UUID{ag.ID},
+		active:          ag.ID,
+		team:            tm,
+		vp:              vp,
+		debugVp:         debugVp,
+		input:           ti,
+		tools:           l,
+		cwd:             cwd,
+		theme:           th,
+		keys:            th.Keybinds,
 		showInitialLogo: true,
 	}
 	return m
