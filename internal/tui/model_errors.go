@@ -64,7 +64,7 @@ func (m Model) handleErrorMessage(msg errMsg) (Model, tea.Cmd) {
 		}
 
 		errorFormatted := m.formatSingleCommand(errorMsg)
-		info.History += errorFormatted
+		info.addContentWithSpacing(errorFormatted, ContentTypeStatusMessage)
 
 		// Update viewport if this is the active agent
 		if m.active == info.Agent.ID {

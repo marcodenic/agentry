@@ -141,9 +141,9 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 // It delegates work to the named agent with enhanced communication logging.
 func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) {
 	// ENHANCED: Log explicit agent-to-agent communication
-	fmt.Printf("\n🔄 AGENT DELEGATION: Agent 0 -> %s\n", agentID)
-	fmt.Printf("📝 Task: %s\n", input)
-	fmt.Printf("⏰ Timestamp: %s\n", time.Now().Format("15:04:05"))
+	debugPrintf("\n🔄 AGENT DELEGATION: Agent 0 -> %s\n", agentID)
+	debugPrintf("📝 Task: %s\n", input)
+	debugPrintf("⏰ Timestamp: %s\n", time.Now().Format("15:04:05"))
 
 	// Log coordination event
 	t.LogCoordinationEvent("delegation", "agent_0", agentID, input, map[string]interface{}{
@@ -156,23 +156,23 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	t.mutex.RUnlock()
 
 	if !exists {
-		fmt.Printf("🆕 Creating new agent: %s\n", agentID)
+		debugPrintf("🆕 Creating new agent: %s\n", agentID)
 		// If agent doesn't exist, create it
 		_, _ = t.AddAgent(agentID) // Create agent and ignore return values
 
 		t.mutex.RLock()
 		agent = t.agentsByName[agentID] // Get the Agent wrapper
 		t.mutex.RUnlock()
-		fmt.Printf("✅ Agent %s created and ready\n", agentID)
+		debugPrintf("✅ Agent %s created and ready\n", agentID)
 	} else {
-		fmt.Printf("♻️  Using existing agent: %s (Status: %s)\n", agentID, agent.Status)
+		debugPrintf("♻️  Using existing agent: %s (Status: %s)\n", agentID, agent.Status)
 	}
 
 	// Update agent status
 	agent.SetStatus("working")
 
 	// Log delegation start
-	fmt.Printf("🚀 Starting task execution on agent %s...\n", agentID)
+	debugPrintf("🚀 Starting task execution on agent %s...\n", agentID)
 
 	// Log the communication to file as well
 	logMessage := fmt.Sprintf("DELEGATION: Agent 0 -> %s | Task: %s", agentID, input)
@@ -184,19 +184,19 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	// Update agent status and log completion
 	if err != nil {
 		agent.SetStatus("error")
-		fmt.Printf("❌ Agent %s failed: %v\n", agentID, err)
+		debugPrintf("❌ Agent %s failed: %v\n", agentID, err)
 		logToFile(fmt.Sprintf("DELEGATION FAILED: %s | Error: %v", agentID, err))
 		t.LogCoordinationEvent("delegation_failed", agentID, "agent_0", err.Error(), map[string]interface{}{
 			"error": err.Error(),
 		})
 	} else {
 		agent.SetStatus("ready")
-		fmt.Printf("✅ Agent %s completed successfully\n", agentID)
-		fmt.Printf("📤 Result length: %d characters\n", len(result))
+		debugPrintf("✅ Agent %s completed successfully\n", agentID)
+		debugPrintf("📤 Result length: %d characters\n", len(result))
 		if len(result) > 100 {
-			fmt.Printf("📄 Result preview: %.100s...\n", result)
+			debugPrintf("📄 Result preview: %.100s...\n", result)
 		} else {
-			fmt.Printf("📄 Result: %s\n", result)
+			debugPrintf("📄 Result: %s\n", result)
 		}
 		logToFile(fmt.Sprintf("DELEGATION SUCCESS: %s | Result length: %d", agentID, len(result)))
 		t.LogCoordinationEvent("delegation_success", agentID, "agent_0", "Task completed", map[string]interface{}{
@@ -208,7 +208,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 		t.SetSharedData(fmt.Sprintf("last_result_%s", agentID), result)
 		t.SetSharedData(fmt.Sprintf("last_task_%s", agentID), input)
 	}
-	fmt.Printf("🏁 Delegation complete: Agent 0 <- %s\n\n", agentID)
+	debugPrintf("🏁 Delegation complete: Agent 0 <- %s\n\n", agentID)
 
 	return result, err
 }
@@ -238,26 +238,26 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 		}
 		for _, tc := range res.ToolCalls {
 			// ENHANCED: Log tool usage for debugging
-			fmt.Printf("  🔧 Agent %s using tool: %s\n", name, tc.Name)
+			debugPrintf("  🔧 Agent %s using tool: %s\n", name, tc.Name)
 
 			t, ok := ag.Tools.Use(tc.Name)
 			if !ok {
-				fmt.Printf("  ❌ Tool '%s' not available to agent %s\n", tc.Name, name)
+				debugPrintf("  ❌ Tool '%s' not available to agent %s\n", tc.Name, name)
 				return "", fmt.Errorf("agent '%s' tried to use unknown tool '%s' on iteration %d", name, tc.Name, i+1)
 			}
 			var args map[string]any
 			if err := json.Unmarshal(tc.Arguments, &args); err != nil {
-				fmt.Printf("  ❌ Tool '%s' invalid arguments: %v\n", tc.Name, err)
+				debugPrintf("  ❌ Tool '%s' invalid arguments: %v\n", tc.Name, err)
 				return "", fmt.Errorf("agent '%s' tool '%s' has invalid arguments on iteration %d: %w", name, tc.Name, i+1, err)
 			}
 
-			fmt.Printf("  ⚙️  Executing %s with args: %v\n", tc.Name, args)
+			debugPrintf("  ⚙️  Executing %s with args: %v\n", tc.Name, args)
 			r, err := t.Execute(ctx, args)
 			if err != nil {
-				fmt.Printf("  ❌ Tool '%s' execution failed: %v\n", tc.Name, err)
+				debugPrintf("  ❌ Tool '%s' execution failed: %v\n", tc.Name, err)
 				return "", fmt.Errorf("agent '%s' tool '%s' execution failed on iteration %d with args %v: %w", name, tc.Name, i+1, args, err)
 			}
-			fmt.Printf("  ✅ Tool '%s' completed successfully\n", tc.Name)
+			debugPrintf("  ✅ Tool '%s' completed successfully\n", tc.Name)
 
 			step.ToolResults[tc.ID] = r
 			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})
@@ -291,17 +291,30 @@ func (t *Team) Names() []string {
 	return t.GetAgents()
 }
 
-// logToFile logs the message to a file
+// logToFile logs the message to a file (only if not in TUI mode)
 func logToFile(message string) {
+	// Check if we're in TUI mode by looking for the TUI environment
+	// In TUI mode, we should avoid any stdout/stderr output that could interfere
+	if os.Getenv("AGENTRY_TUI_MODE") == "1" {
+		return // Skip logging in TUI mode to avoid interfering with display
+	}
+
 	file, err := os.OpenFile("agent_communication.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Println("Error opening log file:", err)
+		// Don't use log.Println as it may interfere with TUI
 		return
 	}
 	defer file.Close()
 
 	logger := log.New(file, "", log.LstdFlags)
 	logger.Println(message)
+}
+
+// debugPrintf prints debug information only when not in TUI mode
+func debugPrintf(format string, v ...interface{}) {
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		fmt.Printf(format, v...)
+	}
 }
 
 // ENHANCED: Shared Memory and Coordination Methods
@@ -323,7 +336,7 @@ func (t *Team) SetSharedData(key string, value interface{}) {
 		Metadata:  map[string]interface{}{"key": key, "value_type": fmt.Sprintf("%T", value)},
 	}
 	t.coordination = append(t.coordination, event)
-	fmt.Printf("📊 Shared memory updated: %s\n", key)
+	debugPrintf("📊 Shared memory updated: %s\n", key)
 }
 
 // GetSharedData retrieves data from shared memory
@@ -362,7 +375,7 @@ func (t *Team) LogCoordinationEvent(eventType, from, to, content string, metadat
 	t.coordination = append(t.coordination, event)
 
 	// Enhanced console logging
-	fmt.Printf("📝 COORDINATION EVENT: %s -> %s | %s: %s\n", from, to, eventType, content)
+	debugPrintf("📝 COORDINATION EVENT: %s -> %s | %s: %s\n", from, to, eventType, content)
 	logToFile(fmt.Sprintf("COORDINATION: %s -> %s | %s: %s", from, to, eventType, content))
 }
 

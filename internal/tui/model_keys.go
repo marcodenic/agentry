@@ -75,13 +75,14 @@ func (m Model) handlePause() (Model, tea.Cmd) {
 		if info.StreamingResponse != "" {
 			// Add the partial streaming response to history before stopping
 			formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
-			info.History += formattedResponse
+			info.addContentWithSpacing(formattedResponse, ContentTypeAIResponse)
 			info.StreamingResponse = ""
 		}
 
 		info.Status = StatusIdle   // Set to idle so new messages can be sent
 		info.TokensStarted = false // Reset streaming state
-		info.History += "\n\n" + m.statusBar() + " Agent stopped by user\n"
+		stopMessage := m.statusBar() + " Agent stopped by user"
+		info.addContentWithSpacing(stopMessage, ContentTypeStatusMessage)
 		m.infos[m.active] = info
 
 		// Update viewport to show the stop message

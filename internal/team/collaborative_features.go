@@ -2,6 +2,7 @@ package team
 
 import (
 	"fmt"
+	"os"
 	"sync"
 	"time"
 )
@@ -245,7 +246,9 @@ func (t *Team) SendDirectMessage(from, to, messageType, content string, data map
 			// Message sent successfully
 		default:
 			// Channel is full, log the issue
-			fmt.Printf("Warning: Message channel for agent %s is full\n", to)
+			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+				fmt.Printf("Warning: Message channel for agent %s is full\n", to)
+			}
 		}
 	}
 

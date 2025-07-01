@@ -104,6 +104,17 @@ const (
 	StatusStopped
 )
 
+// ContentType represents the type of content last added to history
+type ContentType int
+
+const (
+	ContentTypeEmpty ContentType = iota
+	ContentTypeUserInput
+	ContentTypeAIResponse
+	ContentTypeStatusMessage
+	ContentTypeLogo
+)
+
 type DebugTraceEvent struct {
 	Timestamp time.Time
 	Type      string
@@ -116,6 +127,7 @@ type AgentInfo struct {
 	Agent                  *core.Agent
 	History                string
 	Status                 AgentStatus
+	LastContentType        ContentType // Track what type of content was last added
 	CurrentTool            string
 	TokenCount             int
 	TokenHistory           []int
@@ -205,6 +217,7 @@ func New(ag *core.Agent) Model {
 	info := &AgentInfo{
 		Agent:           ag,
 		Status:          StatusIdle,
+		LastContentType: ContentTypeLogo, // Start with logo content
 		Spinner:         spinner.New(),
 		Name:            "Agent 0",
 		Role:            "System",
@@ -281,4 +294,50 @@ func (m *Model) Cleanup() {
 			m.infos[id] = info
 		}
 	}
+}
+
+// addContentWithSpacing adds content to agent history with proper spacing based on content type transitions
+func (info *AgentInfo) addContentWithSpacing(content string, contentType ContentType) {
+	if info.History == "" {
+		// First content ever - no spacing needed
+		info.History = content
+	} else {
+		// Determine spacing based on content type transition
+		spacing := ""
+
+		switch info.LastContentType {
+		case ContentTypeLogo, ContentTypeEmpty:
+			// After logo or empty, no spacing needed
+			spacing = ""
+		case ContentTypeUserInput:
+			if contentType == ContentTypeAIResponse {
+				// User Input → AI Response: No extra spacing
+				spacing = "\n"
+			} else {
+				// User Input → Status Message: Add spacing
+				spacing = "\n\n"
+			}
+		case ContentTypeAIResponse:
+			if contentType == ContentTypeUserInput {
+				// AI Response → User Input: Add spacing
+				spacing = "\n\n"
+			} else {
+				// AI Response → Status Message: Add spacing
+				spacing = "\n\n"
+			}
+		case ContentTypeStatusMessage:
+			if contentType == ContentTypeStatusMessage {
+				// Status Message → Status Message: Group together
+				spacing = "\n"
+			} else {
+				// Status Message → AI Response or User Input: Add spacing
+				spacing = "\n\n"
+			}
+		}
+
+		info.History += spacing + content
+	}
+
+	// Update the last content type
+	info.LastContentType = contentType
 }

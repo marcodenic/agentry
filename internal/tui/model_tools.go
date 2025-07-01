@@ -11,21 +11,10 @@ func (m Model) handleToolUseMessage(msg toolUseMsg) (Model, tea.Cmd) {
 	// Show completion message with clean formatting
 	completionText := m.formatToolCompletion(msg.name, msg.args)
 	commandFormatted := m.formatSingleCommand(completionText)
-	
-	// Group status messages together - only add spacing if we're starting a new group
-	lastChar := ""
-	if len(info.History) > 0 {
-		lastChar = info.History[len(info.History)-1:]
-	}
-	
-	// If the last thing was a user message or AI response (ends with newline), add spacing before status group
-	if lastChar == "\n" || info.History == "" {
-		info.History += "\n" + commandFormatted
-	} else {
-		// If we're continuing status messages, just add to the group
-		info.History += "\n" + commandFormatted
-	}
-	
+
+	// Add status message using proper content tracking
+	info.addContentWithSpacing(commandFormatted, ContentTypeStatusMessage)
+
 	if msg.id == m.active {
 		m.vp.SetContent(info.History)
 		m.vp.GotoBottom()
@@ -39,21 +28,10 @@ func (m Model) handleActionMessage(msg actionMsg) (Model, tea.Cmd) {
 	info := m.infos[msg.id]
 	// Add action messages with clean formatting
 	actionFormatted := m.formatSingleCommand(msg.text)
-	
-	// Group status messages together - only add spacing if we're starting a new group
-	lastChar := ""
-	if len(info.History) > 0 {
-		lastChar = info.History[len(info.History)-1:]
-	}
-	
-	// If the last thing was a user message or AI response (ends with newline), add spacing before status group
-	if lastChar == "\n" || info.History == "" {
-		info.History += "\n" + actionFormatted
-	} else {
-		// If we're continuing status messages, just add to the group
-		info.History += "\n" + actionFormatted
-	}
-	
+
+	// Add action message using proper content tracking
+	info.addContentWithSpacing(actionFormatted, ContentTypeStatusMessage)
+
 	if msg.id == m.active {
 		m.vp.SetContent(info.History)
 		m.vp.GotoBottom()

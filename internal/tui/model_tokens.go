@@ -43,9 +43,23 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 			// Build display history with properly formatted streaming response
 			displayHistory := info.History
 			if info.StreamingResponse != "" {
-				// FIXED: Always use proper formatting to preserve newlines and wrapping
+				// Apply proper spacing logic for streaming AI response
 				formattedStreamingResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
-				displayHistory += formattedStreamingResponse
+
+				// Determine spacing based on last content type (same logic as addContentWithSpacing)
+				spacing := ""
+				switch info.LastContentType {
+				case ContentTypeUserInput:
+					// User Input → AI Response: No extra spacing during streaming
+					spacing = "\n"
+				case ContentTypeStatusMessage:
+					// Status Message → AI Response: Add spacing during streaming
+					spacing = "\n\n"
+				default:
+					spacing = "\n"
+				}
+
+				displayHistory += spacing + formattedStreamingResponse
 			}
 			m.vp.SetContent(displayHistory)
 			m.vp.GotoBottom()
@@ -99,36 +113,15 @@ func (m Model) handleTokenStreamTick(msg tokenStreamTick) (Model, tea.Cmd) {
 // handleFinalMessage processes final completion messages
 func (m Model) handleFinalMessage(msg finalMsg) (Model, tea.Cmd) {
 	info := m.infos[msg.id]
-	
-	// Determine if we need spacing before the AI response
-	needsSpacing := false
-	if info.History != "" {
-		// Check if the last content was a status message (contains status bar emoji)
-		lines := strings.Split(strings.TrimRight(info.History, "\n"), "\n")
-		if len(lines) > 0 {
-			lastLine := lines[len(lines)-1]
-			// If last line contains status indicators, we need spacing
-			if strings.Contains(lastLine, "🤖") || strings.Contains(lastLine, "✅") || strings.Contains(lastLine, "📁") || strings.Contains(lastLine, "⚡") || strings.Contains(lastLine, "🔍") || strings.Contains(lastLine, "🌐") {
-				needsSpacing = true
-			}
-		}
-	}
-	
-	// Add the final AI response with proper spacing
-	spacingPrefix := ""
-	if needsSpacing {
-		spacingPrefix = "\n\n"  // Double spacing after status messages
-	} else {
-		spacingPrefix = "\n"    // Single spacing for other cases
-	}
-	
+
+	// Add the final AI response using proper content tracking
 	if info.StreamingResponse != "" {
 		formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
-		info.History += spacingPrefix + formattedResponse
+		info.addContentWithSpacing(formattedResponse, ContentTypeAIResponse)
 	} else if msg.text != "" {
 		// Fallback to final message text if no streaming occurred
 		formattedResponse := m.formatWithBar(m.aiBar(), msg.text, m.vp.Width)
-		info.History += spacingPrefix + formattedResponse
+		info.addContentWithSpacing(formattedResponse, ContentTypeAIResponse)
 	}
 	info.StreamingResponse = "" // Clear streaming response
 
@@ -138,12 +131,13 @@ func (m Model) handleFinalMessage(msg finalMsg) (Model, tea.Cmd) {
 		// Keep last 75% of history to maintain context
 		keepLength := maxHistoryLength * 3 / 4
 		info.History = "...[earlier messages truncated]...\n" + info.History[len(info.History)-keepLength:]
+		// After truncation, we don't know the last content type, so reset it
+		info.LastContentType = ContentTypeEmpty
 	}
 
-	// Set status to idle, clear spinner, and add spacing after AI message for next user input
+	// Set status to idle, clear spinner
 	info.Status = StatusIdle
 	info.TokensStarted = false // Reset streaming state
-	info.History += "\n"       // Add spacing after AI response for next user input
 
 	if msg.id == m.active {
 		m.vp.SetContent(info.History)
