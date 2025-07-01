@@ -42,7 +42,43 @@ func main() {
 		runAnalyzeCmd(args)
 	case "version":
 		fmt.Printf("agentry %s\n", agentry.Version)
+	case "help", "-h", "--help":
+		showHelp()
 	default:
 		runPrompt(cmd, args)
 	}
+}
+
+func showHelp() {
+	fmt.Printf(`agentry - AI Agent Coordination Platform
+
+Usage:
+  agentry <command> [options]
+
+Commands:
+  chat        Interactive chat mode for natural language delegation
+  tui         Terminal UI mode with rich interface
+  dev         Development mode 
+  serve       Start HTTP server
+  eval, test  Run evaluations/tests
+  flow        Run workflow
+  cost        Analyze cost from trace logs
+  pprof       Profiling utilities
+  plugin      Plugin management
+  tool        Tool management
+  analyze     Analyze trace files
+  version     Show version
+  help        Show this help
+
+Options:
+  --config    Path to config file
+  --theme     Theme override
+  --help      Show help
+
+Examples:
+  agentry chat                     # Start interactive chat
+  agentry tui                      # Start TUI
+  agentry "create a hello world"   # Direct prompt
+  agentry --help                   # Show help
+`)
 }

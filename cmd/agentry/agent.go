@@ -52,13 +52,11 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		}, func(ctx context.Context, args map[string]any) (string, error) {
 			name, _ := args["agent"].(string)
 			input, _ := args["input"].(string)
-			fmt.Printf("🤖 Agent tool called: delegating to '%s' with input: '%.50s...'\n", name, input)
 			t, ok := team.FromContext(ctx)
 			if !ok || t == nil {
 				fmt.Printf("❌ Agent tool: no team found in context\n")
 				return "", fmt.Errorf("team not found in context")
 			}
-			fmt.Printf("✅ Agent tool: team found, calling '%s'\n", name)
 			return t.Call(ctx, name, input)
 		})
 	}
