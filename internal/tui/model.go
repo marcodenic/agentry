@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -18,6 +19,55 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/team"
 )
+
+// applyGradientToLogo applies a beautiful gradient effect to the ASCII logo
+func applyGradientToLogo(logo string) string {
+	lines := strings.Split(logo, "\n")
+	var styledLines []string
+
+	// Vibrant gradient: Magenta → Purple → Blue → Cyan (matching the stunning visuals)
+	colors := []string{
+		"#FF44FF", // Bright neon magenta
+		"#F542F5", // Magenta
+		"#EB40EB", // Pink-magenta
+		"#E13EE1", // Purple-pink
+		"#D73CD7", // Purple-magenta
+		"#CD3ACD", // Purple
+		"#C338C3", // Deep purple
+		"#B936B9", // Purple-blue
+		"#AF34AF", // Blue-purple
+		"#A532A5", // Purple-blue
+		"#9B309B", // Blue-purple
+		"#912E91", // Blue
+		"#872C87", // Deep blue-purple
+		"#7D2A7D", // Blue
+		"#732873", // Blue-cyan
+		"#44AAFF", // Bright cyan-blue
+	}
+
+	totalLines := len(lines)
+
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			styledLines = append(styledLines, line)
+			continue
+		}
+
+		// Calculate which color to use based on line position
+		colorIndex := (i * len(colors)) / totalLines
+		if colorIndex >= len(colors) {
+			colorIndex = len(colors) - 1
+		}
+
+		// Apply the color to the line with subtle styling
+		style := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colors[colorIndex]))
+
+		styledLines = append(styledLines, style.Render(line))
+	}
+
+	return strings.Join(styledLines, "\n")
+}
 
 // Model is the root TUI model.
 type Model struct {
@@ -126,9 +176,9 @@ func New(ag *core.Agent) Model {
 	vp := viewport.New(0, 0)
 	debugVp := viewport.New(0, 0)
 	cwd, _ := os.Getwd()
-	
+
 	// Initialize with ASCII logo as welcome content
-	logoContent := `
+	rawLogoContent := `
                                                              
                                                              
                   ████▒               ▒████                  
@@ -152,6 +202,9 @@ func New(ag *core.Agent) Model {
                  ▀ ▀ ▀▀▀ ▀▀▀ ▀ ▀  ▀  ▀ ▀  ▀                  
                AGENT  ORCHESTRATION  FRAMEWORK               
                                                              `
+	
+	// Apply beautiful gradient coloring to the logo
+	logoContent := applyGradientToLogo(rawLogoContent)
 
 	info := &AgentInfo{
 		Agent:   ag,
