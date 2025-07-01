@@ -84,22 +84,20 @@ func (t *Team) Add(name string, ag *core.Agent) {
 // AddAgent creates a new agent and adds it to the team.
 // Returns the core agent and its assigned name.
 func (t *Team) AddAgent(name string) (*core.Agent, string) {
-	// Create a new agent by spawning from the parent
-	coreAgent := t.parent.Spawn()
-
-	// CRITICAL: Remove the "agent" tool from spawned agents to prevent delegation cascading
-	// but keep other essential tools so they can actually complete tasks
-	if _, hasAgent := coreAgent.Tools["agent"]; hasAgent {
-		// Create a new registry without the agent tool
-		newTools := make(tool.Registry)
-		for toolName, toolInstance := range coreAgent.Tools {
-			if toolName != "agent" {
-				newTools[toolName] = toolInstance
-			}
-		}
-		coreAgent.Tools = newTools
-
-	}
+	// FIXED: Create agent with FULL tool registry instead of inheriting restricted parent tools
+	// This prevents the tool inheritance bug where spawned agents get Agent 0's restricted tools
+	registry := tool.DefaultRegistry() // Get all available tools
+	routes := t.parent.Route            // Use same routing as parent
+	
+	// Create new agent with full capabilities, not inherited restrictions
+	coreAgent := core.New(routes, registry, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	
+	// Set role-appropriate prompt
+	coreAgent.Prompt = fmt.Sprintf("You are a %s agent specialized in %s tasks. You have access to all necessary tools to complete your assignments.", name, name)
+	
+	// Remove ONLY the "agent" tool to prevent delegation cascading
+	// Keep all other tools (create, write, edit_range, etc.) so agents can actually work
+	delete(coreAgent.Tools, "agent")
 
 	// Create wrapper
 	agent := &Agent{
