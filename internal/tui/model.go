@@ -128,6 +128,7 @@ type AgentInfo struct {
 	History                string
 	Status                 AgentStatus
 	LastContentType        ContentType // Track what type of content was last added
+	PendingStatusUpdate    string      // Track ongoing status update for progressive completion
 	CurrentTool            string
 	TokenCount             int
 	TokenHistory           []int
@@ -215,17 +216,18 @@ func New(ag *core.Agent) Model {
 	logoContent := applyGradientToLogo(rawLogoContent)
 
 	info := &AgentInfo{
-		Agent:           ag,
-		Status:          StatusIdle,
-		LastContentType: ContentTypeLogo, // Start with logo content
-		Spinner:         spinner.New(),
-		Name:            "Agent 0",
-		Role:            "System",
-		History:         logoContent,
-		ActivityData:    make([]float64, 0),
-		ActivityTimes:   make([]time.Time, 0),
-		CurrentActivity: 0,
-		LastActivity:    time.Time{}, // Start with zero time so first tick will initialize properly
+		Agent:               ag,
+		Status:              StatusIdle,
+		LastContentType:     ContentTypeLogo, // Start with logo content
+		PendingStatusUpdate: "",              // No pending status update initially
+		Spinner:             spinner.New(),
+		Name:                "Agent 0",
+		Role:                "System",
+		History:             logoContent,
+		ActivityData:        make([]float64, 0),
+		ActivityTimes:       make([]time.Time, 0),
+		CurrentActivity:     0,
+		LastActivity:        time.Time{}, // Start with zero time so first tick will initialize properly
 		// Initialize with empty activity for real-time chart
 		TokenHistory:           []int{},
 		TokensStarted:          false,
@@ -340,4 +342,36 @@ func (info *AgentInfo) addContentWithSpacing(content string, contentType Content
 
 	// Update the last content type
 	info.LastContentType = contentType
+}
+
+// startProgressiveStatusUpdate begins a status update that can be completed later
+func (info *AgentInfo) startProgressiveStatusUpdate(content string, m Model) {
+	// Format with orange status bar
+	statusFormatted := m.statusBar() + " " + content
+	info.addContentWithSpacing(statusFormatted, ContentTypeStatusMessage)
+	info.PendingStatusUpdate = content // Track the pending update
+}
+
+// completeProgressiveStatusUpdate completes a pending status update with a green tick
+func (info *AgentInfo) completeProgressiveStatusUpdate(m Model) {
+	if info.PendingStatusUpdate == "" {
+		return // No pending update to complete
+	}
+
+	// Find and replace the last status line in history
+	lines := strings.Split(info.History, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := lines[i]
+		// Check if this line contains our pending status update
+		if strings.Contains(line, info.PendingStatusUpdate) {
+			// Replace orange bar with green bar and add tick
+			updatedLine := strings.Replace(line, m.statusBar(), m.completedStatusBar(), 1)
+			updatedLine += " ✓"
+			lines[i] = updatedLine
+			break
+		}
+	}
+
+	info.History = strings.Join(lines, "\n")
+	info.PendingStatusUpdate = "" // Clear pending update
 }

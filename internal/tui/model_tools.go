@@ -4,16 +4,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// handleToolUseMessage processes tool usage messages
+// handleToolUseMessage processes tool usage messages (tool completion)
 func (m Model) handleToolUseMessage(msg toolUseMsg) (Model, tea.Cmd) {
 	info := m.infos[msg.id]
 	info.CurrentTool = msg.name
-	// Show completion message with clean formatting
-	completionText := m.formatToolCompletion(msg.name, msg.args)
-	commandFormatted := m.formatSingleCommand(completionText)
 
-	// Add status message using proper content tracking
-	info.addContentWithSpacing(commandFormatted, ContentTypeStatusMessage)
+	// Complete the progressive status update (add green tick and change bar color)
+	info.completeProgressiveStatusUpdate(m)
 
 	if msg.id == m.active {
 		m.vp.SetContent(info.History)
@@ -23,14 +20,12 @@ func (m Model) handleToolUseMessage(msg toolUseMsg) (Model, tea.Cmd) {
 	return m, m.readCmd(msg.id)
 }
 
-// handleActionMessage processes action notification messages
+// handleActionMessage processes action notification messages (tool start)
 func (m Model) handleActionMessage(msg actionMsg) (Model, tea.Cmd) {
 	info := m.infos[msg.id]
-	// Add action messages with clean formatting
-	actionFormatted := m.formatSingleCommand(msg.text)
 
-	// Add action message using proper content tracking
-	info.addContentWithSpacing(actionFormatted, ContentTypeStatusMessage)
+	// Start progressive status update with orange bar
+	info.startProgressiveStatusUpdate(msg.text, m)
 
 	if msg.id == m.active {
 		m.vp.SetContent(info.History)

@@ -10,44 +10,45 @@ import (
 )
 
 func (m *Model) formatToolAction(toolName string, args map[string]any) string {
+	// Format tool start messages using glyphs instead of emojis
 	switch toolName {
 	case "view", "read":
 		if path, ok := args["path"].(string); ok {
-			return fmt.Sprintf("🔍 Reading %s...", path)
+			return fmt.Sprintf("▧ Reading %s", path)
 		}
-		return "🔍 Reading file..."
+		return "▧ Reading file"
 	case "write":
 		if path, ok := args["path"].(string); ok {
-			return fmt.Sprintf("✏️ Writing to %s...", path)
+			return fmt.Sprintf("✎ Writing to %s", path)
 		}
-		return "✏️ Writing file..."
+		return "✎ Writing file"
 	case "edit", "patch":
 		if path, ok := args["path"].(string); ok {
-			return fmt.Sprintf("✏️ Editing %s...", path)
+			return fmt.Sprintf("✏ Editing %s", path)
 		}
-		return "✏️ Editing file..."
+		return "✏ Editing file"
 	case "ls", "list":
 		if path, ok := args["path"].(string); ok {
-			return fmt.Sprintf("📁 Listing %s...", path)
+			return fmt.Sprintf("▨ Listing %s", path)
 		}
-		return "📁 Listing directory..."
+		return "▨ Listing directory"
 	case "bash", "powershell", "cmd":
-		return "⚡ Running command..."
+		return "▶ Running command"
 	case "agent":
 		if agent, ok := args["agent"].(string); ok {
-			return fmt.Sprintf("🤖 Delegating to %s agent...", agent)
+			return fmt.Sprintf("⚡ Delegating to %s agent", agent)
 		}
-		return "🤖 Delegating task..."
+		return "⚡ Delegating task"
 	case "grep", "search":
 		if query, ok := args["query"].(string); ok {
-			return fmt.Sprintf("🔍 Searching for '%s'...", query)
+			return fmt.Sprintf("⌕ Searching for '%s'", query)
 		}
-		return "🔍 Searching..."
+		return "⌕ Searching"
 	case "fetch":
 		if url, ok := args["url"].(string); ok {
-			return fmt.Sprintf("🌐 Fetching %s...", url)
+			return fmt.Sprintf("⊡ Fetching %s", url)
 		}
-		return "🌐 Fetching data..."
+		return "⊡ Fetching data"
 	default:
 		return fmt.Sprintf("🔧 Using %s...", toolName)
 	}

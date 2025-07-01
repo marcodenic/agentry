@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -17,32 +16,12 @@ func (m Model) thinkingBar() string {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor)).Render("🤔")
 }
 
+// statusBar returns orange horizontal bar for in-progress status updates
 func (m Model) statusBar() string {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor)).Render("⚡")
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("#FF8C00")).Render("┃") // Orange color
 }
 
-func (m Model) formatToolCompletion(toolName string, args map[string]any) string {
-	switch toolName {
-	case "view", "read":
-		return "✅ File read"
-	case "write":
-		return "✅ File written"
-	case "edit", "patch":
-		return "✅ File edited"
-	case "ls", "list":
-		return "✅ Directory listed"
-	case "bash", "powershell", "cmd":
-		return "✅ Command completed"
-	case "agent":
-		if agent, ok := args["agent"].(string); ok {
-			return fmt.Sprintf("✅ Delegated to %s", agent)
-		}
-		return "✅ Task delegated"
-	case "grep", "search":
-		return "✅ Search completed"
-	case "fetch":
-		return "✅ Data fetched"
-	default:
-		return "✅ Done"
-	}
+// completedStatusBar returns green horizontal bar for completed status updates
+func (m Model) completedStatusBar() string {
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("#32CD32")).Render("┃") // Green color
 }
