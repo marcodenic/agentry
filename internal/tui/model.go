@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -20,6 +21,16 @@ import (
 	"github.com/marcodenic/agentry/internal/glyphs"
 	"github.com/marcodenic/agentry/internal/team"
 )
+
+// createTokenProgressBar creates a progress bar with green-to-red gradient
+func createTokenProgressBar() progress.Model {
+	// Create a custom gradient from green to red using safer color codes
+	greenToRedGradient := progress.WithGradient("#22C55E", "#EF4444")
+	withoutPercentage := progress.WithoutPercentage()
+	prog := progress.New(greenToRedGradient, withoutPercentage)
+	prog.Width = 20 // Set a default width to prevent crashes
+	return prog
+}
 
 // applyGradientToLogo applies a beautiful gradient effect to the ASCII logo
 func applyGradientToLogo(logo string) string {
@@ -142,6 +153,7 @@ type AgentInfo struct {
 	Scanner                *bufio.Scanner
 	Cancel                 context.CancelFunc
 	Spinner                spinner.Model
+	TokenProgress          progress.Model // Animated progress bar for token usage
 	Name                   string
 	Role                   string            // Agent role for display (e.g., "System", "Research", "DevOps")
 	TokensStarted          bool              // Flag to stop thinking animation when tokens start
@@ -222,6 +234,7 @@ func New(ag *core.Agent) Model {
 		LastContentType:     ContentTypeLogo, // Start with logo content
 		PendingStatusUpdate: "",              // No pending status update initially
 		Spinner:             spinner.New(),
+		TokenProgress:       createTokenProgressBar(),
 		Name:                "Agent 0",
 		Role:                "System",
 		History:             logoContent,

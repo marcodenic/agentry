@@ -43,7 +43,8 @@ func (m Model) View() string {
 	// Create top section with chat (left) and agents (right)
 	// Don't apply extra width constraints to chatContent - let viewport handle it
 	left := base.Width(int(float64(m.width) * 0.75)).Render(chatContent)
-	right := base.Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
+	rightWidth := int(float64(m.width) * 0.25)
+	right := base.Width(rightWidth).Render(m.agentPanel(rightWidth))
 	topSection := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 
 	// Add full-width horizontal line

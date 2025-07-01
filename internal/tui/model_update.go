@@ -1,13 +1,14 @@
 package tui
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
-	
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		var cmd tea.Cmd
@@ -33,6 +34,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var spinnerCmds []tea.Cmd
 		m, spinnerCmds = m.handleSpinnerTick(msg)
 		cmds = append(cmds, spinnerCmds...)
+	case progress.FrameMsg:
+		// Update all progress bars for token usage
+		var progressCmds []tea.Cmd
+		for id, info := range m.infos {
+			progressModel, cmd := info.TokenProgress.Update(msg)
+			info.TokenProgress = progressModel.(progress.Model)
+			m.infos[id] = info
+			if cmd != nil {
+				progressCmds = append(progressCmds, cmd)
+			}
+		}
+		cmds = append(cmds, progressCmds...)
 	case activityTickMsg:
 		return m.handleActivityTick(msg)
 	case refreshMsg:

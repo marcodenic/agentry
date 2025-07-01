@@ -29,6 +29,31 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 	info.TokenCount++
 	info.CurrentActivity++ // Just increment counter, let activityTickMsg handle data points
 
+	// Save updated info back to map before calling SetPercent
+	m.infos[msg.id] = info
+
+	// Update progress bar percentage when token count changes (throttled to every 5 tokens)
+	var progressCmd tea.Cmd
+	if info.TokenCount%5 == 0 { // Only update progress every 5 tokens to reduce command frequency
+		maxTokens := 8000
+		if info.ModelName != "" && strings.Contains(strings.ToLower(info.ModelName), "gpt-4") {
+			maxTokens = 128000
+		}
+		pct := float64(info.TokenCount) / float64(maxTokens)
+		// Ensure percentage is within valid bounds [0.0, 1.0]
+		if pct < 0 {
+			pct = 0
+		}
+		if pct > 1 {
+			pct = 1
+		}
+		
+		// Only update progress if we have a valid percentage
+		if pct >= 0 && pct <= 1 {
+			progressCmd = info.TokenProgress.SetPercent(pct)
+		}
+	}
+
 	// Update viewport with streaming content - OPTIMIZED for performance
 	if msg.id == m.active {
 		// PERFORMANCE FIX: Update every 10 characters, or immediately on formatting characters
@@ -78,10 +103,15 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 		info.TokenHistory[len(info.TokenHistory)-1]++
 	}
 	info.LastToken = now
-	m.infos[msg.id] = info // Save the updated info back to the map
+	m.infos[msg.id] = info // Save the updated info back to the map after token history update
 
 	// Continue reading trace stream for more events (including EventFinal)
-	return m, m.readCmd(msg.id)
+	var cmds []tea.Cmd
+	cmds = append(cmds, m.readCmd(msg.id))
+	if progressCmd != nil {
+		cmds = append(cmds, progressCmd)
+	}
+	return m, tea.Batch(cmds...)
 }
 
 // handleTokenStream processes token streaming animation

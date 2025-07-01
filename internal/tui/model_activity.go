@@ -56,6 +56,7 @@ func (m Model) handleActivityTick(msg activityTickMsg) (Model, tea.Cmd) {
 					Agent:                  agent,
 					Status:                 StatusIdle,
 					Spinner:                sp,
+					TokenProgress:          createTokenProgressBar(),
 					Name:                   displayName, // Sequential name like "Agent 1"
 					Role:                   role,        // Role from team, validated not to be a tool
 					ActivityData:           make([]float64, 0),

@@ -9,13 +9,13 @@ import (
 )
 
 // agentPanel renders the sidebar showing all agents and their status.
-func (m Model) agentPanel() string {
+func (m Model) agentPanel(panelWidth int) string {
 	var lines []string
 
 	title := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.theme.PanelTitleColor)).
 		Bold(true).
-		Render("🤖 AGENTS")
+		Render(glyphs.OrangeTriangle() + " AGENTS")
 	lines = append(lines, title)
 
 	totalTokens := 0
@@ -62,7 +62,7 @@ func (m Model) agentPanel() string {
 		}
 
 		if ag.CurrentTool != "" {
-			toolLine := fmt.Sprintf("  🔧 %s", ag.CurrentTool)
+			toolLine := fmt.Sprintf("  %s %s", glyphs.YellowStar(), ag.CurrentTool)
 			toolLine = lipgloss.NewStyle().
 				Foreground(lipgloss.Color(m.theme.ToolColor)).
 				Render(toolLine)
@@ -85,7 +85,7 @@ func (m Model) agentPanel() string {
 		tokenPct := float64(ag.TokenCount) / float64(maxTokens) * 100
 		tokenLine := fmt.Sprintf("  tokens: %d (%.1f%%)", ag.TokenCount, tokenPct)
 		lines = append(lines, tokenLine)
-		bar := m.renderTokenBar(ag.TokenCount, maxTokens)
+		bar := m.renderTokenBar(ag, ag.TokenCount, maxTokens, panelWidth)
 		lines = append(lines, "  "+bar)
 		activityChart := m.renderActivityChart(ag.ActivityData, ag.ActivityTimes)
 		if activityChart != "" {

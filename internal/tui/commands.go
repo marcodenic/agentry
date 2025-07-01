@@ -23,7 +23,7 @@ import (
 func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	info := m.infos[id]
 	info.Status = StatusRunning
-	info.TokenCount = 0         // Reset token count for new conversation
+	// NOTE: Do NOT reset TokenCount - it should accumulate across the session
 	info.TokensStarted = false  // Reset tokens started flag
 	info.StreamingResponse = "" // Reset streaming response
 	info.Spinner = spinner.New()
@@ -133,6 +133,7 @@ func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 		Agent:                  ag,
 		Status:                 StatusIdle,
 		Spinner:                sp,
+		TokenProgress:          createTokenProgressBar(),
 		Name:                   displayName, // Use sequential name like "Agent 1"
 		Role:                   role,        // Role is what was requested (coder, researcher, etc.)
 		ActivityData:           make([]float64, 0),

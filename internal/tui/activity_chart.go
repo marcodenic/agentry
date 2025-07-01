@@ -39,18 +39,20 @@ func (m Model) getAdvancedStatusDot(status AgentStatus) string {
 	}
 }
 
-// renderTokenBar draws a simple progress bar for token usage.
-func (m Model) renderTokenBar(count, max int) string {
-	if max <= 0 {
-		max = 1
+// renderTokenBar draws an animated progress bar for token usage with green-to-red gradient.
+// Only sets the width and returns the view. Percentage should be set in the update phase.
+func (m Model) renderTokenBar(info *AgentInfo, count, max int, width int) string {
+	// Set the width of the progress bar to fit the sidebar (minus padding)
+	barWidth := width - 6 // Account for "  " prefix and some padding
+	if barWidth < 10 {
+		barWidth = 10 // Minimum width
 	}
-	pct := float64(count) / float64(max)
-	if pct > 1 {
-		pct = 1
+	if barWidth > 50 {
+		barWidth = 50 // Maximum reasonable width
 	}
-	filled := int(pct * 10)
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", 10-filled)
-	return fmt.Sprintf("%s %d%%", bar, int(pct*100))
+	info.TokenProgress.Width = barWidth
+
+	return info.TokenProgress.View()
 }
 
 // renderSparkline draws a sparkline from the given history values.
