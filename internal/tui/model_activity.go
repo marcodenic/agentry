@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
 )
@@ -79,8 +80,20 @@ func (m Model) handleActivityTick(msg activityTickMsg) (Model, tea.Cmd) {
 				// Get the model name from the agent's router
 				// Use a generic test input to determine which model this agent would use
 				if agent.Route != nil {
-					_, modelName := agent.Route.Select("hello")
-					info.ModelName = modelName
+					client, ruleName := agent.Route.Select("hello")
+					var newModelName string
+					if openaiClient, ok := client.(*model.OpenAI); ok {
+						// Use the ModelName() method to get the actual model name
+						newModelName = openaiClient.ModelName()
+					} else {
+						// For non-OpenAI clients, use the rule name as fallback
+						newModelName = ruleName
+					}
+
+					// Only update if this is more specific than any existing model name
+					if shouldUpdateModelName(info.ModelName, newModelName) {
+						info.ModelName = newModelName
+					}
 				}
 
 				// Set up trace listening for the newly discovered agent
@@ -146,8 +159,8 @@ func (m Model) handleActivityTick(msg activityTickMsg) (Model, tea.Cmd) {
 
 			// Only clean up activity data every 5 seconds to reduce overhead
 			if len(info.ActivityData)%5 == 0 {
-				// Keep only last 30 seconds of data to prevent memory growth
-				cutoffTime := now.Add(-30 * time.Second)
+				// Keep only last 5 minutes of data to show longer time period in sparkline
+				cutoffTime := now.Add(-5 * time.Minute)
 
 				// Use more efficient cleanup - find cutoff index first
 				cutoffIndex := -1

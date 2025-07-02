@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/glyphs"
+	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/team"
 )
 
@@ -254,8 +255,14 @@ func New(ag *core.Agent) Model {
 
 	// Get the model name from Agent 0's router
 	if ag.Route != nil {
-		_, modelName := ag.Route.Select("hello")
-		info.ModelName = modelName
+		client, ruleName := ag.Route.Select("hello")
+		if openaiClient, ok := client.(*model.OpenAI); ok {
+			// Use the ModelName() method to get the actual model name
+			info.ModelName = openaiClient.ModelName()
+		} else {
+			// For non-OpenAI clients, use the rule name as fallback
+			info.ModelName = ruleName
+		}
 	}
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
