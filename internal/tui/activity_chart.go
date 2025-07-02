@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NimbleMarkets/ntcharts/sparkline"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/marcodenic/agentry/internal/glyphs"
 )
@@ -83,59 +84,54 @@ func (m Model) renderSparkline(history []int) string {
 	return b.String()
 }
 
-// renderActivityChart shows recent activity levels as a scrolling chart.
-func (m Model) renderActivityChart(activityData []float64, activityTimes []time.Time) string {
-	const chartWidth = 30
-	chars := []string{"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"}
-	chartData := make([]float64, chartWidth)
-	now := time.Now()
-	for i := 0; i < chartWidth; i++ {
-		targetTime := now.Add(-time.Duration(2*(chartWidth-1-i)) * time.Second)
-		var activity float64
-		if len(activityData) > 0 && len(activityTimes) > 0 {
-			minDiff := time.Hour
-			for j, t := range activityTimes {
-				diff := targetTime.Sub(t)
-				if diff < 0 {
-					diff = -diff
-				}
-				if diff < minDiff && diff < 5*time.Second {
-					minDiff = diff
-					activity = activityData[j]
-				}
-			}
-		}
-		chartData[i] = activity
+// renderActivityChart shows recent activity levels as a scrolling chart using ntcharts sparkline.
+func (m Model) renderActivityChart(activityData []float64, activityTimes []time.Time, panelWidth int) string {
+	if len(activityData) == 0 {
+		return ""
 	}
-
+	
+	// Calculate available width for the chart:
+	// panelWidth - "  " prefix (2 chars) - " XX%" suffix (4 chars) - padding (2 chars) = available width
+	availableWidth := panelWidth - 8
+	if availableWidth < 10 {
+		availableWidth = 10 // Minimum chart width
+	}
+	if availableWidth > 50 {
+		availableWidth = 50 // Maximum chart width for readability
+	}
+	
+	// Create sparkline chart with height 1 for a single row
+	chart := sparkline.New(availableWidth, 1, 
+		sparkline.WithMaxValue(1.0), // Activity is normalized 0-1
+		sparkline.WithStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#22C55E"))),
+	)
+	
+	// Push the most recent data points to the sparkline
+	// Take the last 'availableWidth' data points
+	startIdx := len(activityData) - availableWidth
+	if startIdx < 0 {
+		// If we don't have enough data, pad with zeros at the beginning
+		for i := 0; i < availableWidth - len(activityData); i++ {
+			chart.Push(0.0)
+		}
+		startIdx = 0
+	}
+	
+	// Add the actual data points
+	for i := startIdx; i < len(activityData); i++ {
+		chart.Push(activityData[i])
+	}
+	
+	// Draw the sparkline
+	chart.Draw()
+	
+	// Get the rendered sparkline
+	sparklineStr := chart.View()
+	
+	// Add percentage indicator
 	var result strings.Builder
-	for _, activity := range chartData {
-		charIdx := int(activity * float64(len(chars)-1))
-		if charIdx >= len(chars) {
-			charIdx = len(chars) - 1
-		}
-		if charIdx < 0 {
-			charIdx = 0
-		}
-		char := chars[charIdx]
-		var color string
-		if activity <= 0.1 {
-			color = "#374151"
-		} else if activity <= 0.3 {
-			color = "#22C55E"
-		} else if activity <= 0.6 {
-			color = "#FBBF24"
-		} else if activity <= 0.8 {
-			color = "#F97316"
-		} else {
-			color = "#EF4444"
-		}
-		styledChar := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(color)).
-			Render(char)
-		result.WriteString(styledChar)
-	}
-
+	result.WriteString(sparklineStr)
+	
 	if len(activityData) > 0 {
 		currentActivity := activityData[len(activityData)-1]
 		pctText := fmt.Sprintf(" %2.0f%%", currentActivity*100)
@@ -151,6 +147,6 @@ func (m Model) renderActivityChart(activityData []float64, activityTimes []time.
 			Render("  0%")
 		result.WriteString(pctStyled)
 	}
-
+	
 	return result.String()
 }

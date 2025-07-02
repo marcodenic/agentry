@@ -87,13 +87,14 @@ func (m Model) agentPanel(panelWidth int) string {
 		lines = append(lines, tokenLine)
 		bar := m.renderTokenBar(ag, ag.TokenCount, maxTokens, panelWidth)
 		lines = append(lines, "  "+bar)
-		activityChart := m.renderActivityChart(ag.ActivityData, ag.ActivityTimes)
+		activityChart := m.renderActivityChart(ag.ActivityData, ag.ActivityTimes, panelWidth)
 		if activityChart != "" {
-			activityPrefix := lipgloss.NewStyle().
+			activityLabel := lipgloss.NewStyle().
 				Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
 				Faint(true).
-				Render("  activity: ")
-			lines = append(lines, activityPrefix+activityChart)
+				Render("  activity:")
+			lines = append(lines, activityLabel)
+			lines = append(lines, "  "+activityChart)
 		}
 
 		if ag.Agent.Cost != nil {
