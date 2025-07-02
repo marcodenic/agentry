@@ -166,7 +166,7 @@ func (m Model) handleActivityTick(msg activityTickMsg) (Model, tea.Cmd) {
 	// Combine new agent commands with the activity tick timer
 	var allCmds []tea.Cmd
 	allCmds = append(allCmds, newAgentCmds...)
-	
+
 	// Schedule next tick - use faster polling when agents are running to catch spawned agents quickly
 	tickInterval := time.Second
 	for _, info := range m.infos {
@@ -176,10 +176,10 @@ func (m Model) handleActivityTick(msg activityTickMsg) (Model, tea.Cmd) {
 			break
 		}
 	}
-	
+
 	allCmds = append(allCmds, tea.Tick(tickInterval, func(t time.Time) tea.Msg {
 		return activityTickMsg{}
 	}))
-	
+
 	return m, tea.Batch(allCmds...)
 }

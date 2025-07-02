@@ -63,7 +63,7 @@ func (m Model) View() string {
 	// Calculate total tokens and cost across all agents
 	totalTokens := 0
 	totalCost := 0.0
-	
+
 	// Use the cost manager from the first agent to avoid double-counting
 	// since spawned agents share the same cost manager
 	var sharedCostManager *cost.Manager
@@ -73,7 +73,7 @@ func (m Model) View() string {
 			sharedCostManager = info.Agent.Cost // Get shared cost manager once
 		}
 	}
-	
+
 	if sharedCostManager != nil {
 		totalCost = sharedCostManager.TotalCost() // Total cost from shared manager
 	}

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/tool"
 )
@@ -114,14 +115,9 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	// Keep all other tools (create, write, edit_range, etc.) so agents can actually work
 	delete(coreAgent.Tools, "agent")
 
-	// TUI MODE FIX: Set up basic tracing for spawned agents to ensure token events are captured
-	// This creates a tracer that discards output but enables the tracing infrastructure
-	if os.Getenv("AGENTRY_TUI_MODE") == "1" {
-		// Import trace package
-		// coreAgent.Tracer = trace.NewDiscard() // Simple tracer that enables token counting
-		// For now, leave this empty and let the TUI set up the tracer
-		// The key is that agent.Run() is now called, which respects tracers
-	}
+	// Initialize cost manager for spawned agents (same as Agent 0)
+	// This enables cost tracking and display in the TUI panel
+	coreAgent.Cost = cost.New(0, 0.0) // No budget limits, just tracking
 
 	// Create wrapper
 	agent := &Agent{
