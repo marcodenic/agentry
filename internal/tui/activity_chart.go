@@ -89,7 +89,7 @@ func (m Model) renderActivityChart(activityData []float64, activityTimes []time.
 	if len(activityData) == 0 {
 		return ""
 	}
-	
+
 	// Calculate available width for the chart:
 	// panelWidth - "  " prefix (2 chars) - " XX%" suffix (4 chars) - padding (2 chars) = available width
 	availableWidth := panelWidth - 8
@@ -99,39 +99,39 @@ func (m Model) renderActivityChart(activityData []float64, activityTimes []time.
 	if availableWidth > 50 {
 		availableWidth = 50 // Maximum chart width for readability
 	}
-	
+
 	// Create sparkline chart with height 1 for a single row
-	chart := sparkline.New(availableWidth, 1, 
+	chart := sparkline.New(availableWidth, 1,
 		sparkline.WithMaxValue(1.0), // Activity is normalized 0-1
 		sparkline.WithStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#22C55E"))),
 	)
-	
+
 	// Push the most recent data points to the sparkline
 	// Take the last 'availableWidth' data points
 	startIdx := len(activityData) - availableWidth
 	if startIdx < 0 {
 		// If we don't have enough data, pad with zeros at the beginning
-		for i := 0; i < availableWidth - len(activityData); i++ {
+		for i := 0; i < availableWidth-len(activityData); i++ {
 			chart.Push(0.0)
 		}
 		startIdx = 0
 	}
-	
+
 	// Add the actual data points
 	for i := startIdx; i < len(activityData); i++ {
 		chart.Push(activityData[i])
 	}
-	
-	// Draw the sparkline
-	chart.Draw()
-	
+
+	// Draw the Braille sparkline (for smooth, high-resolution appearance)
+	chart.DrawBraille()
+
 	// Get the rendered sparkline
 	sparklineStr := chart.View()
-	
+
 	// Add percentage indicator
 	var result strings.Builder
 	result.WriteString(sparklineStr)
-	
+
 	if len(activityData) > 0 {
 		currentActivity := activityData[len(activityData)-1]
 		pctText := fmt.Sprintf(" %2.0f%%", currentActivity*100)
@@ -147,6 +147,6 @@ func (m Model) renderActivityChart(activityData []float64, activityTimes []time.
 			Render("  0%")
 		result.WriteString(pctStyled)
 	}
-	
+
 	return result.String()
 }
