@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/marcodenic/agentry/internal/cost"
 )
 
 func (m Model) View() string {
@@ -64,18 +63,15 @@ func (m Model) View() string {
 	totalTokens := 0
 	totalCost := 0.0
 
-	// Use the cost manager from the first agent to avoid double-counting
-	// since spawned agents share the same cost manager
-	var sharedCostManager *cost.Manager
+	// Calculate total cost by summing individual agent costs (same logic as agent panel)
+	const CostPerToken = 0.000002 // Same as in agent_panel.go
 	for _, info := range m.infos {
-		totalTokens += info.TokenCount // Use individual agent token counts
-		if info.Agent.Cost != nil && sharedCostManager == nil {
-			sharedCostManager = info.Agent.Cost // Get shared cost manager once
+		totalTokens += info.TokenCount
+		if info.Agent.Cost != nil {
+			// Use the same cost calculation as individual agent display
+			individualCost := float64(info.TokenCount) * CostPerToken
+			totalCost += individualCost
 		}
-	}
-
-	if sharedCostManager != nil {
-		totalCost = sharedCostManager.TotalCost() // Total cost from shared manager
 	}
 
 	footerText := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.infos), totalTokens, totalCost)
