@@ -85,9 +85,9 @@ func (m Model) agentPanel(panelWidth int) string {
 		tokenPct := float64(ag.TokenCount) / float64(maxTokens) * 100
 		tokenLine := fmt.Sprintf("  tokens: %d (%.1f%%)", ag.TokenCount, tokenPct)
 		lines = append(lines, tokenLine)
-		bar := m.renderTokenBar(ag, ag.TokenCount, maxTokens, panelWidth)
+		bar := m.renderTokenBar(ag, panelWidth)
 		lines = append(lines, "  "+bar)
-		activityChart := m.renderActivityChart(ag.ActivityData, ag.ActivityTimes, panelWidth)
+		activityChart := m.renderActivityChart(ag.ActivityData, panelWidth)
 		if activityChart != "" {
 			activityLabel := lipgloss.NewStyle().
 				Foreground(lipgloss.Color(m.theme.Palette.Foreground)).

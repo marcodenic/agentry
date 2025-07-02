@@ -3,26 +3,11 @@ package tui
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/NimbleMarkets/ntcharts/sparkline"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/marcodenic/agentry/internal/glyphs"
 )
-
-// statusDot renders a colored dot based on agent status.
-func (m Model) statusDot(st AgentStatus) string {
-	color := m.theme.IdleColor
-	switch st {
-	case StatusRunning:
-		color = m.theme.RunningColor
-	case StatusError:
-		color = m.theme.ErrorColor
-	case StatusStopped:
-		color = m.theme.StoppedColor
-	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Bold(true).Render(glyphs.CircleFilled)
-}
 
 // getAdvancedStatusDot renders a status icon with emoji.
 func (m Model) getAdvancedStatusDot(status AgentStatus) string {
@@ -41,8 +26,8 @@ func (m Model) getAdvancedStatusDot(status AgentStatus) string {
 }
 
 // renderTokenBar draws an animated progress bar for token usage with green-to-red gradient.
-// Only sets the width and returns the view. Percentage should be set in the update phase.
-func (m Model) renderTokenBar(info *AgentInfo, count, max int, width int) string {
+// Only sets the width and returns the view.
+func (m Model) renderTokenBar(info *AgentInfo, width int) string {
 	// Set the width of the progress bar to fit the sidebar (minus padding)
 	barWidth := width - 6 // Account for "  " prefix and some padding
 	if barWidth < 10 {
@@ -56,36 +41,8 @@ func (m Model) renderTokenBar(info *AgentInfo, count, max int, width int) string
 	return info.TokenProgress.View()
 }
 
-// renderSparkline draws a sparkline from the given history values.
-func (m Model) renderSparkline(history []int) string {
-	if len(history) == 0 {
-		return ""
-	}
-	chars := []string{"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"}
-	min, max := history[0], history[0]
-	for _, v := range history {
-		if v < min {
-			min = v
-		}
-		if v > max {
-			max = v
-		}
-	}
-	var b strings.Builder
-	for _, v := range history {
-		if max == min {
-			b.WriteString(chars[0])
-		} else {
-			n := float64(v-min) / float64(max-min)
-			idx := int(n * float64(len(chars)-1))
-			b.WriteString(chars[idx])
-		}
-	}
-	return b.String()
-}
-
 // renderActivityChart shows recent activity levels as a scrolling chart using ntcharts sparkline.
-func (m Model) renderActivityChart(activityData []float64, activityTimes []time.Time, panelWidth int) string {
+func (m Model) renderActivityChart(activityData []float64, panelWidth int) string {
 	if len(activityData) == 0 {
 		return ""
 	}

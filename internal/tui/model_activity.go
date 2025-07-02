@@ -30,7 +30,7 @@ func (m Model) handleSpinnerTick(msg spinner.TickMsg) (Model, []tea.Cmd) {
 }
 
 // handleActivityTick processes activity monitoring and agent discovery
-func (m Model) handleActivityTick(msg activityTickMsg) (Model, tea.Cmd) {
+func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 	var newAgentCmds []tea.Cmd
 
 	// First, check for new agents that may have been spawned by the agent tool

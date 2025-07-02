@@ -2,7 +2,6 @@ package tui
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	"github.com/marcodenic/agentry/internal/glyphs"
 )
 
 func (m Model) userBar() string {
@@ -11,10 +10,6 @@ func (m Model) userBar() string {
 
 func (m Model) aiBar() string {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor)).Bold(true).Render("┃")
-}
-
-func (m Model) thinkingBar() string {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor)).Bold(true).Render(glyphs.Ellipsis)
 }
 
 // statusBar returns orange horizontal bar for in-progress status updates

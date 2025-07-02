@@ -69,11 +69,6 @@ type finalMsg struct {
 // ASCII spinner frames for thinking animation
 var spinnerFrames = []string{"|", "/", "-", "\\"}
 
-func streamTokens(id uuid.UUID, out string) tea.Cmd {
-	runes := []rune(out)
-	return func() tea.Msg { return startTokenStream{id: id, runes: runes} }
-}
-
 func (m *Model) readEvent(id uuid.UUID) tea.Msg {
 	info := m.infos[id]
 	if info == nil || info.Scanner == nil {

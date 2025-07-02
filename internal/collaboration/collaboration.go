@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/marcodenic/agentry/internal/team"
 )
 
 // CollaborationEngine manages true multi-agent collaboration
 type CollaborationEngine struct {
-	team        *Team
+	team        *team.Team
 	eventBus    *EventBus
 	workflow    *WorkflowOrchestrator
 	fileManager *CollaborativeFileManager
@@ -137,7 +139,7 @@ type StatusUpdate struct {
 }
 
 // NewCollaborationEngine creates a new collaboration engine
-func NewCollaborationEngine(team *Team) *CollaborationEngine {
+func NewCollaborationEngine(team *team.Team) *CollaborationEngine {
 	return &CollaborationEngine{
 		team:        team,
 		eventBus:    NewEventBus(),
