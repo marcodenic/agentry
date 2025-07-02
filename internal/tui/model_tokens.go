@@ -47,7 +47,7 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 		if pct > 1 {
 			pct = 1
 		}
-		
+
 		// Only update progress if we have a valid percentage
 		if pct >= 0 && pct <= 1 {
 			progressCmd = info.TokenProgress.SetPercent(pct)

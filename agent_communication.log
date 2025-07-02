@@ -28,3 +28,15 @@
 2025/07/01 20:43:24 DELEGATION: Agent 0 -> system_monitor | Task: Please provide the current CPU usage on the machine.
 2025/07/01 20:43:27 DELEGATION SUCCESS: system_monitor | Result length: 262
 2025/07/01 20:43:27 COORDINATION: system_monitor -> agent_0 | delegation_success: Task completed
+2025/07/02 01:27:02 COORDINATION: agent_0 -> coder | delegation: Create a Python file named test.py that prints 'Hello, World!'.
+2025/07/02 01:27:02 DELEGATION: Agent 0 -> coder | Task: Create a Python file named test.py that prints 'Hello, World!'.
+2025/07/02 01:27:05 DELEGATION SUCCESS: coder | Result length: 91
+2025/07/02 01:27:05 COORDINATION: coder -> agent_0 | delegation_success: Task completed
+2025/07/02 01:28:30 COORDINATION: agent_0 -> coder | delegation: Create a Python file named test.py that prints 'Hello, World!'.
+2025/07/02 01:28:30 DELEGATION: Agent 0 -> coder | Task: Create a Python file named test.py that prints 'Hello, World!'.
+2025/07/02 01:28:32 DELEGATION FAILED: coder | Error: file /home/marco/Documents/GitHub/agentry/test.py already exists (use overwrite=true to replace)
+2025/07/02 01:28:32 COORDINATION: coder -> agent_0 | delegation_failed: file /home/marco/Documents/GitHub/agentry/test.py already exists (use overwrite=true to replace)
+2025/07/02 01:28:43 COORDINATION: agent_0 -> coder | delegation: Create a Python file named hello.py that prints 'Hello, World!'.
+2025/07/02 01:28:43 DELEGATION: Agent 0 -> coder | Task: Create a Python file named hello.py that prints 'Hello, World!'.
+2025/07/02 01:28:45 DELEGATION SUCCESS: coder | Result length: 81
+2025/07/02 01:28:45 COORDINATION: coder -> agent_0 | delegation_success: Task completed

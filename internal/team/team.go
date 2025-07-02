@@ -2,7 +2,6 @@ package team
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
-	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
@@ -116,6 +114,15 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	// Keep all other tools (create, write, edit_range, etc.) so agents can actually work
 	delete(coreAgent.Tools, "agent")
 
+	// TUI MODE FIX: Set up basic tracing for spawned agents to ensure token events are captured
+	// This creates a tracer that discards output but enables the tracing infrastructure
+	if os.Getenv("AGENTRY_TUI_MODE") == "1" {
+		// Import trace package
+		// coreAgent.Tracer = trace.NewDiscard() // Simple tracer that enables token counting
+		// For now, leave this empty and let the TUI set up the tracer
+		// The key is that agent.Run() is now called, which respects tracers
+	}
+
 	// Create wrapper
 	agent := &Agent{
 		ID:        name, // Use name as ID for simplicity
@@ -215,56 +222,9 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 
 // runAgent executes an agent with the given input, similar to converse.runAgent
 func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []string) (string, error) {
-	client, _ := ag.Route.Select(input)
-	msgs := core.BuildMessages(ag.Prompt, ag.Vars, ag.Mem.History(), input)
-	specs := tool.BuildSpecs(ag.Tools)
-	limit := ag.MaxIterations
-	if limit <= 0 {
-		limit = 8 // Default for agents without explicit limit
-	}
-	// Special case: if MaxIterations is set to -1, allow unlimited iterations
-	unlimited := ag.MaxIterations == -1
-
-	for i := 0; unlimited || i < limit; i++ {
-		res, err := client.Complete(ctx, msgs, specs)
-		if err != nil {
-			return "", fmt.Errorf("agent '%s' completion failed on iteration %d: %w", name, i+1, err)
-		}
-		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
-		step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
-		if len(res.ToolCalls) == 0 {
-			ag.Mem.AddStep(step)
-			return res.Content, nil
-		}
-		for _, tc := range res.ToolCalls {
-			// ENHANCED: Log tool usage for debugging
-			debugPrintf("  🔧 Agent %s using tool: %s\n", name, tc.Name)
-
-			t, ok := ag.Tools.Use(tc.Name)
-			if !ok {
-				debugPrintf("  ❌ Tool '%s' not available to agent %s\n", tc.Name, name)
-				return "", fmt.Errorf("agent '%s' tried to use unknown tool '%s' on iteration %d", name, tc.Name, i+1)
-			}
-			var args map[string]any
-			if err := json.Unmarshal(tc.Arguments, &args); err != nil {
-				debugPrintf("  ❌ Tool '%s' invalid arguments: %v\n", tc.Name, err)
-				return "", fmt.Errorf("agent '%s' tool '%s' has invalid arguments on iteration %d: %w", name, tc.Name, i+1, err)
-			}
-
-			debugPrintf("  ⚙️  Executing %s with args: %v\n", tc.Name, args)
-			r, err := t.Execute(ctx, args)
-			if err != nil {
-				debugPrintf("  ❌ Tool '%s' execution failed: %v\n", tc.Name, err)
-				return "", fmt.Errorf("agent '%s' tool '%s' execution failed on iteration %d with args %v: %w", name, tc.Name, i+1, args, err)
-			}
-			debugPrintf("  ✅ Tool '%s' completed successfully\n", tc.Name)
-
-			step.ToolResults[tc.ID] = r
-			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})
-		}
-		ag.Mem.AddStep(step)
-	}
-	return "", fmt.Errorf("agent '%s' exceeded maximum iterations (%d)", name, limit)
+	// Use the standard agent.Run() method instead of custom logic
+	// This ensures that all tracing, token counting, and other instrumentation works correctly
+	return ag.Run(ctx, input)
 }
 
 // GetAgents returns a list of all agent names in the team.

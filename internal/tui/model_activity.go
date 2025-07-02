@@ -1,13 +1,16 @@
 package tui
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/marcodenic/agentry/internal/tool"
+	"github.com/marcodenic/agentry/internal/trace"
 )
 
 // handleSpinnerTick processes spinner animation updates
@@ -27,6 +30,8 @@ func (m Model) handleSpinnerTick(msg spinner.TickMsg) (Model, []tea.Cmd) {
 
 // handleActivityTick processes activity monitoring and agent discovery
 func (m Model) handleActivityTick(msg activityTickMsg) (Model, tea.Cmd) {
+	var newAgentCmds []tea.Cmd
+
 	// First, check for new agents that may have been spawned by the agent tool
 	if m.team != nil {
 		teamAgents := m.team.Agents()
@@ -70,8 +75,25 @@ func (m Model) handleActivityTick(msg activityTickMsg) (Model, tea.Cmd) {
 					CurrentStep:            0,
 					DebugStreamingResponse: "", // Initialize debug streaming response
 				}
+
+				// Set up trace listening for the newly discovered agent
+				// This ensures spawned agents' token events are captured by the TUI
+				pr, pw := io.Pipe()
+				tracer := trace.NewJSONL(pw)
+				if agent.Tracer != nil {
+					agent.Tracer = trace.NewMulti(agent.Tracer, tracer)
+				} else {
+					agent.Tracer = tracer
+				}
+				info.Scanner = bufio.NewScanner(pr)
+				// Store the pipe writer so we can clean it up later if needed
+				info.tracePipeWriter = pw
+
 				m.infos[agent.ID] = info
 				m.order = append(m.order, agent.ID)
+
+				// Schedule readCmd for the new agent to listen to its trace events
+				newAgentCmds = append(newAgentCmds, m.readCmd(agent.ID))
 			}
 		}
 	}
@@ -140,8 +162,24 @@ func (m Model) handleActivityTick(msg activityTickMsg) (Model, tea.Cmd) {
 			m.infos[id] = info
 		}
 	}
-	// Schedule next tick - ONLY ONE TIMER to prevent exponential growth
-	return m, tea.Tick(time.Second, func(t time.Time) tea.Msg {
+
+	// Combine new agent commands with the activity tick timer
+	var allCmds []tea.Cmd
+	allCmds = append(allCmds, newAgentCmds...)
+	
+	// Schedule next tick - use faster polling when agents are running to catch spawned agents quickly
+	tickInterval := time.Second
+	for _, info := range m.infos {
+		if info.Status == StatusRunning {
+			// Poll more frequently when agents are running to catch spawned agents
+			tickInterval = 200 * time.Millisecond
+			break
+		}
+	}
+	
+	allCmds = append(allCmds, tea.Tick(tickInterval, func(t time.Time) tea.Msg {
 		return activityTickMsg{}
-	})
+	}))
+	
+	return m, tea.Batch(allCmds...)
 }

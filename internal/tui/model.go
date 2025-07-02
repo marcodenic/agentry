@@ -161,6 +161,7 @@ type AgentInfo struct {
 	DebugTrace             []DebugTraceEvent // Detailed trace history for debug view
 	CurrentStep            int               // Current step number for trace events
 	DebugStreamingResponse string            // Separate streaming response for debug view
+	tracePipeWriter        io.WriteCloser    // Pipe writer for trace events (spawned agents)
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -304,6 +305,9 @@ func (m *Model) Cleanup() {
 	for id, info := range m.infos {
 		if info.Cancel != nil {
 			info.Cancel() // Cancel all running agent contexts
+		}
+		if info.tracePipeWriter != nil {
+			info.tracePipeWriter.Close() // Close trace pipe writers for spawned agents
 		}
 		if info.Status == StatusRunning {
 			info.Status = StatusStopped
