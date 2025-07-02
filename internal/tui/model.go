@@ -251,6 +251,12 @@ func New(ag *core.Agent) Model {
 		CurrentStep:            0,
 		DebugStreamingResponse: "", // Initialize debug streaming response
 	}
+
+	// Get the model name from Agent 0's router
+	if ag.Route != nil {
+		_, modelName := ag.Route.Select("hello")
+		info.ModelName = modelName
+	}
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
 	// Create team context without pre-spawning agents

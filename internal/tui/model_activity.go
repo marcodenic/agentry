@@ -76,6 +76,13 @@ func (m Model) handleActivityTick(msg activityTickMsg) (Model, tea.Cmd) {
 					DebugStreamingResponse: "", // Initialize debug streaming response
 				}
 
+				// Get the model name from the agent's router
+				// Use a generic test input to determine which model this agent would use
+				if agent.Route != nil {
+					_, modelName := agent.Route.Select("hello")
+					info.ModelName = modelName
+				}
+
 				// Set up trace listening for the newly discovered agent
 				// This ensures spawned agents' token events are captured by the TUI
 				pr, pw := io.Pipe()
