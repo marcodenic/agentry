@@ -68,10 +68,10 @@ func (r *RobotFace) Update() {
 		}
 	}
 	
-	// Add gentle breathing animation for idle state
+	// Add gentle breathing animation for idle state - flicker every 3 seconds for demo
 	if r.state == RobotIdle {
 		timeSinceUpdate := now.Sub(r.lastUpdate)
-		if timeSinceUpdate > 30*time.Second {
+		if timeSinceUpdate > 3*time.Second {
 			r.colorPhase = (r.colorPhase + 1) % 8
 			r.lastUpdate = now
 		}
@@ -91,8 +91,11 @@ func (r *RobotFace) SetState(state RobotState) {
 func (r *RobotFace) GetFace() string {
 	switch r.state {
 	case RobotIdle:
-		// Always return the same face for idle - opacity changes will be handled in styling
-		return "[■_■]"
+		// Breathing animation: flicker to smaller squares briefly every 10 seconds
+		if r.colorPhase%4 < 1 { // Show smaller squares for 1/4 of the breathing cycle (quick flicker)
+			return "[▪_▪]" // Smaller squares for breathing effect
+		}
+		return "[■_■]" // Normal large squares
 	case RobotActive:
 		return "[●_●]"
 	case RobotThinking:
@@ -172,21 +175,15 @@ func (r *RobotFace) GetStyledFace() string {
 	}
 }
 
-// renderMultiColorFace renders a robot face with different shades for brackets, eyes, and mouth
+// renderMultiColorFace renders a robot face with a single consistent style
 func (r *RobotFace) renderMultiColorFace(face, baseColor string, withTransparency bool) string {
-	// TEMPORARY DEBUG: Use single color for everything to test
-	debugStyle := lipgloss.NewStyle().
+	// Use single color for everything to ensure eyes are always identical
+	style := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(baseColor)).
 		Bold(true)
 	
-	if withTransparency && r.state == RobotIdle {
-		if r.colorPhase%4 < 2 {
-			debugStyle = debugStyle.Faint(true)
-		}
-	}
-	
-	// Render the entire face with the same style to test
-	return debugStyle.Render(face)
+	// Render the entire face with the same style
+	return style.Render(face)
 }
 
 // lightenColor lightens a hex color by the given factor (0.0 to 1.0)
