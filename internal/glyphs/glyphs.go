@@ -125,3 +125,33 @@ func OrangeLightning() string {
 		Bold(true).
 		Render(Lightning)
 }
+
+func CuteRobot() string {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#87CEEB")).
+		Bold(true).
+		Render("[■_■]")
+}
+
+func ActiveRobot() string {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#32CD32")).
+		Bold(true).
+		Render("[●_●]")
+}
+
+func ThinkingRobot() string {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FFD700")).
+		Bold(true).
+		Background(lipgloss.Color("#2D2D2D")).
+		Render("[~_~]")
+}
+
+func ErrorRobot() string {
+	return lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FF4444")).
+		Bold(true).
+		Background(lipgloss.Color("#2D1B1B")).
+		Render("[O_O]")
+}

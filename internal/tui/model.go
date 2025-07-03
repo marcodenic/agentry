@@ -102,6 +102,9 @@ type Model struct {
 	// Splash screen state
 	showInitialLogo bool
 
+	// Robot companion for Agent 0
+	robot *RobotFace
+
 	err error
 
 	theme Theme
@@ -286,6 +289,7 @@ func New(ag *core.Agent) Model {
 		theme:           th,
 		keys:            th.Keybinds,
 		showInitialLogo: true,
+		robot:           NewRobotFace(),
 	}
 	return m
 }

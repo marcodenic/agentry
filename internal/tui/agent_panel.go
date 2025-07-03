@@ -12,10 +12,18 @@ import (
 func (m Model) agentPanel(panelWidth int) string {
 	var lines []string
 
+	// Use our cute robot for the title instead of triangle
+	var titleGlyph string
+	if m.robot != nil {
+		titleGlyph = m.robot.GetStyledFace()
+	} else {
+		titleGlyph = glyphs.OrangeTriangle()
+	}
+
 	title := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.theme.PanelTitleColor)).
 		Bold(true).
-		Render(glyphs.OrangeTriangle() + " AGENTS")
+		Render(titleGlyph + " AGENTS")
 	lines = append(lines, title)
 
 	totalTokens := 0
@@ -45,6 +53,7 @@ func (m Model) agentPanel(panelWidth int) string {
 			nameLine = fmt.Sprintf("%s %s %s", agentIndex, statusDot, ag.Name)
 		}
 		if id == m.active {
+			// Use orange triangle for active agent (including Agent 0)
 			nameLine = lipgloss.NewStyle().
 				Foreground(lipgloss.Color(m.theme.UserBarColor)).
 				Bold(true).

@@ -9,6 +9,12 @@ import (
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
+	// Update robot animation
+	if m.robot != nil {
+		m.robot.Update()
+		m.updateRobotState()
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		var cmd tea.Cmd
