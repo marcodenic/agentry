@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
@@ -41,13 +40,13 @@ func runDev(args []string) {
 		line := sc.Text()
 		if strings.HasPrefix(line, "converse") {
 			rest := strings.TrimSpace(strings.TrimPrefix(line, "converse"))
-			n := 2
+			_ = 2 // n was used for agent count
 			topic := ""
 			if rest != "" {
 				fields := strings.Fields(rest)
 				if len(fields) > 0 {
 					if v, err := strconv.Atoi(fields[0]); err == nil && v > 0 {
-						n = v
+						_ = v // n = v
 						rest = strings.TrimSpace(rest[len(fields[0]):])
 					}
 				}
@@ -59,7 +58,8 @@ func runDev(args []string) {
 				(strings.HasPrefix(topic, "'") && strings.HasSuffix(topic, "'")) {
 				topic = strings.Trim(topic, "'\"")
 			}
-			converse.Repl(ag, n, topic)
+			// Team conversation functionality is being refactored
+			fmt.Printf("Team conversation mode temporarily disabled during refactoring\n")
 			continue
 		}
 		col := trace.NewCollector(nil)

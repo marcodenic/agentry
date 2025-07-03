@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/marcodenic/agentry/internal/glyphs"
+
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -21,23 +23,24 @@ import (
 func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	info := m.infos[id]
 	info.Status = StatusRunning
-	info.TokenCount = 0 // Reset token count for new conversation
-	info.TokensStarted = false // Reset tokens started flag
+	// NOTE: Do NOT reset TokenCount - it should accumulate across the session
+	info.TokensStarted = false  // Reset tokens started flag
 	info.StreamingResponse = "" // Reset streaming response
 	info.Spinner = spinner.New()
 	info.Spinner.Spinner = spinner.Line
 	info.Spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
-	
+
 	// Clear initial logo on first user input
 	if m.showInitialLogo {
-		info.History = "" // Clear the logo content
+		info.History = ""                       // Clear the logo content
+		info.LastContentType = ContentTypeEmpty // Reset content type
 		m.showInitialLogo = false
 	}
-	
-	// Add user input with proper line wrapping and formatting
+
+	// Add user input with proper spacing logic
 	userMessage := m.formatUserInput(m.userBar(), input, m.vp.Width)
-	info.History += fmt.Sprintf("%s\n", userMessage)  // Add user message with newline
-	
+	info.addContentWithSpacing(userMessage, ContentTypeUserInput)
+
 	m.vp.SetContent(info.History)
 	m.vp.GotoBottom()
 
@@ -97,28 +100,28 @@ func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 	if len(args) > 1 {
 		role = args[1] // If second arg provided, use it as role
 	}
-	
+
 	// Check if name is a tool - tools should not be created as agents
 	if tool.IsBuiltinTool(requestedName) {
 		suggestions := []string{"coder", "researcher", "analyst", "writer", "planner", "tester", "devops"}
-		errorMsg := fmt.Sprintf("❌ Error: '%s' is a tool name, not an agent name. Use agent names like: %s", 
+		errorMsg := fmt.Sprintf(glyphs.RedCrossmark()+" Error: '%s' is a tool name, not an agent name. Use agent names like: %s",
 			requestedName, strings.Join(suggestions, ", "))
-		
+
 		// Add error message to current agent's history
 		if info, ok := m.infos[m.active]; ok {
 			errorFormatted := m.formatSingleCommand(errorMsg)
-			info.History += errorFormatted
+			info.addContentWithSpacing(errorFormatted, ContentTypeStatusMessage)
 			m.infos[m.active] = info
 			m.vp.SetContent(info.History)
 			m.vp.GotoBottom()
 		}
 		return m, nil
 	}
-	
+
 	// Generate sequential agent name
 	agentNumber := len(m.infos) // This gives us the next agent number (0-based, so Agent 0, Agent 1, etc.)
 	displayName := fmt.Sprintf("Agent %d", agentNumber)
-	
+
 	if len(m.agents) == 0 {
 		return m, nil
 	}
@@ -127,20 +130,21 @@ func (m Model) handleSpawn(args []string) (Model, tea.Cmd) {
 	sp.Spinner = spinner.Line
 	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
 	info := &AgentInfo{
-		Agent:           ag,
-		Status:          StatusIdle,
-		Spinner:         sp,
-		Name:            displayName, // Use sequential name like "Agent 1"
-		Role:            role,        // Role is what was requested (coder, researcher, etc.)
-		ActivityData:    make([]float64, 0),
-		ActivityTimes:   make([]time.Time, 0),
-		CurrentActivity: 0,
-		LastActivity:    time.Time{},
-		TokenHistory:    []int{},
-		TokensStarted:   false,
-		StreamingResponse: "",
-		DebugTrace:      make([]DebugTraceEvent, 0), // Initialize debug trace
-		CurrentStep:     0,
+		Agent:                  ag,
+		Status:                 StatusIdle,
+		Spinner:                sp,
+		TokenProgress:          createTokenProgressBar(),
+		Name:                   displayName, // Use sequential name like "Agent 1"
+		Role:                   role,        // Role is what was requested (coder, researcher, etc.)
+		ActivityData:           make([]float64, 0),
+		ActivityTimes:          make([]time.Time, 0),
+		CurrentActivity:        0,
+		LastActivity:           time.Time{},
+		TokenHistory:           []int{},
+		TokensStarted:          false,
+		StreamingResponse:      "",
+		DebugTrace:             make([]DebugTraceEvent, 0), // Initialize debug trace
+		CurrentStep:            0,
 		DebugStreamingResponse: "", // Initialize debug streaming response
 	}
 	m.infos[ag.ID] = info
@@ -187,19 +191,20 @@ func (m Model) handleStop(args []string) (Model, tea.Cmd) {
 		if info.Cancel != nil {
 			info.Cancel()
 		}
-		
+
 		// Clean up streaming response if in progress
 		if info.StreamingResponse != "" {
 			formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
-			info.History += formattedResponse
+			info.addContentWithSpacing(formattedResponse, ContentTypeAIResponse)
 			info.StreamingResponse = ""
 		}
-		
-		info.Status = StatusIdle // Set to idle so new messages can be sent
+
+		info.Status = StatusIdle   // Set to idle so new messages can be sent
 		info.TokensStarted = false // Reset streaming state
-		info.History += fmt.Sprintf("\n\n%s Agent stopped by user\n", m.statusBar())
+		stopMessage := fmt.Sprintf("%s Agent stopped by user", m.statusBar())
+		info.addContentWithSpacing(stopMessage, ContentTypeStatusMessage)
 		m.infos[id] = info
-		
+
 		// Update viewport if this is the active agent
 		if id == m.active {
 			m.vp.SetContent(info.History)

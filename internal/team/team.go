@@ -1,0 +1,594 @@
+package team
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"sync"
+	"time"
+
+	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/cost"
+	"github.com/marcodenic/agentry/internal/memory"
+	"github.com/marcodenic/agentry/internal/tool"
+)
+
+// Team manages a multi-agent conversation step by step.
+// This is a simplified version that consolidates the functionality
+// from converse.Team and maintains compatibility.
+type Team struct {
+	parent       *core.Agent
+	agents       map[string]*Agent // Changed to use Agent type
+	agentsByName map[string]*Agent // Changed to use Agent type
+	names        []string
+	tasks        map[string]*Task
+	messages     []Message
+	roles        map[string]*RoleConfig
+	portRange    PortRange
+	name         string
+	msg          string
+	turn         int
+	maxTurns     int
+	mutex        sync.RWMutex
+	// ENHANCED: Shared memory and communication tracking
+	sharedMemory map[string]interface{} // Shared data between agents
+	coordination []CoordinationEvent    // Log of coordination events
+	// COLLABORATIVE WORKFLOW: Multi-agent workflow management
+	workflows     map[string]*CollaborativeWorkflow
+	communication *AgentCommunication
+	statusTracker *StatusTracker
+}
+
+// NewTeam creates a new team with the given parent agent.
+func NewTeam(parent *core.Agent, maxTurns int, name string) (*Team, error) {
+	team := &Team{
+		parent:       parent,
+		maxTurns:     maxTurns,
+		name:         name,
+		agents:       make(map[string]*Agent),
+		agentsByName: make(map[string]*Agent),
+		tasks:        make(map[string]*Task),
+		messages:     make([]Message, 0),
+		roles:        make(map[string]*RoleConfig),
+		portRange:    PortRange{Start: 9000, End: 9099}, // ENHANCED: Initialize shared memory and coordination tracking
+		sharedMemory: make(map[string]interface{}),
+		coordination: make([]CoordinationEvent, 0),
+		// COLLABORATIVE: Initialize collaboration features
+		workflows:     make(map[string]*CollaborativeWorkflow),
+		communication: nil, // Will be initialized on first use
+		statusTracker: nil, // Will be initialized on first use
+	}
+
+	return team, nil
+}
+
+// Add registers ag under name so it can be addressed via Call.
+func (t *Team) Add(name string, ag *core.Agent) {
+	// CRITICAL: Remove the "agent" tool from added agents to prevent delegation cascading
+	if _, hasAgent := ag.Tools["agent"]; hasAgent {
+		// Create a new registry without the agent tool
+		newTools := make(tool.Registry)
+		for toolName, toolInstance := range ag.Tools {
+			if toolName != "agent" {
+				newTools[toolName] = toolInstance
+			}
+		}
+		ag.Tools = newTools
+
+	}
+
+	// Create wrapper
+	agent := &Agent{
+		ID:        name,
+		Name:      name,
+		Agent:     ag,
+		Status:    "ready",
+		StartedAt: time.Now(),
+		LastSeen:  time.Now(),
+		Metadata:  make(map[string]string),
+	}
+
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	t.agents[name] = agent
+	t.agentsByName[name] = agent
+	t.names = append(t.names, name)
+}
+
+// AddAgent creates a new agent and adds it to the team.
+// Returns the core agent and its assigned name.
+func (t *Team) AddAgent(name string) (*core.Agent, string) {
+	// FIXED: Create agent with FULL tool registry instead of inheriting restricted parent tools
+	// This prevents the tool inheritance bug where spawned agents get Agent 0's restricted tools
+	registry := tool.DefaultRegistry() // Get all available tools
+	routes := t.parent.Route           // Use same routing as parent
+
+	// Create new agent with full capabilities, not inherited restrictions
+	coreAgent := core.New(routes, registry, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+
+	// Set role-appropriate prompt
+	coreAgent.Prompt = fmt.Sprintf("You are a %s agent specialized in %s tasks. You have access to all necessary tools to complete your assignments.", name, name)
+
+	// Remove ONLY the "agent" tool to prevent delegation cascading
+	// Keep all other tools (create, write, edit_range, etc.) so agents can actually work
+	delete(coreAgent.Tools, "agent")
+
+	// Initialize cost manager for spawned agents (same as Agent 0)
+	// This enables cost tracking and display in the TUI panel
+	coreAgent.Cost = cost.New(0, 0.0) // No budget limits, just tracking
+
+	// Create wrapper
+	agent := &Agent{
+		ID:        name, // Use name as ID for simplicity
+		Name:      name,
+		Agent:     coreAgent,
+		Status:    "ready",
+		StartedAt: time.Now(),
+		LastSeen:  time.Now(),
+		Metadata:  make(map[string]string),
+	}
+
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	t.agents[name] = agent
+	t.agentsByName[name] = agent
+	t.names = append(t.names, name)
+
+	return coreAgent, name
+}
+
+// Call implements the Caller interface for compatibility with existing code.
+// It delegates work to the named agent with enhanced communication logging.
+func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) {
+	// ENHANCED: Log explicit agent-to-agent communication
+	debugPrintf("\n🔄 AGENT DELEGATION: Agent 0 -> %s\n", agentID)
+	debugPrintf("📝 Task: %s\n", input)
+	debugPrintf("⏰ Timestamp: %s\n", time.Now().Format("15:04:05"))
+
+	// Log coordination event
+	t.LogCoordinationEvent("delegation", "agent_0", agentID, input, map[string]interface{}{
+		"task_length": len(input),
+		"agent_type":  agentID,
+	})
+
+	t.mutex.RLock()
+	agent, exists := t.agentsByName[agentID]
+	t.mutex.RUnlock()
+
+	if !exists {
+		debugPrintf("🆕 Creating new agent: %s\n", agentID)
+		// If agent doesn't exist, create it
+		_, _ = t.AddAgent(agentID) // Create agent and ignore return values
+
+		t.mutex.RLock()
+		agent = t.agentsByName[agentID] // Get the Agent wrapper
+		t.mutex.RUnlock()
+		debugPrintf("✅ Agent %s created and ready\n", agentID)
+	} else {
+		debugPrintf("♻️  Using existing agent: %s (Status: %s)\n", agentID, agent.Status)
+	}
+
+	// Update agent status
+	agent.SetStatus("working")
+
+	// Log delegation start
+	debugPrintf("🚀 Starting task execution on agent %s...\n", agentID)
+
+	// Log the communication to file as well
+	logMessage := fmt.Sprintf("DELEGATION: Agent 0 -> %s | Task: %s", agentID, input)
+	logToFile(logMessage)
+
+	// Execute the input on the core agent using the same pattern as converse.runAgent
+	result, err := runAgent(ctx, agent.Agent, input, agentID, t.names)
+
+	// Update agent status and log completion
+	if err != nil {
+		agent.SetStatus("error")
+		debugPrintf("❌ Agent %s failed: %v\n", agentID, err)
+		logToFile(fmt.Sprintf("DELEGATION FAILED: %s | Error: %v", agentID, err))
+		t.LogCoordinationEvent("delegation_failed", agentID, "agent_0", err.Error(), map[string]interface{}{
+			"error": err.Error(),
+		})
+	} else {
+		agent.SetStatus("ready")
+		debugPrintf("✅ Agent %s completed successfully\n", agentID)
+		debugPrintf("📤 Result length: %d characters\n", len(result))
+		if len(result) > 100 {
+			debugPrintf("📄 Result preview: %.100s...\n", result)
+		} else {
+			debugPrintf("📄 Result: %s\n", result)
+		}
+		logToFile(fmt.Sprintf("DELEGATION SUCCESS: %s | Result length: %d", agentID, len(result)))
+		t.LogCoordinationEvent("delegation_success", agentID, "agent_0", "Task completed", map[string]interface{}{
+			"result_length": len(result),
+			"agent_type":    agentID,
+		})
+
+		// Store result in shared memory for other agents to access
+		t.SetSharedData(fmt.Sprintf("last_result_%s", agentID), result)
+		t.SetSharedData(fmt.Sprintf("last_task_%s", agentID), input)
+	}
+	debugPrintf("🏁 Delegation complete: Agent 0 <- %s\n\n", agentID)
+
+	return result, err
+}
+
+// runAgent executes an agent with the given input, similar to converse.runAgent
+func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []string) (string, error) {
+	// Use the standard agent.Run() method instead of custom logic
+	// This ensures that all tracing, token counting, and other instrumentation works correctly
+	return ag.Run(ctx, input)
+}
+
+// GetAgents returns a list of all agent names in the team.
+func (t *Team) GetAgents() []string {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	return append([]string(nil), t.names...)
+}
+
+// Agents returns a list of all core agents in the team.
+func (t *Team) Agents() []*core.Agent {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	agents := make([]*core.Agent, 0, len(t.agents))
+	for _, agent := range t.agents {
+		agents = append(agents, agent.Agent)
+	}
+	return agents
+}
+
+// Names returns a list of all agent names in the team.
+func (t *Team) Names() []string {
+	return t.GetAgents()
+}
+
+// logToFile logs the message to a file (only if not in TUI mode)
+func logToFile(message string) {
+	// Check if we're in TUI mode by looking for the TUI environment
+	// In TUI mode, we should avoid any stdout/stderr output that could interfere
+	if os.Getenv("AGENTRY_TUI_MODE") == "1" {
+		return // Skip logging in TUI mode to avoid interfering with display
+	}
+
+	file, err := os.OpenFile("agent_communication.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		// Don't use log.Println as it may interfere with TUI
+		return
+	}
+	defer file.Close()
+
+	logger := log.New(file, "", log.LstdFlags)
+	logger.Println(message)
+}
+
+// debugPrintf prints debug information only when not in TUI mode
+func debugPrintf(format string, v ...interface{}) {
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		fmt.Printf(format, v...)
+	}
+}
+
+// ENHANCED: Shared Memory and Coordination Methods
+
+// SetSharedData stores data in shared memory accessible to all agents
+func (t *Team) SetSharedData(key string, value interface{}) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	t.sharedMemory[key] = value
+
+	// Log the shared memory update
+	event := CoordinationEvent{
+		ID:        fmt.Sprintf("shared_%d", time.Now().Unix()),
+		Type:      "shared_memory_update",
+		From:      "system",
+		To:        "*",
+		Content:   fmt.Sprintf("Updated shared data: %s", key),
+		Timestamp: time.Now(),
+		Metadata:  map[string]interface{}{"key": key, "value_type": fmt.Sprintf("%T", value)},
+	}
+	t.coordination = append(t.coordination, event)
+	debugPrintf("📊 Shared memory updated: %s\n", key)
+}
+
+// GetSharedData retrieves data from shared memory
+func (t *Team) GetSharedData(key string) (interface{}, bool) {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	value, exists := t.sharedMemory[key]
+	return value, exists
+}
+
+// GetAllSharedData returns all shared memory data
+func (t *Team) GetAllSharedData() map[string]interface{} {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	result := make(map[string]interface{})
+	for k, v := range t.sharedMemory {
+		result[k] = v
+	}
+	return result
+}
+
+// LogCoordinationEvent adds a coordination event to the log
+func (t *Team) LogCoordinationEvent(eventType, from, to, content string, metadata map[string]interface{}) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	event := CoordinationEvent{
+		ID:        fmt.Sprintf("%s_%d", eventType, time.Now().Unix()),
+		Type:      eventType,
+		From:      from,
+		To:        to,
+		Content:   content,
+		Timestamp: time.Now(),
+		Metadata:  metadata,
+	}
+	t.coordination = append(t.coordination, event)
+
+	// Enhanced console logging
+	debugPrintf("📝 COORDINATION EVENT: %s -> %s | %s: %s\n", from, to, eventType, content)
+	logToFile(fmt.Sprintf("COORDINATION: %s -> %s | %s: %s", from, to, eventType, content))
+}
+
+// GetCoordinationHistory returns the coordination event history
+func (t *Team) GetCoordinationHistory() []CoordinationEvent {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	result := make([]CoordinationEvent, len(t.coordination))
+	copy(result, t.coordination)
+	return result
+}
+
+// GetCoordinationSummary returns a summary of recent coordination events
+func (t *Team) GetCoordinationSummary() string {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	if len(t.coordination) == 0 {
+		return "No coordination events recorded."
+	}
+
+	recent := t.coordination
+	if len(recent) > 10 {
+		recent = recent[len(recent)-10:] // Last 10 events
+	}
+
+	summary := fmt.Sprintf("Recent Coordination Events (%d total):\n", len(t.coordination))
+	for _, event := range recent {
+		summary += fmt.Sprintf("- %s: %s -> %s | %s\n",
+			event.Timestamp.Format("15:04:05"),
+			event.From,
+			event.To,
+			event.Content)
+	}
+
+	return summary
+}
+
+// ENHANCED: Direct agent-to-agent communication methods
+
+// SendMessageToAgent enables direct communication between agents
+func (t *Team) SendMessageToAgent(ctx context.Context, fromAgentID, toAgentID, message string) error {
+	t.mutex.RLock()
+	_, fromExists := t.agentsByName[fromAgentID]
+	_, toExists := t.agentsByName[toAgentID]
+	t.mutex.RUnlock()
+
+	if !fromExists {
+		return fmt.Errorf("sender agent %s not found", fromAgentID)
+	}
+	if !toExists {
+		return fmt.Errorf("recipient agent %s not found", toAgentID)
+	}
+
+	// Log the direct communication
+	fmt.Printf("💬 DIRECT MESSAGE: %s → %s\n", fromAgentID, toAgentID)
+	fmt.Printf("📝 Message: %s\n", message)
+
+	// Store in coordination events
+	t.LogCoordinationEvent("direct_message", fromAgentID, toAgentID, message, map[string]interface{}{
+		"message_type": "agent_to_agent",
+		"timestamp":    time.Now(),
+	})
+
+	// Add to agent's inbox (shared memory)
+	inboxKey := fmt.Sprintf("inbox_%s", toAgentID)
+	inbox, exists := t.GetSharedData(inboxKey)
+	var messages []map[string]interface{}
+
+	if exists {
+		if existingMessages, ok := inbox.([]map[string]interface{}); ok {
+			messages = existingMessages
+		}
+	}
+
+	// Add new message
+	newMessage := map[string]interface{}{
+		"from":      fromAgentID,
+		"message":   message,
+		"timestamp": time.Now(),
+		"read":      false,
+	}
+	messages = append(messages, newMessage)
+
+	t.SetSharedData(inboxKey, messages)
+	fmt.Printf("📬 Message delivered to %s's inbox\n", toAgentID)
+
+	return nil
+}
+
+// BroadcastToAllAgents sends a message to all agents
+func (t *Team) BroadcastToAllAgents(ctx context.Context, fromAgentID, message string) error {
+	t.mutex.RLock()
+	agentNames := append([]string(nil), t.names...)
+	t.mutex.RUnlock()
+
+	fmt.Printf("📢 BROADCAST from %s: %s\n", fromAgentID, message)
+
+	for _, agentName := range agentNames {
+		if agentName != fromAgentID { // Don't send to self
+			err := t.SendMessageToAgent(ctx, fromAgentID, agentName, message)
+			if err != nil {
+				fmt.Printf("❌ Failed to broadcast to %s: %v\n", agentName, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// GetAgentInbox returns unread messages for an agent
+func (t *Team) GetAgentInbox(agentID string) []map[string]interface{} {
+	inboxKey := fmt.Sprintf("inbox_%s", agentID)
+	inbox, exists := t.GetSharedData(inboxKey)
+
+	if !exists {
+		return []map[string]interface{}{}
+	}
+
+	if messages, ok := inbox.([]map[string]interface{}); ok {
+		return messages
+	}
+
+	return []map[string]interface{}{}
+}
+
+// MarkMessagesAsRead marks messages in an agent's inbox as read
+func (t *Team) MarkMessagesAsRead(agentID string) {
+	inboxKey := fmt.Sprintf("inbox_%s", agentID)
+	inbox, exists := t.GetSharedData(inboxKey)
+
+	if exists {
+		if messages, ok := inbox.([]map[string]interface{}); ok {
+			for i := range messages {
+				messages[i]["read"] = true
+			}
+			t.SetSharedData(inboxKey, messages)
+		}
+	}
+}
+
+// ENHANCED: Collaborative Planning and Workspace Awareness
+
+// WorkspaceEvent represents an event in the shared workspace
+type WorkspaceEvent struct {
+	ID          string                 `json:"id"`
+	Type        string                 `json:"type"` // "file_created", "task_started", "task_completed", "question", "help_request"
+	AgentID     string                 `json:"agent_id"`
+	Description string                 `json:"description"`
+	Timestamp   time.Time              `json:"timestamp"`
+	Data        map[string]interface{} `json:"data"`
+}
+
+// PublishWorkspaceEvent publishes an event that all agents can see
+func (t *Team) PublishWorkspaceEvent(agentID, eventType, description string, data map[string]interface{}) {
+	event := WorkspaceEvent{
+		ID:          fmt.Sprintf("%s_%s_%d", agentID, eventType, time.Now().Unix()),
+		Type:        eventType,
+		AgentID:     agentID,
+		Description: description,
+		Timestamp:   time.Now(),
+		Data:        data,
+	}
+
+	// Store in shared memory
+	eventsKey := "workspace_events"
+	events, exists := t.GetSharedData(eventsKey)
+	var eventList []WorkspaceEvent
+
+	if exists {
+		if existingEvents, ok := events.([]WorkspaceEvent); ok {
+			eventList = existingEvents
+		}
+	}
+
+	eventList = append(eventList, event)
+
+	// Keep only last 50 events
+	if len(eventList) > 50 {
+		eventList = eventList[len(eventList)-50:]
+	}
+
+	t.SetSharedData(eventsKey, eventList)
+
+	fmt.Printf("📡 WORKSPACE EVENT: %s | %s: %s\n", agentID, eventType, description)
+
+	// Log coordination event
+	t.LogCoordinationEvent("workspace_event", agentID, "*", fmt.Sprintf("%s: %s", eventType, description), map[string]interface{}{
+		"event_type": eventType,
+		"data":       data,
+	})
+}
+
+// GetWorkspaceEvents returns recent workspace events
+func (t *Team) GetWorkspaceEvents(limit int) []WorkspaceEvent {
+	eventsKey := "workspace_events"
+	events, exists := t.GetSharedData(eventsKey)
+
+	if !exists {
+		return []WorkspaceEvent{}
+	}
+
+	if eventList, ok := events.([]WorkspaceEvent); ok {
+		if limit > 0 && len(eventList) > limit {
+			return eventList[len(eventList)-limit:]
+		}
+		return eventList
+	}
+
+	return []WorkspaceEvent{}
+}
+
+// RequestHelp allows an agent to request help from other agents
+func (t *Team) RequestHelp(ctx context.Context, agentID, helpDescription string, preferredHelper string) error {
+	fmt.Printf("🆘 HELP REQUEST from %s: %s\n", agentID, helpDescription)
+
+	// Publish workspace event
+	t.PublishWorkspaceEvent(agentID, "help_request", helpDescription, map[string]interface{}{
+		"preferred_helper": preferredHelper,
+		"urgency":          "normal",
+	})
+
+	// If preferred helper specified, send direct message
+	if preferredHelper != "" && preferredHelper != "*" {
+		message := fmt.Sprintf("Help requested: %s", helpDescription)
+		return t.SendMessageToAgent(ctx, agentID, preferredHelper, message)
+	}
+
+	// Otherwise broadcast to all agents
+	message := fmt.Sprintf("Help requested: %s", helpDescription)
+	return t.BroadcastToAllAgents(ctx, agentID, message)
+}
+
+// ProposeCollaboration allows agents to propose working together
+func (t *Team) ProposeCollaboration(ctx context.Context, proposerID, targetAgentID, proposal string) error {
+	fmt.Printf("🤝 COLLABORATION PROPOSAL: %s → %s\n", proposerID, targetAgentID)
+	fmt.Printf("📝 Proposal: %s\n", proposal)
+
+	// Store proposal in shared memory
+	proposalKey := fmt.Sprintf("proposal_%s_to_%s_%d", proposerID, targetAgentID, time.Now().Unix())
+	proposalData := map[string]interface{}{
+		"from":      proposerID,
+		"to":        targetAgentID,
+		"proposal":  proposal,
+		"status":    "pending",
+		"timestamp": time.Now(),
+	}
+
+	t.SetSharedData(proposalKey, proposalData)
+
+	// Publish workspace event
+	t.PublishWorkspaceEvent(proposerID, "collaboration_proposal", fmt.Sprintf("Proposed collaboration with %s", targetAgentID), map[string]interface{}{
+		"target_agent": targetAgentID,
+		"proposal":     proposal,
+	})
+
+	// Send direct message
+	message := fmt.Sprintf("Collaboration proposal: %s. Please respond with your thoughts.", proposal)
+	return t.SendMessageToAgent(ctx, proposerID, targetAgentID, message)
+}

@@ -5,16 +5,25 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/marcodenic/agentry/internal/glyphs"
 )
 
 // agentPanel renders the sidebar showing all agents and their status.
-func (m Model) agentPanel() string {
+func (m Model) agentPanel(panelWidth int) string {
 	var lines []string
+
+	// Use our cute robot for the title instead of triangle
+	var titleGlyph string
+	if m.robot != nil {
+		titleGlyph = m.robot.GetStyledFace()
+	} else {
+		titleGlyph = glyphs.OrangeTriangle()
+	}
 
 	title := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.theme.PanelTitleColor)).
 		Bold(true).
-		Render("🤖 AGENTS")
+		Render(titleGlyph + " AGENTS")
 	lines = append(lines, title)
 
 	totalTokens := 0
@@ -44,10 +53,11 @@ func (m Model) agentPanel() string {
 			nameLine = fmt.Sprintf("%s %s %s", agentIndex, statusDot, ag.Name)
 		}
 		if id == m.active {
+			// Use orange triangle for active agent (including Agent 0)
 			nameLine = lipgloss.NewStyle().
 				Foreground(lipgloss.Color(m.theme.UserBarColor)).
 				Bold(true).
-				Render("▶ " + nameLine)
+				Render(glyphs.OrangeTriangle() + " " + nameLine)
 		}
 		lines = append(lines, nameLine)
 
@@ -61,7 +71,7 @@ func (m Model) agentPanel() string {
 		}
 
 		if ag.CurrentTool != "" {
-			toolLine := fmt.Sprintf("  🔧 %s", ag.CurrentTool)
+			toolLine := fmt.Sprintf("  %s %s", glyphs.YellowStar(), ag.CurrentTool)
 			toolLine = lipgloss.NewStyle().
 				Foreground(lipgloss.Color(m.theme.ToolColor)).
 				Render(toolLine)
@@ -84,23 +94,30 @@ func (m Model) agentPanel() string {
 		tokenPct := float64(ag.TokenCount) / float64(maxTokens) * 100
 		tokenLine := fmt.Sprintf("  tokens: %d (%.1f%%)", ag.TokenCount, tokenPct)
 		lines = append(lines, tokenLine)
-		bar := m.renderTokenBar(ag.TokenCount, maxTokens)
+		bar := m.renderTokenBar(ag, panelWidth)
 		lines = append(lines, "  "+bar)
-		activityChart := m.renderActivityChart(ag.ActivityData, ag.ActivityTimes)
+		activityChart := m.renderActivityChart(ag.ActivityData, panelWidth)
 		if activityChart != "" {
-			activityPrefix := lipgloss.NewStyle().
+			activityLabel := lipgloss.NewStyle().
 				Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
 				Faint(true).
-				Render("  activity: ")
-			lines = append(lines, activityPrefix+activityChart)
+				Render("  activity:")
+			lines = append(lines, activityLabel)
+			lines = append(lines, "  "+activityChart)
 		}
 
-		if ag.Agent.Cost != nil && ag.Agent.Cost.TotalCost() > 0 {
-			costLine := fmt.Sprintf("  cost: $%.4f", ag.Agent.Cost.TotalCost())
-			costLine = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(m.theme.AIBarColor)).
-				Render(costLine)
-			lines = append(lines, costLine)
+		if ag.Agent.Cost != nil {
+			// Show individual agent cost based on their token count
+			// Use the same cost per token as the cost manager
+			const CostPerToken = 0.000002 // Same as in cost package
+			individualCost := float64(ag.TokenCount) * CostPerToken
+			if individualCost > 0 {
+				costLine := fmt.Sprintf("  cost: $%.4f", individualCost)
+				costLine = lipgloss.NewStyle().
+					Foreground(lipgloss.Color(m.theme.AIBarColor)).
+					Render(costLine)
+				lines = append(lines, costLine)
+			}
 		}
 
 		lines = append(lines, "")
@@ -114,7 +131,7 @@ func (m Model) agentPanel() string {
 		lines = append(lines, lipgloss.NewStyle().
 			Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
 			Faint(true).
-			Render("  ←→ cycle agents"))
+			Render("  "+glyphs.ArrowLeft+glyphs.ArrowRight+" cycle agents"))
 		lines = append(lines, lipgloss.NewStyle().
 			Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
 			Faint(true).

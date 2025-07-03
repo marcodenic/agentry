@@ -7,35 +7,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func helpView() string {
-	return strings.Join([]string{
-		"AGENTRY TUI - Unified Agent Interface",
-		"",
-		"Commands:",
-		"/spawn <name> [role]     - create a new agent with optional role",
-		"/switch <prefix>         - focus an agent by name or ID prefix",
-		"/stop <prefix>           - stop an agent",
-		"/converse <n> <topic>    - start multi-agent conversation",
-		"",
-		"Controls:",
-		"←→ / Ctrl+P/N           - cycle between agents",
-		"Tab                     - switch between chat and memory view",
-		"Enter                   - send message / execute command",
-		"Ctrl+C / q              - quit",
-		"",
-		"Agent Panel:",
-		"● idle  🟡 running  ❌ error  ⏸️ stopped",
-		"[index] shows agent position, ▶ shows active agent",
-	}, "\n")
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func (m Model) formatWithBar(bar, text string, width int) string {
 	if text == "" {
 		return bar + " "
@@ -128,31 +99,8 @@ func (m Model) formatHistoryWithBars(history string, width int) string {
 	return result.String()
 }
 
-func (m Model) formatCommandGroup(commands []string) string {
-	if len(commands) == 0 {
-		return ""
-	}
-	separator := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.theme.AIBarColor)).
-		Render("─────────────────────────────────────────────────")
-	var formatted strings.Builder
-	formatted.WriteString("\n")
-	formatted.WriteString(separator)
-	formatted.WriteString("\n")
-	for i, cmd := range commands {
-		formatted.WriteString(fmt.Sprintf("%s %s", m.statusBar(), cmd))
-		if i < len(commands)-1 {
-			formatted.WriteString("\n")
-		}
-	}
-	formatted.WriteString("\n")
-	formatted.WriteString(separator)
-	formatted.WriteString("\n\n")
-	return formatted.String()
-}
-
 func (m Model) formatSingleCommand(command string) string {
-	return fmt.Sprintf("\n%s %s\n", m.statusBar(), command)
+	return fmt.Sprintf("%s %s", m.statusBar(), command)
 }
 
 func (m Model) formatUserInput(bar, text string, width int) string {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
@@ -20,10 +19,10 @@ func (s staticClient) Complete(ctx context.Context, msgs []model.ChatMessage, to
 	return model.Completion{Content: s.out}, nil
 }
 
-func newTestTeam(t *testing.T, reply string) *converse.Team {
+func newTestTeam(t *testing.T, reply string) *team.Team {
 	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: staticClient{out: reply}}}
 	ag := core.New(route, tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
-	tm, err := converse.NewTeam(ag, 2, "")
+	tm, err := team.NewTeam(ag, 2, "")
 	if err != nil {
 		t.Fatal(err)
 	}

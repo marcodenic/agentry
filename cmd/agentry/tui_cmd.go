@@ -17,7 +17,10 @@ import (
 func runTui(args []string) {
 	// Enable TUI mode to suppress debug output
 	debug.SetTUIMode(true)
-	
+
+	// Set environment variable to prevent logging interference
+	os.Setenv("AGENTRY_TUI_MODE", "1")
+
 	opts, _ := parseCommon("tui", args)
 	cfg, err := config.Load(opts.configPath)
 	if err != nil {

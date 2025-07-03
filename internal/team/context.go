@@ -38,3 +38,17 @@ func Call(ctx context.Context, name, input string) (string, error) {
 	}
 	return t.Call(ctx, name, input)
 }
+
+// TeamFromContext extracts a Team pointer if present.
+// This provides compatibility with legacy converse.TeamFromContext usage.
+func TeamFromContext(ctx context.Context) *Team {
+	caller, ok := FromContext(ctx)
+	if !ok {
+		return nil
+	}
+	team, ok := caller.(*Team)
+	if !ok {
+		return nil
+	}
+	return team
+}

@@ -1,0 +1,13 @@
+model:
+  provider: "openai"
+  name: "gpt-4"
+  apiKey: "${OPENAI_API_KEY}"
+
+# Enable persistent agents
+persistent_agents:
+  enabled: true
+  port_start: 9040
+  port_end: 9050
+
+# Minimal tools to avoid conflicts
+tools: []

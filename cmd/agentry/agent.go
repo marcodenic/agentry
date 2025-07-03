@@ -1,6 +1,10 @@
+//go:build !tools
+// +build !tools
+
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -12,6 +16,7 @@ import (
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/router"
+	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/pkg/memstore"
@@ -32,6 +37,31 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 			return nil, err
 		}
 		reg[m.Name] = tl
+	}
+
+	// Replace the default agent tool with proper team-context implementation
+	if _, hasAgent := reg["agent"]; hasAgent {
+		reg["agent"] = tool.NewWithSchema("agent", "Delegate to another agent", map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"agent": map[string]any{"type": "string"},
+				"input": map[string]any{"type": "string"},
+			},
+			"required": []string{"agent", "input"},
+			"example": map[string]any{
+				"agent": "Agent1",
+				"input": "Hello, how are you?",
+			},
+		}, func(ctx context.Context, args map[string]any) (string, error) {
+			name, _ := args["agent"].(string)
+			input, _ := args["input"].(string)
+			t, ok := team.FromContext(ctx)
+			if !ok || t == nil {
+				fmt.Printf("❌ Agent tool: no team found in context\n")
+				return "", fmt.Errorf("team not found in context")
+			}
+			return t.Call(ctx, name, input)
+		})
 	}
 	var logWriter *audit.Log
 	if path := os.Getenv("AGENTRY_AUDIT_LOG"); path != "" {
@@ -89,27 +119,29 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	}
 
 	ag := core.New(rules, reg, memory.NewInMemory(), store, vec, nil)
-	
+
 	// Debug: check what tools the agent actually gets
 	fmt.Printf("🔧 buildAgent: registry has %d tools, agent has %d tools\n", len(reg), len(ag.Tools))
-	
+
 	if logWriter != nil {
 		ag.Tracer = trace.NewJSONL(logWriter)
 	}
 	if cfg.MaxIterations > 0 {
 		ag.MaxIterations = cfg.MaxIterations
 	}
-	
+
 	// Use default prompt for main agent - team.go will load role configs when spawning
 	ag.Prompt = "You are Agent 0, the system orchestrator. You can delegate to specialized agents using the agent tool."
-	
+
 	// Initialize cost manager for token/cost tracking
 	ag.Cost = cost.New(0, 0.0) // No budget limits, just tracking
-	
+
 	return ag, nil
 }
 
-func runCostCmd(args []string)   { fmt.Println("Cost command not implemented yet") }
-func runPProfCmd(args []string)  { fmt.Println("PProf command not implemented yet") }
-func runPluginCmd(args []string) { fmt.Println("Plugin command not implemented yet") }
-func runToolCmd(args []string)   { fmt.Println("Tool command not implemented yet") }
+func runCostCmd(args []string)  { fmt.Println("Cost command not available (build with --tools flag)") }
+func runPProfCmd(args []string) { fmt.Println("PProf command not available (build with --tools flag)") }
+func runPluginCmd(args []string) {
+	fmt.Println("Plugin command not available (build with --tools flag)")
+}
+func runToolCmd(args []string) { fmt.Println("Tool command not available (build with --tools flag)") }

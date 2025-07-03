@@ -9,6 +9,9 @@ import (
 	"strings"
 
 	"github.com/marcodenic/agentry/internal/config"
+	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/tool"
+	"gopkg.in/yaml.v3"
 )
 
 type commonOpts struct {
@@ -95,4 +98,104 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 			cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = strings.TrimSpace(p)
 		}
 	}
+}
+
+// applyAgent0RoleConfig applies the agent_0.yaml role configuration to restrict the system agent's tools
+func applyAgent0RoleConfig(agent *core.Agent) error {
+	// Find the templates/roles directory
+	roleDir := findRoleTemplatesDir()
+	if roleDir == "" {
+		return fmt.Errorf("templates/roles directory not found")
+	}
+
+	// Load agent_0.yaml configuration
+	roleFile := filepath.Join(roleDir, "agent_0.yaml")
+	data, err := os.ReadFile(roleFile)
+	if err != nil {
+		return fmt.Errorf("failed to read agent_0.yaml: %v", err)
+	}
+
+	// Parse YAML configuration
+	var config struct {
+		Name     string   `yaml:"name"`
+		Prompt   string   `yaml:"prompt"`
+		Builtins []string `yaml:"builtins,omitempty"`
+	}
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return fmt.Errorf("failed to parse agent_0.yaml: %v", err)
+	}
+
+	// Apply tool restrictions if builtins are specified
+	if len(config.Builtins) > 0 {
+		filteredTools := make(tool.Registry)
+
+		for _, toolName := range config.Builtins {
+			if existingTool, ok := agent.Tools[toolName]; ok {
+				filteredTools[toolName] = existingTool
+			}
+		}
+
+		agent.Tools = filteredTools
+	}
+
+	// Apply the agent_0 prompt
+	if config.Prompt != "" {
+		agent.Prompt = config.Prompt
+	}
+
+	// Inject dynamic agent status after prompt is set
+	injectAgentStatus(agent, nil)
+
+	return nil
+}
+
+// injectAgentStatus dynamically injects current agent status into Agent 0's prompt
+func injectAgentStatus(agent *core.Agent, teamCaller interface{}) {
+	// Get available agents - we know these exist based on our configuration
+	availableAgents := []string{
+		"coder", "tester", "writer", "devops", "designer",
+		"deployer", "editor", "reviewer", "researcher", "team_planner",
+	}
+
+	// Build a concise agent status section for the prompt
+	statusSection := "\n\n## 🤖 CURRENT AGENT STATUS\n\n"
+	statusSection += "**Available Agents:** "
+	for i, agentName := range availableAgents {
+		if i > 0 {
+			statusSection += ", "
+		}
+		statusSection += agentName
+	}
+	statusSection += "\n\n**All agents are ready for immediate delegation via the `agent` tool.**\n\n"
+
+	// Inject the status into the prompt if it doesn't already contain it
+	if !strings.Contains(agent.Prompt, "CURRENT AGENT STATUS") {
+		agent.Prompt = agent.Prompt + statusSection
+	}
+}
+
+// findRoleTemplatesDir searches for the templates/roles directory
+func findRoleTemplatesDir() string {
+	// Try current directory first
+	if _, err := os.Stat("templates/roles"); err == nil {
+		return "templates/roles"
+	}
+
+	// Try walking up the directory tree
+	cwd, _ := os.Getwd()
+	dir := cwd
+	for {
+		templatePath := filepath.Join(dir, "templates", "roles")
+		if _, err := os.Stat(templatePath); err == nil {
+			return templatePath
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break // reached root
+		}
+		dir = parent
+	}
+
+	return ""
 }

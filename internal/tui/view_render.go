@@ -43,7 +43,8 @@ func (m Model) View() string {
 	// Create top section with chat (left) and agents (right)
 	// Don't apply extra width constraints to chatContent - let viewport handle it
 	left := base.Width(int(float64(m.width) * 0.75)).Render(chatContent)
-	right := base.Width(int(float64(m.width) * 0.25)).Render(m.agentPanel())
+	rightWidth := int(float64(m.width) * 0.25)
+	right := base.Width(rightWidth).Render(m.agentPanel(rightWidth))
 	topSection := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 
 	// Add full-width horizontal line
@@ -61,10 +62,15 @@ func (m Model) View() string {
 	// Calculate total tokens and cost across all agents
 	totalTokens := 0
 	totalCost := 0.0
+
+	// Calculate total cost by summing individual agent costs (same logic as agent panel)
+	const CostPerToken = 0.000002 // Same as in agent_panel.go
 	for _, info := range m.infos {
+		totalTokens += info.TokenCount
 		if info.Agent.Cost != nil {
-			totalTokens += info.Agent.Cost.TotalTokens()
-			totalCost += info.Agent.Cost.TotalCost()
+			// Use the same cost calculation as individual agent display
+			individualCost := float64(info.TokenCount) * CostPerToken
+			totalCost += individualCost
 		}
 	}
 

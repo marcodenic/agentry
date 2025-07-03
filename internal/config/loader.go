@@ -68,6 +68,7 @@ type File struct {
 	Sandbox           Sandbox                      `yaml:"sandbox" json:"sandbox"`
 	Permissions       Permissions                  `yaml:"permissions" json:"permissions"`
 	Budget            Budget                       `yaml:"budget" json:"budget"`
+	PersistentAgents  PersistentAgentsConfig       `yaml:"persistent_agents" json:"persistent_agents"`
 }
 
 type Sandbox struct {
@@ -81,6 +82,19 @@ type Permissions struct {
 type Budget struct {
 	Tokens  int     `yaml:"tokens" json:"tokens"`
 	Dollars float64 `yaml:"dollars" json:"dollars"`
+}
+
+// PersistentAgentsConfig configures persistent agent behavior
+type PersistentAgentsConfig struct {
+	Enabled   bool `yaml:"enabled" json:"enabled"`
+	PortStart int  `yaml:"port_start" json:"port_start"`
+	PortEnd   int  `yaml:"port_end" json:"port_end"`
+}
+
+type PersistentAgentConfig struct {
+	Enabled  bool              `yaml:"enabled" json:"enabled"`
+	AgentIDs []string          `yaml:"agent_ids" json:"agent_ids"`
+	Settings map[string]string `yaml:"settings" json:"settings"`
 }
 
 // Validate performs basic sanity checks on the loaded configuration.
@@ -172,6 +186,9 @@ func merge(dst *File, src File) {
 	}
 	if src.Budget.Tokens > 0 || src.Budget.Dollars > 0 {
 		dst.Budget = src.Budget
+	}
+	if src.PersistentAgents.Enabled || src.PersistentAgents.PortStart > 0 {
+		dst.PersistentAgents = src.PersistentAgents
 	}
 }
 

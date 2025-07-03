@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/glyphs"
 )
 
 // renderMemory formats an agent's memory history and trace for display.
@@ -86,7 +87,7 @@ func renderMemory(ag *core.Agent) string {
 			b.WriteString("\n\n")
 
 			for j, tc := range s.ToolCalls {
-				toolHeader := fmt.Sprintf("▶ Tool #%d: %s", j+1, tc.Name)
+				toolHeader := fmt.Sprintf(glyphs.OrangeTriangle()+" Tool #%d: %s", j+1, tc.Name)
 				b.WriteString(lipgloss.NewStyle().
 					Foreground(lipgloss.Color("#FF6666")).
 					Bold(true).
@@ -136,7 +137,7 @@ func renderMemory(ag *core.Agent) string {
 				} else {
 					b.WriteString(lipgloss.NewStyle().
 						Foreground(lipgloss.Color("#FF4444")).
-						Render("   ❌ No result available"))
+						Render("   " + glyphs.RedCrossmark() + " No result available"))
 					b.WriteString("\n\n")
 				}
 			}
