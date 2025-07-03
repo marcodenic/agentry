@@ -68,6 +68,15 @@ func (r *RobotFace) Update() {
 		}
 	}
 
+	// Update color phase for active state (fading eyes)
+	if r.state == RobotActive {
+		timeSinceUpdate := now.Sub(r.lastUpdate)
+		if timeSinceUpdate > 300*time.Millisecond {
+			r.colorPhase = (r.colorPhase + 1) % 8
+			r.lastUpdate = now
+		}
+	}
+
 	// Add gentle breathing animation for idle state - flicker every 3 seconds for demo
 	if r.state == RobotIdle {
 		timeSinceUpdate := now.Sub(r.lastUpdate)
@@ -142,7 +151,10 @@ func (r *RobotFace) GetStyledFace() string {
 		return r.renderMultiColorFace(face, "#8B5FBF", true) // Pinkish purple from agentry logo
 
 	case RobotActive:
-		return r.renderMultiColorFace(face, "#32CD32", true) // Toned down green with transparency
+		// Cycle through different green shades for fading effect
+		greenShades := []string{"#32CD32", "#28B528", "#1E9D1E", "#148514", "#0A6D0A", "#148514", "#1E9D1E", "#28B528"}
+		color := greenShades[r.colorPhase]
+		return r.renderFadingEyes("[●‿●]", color)
 
 	case RobotThinking:
 		// Cycle through rainbow colors with multi-color rendering
@@ -186,54 +198,19 @@ func (r *RobotFace) renderMultiColorFace(face, baseColor string, withTransparenc
 	return style.Render(face)
 }
 
-// lightenColor lightens a hex color by the given factor (0.0 to 1.0)
-func (r *RobotFace) lightenColor(hexColor string, factor float64) string {
-	// Simple color lightening - predefined lighter shades for different colors
-	switch hexColor {
-	case "#8B5FBF": // Pinkish purple from agentry logo
-		return "#B485D1" // Lighter pinkish purple for brackets/ears
-	case "#32CD32": // Green
-		return "#66E066" // Lighter green for brackets/ears
-	case "#FF6B6B": // Red (thinking)
-		return "#FF9999" // Lighter red
-	case "#4ECDC4": // Teal (thinking)
-		return "#7FDBDA" // Lighter teal
-	case "#45B7D1": // Blue (thinking)
-		return "#78C8E0" // Lighter blue
-	case "#96CEB4": // Light green (thinking)
-		return "#B4DCC4" // Lighter light green
-	case "#FFEAA7": // Yellow (thinking)
-		return "#FFF2C7" // Lighter yellow
-	case "#DDA0DD": // Plum (thinking)
-		return "#E8B5E8" // Lighter plum
-	default:
-		return hexColor
+// renderFadingEyes renders robot eyes with fading effect for activity
+func (r *RobotFace) renderFadingEyes(face, baseColor string) string {
+	// Create a smooth transition between different green intensities
+	transitionColors := []string{
+		"#32CD32", "#2BC02B", "#24B324", "#1DA61D",
+		"#169916", "#1DA61D", "#24B324", "#2BC02B",
 	}
-}
 
-// darkenColor darkens a hex color by the given factor (0.0 to 1.0)
-func (r *RobotFace) darkenColor(hexColor string, factor float64) string {
-	// Simple color darkening - predefined darker shades for mouth
-	switch hexColor {
-	case "#8B5FBF": // Pinkish purple from agentry logo
-		return "#6B3F9F" // Darker pinkish purple for mouth
-	case "#32CD32": // Green
-		return "#228B22" // Darker green for mouth
-	case "#FF6B6B": // Red (thinking)
-		return "#CC4444" // Darker red
-	case "#4ECDC4": // Teal (thinking)
-		return "#3BA8A1" // Darker teal
-	case "#45B7D1": // Blue (thinking)
-		return "#3691B1" // Darker blue
-	case "#96CEB4": // Light green (thinking)
-		return "#7AB89A" // Darker light green
-	case "#FFEAA7": // Yellow (thinking)
-		return "#E6D197" // Darker yellow
-	case "#DDA0DD": // Plum (thinking)
-		return "#C480C4" // Darker plum
-	default:
-		return hexColor
-	}
+	style := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(transitionColors[r.colorPhase])).
+		Bold(true)
+
+	return style.Render(face)
 }
 
 // GetMoodText returns a cute status text based on the robot's state
