@@ -142,3 +142,8 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 	}
 	return comp, nil
 }
+
+// ModelName returns the model name used by this OpenAI client
+func (o *OpenAI) ModelName() string {
+	return o.model
+}

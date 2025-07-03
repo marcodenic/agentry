@@ -10,16 +10,16 @@ import (
 
 func main() {
 	ctx := context.Background()
-	
+
 	// Create a simple tool manager
 	tm := tool.New(".", "", nil)
-	
+
 	fmt.Println("Testing bash tool directly...")
-	
-	result, err := tm.Call(ctx, "bash", map[string]any{
+
+	result, err := tm.Execute(ctx, map[string]any{
 		"command": "echo hello world",
 	})
-	
+
 	if err != nil {
 		log.Printf("Error: %v", err)
 	} else {

@@ -6,50 +6,52 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
+	"github.com/marcodenic/agentry/internal/glyphs"
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
 func (m *Model) formatToolAction(toolName string, args map[string]any) string {
+	// Format tool start messages using glyphs instead of emojis
 	switch toolName {
 	case "view", "read":
 		if path, ok := args["path"].(string); ok {
-			return fmt.Sprintf("🔍 Reading %s...", path)
+			return fmt.Sprintf("%s Reading %s", glyphs.BlueCircle(), path)
 		}
-		return "🔍 Reading file..."
+		return glyphs.BlueCircle() + " Reading file"
 	case "write":
 		if path, ok := args["path"].(string); ok {
-			return fmt.Sprintf("✏️ Writing to %s...", path)
+			return fmt.Sprintf("%s Writing to %s", glyphs.GreenCheckmark(), path)
 		}
-		return "✏️ Writing file..."
+		return glyphs.GreenCheckmark() + " Writing file"
 	case "edit", "patch":
 		if path, ok := args["path"].(string); ok {
-			return fmt.Sprintf("✏️ Editing %s...", path)
+			return fmt.Sprintf("%s Editing %s", glyphs.YellowStar(), path)
 		}
-		return "✏️ Editing file..."
+		return glyphs.YellowStar() + " Editing file"
 	case "ls", "list":
 		if path, ok := args["path"].(string); ok {
-			return fmt.Sprintf("📁 Listing %s...", path)
+			return fmt.Sprintf("%s Listing %s", glyphs.BlueCircle(), path)
 		}
-		return "📁 Listing directory..."
+		return glyphs.BlueCircle() + " Listing directory"
 	case "bash", "powershell", "cmd":
-		return "⚡ Running command..."
+		return glyphs.OrangeTriangle() + " Running command"
 	case "agent":
 		if agent, ok := args["agent"].(string); ok {
-			return fmt.Sprintf("🤖 Delegating to %s agent...", agent)
+			return fmt.Sprintf("%s Delegating to %s agent", glyphs.OrangeLightning(), agent)
 		}
-		return "🤖 Delegating task..."
+		return glyphs.OrangeLightning() + " Delegating task"
 	case "grep", "search":
 		if query, ok := args["query"].(string); ok {
-			return fmt.Sprintf("🔍 Searching for '%s'...", query)
+			return fmt.Sprintf("%s Searching for '%s'", glyphs.YellowStar(), query)
 		}
-		return "🔍 Searching..."
+		return glyphs.YellowStar() + " Searching"
 	case "fetch":
 		if url, ok := args["url"].(string); ok {
-			return fmt.Sprintf("🌐 Fetching %s...", url)
+			return fmt.Sprintf("%s Fetching %s", glyphs.BlueCircle(), url)
 		}
-		return "🌐 Fetching data..."
+		return glyphs.BlueCircle() + " Fetching data"
 	default:
-		return fmt.Sprintf("🔧 Using %s...", toolName)
+		return fmt.Sprintf("%s Using %s...", glyphs.YellowStar(), toolName)
 	}
 }
 

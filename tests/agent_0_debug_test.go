@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/marcodenic/agentry/internal/converse"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
@@ -22,8 +21,8 @@ func (m mockAgent0Client) Complete(ctx context.Context, msgs []model.ChatMessage
 		Content: "I'll spawn a coder agent to help you with this task.",
 		ToolCalls: []model.ToolCall{
 			{
-				ID:   "call_123",
-				Name: "agent",
+				ID:        "call_123",
+				Name:      "agent",
 				Arguments: []byte(`{"agent": "coder", "input": "help with Python project"}`),
 			},
 		},
@@ -74,7 +73,7 @@ func TestAgent0DebugOutput(t *testing.T) {
 	ag.Prompt = agent0Prompt
 
 	// Create a team context so the agent tool can work
-	tm, err := converse.NewTeam(ag, 1, "test")
+	tm, err := team.NewTeam(ag, 1, "test")
 	if err != nil {
 		t.Fatalf("Failed to create team: %v", err)
 	}
@@ -82,14 +81,14 @@ func TestAgent0DebugOutput(t *testing.T) {
 
 	// Test request that should trigger Agent 0 to spawn a coder
 	input := "I need help with a Python project"
-	
+
 	output, err := ag.Run(ctx, input)
 	if err != nil {
 		t.Fatalf("Agent run failed: %v", err)
 	}
 
 	t.Logf("Agent 0 output: %s", output)
-	
+
 	// The output should contain our debug information
 	if output == "" {
 		t.Fatal("No output received from Agent 0")

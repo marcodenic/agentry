@@ -14,7 +14,7 @@ func (t *Team) AssignTask(ctx context.Context, agentID, taskType, input string) 
 	if agent == nil {
 		return nil, fmt.Errorf("agent %s not found", agentID)
 	}
-	
+
 	task := &Task{
 		ID:        uuid.New().String(),
 		Type:      taskType,
@@ -24,16 +24,16 @@ func (t *Team) AssignTask(ctx context.Context, agentID, taskType, input string) 
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	
+
 	t.mutex.Lock()
 	t.tasks[task.ID] = task
 	t.mutex.Unlock()
-	
+
 	// Execute the task asynchronously
 	go func() {
 		task.Status = "running"
 		task.UpdatedAt = time.Now()
-		
+
 		result, err := agent.Agent.Run(ctx, input)
 		if err != nil {
 			task.Status = "failed"
@@ -44,7 +44,7 @@ func (t *Team) AssignTask(ctx context.Context, agentID, taskType, input string) 
 		}
 		task.UpdatedAt = time.Now()
 	}()
-	
+
 	return task, nil
 }
 
@@ -59,12 +59,12 @@ func (t *Team) GetTask(taskID string) *Task {
 func (t *Team) ListTasks() []*Task {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	
+
 	tasks := make([]*Task, 0, len(t.tasks))
 	for _, task := range t.tasks {
 		tasks = append(tasks, task)
 	}
-	
+
 	return tasks
 }
 
@@ -72,14 +72,14 @@ func (t *Team) ListTasks() []*Task {
 func (t *Team) SendMessage(ctx context.Context, from, to, content string) error {
 	fromAgent := t.GetAgent(from)
 	toAgent := t.GetAgent(to)
-	
+
 	if fromAgent == nil {
 		return fmt.Errorf("sender agent %s not found", from)
 	}
 	if toAgent == nil {
 		return fmt.Errorf("recipient agent %s not found", to)
 	}
-	
+
 	message := Message{
 		ID:        uuid.New().String(),
 		From:      from,
@@ -88,24 +88,24 @@ func (t *Team) SendMessage(ctx context.Context, from, to, content string) error 
 		Type:      "direct",
 		Timestamp: time.Now(),
 	}
-	
+
 	t.mutex.Lock()
 	t.messages = append(t.messages, message)
 	t.mutex.Unlock()
-	
+
 	// For now, messages are just logged
 	// In the future, this could trigger agent processing
-	
+
 	return nil
 }
 
-// BroadcastMessage sends a message to all agents
-func (t *Team) BroadcastMessage(ctx context.Context, from, content string) error {
+// BroadcastMessageOld sends a message to all agents (legacy method)
+func (t *Team) BroadcastMessageOld(ctx context.Context, from, content string) error {
 	fromAgent := t.GetAgent(from)
 	if fromAgent == nil {
 		return fmt.Errorf("sender agent %s not found", from)
 	}
-	
+
 	message := Message{
 		ID:        uuid.New().String(),
 		From:      from,
@@ -114,11 +114,11 @@ func (t *Team) BroadcastMessage(ctx context.Context, from, content string) error
 		Type:      "broadcast",
 		Timestamp: time.Now(),
 	}
-	
+
 	t.mutex.Lock()
 	t.messages = append(t.messages, message)
 	t.mutex.Unlock()
-	
+
 	return nil
 }
 
@@ -126,12 +126,12 @@ func (t *Team) BroadcastMessage(ctx context.Context, from, content string) error
 func (t *Team) GetMessages(agentID string) []Message {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	
+
 	if agentID == "" {
 		// Return all messages
 		return append([]Message{}, t.messages...)
 	}
-	
+
 	// Filter messages for specific agent
 	filtered := make([]Message, 0)
 	for _, msg := range t.messages {
@@ -139,20 +139,20 @@ func (t *Team) GetMessages(agentID string) []Message {
 			filtered = append(filtered, msg)
 		}
 	}
-	
+
 	return filtered
 }
 
 // CoordinateTask coordinates a complex task across multiple agents
 func (t *Team) CoordinateTask(ctx context.Context, description string) (*Task, error) {
 	// This is a simplified version - could be enhanced with workflow logic
-	
+
 	// For now, assign to the first available agent
 	agents := t.ListAgents()
 	if len(agents) == 0 {
 		return nil, fmt.Errorf("no agents available for coordination")
 	}
-	
+
 	// Find an agent that's ready
 	var selectedAgent *Agent
 	for _, agent := range agents {
@@ -161,28 +161,28 @@ func (t *Team) CoordinateTask(ctx context.Context, description string) (*Task, e
 			break
 		}
 	}
-	
+
 	if selectedAgent == nil {
 		return nil, fmt.Errorf("no ready agents available")
 	}
-	
+
 	return t.AssignTask(ctx, selectedAgent.ID, "coordination", description)
 }
 
 // WaitForTask waits for a task to complete with timeout
 func (t *Team) WaitForTask(ctx context.Context, taskID string, timeout time.Duration) (*Task, error) {
 	deadline := time.Now().Add(timeout)
-	
+
 	for time.Now().Before(deadline) {
 		task := t.GetTask(taskID)
 		if task == nil {
 			return nil, fmt.Errorf("task %s not found", taskID)
 		}
-		
+
 		if task.Status == "completed" || task.Status == "failed" {
 			return task, nil
 		}
-		
+
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
@@ -190,6 +190,6 @@ func (t *Team) WaitForTask(ctx context.Context, taskID string, timeout time.Dura
 			// Continue polling
 		}
 	}
-	
+
 	return nil, fmt.Errorf("task %s did not complete within timeout", taskID)
 }

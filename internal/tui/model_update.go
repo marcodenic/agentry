@@ -1,13 +1,20 @@
 package tui
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
-	
+
+	// Update robot animation
+	if m.robot != nil {
+		m.robot.Update()
+		m.updateRobotState()
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		var cmd tea.Cmd
@@ -33,6 +40,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var spinnerCmds []tea.Cmd
 		m, spinnerCmds = m.handleSpinnerTick(msg)
 		cmds = append(cmds, spinnerCmds...)
+	case progress.FrameMsg:
+		// Update all progress bars for token usage
+		var progressCmds []tea.Cmd
+		for id, info := range m.infos {
+			progressModel, cmd := info.TokenProgress.Update(msg)
+			info.TokenProgress = progressModel.(progress.Model)
+			m.infos[id] = info
+			if cmd != nil {
+				progressCmds = append(progressCmds, cmd)
+			}
+		}
+		cmds = append(cmds, progressCmds...)
 	case activityTickMsg:
 		return m.handleActivityTick(msg)
 	case refreshMsg:
@@ -51,8 +70,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle viewport scrolling based on active tab
 	if m.activeTab == 0 {
 		m.vp, _ = m.vp.Update(msg)
+		m.vp.GotoBottom() // Ensure we stay at the bottom
 	} else {
 		m.debugVp, _ = m.debugVp.Update(msg)
+		m.debugVp.GotoBottom() // Ensure we stay at the bottom
 	}
 
 	m.input, _ = m.input.Update(msg)

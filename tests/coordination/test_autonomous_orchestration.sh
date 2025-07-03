@@ -3,6 +3,10 @@
 # Autonomous Multi-Agent Orchestration Test
 # Test Agent 0's ability to autonomously choose and coordinate available agents
 
+# Source the test helpers script
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../scripts/test-helpers.sh"
+
 echo "🤖 Autonomous Multi-Agent Orchestration Test"
 echo "============================================"
 echo "Testing Agent 0's autonomous team management:"
@@ -14,14 +18,7 @@ echo "- NO pre-defined agent assignments - Agent 0 decides everything"
 echo ""
 
 # Create clean sandbox
-rm -rf /tmp/agentry-ai-sandbox
-mkdir -p /tmp/agentry-ai-sandbox
-cd /tmp/agentry-ai-sandbox
-
-# Copy agentry binary and config
-cp /home/marco/Documents/GitHub/agentry/agentry.exe ./agentry
-cp /home/marco/Documents/GitHub/agentry/.env.local .
-cp /home/marco/Documents/GitHub/agentry/.agentry.yaml .
+setup_test_environment
 
 echo "🎯 AUTONOMOUS ORCHESTRATION SCENARIO"
 echo "===================================="
@@ -36,7 +33,7 @@ echo ""
 echo "🤖 Starting Autonomous Multi-Agent Orchestration:"
 echo "================================================="
 
-timeout 240s ./agentry chat <<EOF
+$AGENT_CMD chat <<EOF
 I need you to create a complete blog application. This is a complex task that will require multiple components working together.
 
 PROJECT GOAL: Create "QuickBlog" - a simple but complete blog application

@@ -1,23 +1,18 @@
 #!/bin/bash
 set -e
 
+# Source test helpers
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+source "$(dirname "$(dirname "$SCRIPT_DIR")")/scripts/test-helpers.sh"
+
 # Test if agents actually execute assigned tasks
 echo "================================"
 echo "AGENT EXECUTION VERIFICATION TEST"
 echo "================================"
 
-# Clean slate
+# Setup test workspace
 SANDBOX_DIR="/tmp/agentry-execution-test"
-rm -rf "$SANDBOX_DIR"
-mkdir -p "$SANDBOX_DIR"
-cd "$SANDBOX_DIR"
-
-# Copy necessary configuration files
-cp /home/marco/Documents/GitHub/agentry/agentry.exe ./agentry
-cp /home/marco/Documents/GitHub/agentry/.env.local .
-cp /home/marco/Documents/GitHub/agentry/.agentry.yaml .
-
-echo "Test workspace: $SANDBOX_DIR"
+setup_test_workspace "$SANDBOX_DIR"
 
 echo "Testing if assigned agents actually execute their tasks..."
 
@@ -36,7 +31,7 @@ EOF
 
 # Run the test
 echo "Running execution verification test..."
-timeout 180s ./agentry chat < /tmp/execution_test_input.txt > /tmp/execution_test_output.txt 2>&1 \
+run_agentry 180s chat < /tmp/execution_test_input.txt > /tmp/execution_test_output.txt 2>&1 \
   || echo "Test completed"
 
 echo ""

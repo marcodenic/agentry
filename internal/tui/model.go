@@ -5,9 +5,11 @@ import (
 	"context"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -16,8 +18,65 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/glyphs"
+	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/team"
 )
+
+// createTokenProgressBar creates a progress bar with green-to-red gradient
+func createTokenProgressBar() progress.Model {
+	// Create a custom gradient from green to red using safer color codes
+	greenToRedGradient := progress.WithGradient("#22C55E", "#EF4444")
+	withoutPercentage := progress.WithoutPercentage()
+	prog := progress.New(greenToRedGradient, withoutPercentage)
+	prog.Width = 20 // Set a default width to prevent crashes
+	return prog
+}
+
+// applyGradientToLogo applies a beautiful gradient effect to the ASCII logo
+func applyGradientToLogo(logo string) string {
+	lines := strings.Split(logo, "\n")
+	var styledLines []string
+
+	// Define gradient colors - subtle purple to blue to teal (matching the image style)
+	colors := []string{
+		"#8B5FBF", // Soft purple
+		"#8B5FBF", // Purple-blue
+		"#6B76CF", // Lavender blue
+		"#5B82D7", // Medium blue
+		"#4B8EDF", // Light blue
+		"#3B9AE7", // Sky blue
+		"#2BA6EF", // Bright blue
+		"#1BB2F7", // Cyan blue
+		"#0BBEFF", // Light cyan
+		"#00CAF7", // Teal cyan
+		"#00D6EF", // Soft teal
+		"#00E2E7", // Light teal
+	}
+
+	totalLines := len(lines)
+
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			styledLines = append(styledLines, line)
+			continue
+		}
+
+		// Calculate which color to use based on line position
+		colorIndex := (i * len(colors)) / totalLines
+		if colorIndex >= len(colors) {
+			colorIndex = len(colors) - 1
+		}
+
+		// Apply the color to the line with subtle styling
+		style := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colors[colorIndex]))
+
+		styledLines = append(styledLines, style.Render(line))
+	}
+
+	return strings.Join(styledLines, "\n")
+}
 
 // Model is the root TUI model.
 type Model struct {
@@ -28,10 +87,10 @@ type Model struct {
 
 	team *team.Team
 
-	vp    viewport.Model
+	vp      viewport.Model
 	debugVp viewport.Model // Separate viewport for debug/memory view
-	input textinput.Model
-	tools list.Model
+	input   textinput.Model
+	tools   list.Model
 
 	cwd string
 
@@ -42,6 +101,9 @@ type Model struct {
 
 	// Splash screen state
 	showInitialLogo bool
+
+	// Robot companion for Agent 0
+	robot *RobotFace
 
 	err error
 
@@ -58,6 +120,17 @@ const (
 	StatusStopped
 )
 
+// ContentType represents the type of content last added to history
+type ContentType int
+
+const (
+	ContentTypeEmpty ContentType = iota
+	ContentTypeUserInput
+	ContentTypeAIResponse
+	ContentTypeStatusMessage
+	ContentTypeLogo
+)
+
 type DebugTraceEvent struct {
 	Timestamp time.Time
 	Type      string
@@ -67,28 +140,32 @@ type DebugTraceEvent struct {
 }
 
 type AgentInfo struct {
-	Agent           *core.Agent
-	History         string
-	Status          AgentStatus
-	CurrentTool     string
-	TokenCount      int
-	TokenHistory    []int
-	ActivityData    []float64   // Activity level per second (0.0 to 1.0)
-	ActivityTimes   []time.Time // Timestamp for each activity data point
-	LastToken       time.Time
-	LastActivity    time.Time
-	CurrentActivity int // Tokens processed in current second
-	ModelName       string
-	Scanner         *bufio.Scanner
-	Cancel          context.CancelFunc
-	Spinner         spinner.Model
-	Name            string
-	Role            string // Agent role for display (e.g., "System", "Research", "DevOps")
-	TokensStarted   bool   // Flag to stop thinking animation when tokens start
-	StreamingResponse string // Current AI response being streamed (unformatted)
-	DebugTrace      []DebugTraceEvent // Detailed trace history for debug view
-	CurrentStep     int              // Current step number for trace events
-	DebugStreamingResponse string    // Separate streaming response for debug view
+	Agent                  *core.Agent
+	History                string
+	Status                 AgentStatus
+	LastContentType        ContentType // Track what type of content was last added
+	PendingStatusUpdate    string      // Track ongoing status update for progressive completion
+	CurrentTool            string
+	TokenCount             int
+	TokenHistory           []int
+	ActivityData           []float64   // Activity level per second (0.0 to 1.0)
+	ActivityTimes          []time.Time // Timestamp for each activity data point
+	LastToken              time.Time
+	LastActivity           time.Time
+	CurrentActivity        int // Tokens processed in current second
+	ModelName              string
+	Scanner                *bufio.Scanner
+	Cancel                 context.CancelFunc
+	Spinner                spinner.Model
+	TokenProgress          progress.Model // Animated progress bar for token usage
+	Name                   string
+	Role                   string            // Agent role for display (e.g., "System", "Research", "DevOps")
+	TokensStarted          bool              // Flag to stop thinking animation when tokens start
+	StreamingResponse      string            // Current AI response being streamed (unformatted)
+	DebugTrace             []DebugTraceEvent // Detailed trace history for debug view
+	CurrentStep            int               // Current step number for trace events
+	DebugStreamingResponse string            // Separate streaming response for debug view
+	tracePipeWriter        io.WriteCloser    // Pipe writer for trace events (spawned agents)
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -126,51 +203,69 @@ func New(ag *core.Agent) Model {
 	vp := viewport.New(0, 0)
 	debugVp := viewport.New(0, 0)
 	cwd, _ := os.Getwd()
-	
+
 	// Initialize with ASCII logo as welcome content
-	logoContent := `
+	rawLogoContent := `
                                                              
                                                              
-                  ████▒               ▒████                  
-                    ▒▓███▓▒       ▒▓███▓▒                    
-                      ▒█▒████▓▒▓████▓█▒                      
-                      ▒█   ▓█████▓▒  █▒                      
-                      ▒█▓███▓▓█▓▓███▓█▒                      
-                   ▒▓███▓▒   ▒▓▒   ▒▓███▓▒                   
-                 ▒███▓▓█     ▒▓▒     █▓▓▓██▒                 
-                      ▒█     ▒▓▒     █▒                      
-                      ▒█     ▒▓▒     █▒                      
-                      ▒█     ▒▓▒     █▒                      
-                      ▒█     ▒▓▒     █▒                      
-                      ▒█     ▒▓▒     █▒                      
-                      ▒█     ▒▓▒     █▒                      
-                             ▒▓▒                             
-                                                             
-                                      v0.2.0                 
-                 █▀█ █▀▀ █▀▀ █▀█ ▀█▀ █▀▄ █ █                 
-                 █▀█ █ █ █▀▀ █ █  █  █▀▄  █                  
-                 ▀ ▀ ▀▀▀ ▀▀▀ ▀ ▀  ▀  ▀ ▀  ▀                  
-               AGENT  ORCHESTRATION  FRAMEWORK               
+    ████▒               ▒████                  
+      ▒▓███▓▒       ▒▓███▓▒                    
+        ▒█▒████▓▒▓████▓█▒                      
+        ▒█   ▓█████▓▒  █▒                      
+        ▒█▓███▓▓█▓▓███▓█▒                      
+     ▒▓███▓▒   ▒▓▒   ▒▓███▓▒                   
+   ▒███▓▓█     ▒▓▒     █▓▓▓██▒                 
+        ▒█     ▒▓▒     █▒                      
+        ▒█     ▒▓▒     █▒                      
+        ▒█     ▒▓▒     █▒                      
+        ▒█     ▒▓▒     █▒                      
+        ▒█     ▒▓▒     █▒                      
+        ▒█     ▒▓▒     █▒                      
+               ▒▓▒                             
+                                    
+                         v0.2.0                 
+   █▀█ █▀▀ █▀▀ █▀█ ▀█▀ █▀▄ █ █                 
+   █▀█ █ █ █▀▀ █ █  █  █▀▄  █                  
+   ▀ ▀ ▀▀▀ ▀▀▀ ▀ ▀  ▀  ▀ ▀  ▀                  
+ AGENT  ORCHESTRATION  FRAMEWORK               
                                                              `
 
+	// Apply beautiful gradient coloring to the logo
+	logoContent := applyGradientToLogo(rawLogoContent)
+
 	info := &AgentInfo{
-		Agent:   ag,
-		Status:  StatusIdle,
-		Spinner: spinner.New(),
-		Name:    "Agent 0",
-		Role:    "System", 
-		History: logoContent,
-		ActivityData: make([]float64, 0),
-		ActivityTimes:   make([]time.Time, 0),
-		CurrentActivity: 0,
-		LastActivity:    time.Time{}, // Start with zero time so first tick will initialize properly
+		Agent:               ag,
+		Status:              StatusIdle,
+		LastContentType:     ContentTypeLogo, // Start with logo content
+		PendingStatusUpdate: "",              // No pending status update initially
+		Spinner:             spinner.New(),
+		TokenProgress:       createTokenProgressBar(),
+		Name:                "Agent 0",
+		Role:                "System",
+		History:             logoContent,
+		ActivityData:        make([]float64, 0),
+		ActivityTimes:       make([]time.Time, 0),
+		CurrentActivity:     0,
+		LastActivity:        time.Time{}, // Start with zero time so first tick will initialize properly
 		// Initialize with empty activity for real-time chart
-		TokenHistory: []int{},
-		TokensStarted: false,
-		StreamingResponse: "",
-		DebugTrace: make([]DebugTraceEvent, 0), // Initialize debug trace
-		CurrentStep: 0,
+		TokenHistory:           []int{},
+		TokensStarted:          false,
+		StreamingResponse:      "",
+		DebugTrace:             make([]DebugTraceEvent, 0), // Initialize debug trace
+		CurrentStep:            0,
 		DebugStreamingResponse: "", // Initialize debug streaming response
+	}
+
+	// Get the model name from Agent 0's router
+	if ag.Route != nil {
+		client, ruleName := ag.Route.Select("hello")
+		if openaiClient, ok := client.(*model.OpenAI); ok {
+			// Use the ModelName() method to get the actual model name
+			info.ModelName = openaiClient.ModelName()
+		} else {
+			// For non-OpenAI clients, use the rule name as fallback
+			info.ModelName = ruleName
+		}
 	}
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
@@ -181,19 +276,20 @@ func New(ag *core.Agent) Model {
 	}
 
 	m := Model{
-		agents: []*core.Agent{ag},
-		infos:  infos,
-		order:  []uuid.UUID{ag.ID},
-		active: ag.ID,
-		team:   tm,
-		vp:     vp,
-		debugVp: debugVp,
-		input:  ti,
-		tools:  l,
-		cwd:    cwd,
-		theme:  th,
-		keys:   th.Keybinds,
+		agents:          []*core.Agent{ag},
+		infos:           infos,
+		order:           []uuid.UUID{ag.ID},
+		active:          ag.ID,
+		team:            tm,
+		vp:              vp,
+		debugVp:         debugVp,
+		input:           ti,
+		tools:           l,
+		cwd:             cwd,
+		theme:           th,
+		keys:            th.Keybinds,
 		showInitialLogo: true,
+		robot:           NewRobotFace(),
 	}
 	return m
 }
@@ -227,9 +323,90 @@ func (m *Model) Cleanup() {
 		if info.Cancel != nil {
 			info.Cancel() // Cancel all running agent contexts
 		}
+		if info.tracePipeWriter != nil {
+			info.tracePipeWriter.Close() // Close trace pipe writers for spawned agents
+		}
 		if info.Status == StatusRunning {
 			info.Status = StatusStopped
 			m.infos[id] = info
 		}
 	}
+}
+
+// addContentWithSpacing adds content to agent history with proper spacing based on content type transitions
+func (info *AgentInfo) addContentWithSpacing(content string, contentType ContentType) {
+	if info.History == "" {
+		// First content ever - no spacing needed
+		info.History = content
+	} else {
+		// Determine spacing based on content type transition
+		spacing := ""
+
+		switch info.LastContentType {
+		case ContentTypeLogo, ContentTypeEmpty:
+			// After logo or empty, no spacing needed
+			spacing = ""
+		case ContentTypeUserInput:
+			if contentType == ContentTypeAIResponse {
+				// User Input → AI Response: No extra spacing
+				spacing = "\n"
+			} else {
+				// User Input → Status Message: Add spacing
+				spacing = "\n\n"
+			}
+		case ContentTypeAIResponse:
+			if contentType == ContentTypeUserInput {
+				// AI Response → User Input: Add spacing
+				spacing = "\n\n"
+			} else {
+				// AI Response → Status Message: Add spacing
+				spacing = "\n\n"
+			}
+		case ContentTypeStatusMessage:
+			if contentType == ContentTypeStatusMessage {
+				// Status Message → Status Message: Group together
+				spacing = "\n"
+			} else {
+				// Status Message → AI Response or User Input: Add spacing
+				spacing = "\n\n"
+			}
+		}
+
+		info.History += spacing + content
+	}
+
+	// Update the last content type
+	info.LastContentType = contentType
+}
+
+// startProgressiveStatusUpdate begins a status update that can be completed later
+func (info *AgentInfo) startProgressiveStatusUpdate(content string, m Model) {
+	// Format with orange status bar
+	statusFormatted := m.statusBar() + " " + content
+	info.addContentWithSpacing(statusFormatted, ContentTypeStatusMessage)
+	info.PendingStatusUpdate = content // Track the pending update
+}
+
+// completeProgressiveStatusUpdate completes a pending status update with a green tick
+func (info *AgentInfo) completeProgressiveStatusUpdate(m Model) {
+	if info.PendingStatusUpdate == "" {
+		return // No pending update to complete
+	}
+
+	// Find and replace the last status line in history
+	lines := strings.Split(info.History, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := lines[i]
+		// Check if this line contains our pending status update
+		if strings.Contains(line, info.PendingStatusUpdate) {
+			// Replace orange bar with green bar and add tick
+			updatedLine := strings.Replace(line, m.statusBar(), m.completedStatusBar(), 1)
+			updatedLine += " " + glyphs.GreenCheckmark()
+			lines[i] = updatedLine
+			break
+		}
+	}
+
+	info.History = strings.Join(lines, "\n")
+	info.PendingStatusUpdate = "" // Clear pending update
 }

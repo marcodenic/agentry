@@ -230,3 +230,19 @@ agentry pprof cpu.out
 ```
 
 The command launches `go tool pprof -http` on the given profile file and blocks until you exit.
+
+## Agent Lifecycle: Persistent vs. Session-Based
+
+A fundamental concept in `agentry` is the lifecycle of an agent. You can run agents in two primary modes:
+
+### 1. Session-Based Mode (Default)
+
+When you use a configuration like `smart-config.yaml`, agents are created for a single session. They have **conversation memory** for the duration of the task, allowing them to handle follow-up instructions and maintain context. Once the task is complete, the agents and their memory are discarded.
+
+- **Use Case:** Ideal for one-off tasks, development, and testing. It's like hiring a consultant for a specific project.
+
+### 2. Persistent Mode
+
+Enabled by `persistent-config.yaml`, this mode transforms agents into **long-running, stateful services**. They are not discarded after a task. Instead, they maintain their state and memory indefinitely, listening on network ports for new instructions.
+
+- **Use Case:** Essential for building systems where agents need to be "always-on." For example, an agent that continuously monitors a system, manages a long-term project, or needs to be available for asynchronous communication from other services. It's like having a full-time employee who is always available.

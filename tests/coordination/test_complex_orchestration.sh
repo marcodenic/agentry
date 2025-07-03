@@ -3,6 +3,10 @@
 # Complex Multi-Agent Orchestration Test
 # Test Agent 0's ability to manage a team through complex, multi-step coordination
 
+# Source the test helpers script
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../scripts/test-helpers.sh"
+
 echo "🎭 Complex Multi-Agent Orchestration Test"
 echo "========================================="
 echo "Testing Agent 0's full orchestration capabilities:"
@@ -14,14 +18,7 @@ echo "- Adapt coordination strategy as needed"
 echo ""
 
 # Create clean sandbox
-rm -rf /tmp/agentry-ai-sandbox
-mkdir -p /tmp/agentry-ai-sandbox
-cd /tmp/agentry-ai-sandbox
-
-# Copy agentry binary and config
-cp /home/marco/Documents/GitHub/agentry/agentry.exe ./agentry
-cp /home/marco/Documents/GitHub/agentry/.env.local .
-cp /home/marco/Documents/GitHub/agentry/.agentry.yaml .
+setup_test_environment
 
 echo "🎯 COMPLEX ORCHESTRATION SCENARIO"
 echo "================================="
@@ -47,7 +44,7 @@ echo ""
 echo "🤖 Starting Complex Multi-Agent Orchestration:"
 echo "=============================================="
 
-timeout 300s ./agentry chat <<EOF
+$AGENT_CMD chat <<EOF
 I need you to orchestrate the development of a complete e-commerce platform. This is a complex project that will require multiple specialized agents working together in a coordinated manner.
 
 PROJECT GOAL: Build "ShopFlow" - a complete e-commerce platform
