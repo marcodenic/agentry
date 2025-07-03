@@ -3,43 +3,17 @@
 # Agent Orchestration Visibility Test
 # Focus: Prove Agent 0 spawns/delegates to other agents with clear visibility
 
+# Source the test helpers script
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../scripts/test-helpers.sh"
+
 echo "=== AGENT ORCHESTRATION VISIBILITY TEST ==="
 echo "🎯 Testing Agent 0's ability to spawn and delegate to other agents"
 echo "📺 Focus: Clear visibility into multi-agent collaboration"
 echo ""
 
 # Setup
-AI_WORKSPACE="/tmp/agentry-ai-sandbox"
-PROJECT_DIR="/home/marco/Documents/GitHub/agentry"
-
-echo "🏗️  Setting up test workspace..."
-mkdir -p "$AI_WORKSPACE"
-cd "$AI_WORKSPACE"
-
-# Copy configuration and executable
-cp "$PROJECT_DIR/.agentry.yaml" . 2>/dev/null || echo "⚠️  No .agentry.yaml found"
-if [ -f "$PROJECT_DIR/.env.local" ]; then
-    cp "$PROJECT_DIR/.env.local" .
-    echo "✅ Copied .env.local"
-else
-    echo "⚠️  No .env.local found"
-fi
-
-# Copy agentry executable
-if [ -f "$PROJECT_DIR/agentry" ]; then
-    cp "$PROJECT_DIR/agentry" .
-    chmod +x agentry
-    echo "✅ Copied agentry executable"
-elif [ -f "$PROJECT_DIR/agentry.exe" ]; then
-    cp "$PROJECT_DIR/agentry.exe" ./agentry
-    chmod +x agentry
-    echo "✅ Copied agentry.exe as agentry"
-else
-    echo "❌ No agentry executable found!"
-    exit 1
-fi
-
-echo "📁 Working in: $(pwd)"
+setup_test_environment
 
 # Clean test environment
 rm -rf orchestration-test 2>/dev/null

@@ -57,8 +57,8 @@ Usage:
 
 Commands:
   chat        Interactive chat mode for natural language delegation
-  tui         Terminal UI mode with rich interface
-  dev         Development mode 
+  tui         Terminal UI mode with rich interface (default)
+  dev         Development REPL with tracing
   serve       Start HTTP server
   eval, test  Run evaluations/tests
   flow        Run workflow
@@ -76,8 +76,12 @@ Options:
   --help      Show help
 
 Examples:
+  agentry                          # Start TUI (default)
   agentry chat                     # Start interactive chat
-  agentry tui                      # Start TUI
+  agentry tui                      # Start TUI explicitly
+  agentry dev                      # Start development REPL
+  agentry serve                    # Start HTTP server
+  agentry flow examples/flows/research # Run a workflow
   agentry "create a hello world"   # Direct prompt
   agentry --help                   # Show help
 `)

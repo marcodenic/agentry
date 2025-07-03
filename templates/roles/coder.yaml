@@ -96,3 +96,8 @@ builtins:
   
   # System tools
   - sysinfo # System information and hardware specs
+
+model:
+      provider: anthropic
+      options:
+        model: claude-3-5-sonnet-20240620

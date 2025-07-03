@@ -22,6 +22,16 @@ func FromManifest(m config.ModelManifest) (Client, error) {
 			modelName = "gpt-4o"
 		}
 		return NewOpenAI(key, modelName), nil
+	case "anthropic":
+		key := m.Options["key"]
+		if key == "" {
+			key = os.Getenv("ANTHROPIC_KEY")
+		}
+		modelName := m.Options["model"]
+		if modelName == "" {
+			modelName = "claude-3-opus-20240229"
+		}
+		return NewAnthropic(key, modelName), nil
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", m.Provider)
 	}

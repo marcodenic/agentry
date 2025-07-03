@@ -3,31 +3,29 @@
 # Agent 0 Team System Testing with Verbose Logging
 # Tests the delegation workflow: team_status → check_agent → agent delegation
 
+# Source the test helpers script
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../scripts/test-helpers.sh"
+
 echo "🧪 AGENT 0 TEAM SYSTEM TESTING"
 echo "=============================="
 echo "Testing Agent 0's delegation capabilities with verbose logging"
 echo "Expected: Agent 0 should use coordination tools, then delegate to specialist agents"
 echo
 
-cd /home/marco/Documents/GitHub/agentry
-
-# Ensure binary is built
-if [ ! -f "./agentry.exe" ]; then
-    echo "Building agentry binary..."
-    make build
-fi
+# Ensure binary and config are in the temp directory
+setup_test_environment
 
 echo "🔍 TEST 1: Agent 0 Team Status Discovery"
 echo "Expected: Agent 0 should use team_status tool to discover available agents"
 echo "Command: team_status"
 echo "----------------------------------------"
 
-timeout 30s ./agentry.exe "Use the team_status tool to show me what agents are available" 2>&1 | tee test_output_1.log
+$AGENT_CMD "Use the team_status tool to show me what agents are available"
 TEST1_EXIT=$?
 
 echo
 echo "Exit code: $TEST1_EXIT"
-echo "Full output saved to: test_output_1.log"
 echo
 
 echo "🔍 TEST 2: Agent 0 Agent Discovery"
@@ -35,12 +33,11 @@ echo "Expected: Agent 0 should use check_agent tool to verify specific agents ex
 echo "Command: check_agent"
 echo "----------------------------------------"
 
-timeout 30s ./agentry.exe "Use the check_agent tool to verify if the 'coder' agent exists and is available" 2>&1 | tee test_output_2.log
+$AGENT_CMD "Use the check_agent tool to verify if the 'coder' agent exists and is available"
 TEST2_EXIT=$?
 
 echo
 echo "Exit code: $TEST2_EXIT"
-echo "Full output saved to: test_output_2.log"
 echo
 
 echo "🔍 TEST 3: Agent 0 Task Delegation"
@@ -48,24 +45,22 @@ echo "Expected: Agent 0 should delegate file creation to 'coder' agent"
 echo "Command: delegate via agent tool"
 echo "----------------------------------------"
 
-timeout 45s ./agentry.exe "Create a simple hello.py file that prints 'Hello World'. Use your coordination workflow: check team status, verify coder agent exists, then delegate the task." 2>&1 | tee test_output_3.log
+$AGENT_CMD "Create a simple hello.py file that prints 'Hello World'. Use your coordination workflow: check team status, verify coder agent exists, then delegate the task."
 TEST3_EXIT=$?
 
 echo
 echo "Exit code: $TEST3_EXIT"
-echo "Full output saved to: test_output_3.log"
 echo
 
 echo "🔍 TEST 4: Agent 0 Tool Access Verification"
 echo "Expected: Agent 0 should only show coordination tools, no implementation tools"
 echo "----------------------------------------"
 
-timeout 20s ./agentry.exe "List all your available tools with their exact names and purposes. Be comprehensive." 2>&1 | tee test_output_4.log
+$AGENT_CMD "List all your available tools with their exact names and purposes. Be comprehensive."
 TEST4_EXIT=$?
 
 echo
 echo "Exit code: $TEST4_EXIT"  
-echo "Full output saved to: test_output_4.log"
 echo
 
 echo "📊 TEST SUMMARY"

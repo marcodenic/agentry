@@ -64,8 +64,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle viewport scrolling based on active tab
 	if m.activeTab == 0 {
 		m.vp, _ = m.vp.Update(msg)
+		m.vp.GotoBottom() // Ensure we stay at the bottom
 	} else {
 		m.debugVp, _ = m.debugVp.Update(msg)
+		m.debugVp.GotoBottom() // Ensure we stay at the bottom
 	}
 
 	m.input, _ = m.input.Update(msg)
