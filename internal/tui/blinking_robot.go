@@ -40,7 +40,7 @@ func NewRobotFace() *RobotFace {
 // Update advances the robot's animation state
 func (r *RobotFace) Update() {
 	now := time.Now()
-	
+
 	// Blink every 3-5 seconds when not in special states
 	if r.state == RobotIdle || r.state == RobotActive {
 		timeSinceBlink := now.Sub(r.lastBlink)
@@ -50,7 +50,7 @@ func (r *RobotFace) Update() {
 			r.blinkCounter = 3 // Blink for 3 frames
 		}
 	}
-	
+
 	// Handle blinking state
 	if r.state == RobotBlinking {
 		r.blinkCounter--
@@ -58,7 +58,7 @@ func (r *RobotFace) Update() {
 			r.state = RobotIdle
 		}
 	}
-	
+
 	// Update color phase for thinking state
 	if r.state == RobotThinking {
 		timeSinceUpdate := now.Sub(r.lastUpdate)
@@ -67,7 +67,7 @@ func (r *RobotFace) Update() {
 			r.lastUpdate = now
 		}
 	}
-	
+
 	// Add gentle breathing animation for idle state - flicker every 3 seconds for demo
 	if r.state == RobotIdle {
 		timeSinceUpdate := now.Sub(r.lastUpdate)
@@ -93,11 +93,11 @@ func (r *RobotFace) GetFace() string {
 	case RobotIdle:
 		// Breathing animation: flicker to smaller squares briefly every 10 seconds
 		if r.colorPhase%4 < 1 { // Show smaller squares for 1/4 of the breathing cycle (quick flicker)
-			return "[▪_▪]" // Smaller squares for breathing effect
+			return "[▪‿▪]" // Smaller squares for breathing effect
 		}
 		return "[■_■]" // Normal large squares
 	case RobotActive:
-		return "[●_●]"
+		return "[●‿●]"
 	case RobotThinking:
 		// Animated thinking eyes
 		switch r.colorPhase % 4 {
@@ -136,20 +136,20 @@ func (r *RobotFace) GetFace() string {
 // GetStyledFace returns the robot face with appropriate styling
 func (r *RobotFace) GetStyledFace() string {
 	face := r.GetFace()
-	
+
 	switch r.state {
 	case RobotIdle:
 		return r.renderMultiColorFace(face, "#8B5FBF", true) // Pinkish purple from agentry logo
-			
+
 	case RobotActive:
 		return r.renderMultiColorFace(face, "#32CD32", true) // Toned down green with transparency
-			
+
 	case RobotThinking:
 		// Cycle through rainbow colors with multi-color rendering
 		colors := []string{"#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD"}
 		color := colors[r.colorPhase]
 		return r.renderMultiColorFace(face, color, false) // No transparency for thinking state
-			
+
 	case RobotError:
 		return lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF4444")). // Red - error
@@ -157,19 +157,19 @@ func (r *RobotFace) GetStyledFace() string {
 			Background(lipgloss.Color("#2D1B1B")).
 			Blink(true).
 			Render(face)
-			
+
 	case RobotSleeping:
 		return lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#696969")). // Dim gray - sleeping
 			Faint(true).
 			Render(face)
-			
+
 	case RobotBlinking:
 		return lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFD700")). // Gold - blinking
 			Bold(true).
 			Render(face)
-			
+
 	default:
 		return r.renderMultiColorFace(face, "#8B5FBF", true)
 	}
@@ -181,7 +181,7 @@ func (r *RobotFace) renderMultiColorFace(face, baseColor string, withTransparenc
 	style := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(baseColor)).
 		Bold(true)
-	
+
 	// Render the entire face with the same style
 	return style.Render(face)
 }
@@ -196,7 +196,7 @@ func (r *RobotFace) lightenColor(hexColor string, factor float64) string {
 		return "#66E066" // Lighter green for brackets/ears
 	case "#FF6B6B": // Red (thinking)
 		return "#FF9999" // Lighter red
-	case "#4ECDC4": // Teal (thinking) 
+	case "#4ECDC4": // Teal (thinking)
 		return "#7FDBDA" // Lighter teal
 	case "#45B7D1": // Blue (thinking)
 		return "#78C8E0" // Lighter blue
@@ -211,7 +211,7 @@ func (r *RobotFace) lightenColor(hexColor string, factor float64) string {
 	}
 }
 
-// darkenColor darkens a hex color by the given factor (0.0 to 1.0)  
+// darkenColor darkens a hex color by the given factor (0.0 to 1.0)
 func (r *RobotFace) darkenColor(hexColor string, factor float64) string {
 	// Simple color darkening - predefined darker shades for mouth
 	switch hexColor {
@@ -259,7 +259,7 @@ func (r *RobotFace) GetMoodText() string {
 // GetStyledMoodText returns the mood text with appropriate styling
 func (r *RobotFace) GetStyledMoodText() string {
 	mood := r.GetMoodText()
-	
+
 	return lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#A8A8A8")).
 		Italic(true).
@@ -272,7 +272,7 @@ func (m *Model) updateRobotState() {
 	if m.robot == nil {
 		return
 	}
-	
+
 	// Check if Agent 0 exists and update robot state accordingly
 	if len(m.agents) > 0 && len(m.order) > 0 {
 		agent0ID := m.order[0] // Agent 0 is always first
