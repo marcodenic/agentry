@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"strings"
-
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -103,11 +101,8 @@ func (m Model) handleSubmit() (Model, tea.Cmd) {
 
 		txt := m.input.Value()
 		m.input.SetValue("")
-		if strings.HasPrefix(txt, "/") {
-			var cmd tea.Cmd
-			m, cmd = m.handleCommand(txt)
-			return m, cmd
-		}
+		// ALL input goes through Agent 0's natural language processing
+		// No slash commands - everything is handled by delegation
 		return m.startAgent(m.active, txt)
 	}
 	return m, nil

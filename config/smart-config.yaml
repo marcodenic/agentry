@@ -102,6 +102,11 @@ tools:
     type: builtin
     description: Delete all local Git branches except the current one
 
-# Include smart agent configurations
+# Include role configurations  
 include:
-  - templates/smart_dev_team.yaml
+  - ../templates/roles/agent_0.yaml
+  - ../templates/roles/coder.yaml
+  - ../templates/roles/tester.yaml
+  - ../templates/roles/writer.yaml
+  - ../templates/roles/researcher.yaml
+  - ../templates/roles/team_planner.yaml

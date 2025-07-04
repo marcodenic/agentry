@@ -45,13 +45,9 @@ func runPrompt(cmd string, args []string) {
 
 	// Apply agent_0 role configuration to restrict tools
 	fmt.Printf("🔧 Before agent_0 config: agent has %d tools\n", len(ag.Tools))
-	if err := applyAgent0RoleConfig(ag); err != nil {
-		fmt.Printf("Warning: Failed to apply agent_0 role configuration: %v\n", err)
-	}
-	fmt.Printf("🔧 After agent_0 config: agent has %d tools\n", len(ag.Tools))
-
+	
 	// FIX: Create team context for coordination capabilities (unified architecture)
-	// Load role configurations from include paths
+	// Load role configurations from include paths FIRST so Agent 0 can get proper config
 	configDir := ""
 	if opts.configPath != "" {
 		configDir = filepath.Dir(opts.configPath)
@@ -61,10 +57,22 @@ func runPrompt(cmd string, args []string) {
 		fmt.Printf("Warning: Failed to create team context: %v\n", err)
 	} else {
 		fmt.Printf("🔧 Team context created: Agent 0 now has coordination capabilities\n")
+		
+		// Load Agent 0's proper role configuration directly
+		agent0RolePath := "templates/roles/agent_0.yaml"
+		if role, err := team.LoadRoleFromFile(agent0RolePath); err == nil {
+			ag.Prompt = role.Prompt
+			fmt.Printf("🔧 Agent 0 loaded proper role configuration from %s (prompt length: %d chars)\n", agent0RolePath, len(role.Prompt))
+		} else {
+			fmt.Printf("⚠️  Failed to load Agent 0 role from %s: %v\n", agent0RolePath, err)
+		}
+		
 		// Register the agent delegation tool to replace the placeholder
 		teamCtx.RegisterAgentTool(ag.Tools)
 		fmt.Printf("🔧 Agent delegation tool registered with team\n")
 	}
+	
+	fmt.Printf("🔧 After agent_0 config: agent has %d tools\n", len(ag.Tools))
 
 	if opts.maxIter > 0 {
 		ag.MaxIterations = opts.maxIter

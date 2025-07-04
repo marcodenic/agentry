@@ -83,3 +83,97 @@
 2025/07/04 23:02:47 DELEGATION: Agent 0 -> ConfigManager | Task: Handle the configuration file 'config/test-budget.yaml' as specified.
 2025/07/04 23:02:48 DELEGATION SUCCESS: ConfigManager | Result length: 149
 2025/07/04 23:02:48 COORDINATION: ConfigManager -> agent_0 | delegation_success: Task completed
+2025/07/04 23:30:45 COORDINATION: agent_0 -> coder | delegation: test task
+2025/07/04 23:30:45 DELEGATION: Agent 0 -> coder | Task: test task
+2025/07/04 23:30:45 DELEGATION SUCCESS: coder | Result length: 5
+2025/07/04 23:30:45 COORDINATION: coder -> agent_0 | delegation_success: Task completed
+2025/07/04 23:30:45 COORDINATION: agent_0 -> coder | delegation: test task
+2025/07/04 23:30:45 DELEGATION: Agent 0 -> coder | Task: test task
+2025/07/04 23:30:45 DELEGATION SUCCESS: coder | Result length: 5
+2025/07/04 23:30:45 COORDINATION: coder -> agent_0 | delegation_success: Task completed
+2025/07/04 23:31:00 COORDINATION: agent_0 -> ConfigProcessor | delegation: Process the configuration file located at config/smart-config.yaml
+2025/07/04 23:31:00 DELEGATION: Agent 0 -> ConfigProcessor | Task: Process the configuration file located at config/smart-config.yaml
+2025/07/04 23:31:02 DELEGATION SUCCESS: ConfigProcessor | Result length: 322
+2025/07/04 23:31:02 COORDINATION: ConfigProcessor -> agent_0 | delegation_success: Task completed
+2025/07/04 23:31:17 COORDINATION: agent_0 -> SystemCoordinator | delegation: The user has provided a command to run a prompt with a specific configuration file: --config config/smart-config.yaml. I will verify the existence of this configuration file and its contents before proceeding.
+2025/07/04 23:31:17 DELEGATION: Agent 0 -> SystemCoordinator | Task: The user has provided a command to run a prompt with a specific configuration file: --config config/smart-config.yaml. I will verify the existence of this configuration file and its contents before proceeding.
+2025/07/04 23:31:19 DELEGATION FAILED: SystemCoordinator | Error: exit status 125
+2025/07/04 23:31:19 COORDINATION: SystemCoordinator -> agent_0 | delegation_failed: exit status 125
+2025/07/04 23:34:51 COORDINATION: agent_0 -> system | delegation: prompt --config config/smart-config.yaml
+2025/07/04 23:34:51 DELEGATION: Agent 0 -> system | Task: prompt --config config/smart-config.yaml
+2025/07/04 23:34:51 DELEGATION FAILED: system | Error: exit status 125
+2025/07/04 23:34:51 COORDINATION: system -> agent_0 | delegation_failed: exit status 125
+2025/07/04 23:34:54 COORDINATION: agent_0 -> ConfigProcessorAgent | delegation: Process the prompt with configuration file at config/smart-config.yaml
+2025/07/04 23:34:54 DELEGATION: Agent 0 -> ConfigProcessorAgent | Task: Process the prompt with configuration file at config/smart-config.yaml
+2025/07/04 23:34:56 DELEGATION SUCCESS: ConfigProcessorAgent | Result length: 241
+2025/07/04 23:34:56 COORDINATION: ConfigProcessorAgent -> agent_0 | delegation_success: Task completed
+2025/07/04 23:36:13 COORDINATION: agent_0 -> ConfigManagerAgent | delegation: Execute prompt with config file at config/smart-config.yaml
+2025/07/04 23:36:13 DELEGATION: Agent 0 -> ConfigManagerAgent | Task: Execute prompt with config file at config/smart-config.yaml
+2025/07/04 23:36:15 DELEGATION FAILED: ConfigManagerAgent | Error: agent tool placeholder - should be replaced by team registration
+2025/07/04 23:36:15 COORDINATION: ConfigManagerAgent -> agent_0 | delegation_failed: agent tool placeholder - should be replaced by team registration
+2025/07/04 23:36:28 COORDINATION: agent_0 -> CommandExecutor | delegation: prompt --config config/smart-config.yaml
+2025/07/04 23:36:28 DELEGATION: Agent 0 -> CommandExecutor | Task: prompt --config config/smart-config.yaml
+2025/07/04 23:36:29 DELEGATION FAILED: CommandExecutor | Error: exit status 125
+2025/07/04 23:36:29 COORDINATION: CommandExecutor -> agent_0 | delegation_failed: exit status 125
+2025/07/04 23:45:38 COORDINATION: agent_0 -> PromptExecutor | delegation: Run the prompt with configuration file at 'config/smart-config.yaml'.
+2025/07/04 23:45:38 DELEGATION: Agent 0 -> PromptExecutor | Task: Run the prompt with configuration file at 'config/smart-config.yaml'.
+2025/07/04 23:45:39 DELEGATION FAILED: PromptExecutor | Error: exit status 125
+2025/07/04 23:45:39 COORDINATION: PromptExecutor -> agent_0 | delegation_failed: exit status 125
+2025/07/04 23:48:54 COORDINATION: agent_0 -> CommandExecutor | delegation: prompt --config config/smart-config.yaml
+2025/07/04 23:48:54 DELEGATION: Agent 0 -> CommandExecutor | Task: prompt --config config/smart-config.yaml
+2025/07/04 23:48:55 DELEGATION FAILED: CommandExecutor | Error: exit status 125
+2025/07/04 23:48:55 COORDINATION: CommandExecutor -> agent_0 | delegation_failed: exit status 125
+2025/07/04 23:53:16 COORDINATION: agent_0 -> team_planner | delegation: check availability
+2025/07/04 23:53:16 DELEGATION: Agent 0 -> team_planner | Task: check availability
+2025/07/04 23:53:17 DELEGATION SUCCESS: team_planner | Result length: 68
+2025/07/04 23:53:17 COORDINATION: team_planner -> agent_0 | delegation_success: Task completed
+2025/07/04 23:55:32 COORDINATION: agent_0 -> coder | delegation: Handle the processing or utilization of the configuration file at 'config/smart-config.yaml' as needed.
+2025/07/04 23:55:32 DELEGATION: Agent 0 -> coder | Task: Handle the processing or utilization of the configuration file at 'config/smart-config.yaml' as needed.
+2025/07/05 00:00:06 COORDINATION: agent_0 -> check_agent | delegation: writer
+2025/07/05 00:00:06 DELEGATION: Agent 0 -> check_agent | Task: writer
+2025/07/05 00:00:07 DELEGATION SUCCESS: check_agent | Result length: 231
+2025/07/05 00:00:07 COORDINATION: check_agent -> agent_0 | delegation_success: Task completed
+2025/07/05 00:02:42 COORDINATION: agent_0 -> coder | delegation: Check if there is an application or tool that can run a TUI interface with the current configuration or system.
+2025/07/05 00:02:42 DELEGATION: Agent 0 -> coder | Task: Check if there is an application or tool that can run a TUI interface with the current configuration or system.
+2025/07/05 00:02:45 DELEGATION FAILED: coder | Error: exit status 125
+2025/07/05 00:02:45 COORDINATION: coder -> agent_0 | delegation_failed: exit status 125
+2025/07/05 00:04:03 COORDINATION: agent_0 -> check_agent | delegation: coder
+2025/07/05 00:04:03 DELEGATION: Agent 0 -> check_agent | Task: coder
+2025/07/05 00:04:05 DELEGATION SUCCESS: check_agent | Result length: 92
+2025/07/05 00:04:05 COORDINATION: check_agent -> agent_0 | delegation_success: Task completed
+2025/07/05 00:04:05 COORDINATION: agent_0 -> coder | delegation: review the TODO.md file for TODO items and report back with findings
+2025/07/05 00:04:05 DELEGATION: Agent 0 -> coder | Task: review the TODO.md file for TODO items and report back with findings
+2025/07/05 00:04:13 DELEGATION SUCCESS: coder | Result length: 899
+2025/07/05 00:04:13 COORDINATION: coder -> agent_0 | delegation_success: Task completed
+2025/07/05 00:04:20 COORDINATION: agent_0 -> coder | delegation: review the TODO.md file for issues and suggestions
+2025/07/05 00:04:20 DELEGATION: Agent 0 -> coder | Task: review the TODO.md file for issues and suggestions
+2025/07/05 00:04:27 DELEGATION SUCCESS: coder | Result length: 1349
+2025/07/05 00:04:27 COORDINATION: coder -> agent_0 | delegation_success: Task completed
+2025/07/05 00:05:10 COORDINATION: agent_0 -> coder | delegation: review the TODO.md file for content and quality
+2025/07/05 00:05:10 DELEGATION: Agent 0 -> coder | Task: review the TODO.md file for content and quality
+2025/07/05 00:05:23 DELEGATION SUCCESS: coder | Result length: 2023
+2025/07/05 00:05:23 COORDINATION: coder -> agent_0 | delegation_success: Task completed
+2025/07/05 00:05:56 COORDINATION: agent_0 -> writer | delegation: Create comprehensive documentation for the project, including setup instructions, usage guidelines, and API references.
+2025/07/05 00:05:56 DELEGATION: Agent 0 -> writer | Task: Create comprehensive documentation for the project, including setup instructions, usage guidelines, and API references.
+2025/07/05 00:06:04 DELEGATION SUCCESS: writer | Result length: 3772
+2025/07/05 00:06:04 COORDINATION: writer -> agent_0 | delegation_success: Task completed
+2025/07/05 00:06:32 COORDINATION: agent_0 -> coder | delegation: create a simple hello world Python script
+2025/07/05 00:06:32 DELEGATION: Agent 0 -> coder | Task: create a simple hello world Python script
+2025/07/05 00:06:34 DELEGATION FAILED: coder | Error: file /home/marco/Documents/GitHub/agentry/hello_world.py already exists (use overwrite=true to replace)
+2025/07/05 00:06:34 COORDINATION: coder -> agent_0 | delegation_failed: file /home/marco/Documents/GitHub/agentry/hello_world.py already exists (use overwrite=true to replace)
+2025/07/05 00:17:29 COORDINATION: agent_0 -> coder | delegation: Create a simple script based on the configuration in config/smart-config.yaml
+2025/07/05 00:17:29 DELEGATION: Agent 0 -> coder | Task: Create a simple script based on the configuration in config/smart-config.yaml
+2025/07/05 00:17:31 DELEGATION FAILED: coder | Error: failed to get project tree: exit status 125
+2025/07/05 00:17:31 COORDINATION: coder -> agent_0 | delegation_failed: failed to get project tree: exit status 125
+2025/07/05 00:17:58 COORDINATION: agent_0 -> researcher | delegation: research the topic of Go programming language, including its features, history, and common use cases.
+2025/07/05 00:17:58 DELEGATION: Agent 0 -> researcher | Task: research the topic of Go programming language, including its features, history, and common use cases.
+2025/07/05 00:18:03 DELEGATION SUCCESS: researcher | Result length: 2118
+2025/07/05 00:18:03 COORDINATION: researcher -> agent_0 | delegation_success: Task completed
+2025/07/05 00:21:08 COORDINATION: agent_0 -> coder | delegation: Create a simple 'Hello, World!' script in a new file.
+2025/07/05 00:21:08 DELEGATION: Agent 0 -> coder | Task: Create a simple 'Hello, World!' script in a new file.
+2025/07/05 00:21:10 DELEGATION FAILED: coder | Error: exit status 125
+2025/07/05 00:21:10 COORDINATION: coder -> agent_0 | delegation_failed: exit status 125
+2025/07/05 00:24:42 COORDINATION: agent_0 -> coder | delegation: Assist with the current project or task as needed.
+2025/07/05 00:24:42 DELEGATION: Agent 0 -> coder | Task: Assist with the current project or task as needed.
+2025/07/05 00:24:50 DELEGATION FAILED: coder | Error: failed to record view: stat /home/marco/Documents/GitHub/agentry/main.go: no such file or directory
+2025/07/05 00:24:50 COORDINATION: coder -> agent_0 | delegation_failed: failed to record view: stat /home/marco/Documents/GitHub/agentry/main.go: no such file or directory

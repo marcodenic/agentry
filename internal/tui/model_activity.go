@@ -9,7 +9,6 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
@@ -34,36 +33,28 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 
 	// First, check for new agents that may have been spawned by the agent tool
 	if m.team != nil {
-		teamAgents := m.team.Agents()
-		teamNames := m.team.Names()
-		for i, agent := range teamAgents {
-			if _, exists := m.infos[agent.ID]; !exists {
+		teamAgents := m.team.GetTeamAgents() // Use GetTeamAgents to get role info
+		for _, teamAgent := range teamAgents {
+			if _, exists := m.infos[teamAgent.Agent.ID]; !exists {
 				// Found a new agent that's not in our tracking - add it
 				sp := spinner.New()
 				sp.Spinner = spinner.Line
 				sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
 
-				// Generate sequential agent name and use team name as role
+				// Generate sequential agent name and use the correct role from team agent
 				agentNumber := len(m.infos) // This gives us the next agent number
 				displayName := fmt.Sprintf("Agent %d", agentNumber)
 
-				// Use team name as role, but validate it's not a tool name
-				role := "agent" // default role
-				if i < len(teamNames) {
-					candidateRole := teamNames[i]
-					// Only use the team name as role if it's not a builtin tool
-					if !tool.IsBuiltinTool(candidateRole) {
-						role = candidateRole
-					}
-				}
+				// Use the actual role from the team agent (this is the correct role!)
+				role := teamAgent.Role
 
 				info := &AgentInfo{
-					Agent:                  agent,
+					Agent:                  teamAgent.Agent,
 					Status:                 StatusIdle,
 					Spinner:                sp,
 					TokenProgress:          createTokenProgressBar(),
 					Name:                   displayName, // Sequential name like "Agent 1"
-					Role:                   role,        // Role from team, validated not to be a tool
+					Role:                   role,        // Role from team agent (correct role!)
 					ActivityData:           make([]float64, 0),
 					ActivityTimes:          make([]time.Time, 0),
 					CurrentActivity:        0,
@@ -77,7 +68,7 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 				}
 
 				// Get the model name from the agent
-				newModelName := agent.ModelName
+				newModelName := teamAgent.Agent.ModelName
 				if newModelName == "" {
 					newModelName = "unknown"
 				}
@@ -91,20 +82,20 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 				// This ensures spawned agents' token events are captured by the TUI
 				pr, pw := io.Pipe()
 				tracer := trace.NewJSONL(pw)
-				if agent.Tracer != nil {
-					agent.Tracer = trace.NewMulti(agent.Tracer, tracer)
+				if teamAgent.Agent.Tracer != nil {
+					teamAgent.Agent.Tracer = trace.NewMulti(teamAgent.Agent.Tracer, tracer)
 				} else {
-					agent.Tracer = tracer
+					teamAgent.Agent.Tracer = tracer
 				}
 				info.Scanner = bufio.NewScanner(pr)
 				// Store the pipe writer so we can clean it up later if needed
 				info.tracePipeWriter = pw
 
-				m.infos[agent.ID] = info
-				m.order = append(m.order, agent.ID)
+				m.infos[teamAgent.Agent.ID] = info
+				m.order = append(m.order, teamAgent.Agent.ID)
 
 				// Schedule readCmd for the new agent to listen to its trace events
-				newAgentCmds = append(newAgentCmds, m.readCmd(agent.ID))
+				newAgentCmds = append(newAgentCmds, m.readCmd(teamAgent.Agent.ID))
 			}
 		}
 	}

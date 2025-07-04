@@ -263,6 +263,18 @@ func (t *Team) Names() []string {
 	return t.GetAgents()
 }
 
+// GetTeamAgents returns a list of all team agents with role information.
+func (t *Team) GetTeamAgents() []*Agent {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	agents := make([]*Agent, 0, len(t.agents))
+	for _, agent := range t.agents {
+		agents = append(agents, agent)
+	}
+	return agents
+}
+
 // logToFile logs the message to a file (only if not in TUI mode)
 func logToFile(message string) {
 	// Check if we're in TUI mode by looking for the TUI environment

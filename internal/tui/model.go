@@ -3,6 +3,7 @@ package tui
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -281,6 +282,24 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	if err != nil {
 		panic(err) // For now, panic on error - TODO: handle gracefully
 	}
+
+	// CRITICAL FIX: Load Agent 0's proper role configuration (like prompt mode does)
+	// This must happen BEFORE registering the agent tool
+	agent0RolePath := "templates/roles/agent_0.yaml"
+	if role, err := team.LoadRoleFromFile(agent0RolePath); err == nil {
+		ag.Prompt = role.Prompt
+		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			fmt.Printf("🔧 Agent 0 loaded proper role configuration from %s (prompt length: %d chars)\n", agent0RolePath, len(role.Prompt))
+		}
+	} else {
+		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			fmt.Printf("⚠️  Failed to load Agent 0 role from %s: %v\n", agent0RolePath, err)
+		}
+	}
+
+	// CRITICAL FIX: Register the agent tool to replace the placeholder
+	// This was missing in TUI mode, causing "agent tool placeholder" errors
+	tm.RegisterAgentTool(ag.Tools)
 
 	m := Model{
 		agents:          []*core.Agent{ag},
