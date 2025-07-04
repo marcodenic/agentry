@@ -25,7 +25,7 @@ func (c *captureWriter) Write(_ context.Context, e trace.Event) { c.events = app
 
 func TestAgentRunYields(t *testing.T) {
 	cw := &captureWriter{}
-	ag := core.New(loopMock{}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), cw)
+	ag := core.New(loopMock{}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), memory.NewInMemoryVector(), cw)
 
 	out, err := ag.Run(context.Background(), "start")
 	if err != nil {

@@ -70,7 +70,7 @@ func TestAgent0DebugOutput(t *testing.T) {
 
 	// Create agent with mock client
 	mockClient := mockAgent0Client{}
-	ag := core.New(mockClient, "mock", tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	ag := core.New(mockClient, "mock", tool.DefaultRegistry(), memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 	ag.Prompt = agent0Prompt
 
 	// Create a team context so the agent tool can work

@@ -20,7 +20,7 @@ func (s staticClient) Complete(ctx context.Context, msgs []model.ChatMessage, to
 
 func newTestTeam(t *testing.T, reply string) (*team.Team, tool.Registry) {
 	registry := tool.DefaultRegistry()
-	ag := core.New(staticClient{out: reply}, "mock", registry, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	ag := core.New(staticClient{out: reply}, "mock", registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 	tm, err := team.NewTeam(ag, 2, "")
 	if err != nil {
 		t.Fatal(err)

@@ -88,7 +88,7 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 		}
 	}
 
-	agent := core.New(client, modelName, registry, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	agent := core.New(client, modelName, registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 	agent.Prompt = roleConfig.Prompt
 
 	// Find available port

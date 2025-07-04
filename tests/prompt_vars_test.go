@@ -22,7 +22,7 @@ func (p promptCheckClient) Complete(ctx context.Context, msgs []model.ChatMessag
 }
 
 func TestPromptVarSubstitution(t *testing.T) {
-	ag := core.New(promptCheckClient{t}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	ag := core.New(promptCheckClient{t}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 	ag.Prompt = "You are a {{tone}} bot"
 	ag.Vars = map[string]string{"tone": "cheerful"}
 	if _, err := ag.Run(context.Background(), "hi"); err != nil {
@@ -42,7 +42,7 @@ func (a *argSubClient) Complete(ctx context.Context, msgs []model.ChatMessage, t
 }
 
 func TestToolArgVarSubstitution(t *testing.T) {
-	ag := core.New(&argSubClient{}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	ag := core.New(&argSubClient{}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 	ag.Vars = map[string]string{"greet": "hello"}
 	out, err := ag.Run(context.Background(), "start")
 	if err != nil {

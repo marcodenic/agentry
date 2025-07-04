@@ -41,7 +41,7 @@ func TestConfigBootAndEval(t *testing.T) {
 	// Mock model
 	mock := &cyclingMock{}
 
-	agent := core.New(mock, "mock", tools, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	agent := core.New(mock, "mock", tools, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 
 	out, err := agent.Run(context.Background(), "hello")
 	if err != nil {

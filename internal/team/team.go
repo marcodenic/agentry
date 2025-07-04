@@ -124,7 +124,7 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	registry := tool.DefaultRegistry() // Get all available tools
 
 	// Create new agent with full capabilities, not inherited restrictions
-	coreAgent := core.New(t.parent.Client, t.parent.ModelName, registry, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	coreAgent := core.New(t.parent.Client, t.parent.ModelName, registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 
 	// Set role-appropriate prompt
 	coreAgent.Prompt = fmt.Sprintf("You are a %s agent specialized in %s tasks. You have access to all necessary tools to complete your assignments.", name, name)

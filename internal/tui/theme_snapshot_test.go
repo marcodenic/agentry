@@ -13,7 +13,7 @@ import (
 
 // newTestAgent creates a minimal agent for TUI tests.
 func newTestAgent() *core.Agent {
-	return core.New(model.NewMock(), "mock", tool.Registry{}, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	return core.New(model.NewMock(), "mock", tool.Registry{}, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 }
 
 func TestThemeRenderingSnapshots(t *testing.T) {

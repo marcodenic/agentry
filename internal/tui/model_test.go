@@ -16,7 +16,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	ag := core.New(model.NewMock(), "mock", tool.Registry{}, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	ag := core.New(model.NewMock(), "mock", tool.Registry{}, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 	m := New(ag)
 	if len(m.infos) != 1 {
 		t.Fatalf("expected one agent")
@@ -24,7 +24,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestCommandFlow(t *testing.T) {
-	ag := core.New(model.NewMock(), "mock", tool.Registry{}, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	ag := core.New(model.NewMock(), "mock", tool.Registry{}, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 	m := New(ag)
 
 	m, _ = m.handleCommand("/spawn helper")
@@ -52,7 +52,7 @@ func TestCommandFlow(t *testing.T) {
 
 func TestModelBasicInteraction(t *testing.T) {
 	mock := &seqMock{}
-	ag := core.New(mock, "mock", tool.Registry{}, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	ag := core.New(mock, "mock", tool.Registry{}, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 
 	m := New(ag)
 
@@ -77,7 +77,7 @@ func (m *seqMock) Complete(ctx context.Context, msgs []model.ChatMessage, tools 
 
 func TestModelMultipleAgents(t *testing.T) {
 	mock := &seqMock{}
-	ag := core.New(mock, "mock", tool.Registry{}, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	ag := core.New(mock, "mock", tool.Registry{}, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 
 	m := New(ag)
 

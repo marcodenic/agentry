@@ -11,7 +11,6 @@ import (
 	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/memory"
-	"github.com/marcodenic/agentry/internal/memstore"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
@@ -30,7 +29,6 @@ type Agent struct {
 	Client        model.Client
 	ModelName     string
 	Tracer        trace.Writer
-	Store         memstore.KV
 	Cost          *cost.Manager
 	MaxIterations int
 }
@@ -64,8 +62,8 @@ func getToolNames(reg tool.Registry) []string {
 	return names
 }
 
-func New(client model.Client, modelName string, reg tool.Registry, mem memory.Store, store memstore.KV, vec memory.VectorStore, tr trace.Writer) *Agent {
-	return &Agent{ID: uuid.New(), Tools: reg, Mem: mem, Vector: vec, Client: client, ModelName: modelName, Tracer: tr, Store: store, Cost: nil, MaxIterations: 8}
+func New(client model.Client, modelName string, reg tool.Registry, mem memory.Store, vec memory.VectorStore, tr trace.Writer) *Agent {
+	return &Agent{ID: uuid.New(), Tools: reg, Mem: mem, Vector: vec, Client: client, ModelName: modelName, Tracer: tr, Cost: nil, MaxIterations: 8}
 }
 
 func (a *Agent) Spawn() *Agent {
@@ -79,7 +77,6 @@ func (a *Agent) Spawn() *Agent {
 		Client:        a.Client,
 		ModelName:     a.ModelName,
 		Tracer:        a.Tracer,
-		Store:         a.Store,
 		Cost:          a.Cost,
 		MaxIterations: a.MaxIterations,
 	}

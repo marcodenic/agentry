@@ -18,7 +18,6 @@ import (
 	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
-	"github.com/marcodenic/agentry/internal/memstore"
 )
 
 // buildAgent constructs an Agent from configuration.
@@ -106,7 +105,7 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		vec = memory.NewInMemoryVector()
 	}
 
-	ag := core.New(client, modelName, reg, memory.NewInMemory(), memstore.NewInMemory(), vec, nil)
+	ag := core.New(client, modelName, reg, memory.NewInMemory(), vec, nil)
 
 	// Debug: check what tools the agent actually gets (only in non-TUI mode)
 	if os.Getenv("AGENTRY_TUI_MODE") != "1" {

@@ -25,7 +25,7 @@ func (s *simpleClient) Complete(ctx context.Context, msgs []model.ChatMessage, t
 
 func newAgent(out string, err error) *core.Agent {
 	c := &simpleClient{out: out, err: err}
-	return core.New(c, "mock", nil, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	return core.New(c, "mock", nil, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 }
 
 func TestRunParallelAggregatesErrors(t *testing.T) {
