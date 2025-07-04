@@ -26,7 +26,7 @@ func (m Model) getAdvancedStatusDot(status AgentStatus) string {
 }
 
 // renderTokenBar draws an animated progress bar for token usage with green-to-red gradient.
-// Only sets the width and returns the view.
+// Sets the width and percentage based on current token usage.
 func (m Model) renderTokenBar(info *AgentInfo, width int) string {
 	// Set the width of the progress bar to fit the sidebar (minus padding)
 	barWidth := width - 6 // Account for "  " prefix and some padding
@@ -37,6 +37,34 @@ func (m Model) renderTokenBar(info *AgentInfo, width int) string {
 		barWidth = 50 // Maximum reasonable width
 	}
 	info.TokenProgress.Width = barWidth
+
+	// Calculate and set the percentage based on current token usage
+	maxTokens := 8000
+	if info.ModelName != "" && strings.Contains(strings.ToLower(info.ModelName), "gpt-4") {
+		maxTokens = 128000
+	}
+
+	// Get token count - use streaming count during active streaming, real count otherwise
+	actualTokens := 0
+	if info.Agent != nil && info.Agent.Cost != nil {
+		if info.TokensStarted && info.StreamingResponse != "" {
+			actualTokens = info.StreamingTokenCount
+		} else {
+			actualTokens = info.Agent.Cost.TotalTokens()
+		}
+	}
+
+	// Calculate percentage (0.0 to 1.0 range for progress bar)
+	pct := float64(actualTokens) / float64(maxTokens)
+	if pct < 0 {
+		pct = 0
+	}
+	if pct > 1 {
+		pct = 1
+	}
+
+	// Set the percentage on the existing progress bar
+	info.TokenProgress.SetPercent(pct)
 
 	return info.TokenProgress.View()
 }

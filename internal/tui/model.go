@@ -24,10 +24,8 @@ import (
 
 // createTokenProgressBar creates a progress bar with green-to-red gradient
 func createTokenProgressBar() progress.Model {
-	// Create a custom gradient from green to red using safer color codes
-	greenToRedGradient := progress.WithGradient("#22C55E", "#EF4444")
-	withoutPercentage := progress.WithoutPercentage()
-	prog := progress.New(greenToRedGradient, withoutPercentage)
+	// Use the default gradient which provides smooth green-to-red transition
+	prog := progress.New(progress.WithDefaultGradient())
 	prog.Width = 20 // Set a default width to prevent crashes
 	return prog
 }
@@ -258,7 +256,7 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		TokenHistory:           []int{},
 		TokensStarted:          false,
 		StreamingResponse:      "",
-		StreamingTokenCount:    0, // Initialize live token count
+		StreamingTokenCount:    0,                          // Initialize live token count
 		DebugTrace:             make([]DebugTraceEvent, 0), // Initialize debug trace
 		CurrentStep:            0,
 		DebugStreamingResponse: "", // Initialize debug streaming response
