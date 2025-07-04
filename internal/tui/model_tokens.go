@@ -36,18 +36,30 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 	info.StreamingTokenCount++
 	info.CurrentActivity++ // Just increment counter, let activityTickMsg handle data points
 
-	// Save updated info back to map before calling SetPercent
+	// Save updated info back to map
 	m.infos[msg.id] = info
 
-	// Update progress bar percentage based on live streaming count (throttled)
+	// Update progress bar to match the percentage that will be shown on tokens line
 	var progressCmd tea.Cmd
-	if info.StreamingTokenCount%5 == 0 { // Only update progress every 5 tokens to reduce command frequency
+	if info.StreamingTokenCount%5 == 0 { // Update every 5 tokens for performance
+		// Use SAME calculation that agent_panel.go uses for the tokens line
 		maxTokens := 8000
 		if info.ModelName != "" && strings.Contains(strings.ToLower(info.ModelName), "gpt-4") {
 			maxTokens = 128000
 		}
-		pct := float64(info.StreamingTokenCount) / float64(maxTokens)
-		// Ensure percentage is within valid bounds [0.0, 1.0]
+
+		actualTokens := 0
+		if info.Agent != nil && info.Agent.Cost != nil {
+			if info.TokensStarted && info.StreamingResponse != "" {
+				actualTokens = info.StreamingTokenCount
+			} else {
+				actualTokens = info.Agent.Cost.TotalTokens()
+			}
+		}
+
+		// Same exact calculation as agent_panel.go
+		tokenPct := float64(actualTokens) / float64(maxTokens) * 100
+		pct := tokenPct / 100.0
 		if pct < 0 {
 			pct = 0
 		}
@@ -55,10 +67,7 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 			pct = 1
 		}
 
-		// Only update progress if we have a valid percentage
-		if pct >= 0 && pct <= 1 {
-			progressCmd = info.TokenProgress.SetPercent(pct)
-		}
+		progressCmd = info.TokenProgress.SetPercent(pct)
 	}
 
 	// Update viewport with streaming content - OPTIMIZED for performance

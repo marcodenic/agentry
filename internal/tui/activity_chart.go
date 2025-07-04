@@ -26,8 +26,8 @@ func (m Model) getAdvancedStatusDot(status AgentStatus) string {
 }
 
 // renderTokenBar draws an animated progress bar for token usage with green-to-red gradient.
-// Sets the width and percentage based on current token usage.
-func (m Model) renderTokenBar(info *AgentInfo, width int) string {
+// Sets the width and percentage based on the provided token percentage.
+func (m Model) renderTokenBar(info *AgentInfo, tokenPct float64, width int) string {
 	// Set the width of the progress bar to fit the sidebar (minus padding)
 	barWidth := width - 6 // Account for "  " prefix and some padding
 	if barWidth < 10 {
@@ -38,24 +38,8 @@ func (m Model) renderTokenBar(info *AgentInfo, width int) string {
 	}
 	info.TokenProgress.Width = barWidth
 
-	// Calculate and set the percentage based on current token usage
-	maxTokens := 8000
-	if info.ModelName != "" && strings.Contains(strings.ToLower(info.ModelName), "gpt-4") {
-		maxTokens = 128000
-	}
-
-	// Get token count - use streaming count during active streaming, real count otherwise
-	actualTokens := 0
-	if info.Agent != nil && info.Agent.Cost != nil {
-		if info.TokensStarted && info.StreamingResponse != "" {
-			actualTokens = info.StreamingTokenCount
-		} else {
-			actualTokens = info.Agent.Cost.TotalTokens()
-		}
-	}
-
-	// Calculate percentage (0.0 to 1.0 range for progress bar)
-	pct := float64(actualTokens) / float64(maxTokens)
+	// Convert percentage (0-100) to ratio (0.0-1.0) for progress bar
+	pct := tokenPct / 100.0
 	if pct < 0 {
 		pct = 0
 	}
@@ -63,13 +47,7 @@ func (m Model) renderTokenBar(info *AgentInfo, width int) string {
 		pct = 1
 	}
 
-	// HACK: Force very low percentages to show as exactly 0% so gradient shows pure green
-	// The gradient interpolation at 7% might be showing orange, so force it lower
-	if pct < 0.1 { // For anything under 10%
-		pct = 0.05 // Force it to a very low percentage that should definitely be green
-	}
-
-	// Use the existing progress bar - EXACTLY like the working purple version
+	// Set the percentage on the existing progress bar
 	info.TokenProgress.SetPercent(pct)
 
 	return info.TokenProgress.View()

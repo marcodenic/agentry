@@ -108,7 +108,18 @@ func (m Model) agentPanel(panelWidth int) string {
 		tokenPct := float64(actualTokens) / float64(maxTokens) * 100
 		tokenLine := fmt.Sprintf("  tokens: %d (%.1f%%)", actualTokens, tokenPct)
 		lines = append(lines, tokenLine)
-		bar := m.renderTokenBar(ag, panelWidth)
+
+		// Set the progress bar to the EXACT same percentage as the tokens line
+		pct := tokenPct / 100.0
+		if pct < 0 {
+			pct = 0
+		}
+		if pct > 1 {
+			pct = 1
+		}
+		ag.TokenProgress.SetPercent(pct)
+
+		bar := m.renderTokenBar(ag, tokenPct, panelWidth)
 		lines = append(lines, "  "+bar)
 		activityChart := m.renderActivityChart(ag.ActivityData, panelWidth)
 		if activityChart != "" {
