@@ -21,39 +21,43 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 	if !info.TokensStarted {
 		info.TokensStarted = true
 		info.StreamingResponse = "" // Initialize streaming response
+		// Initialize live token count based on agent's current count
+		if info.Agent != nil && info.Agent.Cost != nil {
+			info.StreamingTokenCount = info.Agent.Cost.TotalTokens()
+		} else {
+			info.StreamingTokenCount = 0
+		}
 		// No need to clean up spinners since they were never added to history!
 	}
 
 	// Add token to streaming response
 	info.StreamingResponse += msg.token
-	// NOTE: Don't count tokens here - use agent's cost manager for accurate counts
+	// Count tokens live during streaming for responsive UI
+	info.StreamingTokenCount++
 	info.CurrentActivity++ // Just increment counter, let activityTickMsg handle data points
 
 	// Save updated info back to map before calling SetPercent
 	m.infos[msg.id] = info
 
-	// Update progress bar percentage based on agent's actual token count (throttled)
+	// Update progress bar percentage based on live streaming count (throttled)
 	var progressCmd tea.Cmd
-	if info.Agent != nil && info.Agent.Cost != nil {
-		actualTokens := info.Agent.Cost.TotalTokens()
-		if actualTokens%5 == 0 { // Only update progress every 5 tokens to reduce command frequency
-			maxTokens := 8000
-			if info.ModelName != "" && strings.Contains(strings.ToLower(info.ModelName), "gpt-4") {
-				maxTokens = 128000
-			}
-			pct := float64(actualTokens) / float64(maxTokens)
-			// Ensure percentage is within valid bounds [0.0, 1.0]
-			if pct < 0 {
-				pct = 0
-			}
-			if pct > 1 {
-				pct = 1
-			}
+	if info.StreamingTokenCount%5 == 0 { // Only update progress every 5 tokens to reduce command frequency
+		maxTokens := 8000
+		if info.ModelName != "" && strings.Contains(strings.ToLower(info.ModelName), "gpt-4") {
+			maxTokens = 128000
+		}
+		pct := float64(info.StreamingTokenCount) / float64(maxTokens)
+		// Ensure percentage is within valid bounds [0.0, 1.0]
+		if pct < 0 {
+			pct = 0
+		}
+		if pct > 1 {
+			pct = 1
+		}
 
-			// Only update progress if we have a valid percentage
-			if pct >= 0 && pct <= 1 {
-				progressCmd = info.TokenProgress.SetPercent(pct)
-			}
+		// Only update progress if we have a valid percentage
+		if pct >= 0 && pct <= 1 {
+			progressCmd = info.TokenProgress.SetPercent(pct)
 		}
 	}
 
@@ -175,6 +179,13 @@ func (m Model) handleFinalMessage(msg finalMsg) (Model, tea.Cmd) {
 	// Set status to idle, clear spinner
 	info.Status = StatusIdle
 	info.TokensStarted = false // Reset streaming state
+
+	// Reconcile streaming token count with final API response
+	if info.Agent != nil && info.Agent.Cost != nil {
+		// The agent's cost manager has now been updated with real API tokens
+		// Reset streaming count to match real count for consistency
+		info.StreamingTokenCount = info.Agent.Cost.TotalTokens()
+	}
 
 	// Cost is now handled directly by the agent's cost manager
 	// No TUI-side cost tracking needed

@@ -95,10 +95,14 @@ func (m Model) agentPanel(panelWidth int) string {
 			maxTokens = 128000
 		}
 
-		// Get token count from agent's cost manager for accuracy
+		// Get token count - use streaming count during active streaming, real count otherwise
 		actualTokens := 0
 		if ag.Agent != nil && ag.Agent.Cost != nil {
-			actualTokens = ag.Agent.Cost.TotalTokens()
+			if ag.TokensStarted && ag.StreamingResponse != "" {
+				actualTokens = ag.StreamingTokenCount
+			} else {
+				actualTokens = ag.Agent.Cost.TotalTokens()
+			}
 		}
 
 		tokenPct := float64(actualTokens) / float64(maxTokens) * 100

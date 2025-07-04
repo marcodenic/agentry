@@ -63,11 +63,15 @@ func (m Model) View() string {
 	totalTokens := 0
 	totalCost := 0.0
 
-	// Simply sum up the costs from each agent's cost manager
+	// Sum up tokens and costs, using live streaming counts when available
 	for _, info := range m.infos {
 		if info.Agent != nil && info.Agent.Cost != nil {
-			// Get both tokens and cost from the agent's cost manager for consistency
-			totalTokens += info.Agent.Cost.TotalTokens()
+			// Use streaming token count during active streaming, real count otherwise
+			if info.TokensStarted && info.StreamingResponse != "" {
+				totalTokens += info.StreamingTokenCount
+			} else {
+				totalTokens += info.Agent.Cost.TotalTokens()
+			}
 			totalCost += info.Agent.Cost.TotalCost()
 		}
 	}

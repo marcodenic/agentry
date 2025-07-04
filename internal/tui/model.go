@@ -146,21 +146,22 @@ type AgentInfo struct {
 	PendingStatusUpdate string      // Track ongoing status update for progressive completion
 	CurrentTool         string
 	// TokenCount removed - use Agent.Cost.TotalTokens() for accurate token counts
-	TokenHistory      []int
-	ActivityData      []float64   // Activity level per second (0.0 to 1.0)
-	ActivityTimes     []time.Time // Timestamp for each activity data point
-	LastToken         time.Time
-	LastActivity      time.Time
-	CurrentActivity   int // Tokens processed in current second
-	ModelName         string
-	Scanner           *bufio.Scanner
-	Cancel            context.CancelFunc
-	Spinner           spinner.Model
-	TokenProgress     progress.Model // Animated progress bar for token usage
-	Name              string
-	Role              string // Agent role for display (e.g., "System", "Research", "DevOps")
-	TokensStarted     bool   // Flag to stop thinking animation when tokens start
-	StreamingResponse string // Current AI response being streamed (unformatted)
+	TokenHistory        []int
+	ActivityData        []float64   // Activity level per second (0.0 to 1.0)
+	ActivityTimes       []time.Time // Timestamp for each activity data point
+	LastToken           time.Time
+	LastActivity        time.Time
+	CurrentActivity     int // Tokens processed in current second
+	ModelName           string
+	Scanner             *bufio.Scanner
+	Cancel              context.CancelFunc
+	Spinner             spinner.Model
+	TokenProgress       progress.Model // Animated progress bar for token usage
+	Name                string
+	Role                string // Agent role for display (e.g., "System", "Research", "DevOps")
+	TokensStarted       bool   // Flag to stop thinking animation when tokens start
+	StreamingResponse   string // Current AI response being streamed (unformatted)
+	StreamingTokenCount int    // Live token count during streaming (reconciled on completion)
 
 	// Debug and trace fields
 	DebugTrace             []DebugTraceEvent // Debug trace events
@@ -257,6 +258,7 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		TokenHistory:           []int{},
 		TokensStarted:          false,
 		StreamingResponse:      "",
+		StreamingTokenCount:    0, // Initialize live token count
 		DebugTrace:             make([]DebugTraceEvent, 0), // Initialize debug trace
 		CurrentStep:            0,
 		DebugStreamingResponse: "", // Initialize debug streaming response
