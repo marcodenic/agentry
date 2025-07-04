@@ -118,6 +118,7 @@ func (a *Anthropic) Complete(ctx context.Context, msgs []ChatMessage, tools []To
 	comp := Completion{
 		InputTokens:  res.Usage.InputTokens,
 		OutputTokens: res.Usage.OutputTokens,
+		ModelName:    "anthropic/" + a.model, // Store as provider/model format
 	}
 	var content strings.Builder
 	for _, c := range res.Content {

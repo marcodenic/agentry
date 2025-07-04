@@ -74,7 +74,7 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 			modelName = "mock"
 		} else {
 			client = c
-			modelName = fmt.Sprintf("%s-%s", roleConfig.Model.Provider, roleConfig.Model.Options["model"])
+			modelName = fmt.Sprintf("%s/%s", roleConfig.Model.Provider, roleConfig.Model.Options["model"])
 			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
 				fmt.Printf("✅ SpawnAgent: Successfully created %s model client for role %s\n", modelName, role)
 			}

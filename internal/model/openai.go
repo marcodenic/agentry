@@ -141,6 +141,7 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 		Content:      choice.Content,
 		InputTokens:  res.Usage.PromptTokens,
 		OutputTokens: res.Usage.CompletionTokens,
+		ModelName:    "openai/" + o.model, // Store as provider/model format
 	}
 	for _, tc := range choice.ToolCalls {
 		comp.ToolCalls = append(comp.ToolCalls, ToolCall{

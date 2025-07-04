@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/model"
@@ -40,17 +39,16 @@ func Analyze(input string, events []Event) Summary {
 					totalInputTokens += d.InputTokens
 					totalOutputTokens += d.OutputTokens
 
-					// We need to determine the model name from context
-					// For now, we'll use a default model for cost calculation
-					// In a real implementation, this would be tracked in the trace
-					modelName := "gpt-4o" // Default fallback
-					cost := pricing.CalculateCost(modelName, d.InputTokens, d.OutputTokens)
-					totalCost += cost
+					// Calculate cost using the model name from the completion
+					if d.ModelName != "" {
+						cost := pricing.CalculateCost(d.ModelName, d.InputTokens, d.OutputTokens)
+						totalCost += cost
 
-					usage := modelUsage[modelName]
-					usage.InputTokens += d.InputTokens
-					usage.OutputTokens += d.OutputTokens
-					modelUsage[modelName] = usage
+						usage := modelUsage[d.ModelName]
+						usage.InputTokens += d.InputTokens
+						usage.OutputTokens += d.OutputTokens
+						modelUsage[d.ModelName] = usage
+					}
 				}
 				// Note: No fallback to word-based counting - only use actual API token counts
 			}
@@ -59,10 +57,18 @@ func Analyze(input string, events []Event) Summary {
 		}
 	}
 
-	// If we didn't get any actual token counts, estimate from input only
-	if totalInputTokens == 0 && totalOutputTokens == 0 {
-		totalInputTokens = len(strings.Fields(input))
-		totalCost = float64(totalInputTokens) * cost.CostPerToken
+	// Calculate total cost using the cost manager's pricing table
+	for modelName, usage := range modelUsage {
+		// Use the same pricing table as the cost manager
+		costManager := cost.New(0, 0) // Create temporary cost manager to access pricing
+		modelCost := costManager.GetModelCost(modelName)
+		if modelCost == 0 {
+			// If we can't price this model, add its tokens to get a cost estimate
+			costManager.AddModelUsage(modelName, usage.InputTokens, usage.OutputTokens)
+			totalCost += costManager.GetModelCost(modelName)
+		} else {
+			totalCost += modelCost
+		}
 	}
 
 	return Summary{

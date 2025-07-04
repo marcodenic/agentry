@@ -2,8 +2,7 @@ package cost
 
 import "sync"
 
-// Deprecated: Use PricingTable for accurate model-specific pricing
-const CostPerToken = 0.000002
+
 
 // TokenUsage represents token usage for a model call
 type TokenUsage struct {

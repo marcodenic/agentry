@@ -29,8 +29,9 @@ type ToolCall struct {
 type Completion struct {
 	Content      string
 	ToolCalls    []ToolCall
-	InputTokens  int // Actual input tokens from API
-	OutputTokens int // Actual output tokens from API
+	InputTokens  int    // Actual input tokens from API
+	OutputTokens int    // Actual output tokens from API
+	ModelName    string // The provider/model name used (e.g., "openai/gpt-4")
 }
 
 // Client defines the interface for language model backends.

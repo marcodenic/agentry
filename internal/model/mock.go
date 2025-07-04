@@ -15,7 +15,13 @@ func (m *Mock) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 	m.call++
 	if m.call == 1 {
 		args, _ := json.Marshal(map[string]string{"text": "hello"})
-		return Completion{ToolCalls: []ToolCall{{ID: "1", Name: "echo", Arguments: args}}}, nil
+		return Completion{
+			ToolCalls: []ToolCall{{ID: "1", Name: "echo", Arguments: args}},
+			ModelName: "mock/test",
+		}, nil
 	}
-	return Completion{Content: "hello"}, nil
+	return Completion{
+		Content:   "hello",
+		ModelName: "mock/test",
+	}, nil
 }

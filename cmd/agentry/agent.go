@@ -91,9 +91,9 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		}
 		client = c
 
-		// Construct the model name: provider-model (e.g., "openai-gpt-4.1-nano")
+		// Construct the model name: provider/model (e.g., "openai/gpt-4.1-nano")
 		if primaryModel.Options != nil && primaryModel.Options["model"] != "" {
-			modelName = fmt.Sprintf("%s-%s", primaryModel.Provider, primaryModel.Options["model"])
+			modelName = fmt.Sprintf("%s/%s", primaryModel.Provider, primaryModel.Options["model"])
 		} else {
 			modelName = primaryModel.Name // fallback to name if no model option
 		}

@@ -29,19 +29,21 @@ func NewPricingTable() *PricingTable {
 	pt := &PricingTable{
 		prices: make(map[string]ModelPricing),
 	}
-	pt.loadPrices()
+	if err := pt.loadPrices(); err != nil {
+		// Log error but don't panic - allow the system to continue with empty pricing
+		// This will result in zero costs for unknown models
+		return pt
+	}
 	return pt
 }
 
-// loadPrices loads pricing data from cached file or falls back to defaults
-func (pt *PricingTable) loadPrices() {
-	// Try to load from cached file first
-	if pt.loadFromCache() {
-		return
+// loadPrices loads pricing data from cached file
+func (pt *PricingTable) loadPrices() error {
+	// Only load from cache - no hardcoded defaults
+	if !pt.loadFromCache() {
+		return fmt.Errorf("pricing cache file is missing or corrupted. Please run 'agentry refresh-pricing' to download fresh pricing data")
 	}
-
-	// If no cached file, load minimal defaults
-	pt.loadDefaultPrices()
+	return nil
 }
 
 // loadFromCache loads pricing data from the cached JSON file
@@ -63,31 +65,11 @@ func (pt *PricingTable) loadFromCache() bool {
 	return true
 }
 
-// loadDefaultPrices loads minimal fallback pricing data
-func (pt *PricingTable) loadDefaultPrices() {
-	// Only minimal fallback prices for when API is unavailable
-	defaultPrices := map[string]ModelPricing{
-		// Basic OpenAI models
-		"gpt-4":         {InputPrice: 30.0, OutputPrice: 60.0},
-		"gpt-4o":        {InputPrice: 2.5, OutputPrice: 10.0},
-		"gpt-4o-mini":   {InputPrice: 0.15, OutputPrice: 0.6},
-		"gpt-3.5-turbo": {InputPrice: 0.5, OutputPrice: 1.5},
 
-		// Basic Claude models
-		"claude-3-opus":     {InputPrice: 15.0, OutputPrice: 75.0},
-		"claude-3-sonnet":   {InputPrice: 3.0, OutputPrice: 15.0},
-		"claude-3-haiku":    {InputPrice: 0.25, OutputPrice: 1.25},
-		"claude-3-5-sonnet": {InputPrice: 3.0, OutputPrice: 15.0},
-		"claude-3-5-haiku":  {InputPrice: 1.0, OutputPrice: 5.0},
-	}
-
-	for model, pricing := range defaultPrices {
-		pt.prices[model] = pricing
-	}
-}
 
 // parseAPIData extracts pricing information from the models.dev API response
 func (pt *PricingTable) parseAPIData(apiData map[string]interface{}) {
+	// First pass: collect all models with provider prefixes
 	for providerID, providerData := range apiData {
 		provider, ok := providerData.(map[string]interface{})
 		if !ok {
@@ -115,17 +97,43 @@ func (pt *PricingTable) parseAPIData(apiData map[string]interface{}) {
 			outputPrice, outputOk := cost["output"].(float64)
 
 			if inputOk && outputOk {
-				// Store with both provider prefix and clean model name
+				// Store with provider prefix
 				fullModelName := fmt.Sprintf("%s/%s", providerID, modelID)
 				pt.prices[fullModelName] = ModelPricing{InputPrice: inputPrice, OutputPrice: outputPrice}
-				pt.prices[modelID] = ModelPricing{InputPrice: inputPrice, OutputPrice: outputPrice}
 			}
 		}
 	}
+	
+	// Only store provider/model format - no fallback to plain model names
 }
 
 // getCacheFilePath returns the path to the cached pricing file
 func (pt *PricingTable) getCacheFilePath() string {
+	// Try to find the module root by looking for go.mod
+	cwd, err := os.Getwd()
+	if err != nil {
+		// Fallback to relative path from current directory
+		return filepath.Join("internal", "cost", "data", "models_pricing.json")
+	}
+	
+	// Look for go.mod starting from current directory and going up
+	dir := cwd
+	for {
+		goModPath := filepath.Join(dir, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			// Found go.mod, this is the module root
+			return filepath.Join(dir, "internal", "cost", "data", "models_pricing.json")
+		}
+		
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached filesystem root, fallback to relative path
+			break
+		}
+		dir = parent
+	}
+	
+	// Fallback to relative path
 	return filepath.Join("internal", "cost", "data", "models_pricing.json")
 }
 
@@ -134,52 +142,49 @@ func (pt *PricingTable) GetPricing(model string) (ModelPricing, bool) {
 	pt.mu.RLock()
 	defer pt.mu.RUnlock()
 
-	// Try exact match first
+	// Only exact match - no fuzzy matching
 	if pricing, ok := pt.prices[model]; ok {
 		return pricing, true
 	}
 
-	// Try partial matching for versioned models - use deterministic order
-	modelLower := strings.ToLower(model)
-	
-	// Collect all potential matches first
-	var matches []struct {
-		priceModel string
-		pricing    ModelPricing
-		matchType  int // 0 = exact contains, 1 = partial contains
+	return ModelPricing{}, false
+}
+
+// GetPricingByProvider returns the pricing for a given provider and model
+func (pt *PricingTable) GetPricingByProvider(provider, model string) (ModelPricing, bool) {
+	pt.mu.RLock()
+	defer pt.mu.RUnlock()
+
+	// Only try provider/model format - no fallback to plain model names
+	providerModel := fmt.Sprintf("%s/%s", provider, model)
+	if pricing, ok := pt.prices[providerModel]; ok {
+		return pricing, true
 	}
-	
-	for priceModel, pricing := range pt.prices {
-		priceModelLower := strings.ToLower(priceModel)
+
+	return ModelPricing{}, false
+}
+
+// GetPricingByModelName handles provider-model format names like "openai-gpt-4" or "anthropic-claude-instant"
+func (pt *PricingTable) GetPricingByModelName(modelName string) (ModelPricing, bool) {
+	pt.mu.RLock()
+	defer pt.mu.RUnlock()
+
+	// Try exact match first (for provider/model format like "openai/gpt-4")
+	if pricing, ok := pt.prices[modelName]; ok {
+		return pricing, true
+	}
+
+	// Try to parse provider-model format (like "openai-gpt-4" -> "openai/gpt-4")
+	parts := strings.Split(modelName, "-")
+	if len(parts) >= 2 {
+		provider := parts[0]
+		model := strings.Join(parts[1:], "-")
 		
-		// Prioritize exact substring matches
-		if strings.Contains(modelLower, priceModelLower) {
-			matches = append(matches, struct {
-				priceModel string
-				pricing    ModelPricing
-				matchType  int
-			}{priceModel, pricing, 0})
-		} else if strings.Contains(priceModelLower, modelLower) {
-			matches = append(matches, struct {
-				priceModel string
-				pricing    ModelPricing
-				matchType  int
-			}{priceModel, pricing, 1})
+		// Try provider/model format
+		providerModel := fmt.Sprintf("%s/%s", provider, model)
+		if pricing, ok := pt.prices[providerModel]; ok {
+			return pricing, true
 		}
-	}
-	
-	// If we have matches, return the first one with the highest priority
-	// This ensures deterministic behavior
-	if len(matches) > 0 {
-		// Sort by match type (exact matches first), then by model name for determinism
-		bestMatch := matches[0]
-		for _, match := range matches[1:] {
-			if match.matchType < bestMatch.matchType ||
-				(match.matchType == bestMatch.matchType && match.priceModel < bestMatch.priceModel) {
-				bestMatch = match
-			}
-		}
-		return bestMatch.pricing, true
 	}
 
 	return ModelPricing{}, false
@@ -187,10 +192,10 @@ func (pt *PricingTable) GetPricing(model string) (ModelPricing, bool) {
 
 // CalculateCost calculates the cost for input and output tokens
 func (pt *PricingTable) CalculateCost(model string, inputTokens, outputTokens int) float64 {
-	pricing, found := pt.GetPricing(model)
+	pricing, found := pt.GetPricingByModelName(model)
 	if !found {
-		// Fallback to a reasonable default if model not found
-		pricing = ModelPricing{InputPrice: 1.0, OutputPrice: 3.0}
+		// Return zero cost if model not found - no hardcoded fallbacks
+		return 0.0
 	}
 
 	// Convert tokens to millions and calculate cost

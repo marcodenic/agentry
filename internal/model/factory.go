@@ -19,7 +19,7 @@ func FromManifest(m config.ModelManifest) (Client, error) {
 		}
 		modelName := m.Options["model"]
 		if modelName == "" {
-			modelName = "gpt-4o"
+			return nil, fmt.Errorf("model name is required for OpenAI provider")
 		}
 		return NewOpenAI(key, modelName), nil
 	case "anthropic":
@@ -29,7 +29,7 @@ func FromManifest(m config.ModelManifest) (Client, error) {
 		}
 		modelName := m.Options["model"]
 		if modelName == "" {
-			modelName = "claude-3-opus-20240229"
+			return nil, fmt.Errorf("model name is required for Anthropic provider")
 		}
 		return NewAnthropic(key, modelName), nil
 	default:
