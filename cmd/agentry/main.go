@@ -85,3 +85,7 @@ Examples:
   agentry --help                   # Show help
 `)
 }
+
+func runToolCmd(args []string) {
+	fmt.Println("Tool command not implemented")
+}

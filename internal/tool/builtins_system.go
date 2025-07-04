@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/marcodenic/agentry/pkg/sbox"
+	"github.com/marcodenic/agentry/internal/sbox"
 )
 
 // getSystemBuiltins returns system information builtin tools

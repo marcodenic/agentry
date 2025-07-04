@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/marcodenic/agentry/internal/tool"
-	"github.com/marcodenic/agentry/pkg/sbox"
+	"github.com/marcodenic/agentry/internal/sbox"
 )
 
 func TestSandboxDisabled(t *testing.T) {

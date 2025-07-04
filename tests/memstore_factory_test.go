@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/marcodenic/agentry/pkg/memstore"
+	"github.com/marcodenic/agentry/internal/memstore"
 )
 
 func TestStoreFactory(t *testing.T) {

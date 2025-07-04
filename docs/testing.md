@@ -1,6 +1,13 @@
 # Testing & Validation Guide
 
-> For the canonical, up-to-date test checklist, see [../TEST.md](../TEST.md).
+### TypeScript SDK
+
+```bash
+cd ts-sdk
+npm test
+```
+
+### All-in-One (Makefile)ical, up-to-date test checklist, see [../TEST.md](../TEST.md).
 
 This guide explains how to set up your environment, run all tests, and validate Agentry functionality. It is intended for human users and new contributors.
 
@@ -17,7 +24,6 @@ This guide explains how to set up your environment, run all tests, and validate 
 4. **Install dependencies:**
    - `go mod tidy`
    - `cd ts-sdk && npm install`
-   - `cd extensions/vscode-agentry && npm install`
 
 ---
 
@@ -57,9 +63,6 @@ make dev
   - `agentry flow examples/flows/research_task`
   - `agentry flow examples/flows/etl_pipeline`
   - `agentry flow examples/flows/multi_agent_chat`
-- Run advanced demos:
-  - `agentry flow agentry-demos/devops-automation`
-  - `agentry flow agentry-demos/research-assistant`
 - Try the TUI: `agentry tui --config examples/.agentry.yaml`
 - Try team chat: `agentry tui --team 3`
 - Try checkpoint/resume: `agentry flow ... --checkpoint-id test`

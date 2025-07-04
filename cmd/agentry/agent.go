@@ -18,7 +18,7 @@ import (
 	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
-	"github.com/marcodenic/agentry/pkg/memstore"
+	"github.com/marcodenic/agentry/internal/memstore"
 )
 
 // buildAgent constructs an Agent from configuration.
@@ -145,6 +145,11 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	return ag, nil
 }
 
-func runCostCmd(args []string)  { fmt.Println("Cost command not available (build with --tools flag)") }
-func runPProfCmd(args []string) { fmt.Println("PProf command not available (build with --tools flag)") }
-func runToolCmd(args []string)  { fmt.Println("Tool command not available (build with --tools flag)") }
+// Stub functions for commands that are only available with tools build tag
+func runCostCmd(args []string) {
+	fmt.Println("Cost command not available (build with --tools flag)")
+}
+
+func runPProfCmd(args []string) {
+	fmt.Println("PProf command not available (build with --tools flag)")
+}

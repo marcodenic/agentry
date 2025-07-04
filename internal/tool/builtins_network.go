@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/marcodenic/agentry/pkg/sbox"
+	"github.com/marcodenic/agentry/internal/sbox"
 )
 
 // getNetworkBuiltins returns network-related builtin tools

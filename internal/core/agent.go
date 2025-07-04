@@ -14,7 +14,7 @@ import (
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
-	"github.com/marcodenic/agentry/pkg/memstore"
+	"github.com/marcodenic/agentry/internal/memstore"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"

@@ -58,12 +58,9 @@ Follow Go project best practices and keep the repository organized:
 
 #### **Deployment & Packaging**
 
-- `deploy/` - Deployment configurations (k8s, helm, docker)
 - `packaging/` - Package creation scripts (homebrew, scoop, deb)
 
 #### **Development Tools**
-
-- `extensions/` - IDE extensions and tools
 - `ui/` - Web interface and frontend code
 - `ts-sdk/` - TypeScript SDK
 

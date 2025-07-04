@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/marcodenic/agentry/internal/config"
-	"github.com/marcodenic/agentry/pkg/sbox"
+	"github.com/marcodenic/agentry/internal/sbox"
 )
 
 var osType = runtime.GOOS

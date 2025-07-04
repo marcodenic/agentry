@@ -3,7 +3,7 @@ package tool
 import (
 	"context"
 
-	"github.com/marcodenic/agentry/pkg/sbox"
+	"github.com/marcodenic/agentry/internal/sbox"
 )
 
 var defaultEngine string
