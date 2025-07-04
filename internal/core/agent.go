@@ -11,10 +11,10 @@ import (
 	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/memory"
+	"github.com/marcodenic/agentry/internal/memstore"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
-	"github.com/marcodenic/agentry/internal/memstore"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"

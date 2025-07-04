@@ -96,22 +96,6 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		modelName = "mock"
 	}
 
-	var store memstore.KV
-	memURI := cfg.Memory
-	if memURI == "" {
-		memURI = cfg.Store
-	}
-	if memURI == "" {
-		memURI = "mem"
-	}
-	if memURI != "" {
-		s, err := memstore.StoreFactory(memURI)
-		if err != nil {
-			return nil, err
-		}
-		store = s
-	}
-
 	var vec memory.VectorStore
 	switch cfg.Vector.Type {
 	case "qdrant":
@@ -122,7 +106,7 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		vec = memory.NewInMemoryVector()
 	}
 
-	ag := core.New(client, modelName, reg, memory.NewInMemory(), store, vec, nil)
+	ag := core.New(client, modelName, reg, memory.NewInMemory(), memstore.NewInMemory(), vec, nil)
 
 	// Debug: check what tools the agent actually gets (only in non-TUI mode)
 	if os.Getenv("AGENTRY_TUI_MODE") != "1" {

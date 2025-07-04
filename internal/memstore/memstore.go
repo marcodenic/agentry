@@ -2,7 +2,6 @@ package memstore
 
 import (
 	"context"
-	"time"
 )
 
 // KV defines a simple bucketed key/value store.
@@ -11,7 +10,22 @@ type KV interface {
 	Get(ctx context.Context, bucket, key string) ([]byte, error)
 }
 
-// Cleaner defines optional TTL-based cleanup for a store.
-type Cleaner interface {
-	Cleanup(ctx context.Context, bucket string, ttl time.Duration) error
+// InMemory is a simple in-memory implementation that does nothing.
+type InMemory struct{}
+
+func NewInMemory() *InMemory { return &InMemory{} }
+
+func (s *InMemory) Set(ctx context.Context, bucket, key string, val []byte) error {
+	// No-op implementation
+	return nil
+}
+
+func (s *InMemory) Get(ctx context.Context, bucket, key string) ([]byte, error) {
+	// No-op implementation
+	return nil, nil
+}
+
+// StoreFactory creates a minimal store (only in-memory)
+func StoreFactory(uri string) (KV, error) {
+	return NewInMemory(), nil
 }
