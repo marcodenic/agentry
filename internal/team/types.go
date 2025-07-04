@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/core"
 )
 
@@ -62,11 +63,12 @@ type Message struct {
 
 // RoleConfig represents configuration for an agent role
 type RoleConfig struct {
-	Name         string            `json:"name"`
-	Prompt       string            `json:"prompt"`
-	Tools        []string          `json:"tools,omitempty"`
-	Capabilities []string          `json:"capabilities,omitempty"`
-	Metadata     map[string]string `json:"metadata,omitempty"`
+	Name         string                `json:"name"`
+	Model        *config.ModelManifest `json:"model,omitempty"` // Add model configuration support
+	Prompt       string                `json:"prompt"`
+	Tools        []string              `json:"tools,omitempty"`
+	Capabilities []string              `json:"capabilities,omitempty"`
+	Metadata     map[string]string     `json:"metadata,omitempty"`
 }
 
 // PortRange defines a range of ports for agent communication

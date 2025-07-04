@@ -17,7 +17,7 @@ import (
 func (t *Team) AddExistingAgent(name string, agent *core.Agent) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	
+
 	id := uuid.New().String()
 	teamAgent := &Agent{
 		ID:        id,
@@ -28,10 +28,10 @@ func (t *Team) AddExistingAgent(name string, agent *core.Agent) error {
 		LastSeen:  time.Now(),
 		Metadata:  make(map[string]string),
 	}
-	
+
 	t.agents[id] = teamAgent
 	t.agentsByName[name] = teamAgent
-	
+
 	return nil
 }
 
@@ -39,7 +39,7 @@ func (t *Team) AddExistingAgent(name string, agent *core.Agent) error {
 func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	
+
 	// Get role configuration
 	roleConfig := t.roles[role]
 	if roleConfig == nil {
@@ -52,24 +52,49 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 			Metadata:     make(map[string]string),
 		}
 	}
-	
+
 	// Create the core agent
 	registry := tool.DefaultRegistry()
+
+	// Create proper model client based on role configuration
+	var client model.Client
+	var modelName string
+
+	if roleConfig.Model != nil {
+		// Use role-specific model configuration
+		fmt.Printf("🔧 SpawnAgent: Attempting to create model client for role %s with provider %s\n", role, roleConfig.Model.Provider)
+		c, err := model.FromManifest(*roleConfig.Model)
+		if err != nil {
+			fmt.Printf("❌ SpawnAgent: failed to create model client for role %s: %v, falling back to mock\n", role, err)
+			client = model.NewMock()
+			modelName = "mock"
+		} else {
+			client = c
+			modelName = fmt.Sprintf("%s-%s", roleConfig.Model.Provider, roleConfig.Model.Options["model"])
+			fmt.Printf("✅ SpawnAgent: Successfully created %s model client for role %s\n", modelName, role)
+		}
+	} else {
+		// Fallback to mock model
+		client = model.NewMock()
+		modelName = "mock"
+		fmt.Printf("⚠️  SpawnAgent: No model config for role %s, using mock\n", role)
+	}
+
 	routes := router.Rules{{
-		Name:       role,
+		Name:       modelName,
 		IfContains: []string{""},
-		Client:     model.NewMock(),
+		Client:     client,
 	}}
-	
+
 	agent := core.New(routes, registry, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
 	agent.Prompt = roleConfig.Prompt
-	
+
 	// Find available port
 	port, err := t.findAvailablePort()
 	if err != nil {
 		return nil, fmt.Errorf("no available ports: %w", err)
 	}
-	
+
 	id := uuid.New().String()
 	teamAgent := &Agent{
 		ID:        id,
@@ -82,16 +107,16 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 		LastSeen:  time.Now(),
 		Metadata:  roleConfig.Metadata,
 	}
-	
+
 	t.agents[id] = teamAgent
 	t.agentsByName[name] = teamAgent
-	
+
 	// Start the agent
 	go func() {
 		// Agent is ready
 		teamAgent.SetStatus("ready")
 	}()
-	
+
 	return teamAgent, nil
 }
 
@@ -99,17 +124,17 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 func (t *Team) GetAgent(id string) *Agent {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	
+
 	// Try ID first
 	if agent := t.agents[id]; agent != nil {
 		return agent
 	}
-	
+
 	// Try name
 	if agent := t.agentsByName[id]; agent != nil {
 		return agent
 	}
-	
+
 	return nil
 }
 
@@ -117,12 +142,12 @@ func (t *Team) GetAgent(id string) *Agent {
 func (t *Team) ListAgents() []*Agent {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	
+
 	agents := make([]*Agent, 0, len(t.agents))
 	for _, agent := range t.agents {
 		agents = append(agents, agent)
 	}
-	
+
 	return agents
 }
 
@@ -130,19 +155,19 @@ func (t *Team) ListAgents() []*Agent {
 func (t *Team) StopAgent(ctx context.Context, agentID string) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	
+
 	agent := t.agents[agentID]
 	if agent == nil {
 		return fmt.Errorf("agent %s not found", agentID)
 	}
-	
+
 	// Update status
 	agent.SetStatus("stopping")
-	
+
 	// Remove from maps
 	delete(t.agents, agentID)
 	delete(t.agentsByName, agent.Name)
-	
+
 	return nil
 }
 
@@ -157,11 +182,11 @@ func (t *Team) GetAgentCount() int {
 func (t *Team) GetAgentNames() []string {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	
+
 	names := make([]string, 0, len(t.agentsByName))
 	for name := range t.agentsByName {
 		names = append(names, name)
 	}
-	
+
 	return names
 }

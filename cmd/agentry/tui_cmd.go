@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -42,7 +43,13 @@ func runTui(args []string) {
 	if opts.resumeID != "" {
 		_ = ag.LoadState(context.Background(), opts.resumeID)
 	}
-	model := tui.New(ag)
+
+	// Pass config information to TUI for role loading
+	configDir := ""
+	if opts.configPath != "" {
+		configDir = filepath.Dir(opts.configPath)
+	}
+	model := tui.NewWithConfig(ag, cfg.Include, configDir)
 
 	// Set up signal handling for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())

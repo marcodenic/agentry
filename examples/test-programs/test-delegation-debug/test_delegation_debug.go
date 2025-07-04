@@ -74,7 +74,7 @@ func main() {
 	// Create mock client
 	client := mockClient{}
 	route := router.Rules{
-		{Pattern: ".*", Client: client},
+		{IfContains: []string{""}, Client: client},
 	}
 
 	// Create agent with builtins
@@ -86,14 +86,24 @@ func main() {
 		MaxIterations: 10,
 	}
 
-	fmt.Printf("🏗️ Agent created with %d tools\n", len(agent.Tools.List()))
-	for _, toolName := range agent.Tools.List() {
+	// Get tool names for debugging
+	toolNames := make([]string, 0)
+	for name := range agent.Tools {
+		toolNames = append(toolNames, name)
+	}
+
+	fmt.Printf("🏗️ Agent created with %d tools\n", len(agent.Tools))
+	for _, toolName := range toolNames {
 		fmt.Printf("   - %s\n", toolName)
 	}
 
 	// Create team and add agent
 	fmt.Println("👥 Creating team...")
-	team := team.NewTeam(agent, 10, "test")
+	team, err := team.NewTeam(agent, 10, "test")
+	if err != nil {
+		fmt.Printf("❌ Failed to create team: %v\n", err)
+		return
+	}
 
 	// Test delegation
 	fmt.Println("🚀 Testing delegation: 'Create a Python script'")

@@ -170,6 +170,11 @@ type AgentInfo struct {
 
 // New creates a new TUI model bound to an Agent.
 func New(ag *core.Agent) Model {
+	return NewWithConfig(ag, nil, "")
+}
+
+// NewWithConfig creates a new TUI model bound to an Agent with optional config.
+func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Model {
 	th := LoadTheme()
 	items := []list.Item{}
 	for name, tl := range ag.Tools {
@@ -269,8 +274,14 @@ func New(ag *core.Agent) Model {
 	}
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
-	// Create team context without pre-spawning agents
-	tm, err := team.NewTeam(ag, 10, "")
+	// Create team context with role loading support
+	var tm *team.Team
+	var err error
+	if len(includePaths) > 0 {
+		tm, err = team.NewTeamWithRoles(ag, 10, "", includePaths, configDir)
+	} else {
+		tm, err = team.NewTeam(ag, 10, "")
+	}
 	if err != nil {
 		panic(err) // For now, panic on error - TODO: handle gracefully
 	}

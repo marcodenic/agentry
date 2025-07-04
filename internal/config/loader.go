@@ -51,6 +51,7 @@ type File struct {
 	Models            []ModelManifest              `yaml:"models" json:"models"`
 	Routes            []RouteRule                  `yaml:"routes" json:"routes"`
 	Tools             []ToolManifest               `yaml:"tools" json:"tools"`
+	Include           []string                     `yaml:"include" json:"include"` // Add include support for role files
 	Memory            string                       `yaml:"memory" json:"memory"`
 	Store             string                       `yaml:"store" json:"store"`
 	SessionTTL        string                       `yaml:"session_ttl" json:"session_ttl"`
@@ -123,6 +124,9 @@ func merge(dst *File, src File) {
 	}
 	if len(src.Tools) > 0 {
 		dst.Tools = src.Tools
+	}
+	if len(src.Include) > 0 {
+		dst.Include = src.Include
 	}
 	if src.Memory != "" {
 		dst.Memory = src.Memory

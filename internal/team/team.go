@@ -63,6 +63,31 @@ func NewTeam(parent *core.Agent, maxTurns int, name string) (*Team, error) {
 	return team, nil
 }
 
+// NewTeamWithRoles creates a new team with the given parent agent and loads role configurations.
+func NewTeamWithRoles(parent *core.Agent, maxTurns int, name string, includePaths []string, configDir string) (*Team, error) {
+	team, err := NewTeam(parent, maxTurns, name)
+	if err != nil {
+		return nil, err
+	}
+
+	// Load role configurations from include paths
+	if len(includePaths) > 0 {
+		roles, err := LoadRolesFromIncludePaths(includePaths, configDir)
+		if err != nil {
+			// Don't fail completely, just warn and continue with empty roles
+			fmt.Printf("Warning: failed to load some roles: %v\n", err)
+		}
+
+		// Add loaded roles to team
+		for name, role := range roles {
+			team.roles[name] = role
+			fmt.Printf("📋 Team role loaded: %s\n", name)
+		}
+	}
+
+	return team, nil
+}
+
 // Add registers ag under name so it can be addressed via Call.
 func (t *Team) Add(name string, ag *core.Agent) {
 	// CRITICAL: Remove the "agent" tool from added agents to prevent delegation cascading
