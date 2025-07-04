@@ -187,6 +187,95 @@ func (pt *PricingTable) GetPricingByModelName(modelName string) (ModelPricing, b
 		}
 	}
 
+	// Fuzzy matching for models with suffixes like -latest, -beta, -preview, etc.
+	return pt.findBestMatch(modelName)
+}
+
+// findBestMatch attempts to find the best pricing match for a model name
+// This handles cases like "claude-3-7-sonnet-latest" matching "claude-3-7-sonnet-20250219"
+func (pt *PricingTable) findBestMatch(modelName string) (ModelPricing, bool) {
+	// Common suffixes that don't affect pricing
+	suffixes := []string{"-latest", "-beta", "-preview", "-alpha", "-rc", "-stable"}
+	
+	// Try removing each suffix
+	for _, suffix := range suffixes {
+		if strings.HasSuffix(modelName, suffix) {
+			baseModel := strings.TrimSuffix(modelName, suffix)
+			if pricing, ok := pt.prices[baseModel]; ok {
+				return pricing, true
+			}
+		}
+	}
+	
+	// For provider/model format, also try suffix removal and fuzzy matching
+	if strings.Contains(modelName, "/") {
+		parts := strings.Split(modelName, "/")
+		if len(parts) == 2 {
+			provider := parts[0]
+			model := parts[1]
+			
+			// Try removing suffixes from the model part
+			for _, suffix := range suffixes {
+				if strings.HasSuffix(model, suffix) {
+					baseModel := strings.TrimSuffix(model, suffix)
+					candidateKey := fmt.Sprintf("%s/%s", provider, baseModel)
+					if pricing, ok := pt.prices[candidateKey]; ok {
+						return pricing, true
+					}
+				}
+			}
+			
+			// Try fuzzy matching against all models with the same provider
+			baseModel := model
+			for _, suffix := range suffixes {
+				if strings.HasSuffix(baseModel, suffix) {
+					baseModel = strings.TrimSuffix(baseModel, suffix)
+				}
+			}
+			
+			// Find best match by checking if any pricing key starts with provider/baseModel
+			bestMatch := ""
+			for pricingKey := range pt.prices {
+				if strings.HasPrefix(pricingKey, provider+"/") {
+					pricingModel := strings.TrimPrefix(pricingKey, provider+"/")
+					// Check if this pricing model starts with our base model
+					if strings.HasPrefix(pricingModel, baseModel) {
+						// Prefer shorter matches (fewer extra characters)
+						if bestMatch == "" || len(pricingModel) < len(strings.TrimPrefix(bestMatch, provider+"/")) {
+							bestMatch = pricingKey
+						}
+					}
+				}
+			}
+			
+			if bestMatch != "" {
+				if pricing, ok := pt.prices[bestMatch]; ok {
+					return pricing, true
+				}
+			}
+		}
+	}
+	
+	// Try progressive shortening for versioned models
+	// e.g., "claude-3-7-sonnet" -> "claude-3-7" -> "claude-3"
+	if strings.Contains(modelName, "/") {
+		parts := strings.Split(modelName, "/")
+		if len(parts) == 2 {
+			provider := parts[0]
+			model := parts[1]
+			
+			modelParts := strings.Split(model, "-")
+			// Try progressively shorter versions
+			for i := len(modelParts) - 1; i >= 2; i-- {
+				shorterModel := strings.Join(modelParts[:i], "-")
+				candidateKey := fmt.Sprintf("%s/%s", provider, shorterModel)
+				if pricing, ok := pt.prices[candidateKey]; ok {
+					return pricing, true
+				}
+			}
+		}
+	}
+	
 	return ModelPricing{}, false
 }
 
