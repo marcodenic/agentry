@@ -31,8 +31,8 @@ func getTeamBuiltins() map[string]builtinSpec {
 				},
 			},
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				// Placeholder implementation - will be replaced with proper team implementation
-				return "", fmt.Errorf("agent tool placeholder - should be replaced with proper implementation")
+				// This is a placeholder that will be replaced by the team's RegisterAgentTool
+				return "", fmt.Errorf("agent tool placeholder - should be replaced by team registration")
 			},
 		},
 		"team_status": {

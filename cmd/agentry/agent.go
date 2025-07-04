@@ -15,7 +15,6 @@ import (
 	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
@@ -80,23 +79,21 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		clients[m.Name] = c
 	}
 
-	// Simplified routing: Use the first configured model for Agent 0
-	// No complex keyword matching - Agent 0 decides delegation through intelligence
-	var rules router.Rules
+	// Use the first configured model, or mock if none configured
+	var client model.Client
+	var modelName string
 	if len(cfg.Models) > 0 {
 		primaryModel := cfg.Models[0]
 		c, ok := clients[primaryModel.Name]
 		if !ok {
 			return nil, fmt.Errorf("primary model %s not found", primaryModel.Name)
 		}
-		rules = router.Rules{{
-			Name:       primaryModel.Name,
-			IfContains: []string{""}, // Matches everything - simple and predictable
-			Client:     c,
-		}}
+		client = c
+		modelName = primaryModel.Name
 	} else {
 		// Fallback to mock if no models configured
-		rules = router.Rules{{Name: "mock", IfContains: []string{""}, Client: model.NewMock()}}
+		client = model.NewMock()
+		modelName = "mock"
 	}
 
 	var store memstore.KV
@@ -125,7 +122,7 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		vec = memory.NewInMemoryVector()
 	}
 
-	ag := core.New(rules, reg, memory.NewInMemory(), store, vec, nil)
+	ag := core.New(client, modelName, reg, memory.NewInMemory(), store, vec, nil)
 
 	// Debug: check what tools the agent actually gets (only in non-TUI mode)
 	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
@@ -150,7 +147,4 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 
 func runCostCmd(args []string)  { fmt.Println("Cost command not available (build with --tools flag)") }
 func runPProfCmd(args []string) { fmt.Println("PProf command not available (build with --tools flag)") }
-func runPluginCmd(args []string) {
-	fmt.Println("Plugin command not available (build with --tools flag)")
-}
-func runToolCmd(args []string) { fmt.Println("Tool command not available (build with --tools flag)") }
+func runToolCmd(args []string)  { fmt.Println("Tool command not available (build with --tools flag)") }

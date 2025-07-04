@@ -7,7 +7,6 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
 )
@@ -68,8 +67,10 @@ func TestAgent0DebugOutput(t *testing.T) {
   - **Be efficient** – Use parallel execution for independent tasks.
 
   Remember: users expect you to manage the entire system efficiently. Do not over‑explain your decisions – execute the optimal strategy.`
-	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: mockAgent0Client{}}}
-	ag := core.New(route, tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+
+	// Create agent with mock client
+	mockClient := mockAgent0Client{}
+	ag := core.New(mockClient, "mock", tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
 	ag.Prompt = agent0Prompt
 
 	// Create a team context so the agent tool can work

@@ -28,20 +28,15 @@ func main() {
 		runChatMode(args)
 	case "dev":
 		runDev(args)
-	case "serve":
-		runServe(args)
 	case "eval", "test":
 		runEval(args)
-	case "flow":
-		runFlow(args)
+
 	case "tui":
 		runTui(args)
 	case "cost":
 		runCostCmd(args)
 	case "pprof":
 		runPProfCmd(args)
-	case "plugin":
-		runPluginCmd(args)
 	case "tool":
 		runToolCmd(args)
 	case "analyze":
@@ -65,12 +60,9 @@ Commands:
   chat        Interactive chat mode for natural language delegation
   tui         Terminal UI mode with rich interface (default)
   dev         Development REPL with tracing
-  serve       Start HTTP server
   eval, test  Run evaluations/tests
-  flow        Run workflow
   cost        Analyze cost from trace logs
   pprof       Profiling utilities
-  plugin      Plugin management
   tool        Tool management
   analyze     Analyze trace files
   version     Show version
@@ -88,8 +80,6 @@ Examples:
   agentry chat                     # Start interactive chat
   agentry tui                      # Start TUI explicitly
   agentry dev                      # Start development REPL
-  agentry serve                    # Start HTTP server
-  agentry flow examples/flows/research # Run a workflow
   agentry "create a hello world"   # Direct prompt
   agentry --version                # Show version
   agentry --help                   # Show help

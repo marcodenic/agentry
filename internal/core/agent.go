@@ -12,7 +12,6 @@ import (
 	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
 	"github.com/marcodenic/agentry/pkg/memstore"
@@ -28,7 +27,8 @@ type Agent struct {
 	Tools         tool.Registry
 	Mem           memory.Store
 	Vector        memory.VectorStore
-	Route         router.Selector
+	Client        model.Client
+	ModelName     string
 	Tracer        trace.Writer
 	Store         memstore.KV
 	Cost          *cost.Manager
@@ -64,8 +64,8 @@ func getToolNames(reg tool.Registry) []string {
 	return names
 }
 
-func New(sel router.Selector, reg tool.Registry, mem memory.Store, store memstore.KV, vec memory.VectorStore, tr trace.Writer) *Agent {
-	return &Agent{ID: uuid.New(), Tools: reg, Mem: mem, Vector: vec, Route: sel, Tracer: tr, Store: store, Cost: nil, MaxIterations: 8}
+func New(client model.Client, modelName string, reg tool.Registry, mem memory.Store, store memstore.KV, vec memory.VectorStore, tr trace.Writer) *Agent {
+	return &Agent{ID: uuid.New(), Tools: reg, Mem: mem, Vector: vec, Client: client, ModelName: modelName, Tracer: tr, Store: store, Cost: nil, MaxIterations: 8}
 }
 
 func (a *Agent) Spawn() *Agent {
@@ -76,17 +76,18 @@ func (a *Agent) Spawn() *Agent {
 		Tools:         a.Tools,
 		Mem:           memory.NewInMemory(),
 		Vector:        a.Vector,
-		Route:         a.Route,
+		Client:        a.Client,
+		ModelName:     a.ModelName,
 		Tracer:        a.Tracer,
 		Store:         a.Store,
 		Cost:          a.Cost,
 		MaxIterations: a.MaxIterations,
 	}
-	
+
 	debug.Printf("Agent.Spawn: Parent ID=%s, Spawned ID=%s", a.ID.String()[:8], spawned.ID.String()[:8])
 	debug.Printf("Agent.Spawn: Inherited prompt length=%d chars", len(spawned.Prompt))
 	debug.Printf("Agent.Spawn: Inherited prompt preview: %s", spawned.Prompt[:min(100, len(spawned.Prompt))])
-	
+
 	return spawned
 }
 
@@ -94,15 +95,14 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	debug.Printf("Agent.Run: Agent ID=%s, Prompt length=%d chars", a.ID.String()[:8], len(a.Prompt))
 	debug.Printf("Agent.Run: Available tools: %v", getToolNames(a.Tools))
 	debug.Printf("Agent.Run: Input: %s", input[:min(100, len(input))])
-	
-	client, name := a.Route.Select(input)
-	a.Trace(ctx, trace.EventModelStart, name)
+
+	a.Trace(ctx, trace.EventModelStart, a.ModelName)
 	msgs := BuildMessages(a.Prompt, a.Vars, a.Mem.History(), input)
 	specs := tool.BuildSpecs(a.Tools)
 	inTok := len(strings.Fields(input))
 	tokenCounter.WithLabelValues(a.ID.String()).Add(float64(inTok))
 	if a.Cost != nil {
-		if a.Cost.AddModel(name, inTok) {
+		if a.Cost.AddModel(a.ModelName, inTok) {
 			if a.Cost.OverBudget() {
 				debug.Printf("budget exceeded")
 			}
@@ -113,7 +113,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		limit = 8
 	}
 	for i := 0; i < limit; i++ {
-		res, err := client.Complete(ctx, msgs, specs)
+		res, err := a.Client.Complete(ctx, msgs, specs)
 		if err != nil {
 			return "", err
 		}
@@ -122,7 +122,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		outTok := len(strings.Fields(res.Content))
 		tokenCounter.WithLabelValues(a.ID.String()).Add(float64(outTok))
 		if a.Cost != nil {
-			if a.Cost.AddModel(name, outTok) && a.Cost.OverBudget() {
+			if a.Cost.AddModel(a.ModelName, outTok) && a.Cost.OverBudget() {
 				debug.Printf("budget exceeded")
 			}
 		}
@@ -131,14 +131,14 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		if len(res.ToolCalls) == 0 {
 			a.Mem.AddStep(step)
 			_ = a.Checkpoint(ctx)
-			
+
 			// Emit token events for streaming effect with proper formatting preservation
 			// Process character by character to preserve newlines and formatting
 			for _, r := range res.Content {
 				a.Trace(ctx, trace.EventToken, string(r))
 				// No artificial delay - stream in real time as received
 			}
-			
+
 			// Emit final message with the complete content for fallback
 			a.Trace(ctx, trace.EventFinal, res.Content)
 			return res.Content, nil
@@ -153,10 +153,10 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 				return "", err
 			}
 			applyVarsMap(args, a.Vars)
-			
+
 			// Debug: Log tool execution details for coder agent
 			debug.Printf("Agent '%s' executing tool '%s' with args: %v", a.ID, tc.Name, args)
-			
+
 			a.Trace(ctx, trace.EventToolStart, map[string]any{"name": tc.Name, "args": args})
 			start := time.Now()
 			r, err := t.Execute(ctx, args)
@@ -165,7 +165,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 				debug.Printf("Agent '%s' tool '%s' failed: %v", a.ID, tc.Name, err)
 				return "", err
 			}
-			
+
 			debug.Printf("Agent '%s' tool '%s' succeeded, result length: %d", a.ID, tc.Name, len(r))
 
 			tok := len(strings.Fields(r))

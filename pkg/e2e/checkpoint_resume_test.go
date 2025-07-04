@@ -11,7 +11,6 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/pkg/memstore"
 )
 
@@ -32,8 +31,8 @@ func TestCheckpointResumeE2E(t *testing.T) {
 	}
 	defer store.Close()
 
-	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: recordClient{}}}
-	ag := core.New(route, nil, memory.NewInMemory(), store, memory.NewInMemoryVector(), nil)
+	client := recordClient{}
+	ag := core.New(client, "mock", nil, memory.NewInMemory(), store, memory.NewInMemoryVector(), nil)
 
 	// Run once and create a checkpoint.
 	if _, err := ag.Run(context.Background(), "hi"); err != nil {

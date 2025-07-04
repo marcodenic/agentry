@@ -11,7 +11,6 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/pkg/memstore"
 )
 
@@ -30,8 +29,7 @@ func TestAgentSaveLoad(t *testing.T) {
 	}
 	defer store.Close()
 
-	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: recordClient{}}}
-	ag := core.New(route, nil, memory.NewInMemory(), store, memory.NewInMemoryVector(), nil)
+	ag := core.New(recordClient{}, "mock", nil, memory.NewInMemory(), store, memory.NewInMemoryVector(), nil)
 
 	if _, err := ag.Run(context.Background(), "hi"); err != nil {
 		t.Fatal(err)
@@ -41,7 +39,7 @@ func TestAgentSaveLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ag2 := core.New(route, nil, memory.NewInMemory(), store, memory.NewInMemoryVector(), nil)
+	ag2 := core.New(recordClient{}, "mock", nil, memory.NewInMemory(), store, memory.NewInMemoryVector(), nil)
 	if err := ag2.LoadState(context.Background(), "run1"); err != nil {
 		t.Fatal(err)
 	}

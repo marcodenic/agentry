@@ -12,7 +12,6 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/pkg/sbox"
 )
@@ -55,8 +54,8 @@ func TestSandboxedToolE2E(t *testing.T) {
 	}
 
 	reg := tool.Registry{"local": tl}
-	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: &cycleClient{}}}
-	ag := core.New(route, reg, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	client := &cycleClient{}
+	ag := core.New(client, "mock", reg, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
 
 	out, err := ag.Run(context.Background(), "start")
 	if err != nil {

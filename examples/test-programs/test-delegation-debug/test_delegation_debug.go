@@ -10,7 +10,6 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
 )
@@ -73,18 +72,19 @@ func main() {
 
 	// Create mock client
 	client := mockClient{}
-	route := router.Rules{
-		{IfContains: []string{""}, Client: client},
-	}
 
 	// Create agent with builtins
-	agent := &core.Agent{
-		Prompt:        "You are Agent 0, the system orchestrator.",
-		Mem:           memory.NewInMemory(),
-		Route:         route,
-		Tools:         tool.DefaultRegistry(),
-		MaxIterations: 10,
-	}
+	agent := core.New(
+		client,
+		"mock",
+		tool.DefaultRegistry(),
+		memory.NewInMemory(),
+		nil, // store
+		memory.NewInMemoryVector(),
+		nil, // team
+	)
+	agent.Prompt = "You are Agent 0, the system orchestrator."
+	agent.MaxIterations = 10
 
 	// Get tool names for debugging
 	toolNames := make([]string, 0)

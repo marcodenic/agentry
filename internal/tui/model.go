@@ -19,7 +19,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/glyphs"
-	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/team"
 )
 
@@ -261,16 +260,10 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		DebugStreamingResponse: "", // Initialize debug streaming response
 	}
 
-	// Get the model name from Agent 0's router
-	if ag.Route != nil {
-		client, ruleName := ag.Route.Select("hello")
-		if openaiClient, ok := client.(*model.OpenAI); ok {
-			// Use the ModelName() method to get the actual model name
-			info.ModelName = openaiClient.ModelName()
-		} else {
-			// For non-OpenAI clients, use the rule name as fallback
-			info.ModelName = ruleName
-		}
+	// Get the model name from Agent 0
+	info.ModelName = ag.ModelName
+	if info.ModelName == "" {
+		info.ModelName = "unknown"
 	}
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 

@@ -13,7 +13,7 @@ For the upcoming cloud deployment model, see [README-cloud.md](./README-cloud.md
 | 🚩 **Pillar**        | ✨ **v1.0 Features**                                     |
 | -------------------- | -------------------------------------------------------- |
 | 🦴 **Minimal core**  | ~200 LOC run loop, zero heavy deps                       |
-| 🔌 **Plugins**       | JSON/YAML tool manifests; Go or external processes       |
+| � **Tool System**   | 30+ built-in tools; JSON/YAML manifests; Go plugins     |
 | 🤹‍♂️ **Sub-agents**    | `Spawn()` + `RunParallel()` helper                       |
 | 🧭 **Model routing** | Rule-based selector, multi-LLM support                   |
 | 🧠 **Memory**        | Conversation + VectorStore interface (RAG-ready)         |
@@ -21,7 +21,6 @@ For the upcoming cloud deployment model, see [README-cloud.md](./README-cloud.md
 | ⚙️ **Config**        | `.agentry.yaml` bootstraps agent, models, tools          |
 | 🧪 **Evaluation**    | YAML test suites, CLI `agentry eval`                     |
 | 🛠️ **SDK**           | JS/TS client (`@marcodenic/agentry`), supports streaming |
-| 📦 **Registry**      | [Plugin Registry](docs/registry/)                        |
 
 ---
 
@@ -73,52 +72,27 @@ go install ./cmd/agentry
 go install github.com/marcodenic/agentry/cmd/agentry@latest
 agentry dev
 
-# 🌐 HTTP server + JS client
-agentry serve --config examples/.agentry.yaml
-npm i @marcodenic/agentry
+# � Terminal UI
+agentry tui --config examples/.agentry.yaml
+
+# 💬 Interactive chat
+agentry chat --config examples/.agentry.yaml
 ```
 
 The `examples/.agentry.yaml` file contains a ready-to-use configuration for these commands.
 
-You can now use subcommands instead of the --mode flag:
+You can now use subcommands for different modes:
 
-- `agentry dev` (REPL)
-- `agentry serve` (HTTP server)
-- `agentry tui` (TUI interface)
+- `agentry tui` (TUI interface, default)
+- `agentry chat` (interactive chat)
+- `agentry dev` (development REPL)
 - `agentry eval` (evaluation)
-- `agentry flow` (run `.agentry.flow.yaml`)
 - `agentry analyze trace.log` (token/cost summary)
 - `agentry pprof profile.out` (launch pprof web UI)
 - `agentry version` (show version)
 
-Server port can be overridden with `--port` or `AGENTRY_PORT`. Adjust the agent
-iteration limit using `--max-iter` or `max_iterations` in the config file.
+Adjust the agent iteration limit using `--max-iter` or `max_iterations` in the config file.
 
-Example:
-
-```bash
-agentry flow .
-```
-
-Run the sample scenarios in `examples/flows`:
-
-```bash
-agentry flow examples/flows/research_task
-agentry flow examples/flows/etl_pipeline
-agentry flow examples/flows/multi_agent_chat
-```
-
-After running a flow with `AGENTRY_TRACE_FILE` set, generate a token usage summary:
-
-```bash
-agentry analyze path/to/trace.jsonl
-```
-
-More advanced scenarios are available in the [agentry-demos](./agentry-demos) repository:
-
-```bash
-agentry flow agentry-demos/devops-automation
-agentry flow agentry-demos/research-assistant
 ```
 
 Pass `--resume-id name` to load a saved session and `--save-id name` to persist after each run.
@@ -312,46 +286,28 @@ HTTP-backed tools. Example specs are provided in `examples/echo-openapi.yaml` an
 # 🏃‍♂️ One-off REPL (OpenAI key picked up from .env.local)
 agentry dev               # type messages, see responses
 
-# 🌐 HTTP + TS SDK
-agentry serve --config examples/.agentry.yaml &
+# � Terminal UI
+agentry tui --config examples/.agentry.yaml
 
-# In a new terminal, run the following from the ts-sdk directory:
-cd ts-sdk
-npm install  # (if you get dependency errors, use: npm install --legacy-peer-deps)
-npm run build
-npm test
-
-# Make sure the agentry server is running, then:
-node -e "const {invoke}=require('./dist/index.js');invoke('hi',{stream:false}).then(console.log)"
+# 💬 Interactive chat
+agentry chat --config examples/.agentry.yaml
 ```
 
 ---
 
-## 🦾 Full End-to-End Example (Two Terminals)
+## 🦾 Full End-to-End Example
 
-> **You must use two terminals for this demo.**
->
-> - **Terminal 1:** Start the Agentry server from the project root.
-> - **Terminal 2:** Run the TypeScript SDK example from the `ts-sdk` directory.
-
-### 🖥️ Terminal 1: Start the Agentry server
-
-**From the project root directory (`agentry`):**
+You can test the core functionality using the CLI modes:
 
 ```bash
-agentry serve --config examples/.agentry.yaml
-```
+# Terminal UI (default)
+agentry tui --config examples/.agentry.yaml
 
-- This will start the server and take over the terminal. Leave it running.
+# Interactive chat
+agentry chat --config examples/.agentry.yaml
 
-### 🖥️ Terminal 2: Use the TypeScript SDK
-
-**From the `ts-sdk` directory:**
-
-If you are not already in the `ts-sdk` directory, run:
-
-```bash
-cd ts-sdk
+# Development REPL
+agentry dev --config examples/.agentry.yaml
 ```
 
 Then, from inside `ts-sdk`, run each command one at a time:
@@ -364,10 +320,6 @@ node -e "const {invoke}=require('./dist/index.js');invoke('hi',{stream:false,age
 ```
 
 - **Do not run `cd ts-sdk` if you are already in the `ts-sdk` directory.**
-- All npm commands and the Node.js example must be run from inside `ts-sdk`.
-- Make sure the server in Terminal 1 is running before running the Node.js command above.
-- If you see a connection error, check that Terminal 1 is still running and listening on port 8080.
-
 ---
 
 ## 🛠️ Dev REPL Tricks
@@ -387,8 +339,6 @@ Inside the TUI, you can create additional agents on the fly:
 ```bash
 /spawn researcher "gather background info"
 ```
-
-Agents spawned in this way can run tasks locally or on remote nodes connected to your Agentry cluster.
 
 ### 💾 Saving & Resuming
 
@@ -413,8 +363,6 @@ session_gc_interval: 1h
 ```
 
 Run the CLI with `--resume-id myrun` to load a snapshot before running and `--save-id myrun` to save state after each run. `--checkpoint-id myrun` continuously saves intermediate steps so sessions can be resumed.
-Expired sessions are pruned automatically by the server based on `session_ttl`.
-Cleanup runs on `session_gc_interval` for any configured store backend.
 
 ### 📚 Vector Store
 
@@ -442,24 +390,6 @@ tools:
   - bash
   - patch
 ```
-
-Reference templates from a flow using the `include` key:
-
-```yaml
-include:
-  - templates/roles/coder.yaml
-
-agents:
-  coder:
-    model: gpt-4o
-
-tasks:
-  - agent: coder
-    input: build a CLI
-```
-
-The template's prompt and tools merge with the agent definition. Paths are
-resolved relative to the flow file.
 
 The default system prompt for solo mode lives in `templates/roles/agent_0.yaml`.
 
@@ -533,17 +463,9 @@ go install ./cmd/agentry
 agentry dev
 ```
 
-## 🪟 Windows Setup & NATS Server
+## 🪟 Windows Setup
 
-To run tests or use Agentry features that require NATS on Windows:
-
-1. Download and extract the latest NATS server zip from the [official releases](https://github.com/nats-io/nats-server/releases).
-2. Start the server in PowerShell (adjust path as needed):
-   ```powershell
-   & "C:\Users\marco\Downloads\nats-server-v2.11.4-windows-amd64\nats-server-v2.11.4-windows-amd64\nats-server.exe" -p 4222
-   ```
-
-**Run Go tests (excluding integration):**
+**Run Go tests:**
 
 ```powershell
 go test ./... -v -short
@@ -557,33 +479,7 @@ go test ./... -v -tags=integration
 
 ---
 
-## 🧩 VS Code Extension
-
-The `extensions/vscode-agentry` folder contains a small helper extension that streams output from a running server.
-
-```bash
-cd extensions/vscode-agentry
-npm install
-npm run build
-```
-
-Start the Agentry server with `agentry serve --config examples/.agentry.yaml` then run **Agentry: Open Panel** from VS Code to connect. Use **Agentry: Stop Stream** to end the session.
-
-## 🔌 Plugin Registry
-
-The project publishes a small registry at `docs/registry/plugins.json`. Each
-entry lists a plugin repository URL and description. Fetch a plugin and install
-it with:
-
-```bash
-agentry plugin fetch docs/registry/plugins.json agentry-shell
-agentry plugin install https://github.com/marcodenic/agentry-shell
-```
-
-To contribute a plugin, update `docs/registry/plugins.json` and open a pull
-request.
-
-## 🛠️ Tool Scaffolding
+## ️ Tool Scaffolding
 
 Create boilerplate for a new built-in tool:
 

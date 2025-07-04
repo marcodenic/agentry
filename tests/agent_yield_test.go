@@ -8,7 +8,6 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
 )
@@ -25,9 +24,8 @@ type captureWriter struct{ events []trace.Event }
 func (c *captureWriter) Write(_ context.Context, e trace.Event) { c.events = append(c.events, e) }
 
 func TestAgentRunYields(t *testing.T) {
-	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: loopMock{}}}
 	cw := &captureWriter{}
-	ag := core.New(route, tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), cw)
+	ag := core.New(loopMock{}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), cw)
 
 	out, err := ag.Run(context.Background(), "start")
 	if err != nil {

@@ -9,7 +9,6 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
 )
@@ -77,23 +76,15 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 					DebugStreamingResponse: "", // Initialize debug streaming response
 				}
 
-				// Get the model name from the agent's router
-				// Use a generic test input to determine which model this agent would use
-				if agent.Route != nil {
-					client, ruleName := agent.Route.Select("hello")
-					var newModelName string
-					if openaiClient, ok := client.(*model.OpenAI); ok {
-						// Use the ModelName() method to get the actual model name
-						newModelName = openaiClient.ModelName()
-					} else {
-						// For non-OpenAI clients, use the rule name as fallback
-						newModelName = ruleName
-					}
+				// Get the model name from the agent
+				newModelName := agent.ModelName
+				if newModelName == "" {
+					newModelName = "unknown"
+				}
 
-					// Only update if this is more specific than any existing model name
-					if shouldUpdateModelName(info.ModelName, newModelName) {
-						info.ModelName = newModelName
-					}
+				// Only update if this is more specific than any existing model name
+				if shouldUpdateModelName(info.ModelName, newModelName) {
+					info.ModelName = newModelName
 				}
 
 				// Set up trace listening for the newly discovered agent

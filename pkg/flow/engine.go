@@ -9,7 +9,6 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/pkg/memstore"
 )
@@ -48,8 +47,7 @@ func Run(ctx context.Context, f *File, reg tool.Registry, store memstore.KV) ([]
 		default:
 			client = model.NewMock()
 		}
-		route := router.Rules{{Name: conf.Model, IfContains: []string{""}, Client: client}}
-		ag := core.New(route, tools, memory.NewInMemory(), store, memory.NewInMemoryVector(), nil)
+		ag := core.New(client, conf.Model, tools, memory.NewInMemory(), store, memory.NewInMemoryVector(), nil)
 		ag.Prompt = conf.Prompt
 		ag.Vars = conf.Vars
 		return ag, nil

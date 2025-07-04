@@ -34,10 +34,6 @@ type Team struct {
 	// ENHANCED: Shared memory and communication tracking
 	sharedMemory map[string]interface{} // Shared data between agents
 	coordination []CoordinationEvent    // Log of coordination events
-	// COLLABORATIVE WORKFLOW: Multi-agent workflow management
-	workflows     map[string]*CollaborativeWorkflow
-	communication *AgentCommunication
-	statusTracker *StatusTracker
 }
 
 // NewTeam creates a new team with the given parent agent.
@@ -54,10 +50,6 @@ func NewTeam(parent *core.Agent, maxTurns int, name string) (*Team, error) {
 		portRange:    PortRange{Start: 9000, End: 9099}, // ENHANCED: Initialize shared memory and coordination tracking
 		sharedMemory: make(map[string]interface{}),
 		coordination: make([]CoordinationEvent, 0),
-		// COLLABORATIVE: Initialize collaboration features
-		workflows:     make(map[string]*CollaborativeWorkflow),
-		communication: nil, // Will be initialized on first use
-		statusTracker: nil, // Will be initialized on first use
 	}
 
 	return team, nil
@@ -130,10 +122,9 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	// FIXED: Create agent with FULL tool registry instead of inheriting restricted parent tools
 	// This prevents the tool inheritance bug where spawned agents get Agent 0's restricted tools
 	registry := tool.DefaultRegistry() // Get all available tools
-	routes := t.parent.Route           // Use same routing as parent
 
 	// Create new agent with full capabilities, not inherited restrictions
-	coreAgent := core.New(routes, registry, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	coreAgent := core.New(t.parent.Client, t.parent.ModelName, registry, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
 
 	// Set role-appropriate prompt
 	coreAgent.Prompt = fmt.Sprintf("You are a %s agent specialized in %s tasks. You have access to all necessary tools to complete your assignments.", name, name)

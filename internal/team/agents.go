@@ -10,7 +10,6 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
@@ -81,21 +80,15 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 			}
 		}
 	} else {
-		// Fallback to mock model
-		client = model.NewMock()
-		modelName = "mock"
+		// Fallback to parent's client when no role config is found
+		client = t.parent.Client
+		modelName = t.parent.ModelName
 		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-			fmt.Printf("⚠️  SpawnAgent: No model config for role %s, using mock\n", role)
+			fmt.Printf("⚠️  SpawnAgent: No model config for role %s, using parent's client (%s)\n", role, modelName)
 		}
 	}
 
-	routes := router.Rules{{
-		Name:       modelName,
-		IfContains: []string{""},
-		Client:     client,
-	}}
-
-	agent := core.New(routes, registry, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	agent := core.New(client, modelName, registry, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
 	agent.Prompt = roleConfig.Prompt
 
 	// Find available port

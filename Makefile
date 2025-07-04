@@ -1,4 +1,4 @@
-.PHONY: test build build-tools install install-tools serve dev clean
+.PHONY: test build build-tools install install-tools tui dev clean
 
 test:
 	go test ./...
@@ -31,7 +31,7 @@ install-tools:
 clean:
 	rm -f agentry.exe agentry
 
-serve: build
+tui: build
 ifeq ($(OS),Windows_NT)
 	.\agentry.exe tui
 else
