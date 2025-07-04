@@ -24,9 +24,10 @@ import (
 
 // createTokenProgressBar creates a progress bar with green-to-red gradient
 func createTokenProgressBar() progress.Model {
-	// Use the default gradient which provides smooth green-to-red transition
-	prog := progress.New(progress.WithDefaultGradient())
+	// Try a gradient from lime green to red - lime should be more visible at low percentages
+	prog := progress.New(progress.WithGradient("#32FF32", "#FF3232"))
 	prog.Width = 20 // Set a default width to prevent crashes
+	prog.SetPercent(0.0) // Explicitly start at 0%
 	return prog
 }
 

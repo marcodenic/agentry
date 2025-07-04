@@ -63,7 +63,13 @@ func (m Model) renderTokenBar(info *AgentInfo, width int) string {
 		pct = 1
 	}
 
-	// Set the percentage on the existing progress bar
+	// HACK: Force very low percentages to show as exactly 0% so gradient shows pure green
+	// The gradient interpolation at 7% might be showing orange, so force it lower
+	if pct < 0.1 { // For anything under 10%
+		pct = 0.05 // Force it to a very low percentage that should definitely be green
+	}
+
+	// Use the existing progress bar - EXACTLY like the working purple version
 	info.TokenProgress.SetPercent(pct)
 
 	return info.TokenProgress.View()
