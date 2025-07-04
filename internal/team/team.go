@@ -81,7 +81,9 @@ func NewTeamWithRoles(parent *core.Agent, maxTurns int, name string, includePath
 		// Add loaded roles to team
 		for name, role := range roles {
 			team.roles[name] = role
-			fmt.Printf("📋 Team role loaded: %s\n", name)
+			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+				fmt.Printf("📋 Team role loaded: %s\n", name)
+			}
 		}
 	}
 
@@ -185,12 +187,13 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 
 	if !exists {
 		debugPrintf("🆕 Creating new agent: %s\n", agentID)
-		// If agent doesn't exist, create it
-		_, _ = t.AddAgent(agentID) // Create agent and ignore return values
-
-		t.mutex.RLock()
-		agent = t.agentsByName[agentID] // Get the Agent wrapper
-		t.mutex.RUnlock()
+		// If agent doesn't exist, create it using SpawnAgent for proper model selection
+		spawnedAgent, err := t.SpawnAgent(ctx, agentID, agentID)
+		if err != nil {
+			debugPrintf("❌ Failed to spawn agent %s: %v\n", agentID, err)
+			return "", fmt.Errorf("failed to spawn agent %s: %w", agentID, err)
+		}
+		agent = spawnedAgent
 		debugPrintf("✅ Agent %s created and ready\n", agentID)
 	} else {
 		debugPrintf("♻️  Using existing agent: %s (Status: %s)\n", agentID, agent.Status)

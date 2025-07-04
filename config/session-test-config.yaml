@@ -1,7 +1,10 @@
-model:
-  provider: "openai"
-  name: "gpt-4"
-  apiKey: "${OPENAI_API_KEY}"
+# Configuration for testing persistent agents with basic tools
+models:
+  - name: openai
+    provider: openai
+    options:
+      model: gpt-4.1-nano
+      temperature: 0.1
 
 # Enable persistent agents for session testing
 persistent_agents:
@@ -11,9 +14,9 @@ persistent_agents:
 
 # Basic tool registry
 tools:
-  - name: "echo"
-    command: "echo"
-    description: "Echo input back"
-  - name: "pwd"
-    command: "pwd"
-    description: "Show current directory"
+  - name: echo
+    type: builtin
+    description: Echo input back
+  - name: agent
+    type: builtin
+    description: Delegate tasks to another agent

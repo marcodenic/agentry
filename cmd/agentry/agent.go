@@ -80,15 +80,22 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		clients[m.Name] = c
 	}
 
+	// Simplified routing: Use the first configured model for Agent 0
+	// No complex keyword matching - Agent 0 decides delegation through intelligence
 	var rules router.Rules
-	for _, rr := range cfg.Routes {
-		c, ok := clients[rr.Model]
+	if len(cfg.Models) > 0 {
+		primaryModel := cfg.Models[0]
+		c, ok := clients[primaryModel.Name]
 		if !ok {
-			return nil, fmt.Errorf("model %s not found", rr.Model)
+			return nil, fmt.Errorf("primary model %s not found", primaryModel.Name)
 		}
-		rules = append(rules, router.Rule{Name: rr.Model, IfContains: rr.IfContains, Client: c})
-	}
-	if len(rules) == 0 {
+		rules = router.Rules{{
+			Name:       primaryModel.Name,
+			IfContains: []string{""}, // Matches everything - simple and predictable
+			Client:     c,
+		}}
+	} else {
+		// Fallback to mock if no models configured
 		rules = router.Rules{{Name: "mock", IfContains: []string{""}, Client: model.NewMock()}}
 	}
 
@@ -120,8 +127,10 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 
 	ag := core.New(rules, reg, memory.NewInMemory(), store, vec, nil)
 
-	// Debug: check what tools the agent actually gets
-	fmt.Printf("🔧 buildAgent: registry has %d tools, agent has %d tools\n", len(reg), len(ag.Tools))
+	// Debug: check what tools the agent actually gets (only in non-TUI mode)
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		fmt.Printf("🔧 buildAgent: registry has %d tools, agent has %d tools\n", len(reg), len(ag.Tools))
+	}
 
 	if logWriter != nil {
 		ag.Tracer = trace.NewJSONL(logWriter)

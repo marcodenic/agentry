@@ -1,13 +1,10 @@
+# Configuration for testing persistent agents with Claude
 models:
   - name: anthropic
     provider: anthropic
     options:
       model: claude-3-opus-20240229
       temperature: 0.1
-
-routes:
-  - if_contains: [""]
-    model: anthropic
 
 tools:
   # Core agent delegation tool

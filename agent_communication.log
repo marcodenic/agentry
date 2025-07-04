@@ -48,3 +48,34 @@
 2025/07/02 01:44:17 DELEGATION: Agent 0 -> coder | Task: create a simple 'Hello, World!' script in Python
 2025/07/02 01:44:19 DELEGATION SUCCESS: coder | Result length: 154
 2025/07/02 01:44:19 COORDINATION: coder -> agent_0 | delegation_success: Task completed
+2025/07/04 02:57:02 COORDINATION: agent_0 -> coder | delegation: Create a coder agent.
+2025/07/04 02:57:02 DELEGATION: Agent 0 -> coder | Task: Create a coder agent.
+2025/07/04 02:57:03 DELEGATION FAILED: coder | Error: to and message are required for send_message
+2025/07/04 02:57:03 COORDINATION: coder -> agent_0 | delegation_failed: to and message are required for send_message
+2025/07/04 02:57:51 COORDINATION: agent_0 -> coder | delegation: Please tell me what model you use.
+2025/07/04 02:57:51 DELEGATION: Agent 0 -> coder | Task: Please tell me what model you use.
+2025/07/04 02:57:51 DELEGATION SUCCESS: coder | Result length: 57
+2025/07/04 02:57:51 COORDINATION: coder -> agent_0 | delegation_success: Task completed
+2025/07/04 02:58:08 COORDINATION: agent_0 -> coder | delegation: Create a new agent named 'coder' to assist with coding tasks.
+2025/07/04 02:58:08 DELEGATION: Agent 0 -> coder | Task: Create a new agent named 'coder' to assist with coding tasks.
+2025/07/04 02:58:11 DELEGATION SUCCESS: coder | Result length: 188
+2025/07/04 02:58:11 COORDINATION: coder -> agent_0 | delegation_success: Task completed
+2025/07/04 02:59:00 COORDINATION: agent_0 -> coder | delegation: What model are you using?
+2025/07/04 02:59:00 DELEGATION: Agent 0 -> coder | Task: What model are you using?
+2025/07/04 02:59:00 DELEGATION SUCCESS: coder | Result length: 5
+2025/07/04 02:59:00 COORDINATION: coder -> agent_0 | delegation_success: Task completed
+2025/07/04 02:59:57 COORDINATION: agent_0 -> coder | delegation: What model are you using?
+2025/07/04 02:59:57 DELEGATION: Agent 0 -> coder | Task: What model are you using?
+2025/07/04 03:00:02 DELEGATION SUCCESS: coder | Result length: 729
+2025/07/04 03:00:09 COORDINATION: agent_0 -> coder | delegation: What model are you using?
+2025/07/04 03:00:09 DELEGATION: Agent 0 -> coder | Task: What model are you using?
+2025/07/04 03:00:15 DELEGATION SUCCESS: coder | Result length: 754
+2025/07/04 03:00:15 COORDINATION: coder -> agent_0 | delegation_success: Task completed
+2025/07/04 03:00:22 COORDINATION: agent_0 -> coder | delegation: Create a simple Python script that prints 'Hello, World!' to the console.
+2025/07/04 03:00:22 DELEGATION: Agent 0 -> coder | Task: Create a simple Python script that prints 'Hello, World!' to the console.
+2025/07/04 03:00:30 DELEGATION FAILED: coder | Error: file /home/marco/Documents/GitHub/agentry/hello.py already exists (use overwrite=true to replace)
+2025/07/04 03:00:30 COORDINATION: coder -> agent_0 | delegation_failed: file /home/marco/Documents/GitHub/agentry/hello.py already exists (use overwrite=true to replace)
+2025/07/04 03:00:36 COORDINATION: agent_0 -> coder | delegation: Write a simple Python script that prints 'Hello, World!' to the console.
+2025/07/04 03:00:36 DELEGATION: Agent 0 -> coder | Task: Write a simple Python script that prints 'Hello, World!' to the console.
+2025/07/04 03:00:39 DELEGATION FAILED: coder | Error: file /home/marco/Documents/GitHub/agentry/hello.py already exists (use overwrite=true to replace)
+2025/07/04 03:00:39 COORDINATION: coder -> agent_0 | delegation_failed: file /home/marco/Documents/GitHub/agentry/hello.py already exists (use overwrite=true to replace)

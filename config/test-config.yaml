@@ -1,13 +1,10 @@
+# Configuration for general testing with comprehensive tool set
 models:
   - name: openai
     provider: openai
     options:
-      model: gpt-4o-mini
+      model: gpt-4.1-nano
       temperature: 0.1
-
-routes:
-  - if_contains: [""]
-    model: openai
 
 tools:
   # Core built-in tools

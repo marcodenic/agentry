@@ -1,10 +1,7 @@
+# Configuration for testing agent delegation functionality
 models:
   - name: mock
     provider: mock
-
-routes:
-  - if_contains: [""]
-    model: mock
 
 # Basic tool set for delegation testing
 tools:

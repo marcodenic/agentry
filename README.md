@@ -483,6 +483,32 @@ If no key is present, the built-in mock model is used.
 
 ---
 
+## 📁 Configuration Management
+
+Agentry uses YAML configuration files to define models, tools, and behavior. The configuration system has been simplified to use cost-effective models and clear delegation patterns.
+
+### Main Configuration Files
+- **`.agentry.yaml`**: Primary configuration for production use
+- **`examples/.agentry.yaml`**: Reference configuration for users
+
+### Configuration Documentation
+- **[CONFIG_GUIDE.md](CONFIG_GUIDE.md)**: Complete guide to all configuration files
+- **[CONFIG_CLEANUP_SUMMARY.md](CONFIG_CLEANUP_SUMMARY.md)**: Recent improvements and standards
+
+### Validation
+```bash
+# Validate all configuration files
+./scripts/validate-configs.sh
+```
+
+### Key Principles
+- **Agent 0**: Uses ultra cost-effective models (gpt-4.1-nano) for coordination
+- **Specialist Agents**: Use appropriate models defined in role templates
+- **No Complex Routing**: Simple model-per-agent approach
+- **Always Include**: The `agent` tool for delegation capabilities
+
+---
+
 ## 🧪 Testing & Validation
 
 - For the canonical, machine-readable checklist, see [TEST.md](./TEST.md).

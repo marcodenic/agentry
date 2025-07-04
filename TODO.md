@@ -6,7 +6,7 @@
 
 - make agentry work anywhere in the cmd terminal
 
-- text formatting is wrong, new lines are being stripped from agent responses.
+- markup formatting
 
 - proper status bar
 

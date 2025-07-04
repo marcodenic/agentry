@@ -9,9 +9,6 @@ models:
       key: ""
       # Model name; defaults to gpt-4o if omitted
       model: gpt-4o
-routes:
-  - if_contains: [""]
-    model: openai
 tools:
   # Built-in tools available in Agentry. Add or remove as needed.
   - name: echo

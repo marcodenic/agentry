@@ -10,8 +10,6 @@ import (
 
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/core"
-	"github.com/marcodenic/agentry/internal/tool"
-	"gopkg.in/yaml.v3"
 )
 
 type commonOpts struct {
@@ -98,55 +96,6 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 			cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = strings.TrimSpace(p)
 		}
 	}
-}
-
-// applyAgent0RoleConfig applies the agent_0.yaml role configuration to restrict the system agent's tools
-func applyAgent0RoleConfig(agent *core.Agent) error {
-	// Find the templates/roles directory
-	roleDir := findRoleTemplatesDir()
-	if roleDir == "" {
-		return fmt.Errorf("templates/roles directory not found")
-	}
-
-	// Load agent_0.yaml configuration
-	roleFile := filepath.Join(roleDir, "agent_0.yaml")
-	data, err := os.ReadFile(roleFile)
-	if err != nil {
-		return fmt.Errorf("failed to read agent_0.yaml: %v", err)
-	}
-
-	// Parse YAML configuration
-	var config struct {
-		Name     string   `yaml:"name"`
-		Prompt   string   `yaml:"prompt"`
-		Builtins []string `yaml:"builtins,omitempty"`
-	}
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return fmt.Errorf("failed to parse agent_0.yaml: %v", err)
-	}
-
-	// Apply tool restrictions if builtins are specified
-	if len(config.Builtins) > 0 {
-		filteredTools := make(tool.Registry)
-
-		for _, toolName := range config.Builtins {
-			if existingTool, ok := agent.Tools[toolName]; ok {
-				filteredTools[toolName] = existingTool
-			}
-		}
-
-		agent.Tools = filteredTools
-	}
-
-	// Apply the agent_0 prompt
-	if config.Prompt != "" {
-		agent.Prompt = config.Prompt
-	}
-
-	// Inject dynamic agent status after prompt is set
-	injectAgentStatus(agent, nil)
-
-	return nil
 }
 
 // injectAgentStatus dynamically injects current agent status into Agent 0's prompt

@@ -3,6 +3,7 @@ package team
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -62,22 +63,30 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 
 	if roleConfig.Model != nil {
 		// Use role-specific model configuration
-		fmt.Printf("🔧 SpawnAgent: Attempting to create model client for role %s with provider %s\n", role, roleConfig.Model.Provider)
+		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			fmt.Printf("🔧 SpawnAgent: Attempting to create model client for role %s with provider %s\n", role, roleConfig.Model.Provider)
+		}
 		c, err := model.FromManifest(*roleConfig.Model)
 		if err != nil {
-			fmt.Printf("❌ SpawnAgent: failed to create model client for role %s: %v, falling back to mock\n", role, err)
+			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+				fmt.Printf("❌ SpawnAgent: failed to create model client for role %s: %v, falling back to mock\n", role, err)
+			}
 			client = model.NewMock()
 			modelName = "mock"
 		} else {
 			client = c
 			modelName = fmt.Sprintf("%s-%s", roleConfig.Model.Provider, roleConfig.Model.Options["model"])
-			fmt.Printf("✅ SpawnAgent: Successfully created %s model client for role %s\n", modelName, role)
+			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+				fmt.Printf("✅ SpawnAgent: Successfully created %s model client for role %s\n", modelName, role)
+			}
 		}
 	} else {
 		// Fallback to mock model
 		client = model.NewMock()
 		modelName = "mock"
-		fmt.Printf("⚠️  SpawnAgent: No model config for role %s, using mock\n", role)
+		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			fmt.Printf("⚠️  SpawnAgent: No model config for role %s, using mock\n", role)
+		}
 	}
 
 	routes := router.Rules{{

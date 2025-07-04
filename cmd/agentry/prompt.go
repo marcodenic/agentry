@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/trace"
-	"os"
-	"strings"
 )
 
 func runAnalyzeCmd(args []string) {
@@ -39,16 +41,21 @@ func runPrompt(cmd string, args []string) {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	// Apply agent_0 role configuration to restrict tools
 	fmt.Printf("🔧 Before agent_0 config: agent has %d tools\n", len(ag.Tools))
 	if err := applyAgent0RoleConfig(ag); err != nil {
 		fmt.Printf("Warning: Failed to apply agent_0 role configuration: %v\n", err)
 	}
 	fmt.Printf("🔧 After agent_0 config: agent has %d tools\n", len(ag.Tools))
-	
+
 	// FIX: Create team context for coordination capabilities (unified architecture)
-	teamCtx, err := team.NewTeam(ag, 10, "")
+	// Load role configurations from include paths
+	configDir := ""
+	if opts.configPath != "" {
+		configDir = filepath.Dir(opts.configPath)
+	}
+	teamCtx, err := team.NewTeamWithRoles(ag, 10, "", cfg.Include, configDir)
 	if err != nil {
 		fmt.Printf("Warning: Failed to create team context: %v\n", err)
 	} else {
@@ -57,7 +64,7 @@ func runPrompt(cmd string, args []string) {
 		teamCtx.RegisterAgentTool(ag.Tools)
 		fmt.Printf("🔧 Agent delegation tool registered with team\n")
 	}
-	
+
 	if opts.maxIter > 0 {
 		ag.MaxIterations = opts.maxIter
 	}
@@ -66,14 +73,14 @@ func runPrompt(cmd string, args []string) {
 	}
 	col := trace.NewCollector(nil)
 	ag.Tracer = col
-	
+
 	// Create context with team for coordination tools (matching chat mode)
 	ctx := context.Background()
 	if teamCtx != nil {
 		ctx = team.WithContext(ctx, teamCtx)
 		fmt.Printf("🔧 Team context attached to execution context\n")
 	}
-	
+
 	out, err := ag.Run(ctx, prompt)
 	if err != nil {
 		fmt.Printf("ERR: %v\n", err)
