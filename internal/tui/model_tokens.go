@@ -67,6 +67,13 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 			pct = 1
 		}
 
+		// Don't show any filled area until we reach 5% to avoid showing wrong colors
+		// The bubbles/progress library shows yellow/orange at very low percentages
+		// instead of the expected green, so better to show empty until 5%
+		if pct < 0.05 {
+			pct = 0
+		}
+
 		progressCmd = info.TokenProgress.SetPercent(pct)
 	}
 

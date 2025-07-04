@@ -1,0 +1,29 @@
+# Configuration with small token budget to test progress bar colors
+models:
+  - name: openai
+    provider: openai
+    options:
+      model: gpt-4.1-nano
+      temperature: 0.1
+
+tools:
+  - name: echo
+    type: builtin
+    description: Repeat a string
+  - name: view
+    type: builtin
+    description: Enhanced file viewing with line numbers
+  - name: create
+    type: builtin
+    description: Create a new file
+  - name: patch
+    type: builtin
+    description: Apply a unified diff patch
+
+env:
+  MAX_ITERATIONS: "3"
+  
+agent:
+  max_iterations: 3
+  budget:
+    max_tokens: 5000  # Small budget to trigger higher percentages

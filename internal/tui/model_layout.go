@@ -35,6 +35,19 @@ func (m Model) handleWindowResize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 	// Set agent panel size (25% width)
 	m.tools.SetSize(int(float64(msg.Width)*0.25)-2, viewportHeight)
 
+	// Update progress bar widths for all agents when window resizes
+	panelWidth := int(float64(msg.Width) * 0.25)
+	for _, info := range m.infos {
+		barWidth := panelWidth - 6 // Account for "  " prefix and some padding
+		if barWidth < 10 {
+			barWidth = 10 // Minimum width
+		}
+		if barWidth > 50 {
+			barWidth = 50 // Maximum reasonable width
+		}
+		info.TokenProgress.Width = barWidth
+	}
+
 	// Refresh the viewport content with proper sizing - avoid expensive reformatting
 	if info, ok := m.infos[m.active]; ok {
 		// For normal history, only re-wrap if width changed significantly

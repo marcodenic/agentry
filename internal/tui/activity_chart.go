@@ -26,29 +26,12 @@ func (m Model) getAdvancedStatusDot(status AgentStatus) string {
 }
 
 // renderTokenBar draws an animated progress bar for token usage with green-to-red gradient.
-// Sets the width and percentage based on the provided token percentage.
+// The percentage and width should already be set during the Update cycle, this just renders the current state.
 func (m Model) renderTokenBar(info *AgentInfo, tokenPct float64, width int) string {
-	// Set the width of the progress bar to fit the sidebar (minus padding)
-	barWidth := width - 6 // Account for "  " prefix and some padding
-	if barWidth < 10 {
-		barWidth = 10 // Minimum width
-	}
-	if barWidth > 50 {
-		barWidth = 50 // Maximum reasonable width
-	}
-	info.TokenProgress.Width = barWidth
-
-	// Convert percentage (0-100) to ratio (0.0-1.0) for progress bar
-	pct := tokenPct / 100.0
-	if pct < 0 {
-		pct = 0
-	}
-	if pct > 1 {
-		pct = 1
-	}
-
-	// Set the percentage on the existing progress bar
-	info.TokenProgress.SetPercent(pct)
+	// NOTE: Do not call SetPercent() or set Width here! These should be handled
+	// in the Update cycle (model_tokens.go for percentage, model_layout.go for width)
+	// to ensure commands are properly captured.
+	// This function should only render the current state.
 
 	return info.TokenProgress.View()
 }
