@@ -17,6 +17,12 @@ func main() {
 	cmd := os.Args[1]
 	args := os.Args[2:]
 
+	// Handle version flags first
+	if cmd == "--version" || cmd == "-v" {
+		fmt.Printf("agentry %s\n", agentry.Version)
+		return
+	}
+
 	switch cmd {
 	case "chat":
 		runChatMode(args)
@@ -73,6 +79,8 @@ Commands:
 Options:
   --config    Path to config file
   --theme     Theme override
+  --version   Show version
+  -v          Show version (short)
   --help      Show help
 
 Examples:
@@ -83,6 +91,7 @@ Examples:
   agentry serve                    # Start HTTP server
   agentry flow examples/flows/research # Run a workflow
   agentry "create a hello world"   # Direct prompt
+  agentry --version                # Show version
   agentry --help                   # Show help
 `)
 }
