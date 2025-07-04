@@ -106,12 +106,19 @@ func (a *Anthropic) Complete(ctx context.Context, msgs []ChatMessage, tools []To
 			Input json.RawMessage `json:"input,omitempty"`
 		} `json:"content"`
 		StopReason string `json:"stop_reason"`
+		Usage      struct {
+			InputTokens  int `json:"input_tokens"`
+			OutputTokens int `json:"output_tokens"`
+		} `json:"usage"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return Completion{}, err
 	}
 
-	comp := Completion{}
+	comp := Completion{
+		InputTokens:  res.Usage.InputTokens,
+		OutputTokens: res.Usage.OutputTokens,
+	}
 	var content strings.Builder
 	for _, c := range res.Content {
 		switch c.Type {

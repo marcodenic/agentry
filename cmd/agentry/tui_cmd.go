@@ -33,6 +33,7 @@ func runTui(args []string) {
 	if err != nil {
 		panic(err)
 	}
+
 	if opts.maxIter > 0 {
 		ag.MaxIterations = opts.maxIter
 	}

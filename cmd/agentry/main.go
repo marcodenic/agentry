@@ -41,6 +41,8 @@ func main() {
 		runToolCmd(args)
 	case "analyze":
 		runAnalyzeCmd(args)
+	case "refresh-models":
+		runRefreshModelsCmd(args)
 	case "version":
 		fmt.Printf("agentry %s\n", agentry.Version)
 	case "help", "-h", "--help":
@@ -57,16 +59,17 @@ Usage:
   agentry <command> [options]
 
 Commands:
-  chat        Interactive chat mode for natural language delegation
-  tui         Terminal UI mode with rich interface (default)
-  dev         Development REPL with tracing
-  eval, test  Run evaluations/tests
-  cost        Analyze cost from trace logs
-  pprof       Profiling utilities
-  tool        Tool management
-  analyze     Analyze trace files
-  version     Show version
-  help        Show this help
+  chat           Interactive chat mode for natural language delegation
+  tui            Terminal UI mode with rich interface (default)
+  dev            Development REPL with tracing
+  eval, test     Run evaluations/tests
+  cost           Analyze cost from trace logs
+  pprof          Profiling utilities
+  tool           Tool management
+  analyze        Analyze trace files
+  refresh-models Download and cache latest model pricing from models.dev
+  version        Show version
+  help           Show this help
 
 Options:
   --config    Path to config file
@@ -80,6 +83,7 @@ Examples:
   agentry chat                     # Start interactive chat
   agentry tui                      # Start TUI explicitly
   agentry dev                      # Start development REPL
+  agentry refresh-models           # Download latest model pricing
   agentry "create a hello world"   # Direct prompt
   agentry --version                # Show version
   agentry --help                   # Show help

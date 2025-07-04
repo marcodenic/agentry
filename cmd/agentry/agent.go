@@ -81,14 +81,22 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	// Use the first configured model, or mock if none configured
 	var client model.Client
 	var modelName string
+
 	if len(cfg.Models) > 0 {
 		primaryModel := cfg.Models[0]
+
 		c, ok := clients[primaryModel.Name]
 		if !ok {
 			return nil, fmt.Errorf("primary model %s not found", primaryModel.Name)
 		}
 		client = c
-		modelName = primaryModel.Name
+
+		// Construct the model name: provider-model (e.g., "openai-gpt-4.1-nano")
+		if primaryModel.Options != nil && primaryModel.Options["model"] != "" {
+			modelName = fmt.Sprintf("%s-%s", primaryModel.Provider, primaryModel.Options["model"])
+		} else {
+			modelName = primaryModel.Name // fallback to name if no model option
+		}
 	} else {
 		// Fallback to mock if no models configured
 		client = model.NewMock()
@@ -129,10 +137,6 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 }
 
 // Stub functions for commands that are only available with tools build tag
-func runCostCmd(args []string) {
-	fmt.Println("Cost command not available (build with --tools flag)")
-}
-
 func runPProfCmd(args []string) {
 	fmt.Println("PProf command not available (build with --tools flag)")
 }

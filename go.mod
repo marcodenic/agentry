@@ -17,7 +17,6 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/getkin/kin-openapi v0.126.0
 	github.com/joho/godotenv v1.5.1
-	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/prometheus/client_golang v1.22.0
 	github.com/sourcegraph/go-diff v0.7.0
 	go.opentelemetry.io/otel v1.36.0

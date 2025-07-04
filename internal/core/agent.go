@@ -63,7 +63,17 @@ func getToolNames(reg tool.Registry) []string {
 }
 
 func New(client model.Client, modelName string, reg tool.Registry, mem memory.Store, vec memory.VectorStore, tr trace.Writer) *Agent {
-	return &Agent{ID: uuid.New(), Tools: reg, Mem: mem, Vector: vec, Client: client, ModelName: modelName, Tracer: tr, Cost: nil, MaxIterations: 8}
+	return &Agent{
+		ID:            uuid.New(),
+		Tools:         reg,
+		Mem:           mem,
+		Vector:        vec,
+		Client:        client,
+		ModelName:     modelName,
+		Tracer:        tr,
+		Cost:          cost.New(0, 0.0), // Initialize cost manager immediately
+		MaxIterations: 8,
+	}
 }
 
 func (a *Agent) Spawn() *Agent {
@@ -77,7 +87,7 @@ func (a *Agent) Spawn() *Agent {
 		Client:        a.Client,
 		ModelName:     a.ModelName,
 		Tracer:        a.Tracer,
-		Cost:          a.Cost,
+		Cost:          cost.New(0, 0.0), // Each spawned agent gets its own cost manager
 		MaxIterations: a.MaxIterations,
 	}
 
@@ -96,15 +106,11 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	a.Trace(ctx, trace.EventModelStart, a.ModelName)
 	msgs := BuildMessages(a.Prompt, a.Vars, a.Mem.History(), input)
 	specs := tool.BuildSpecs(a.Tools)
-	inTok := len(strings.Fields(input))
-	tokenCounter.WithLabelValues(a.ID.String()).Add(float64(inTok))
-	if a.Cost != nil {
-		if a.Cost.AddModel(a.ModelName, inTok) {
-			if a.Cost.OverBudget() {
-				debug.Printf("budget exceeded")
-			}
-		}
-	}
+
+	// We'll get actual input tokens from the API response, but estimate for now
+	estimatedInputTokens := len(strings.Fields(input))
+	tokenCounter.WithLabelValues(a.ID.String()).Add(float64(estimatedInputTokens))
+
 	limit := a.MaxIterations
 	if limit <= 0 {
 		limit = 8
@@ -116,13 +122,23 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		}
 
 		a.Trace(ctx, trace.EventStepStart, res)
-		outTok := len(strings.Fields(res.Content))
-		tokenCounter.WithLabelValues(a.ID.String()).Add(float64(outTok))
+
+		// Use actual token counts from API response
+		actualInputTokens := res.InputTokens
+		actualOutputTokens := res.OutputTokens
+
+		// Update metrics with actual tokens
+		tokenCounter.WithLabelValues(a.ID.String()).Add(float64(actualInputTokens + actualOutputTokens))
+
+		// Update cost manager with actual token usage
 		if a.Cost != nil {
-			if a.Cost.AddModel(a.ModelName, outTok) && a.Cost.OverBudget() {
-				debug.Printf("budget exceeded")
+			if a.Cost.AddModelUsage(a.ModelName, actualInputTokens, actualOutputTokens) {
+				if a.Cost.OverBudget() {
+					debug.Printf("budget exceeded")
+				}
 			}
 		}
+
 		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
 		step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
 		if len(res.ToolCalls) == 0 {
@@ -165,13 +181,11 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 			debug.Printf("Agent '%s' tool '%s' succeeded, result length: %d", a.ID, tc.Name, len(r))
 
+			// Note: Tool results are not separately tracked for cost calculation
+			// They are included in the API response token counts when the conversation continues
+			// Only update metrics for monitoring purposes
 			tok := len(strings.Fields(r))
 			tokenCounter.WithLabelValues(a.ID.String()).Add(float64(tok))
-			if a.Cost != nil {
-				if a.Cost.AddTool(tc.Name, tok) && a.Cost.OverBudget() {
-					debug.Printf("budget exceeded")
-				}
-			}
 			a.Trace(ctx, trace.EventToolEnd, map[string]any{"name": tc.Name, "result": r})
 			step.ToolResults[tc.ID] = r
 			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})

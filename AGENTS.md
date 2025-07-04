@@ -203,8 +203,6 @@ To run all tests:
 
 ---
 
----
-
 ## 🎯 Advanced File Operations
 
 Agentry includes VS Code-level file editing capabilities through advanced builtin tools that provide atomic, line-precise, and cross-platform file operations:

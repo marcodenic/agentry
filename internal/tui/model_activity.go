@@ -82,8 +82,8 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 					newModelName = "unknown"
 				}
 
-				// Only update if this is more specific than any existing model name
-				if shouldUpdateModelName(info.ModelName, newModelName) {
+				// Simply update the model name if we have a new one
+				if newModelName != "" {
 					info.ModelName = newModelName
 				}
 

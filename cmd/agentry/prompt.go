@@ -22,7 +22,8 @@ func runAnalyzeCmd(args []string) {
 		fmt.Println("analyze error:", err)
 		os.Exit(1)
 	}
-	fmt.Printf("tokens: %d cost: $%.4f\n", sum.Tokens, sum.Cost)
+	fmt.Printf("input tokens: %d, output tokens: %d, total tokens: %d, cost: $%.6f\n",
+		sum.InputTokens, sum.OutputTokens, sum.TotalTokens, sum.Cost)
 }
 
 func runPrompt(cmd string, args []string) {
@@ -88,7 +89,8 @@ func runPrompt(cmd string, args []string) {
 	}
 	sum := trace.Analyze(prompt, col.Events())
 	fmt.Println(out)
-	fmt.Printf("tokens: %d cost: $%.4f\n", sum.Tokens, sum.Cost)
+	fmt.Printf("input tokens: %d, output tokens: %d, total tokens: %d, cost: $%.6f\n",
+		sum.InputTokens, sum.OutputTokens, sum.TotalTokens, sum.Cost)
 	if opts.saveID != "" {
 		_ = ag.SaveState(context.Background(), opts.saveID)
 	}

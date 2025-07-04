@@ -23,7 +23,7 @@ import (
 func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	info := m.infos[id]
 	info.Status = StatusRunning
-	// NOTE: Do NOT reset TokenCount - it should accumulate across the session
+	// NOTE: Token counts are now handled by the agent's cost manager
 	info.TokensStarted = false  // Reset tokens started flag
 	info.StreamingResponse = "" // Reset streaming response
 	info.Spinner = spinner.New()

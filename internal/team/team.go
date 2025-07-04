@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/marcodenic/agentry/internal/core"
-	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/tool"
 )
@@ -133,9 +132,7 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	// Keep all other tools (create, write, edit_range, etc.) so agents can actually work
 	delete(coreAgent.Tools, "agent")
 
-	// Initialize cost manager for spawned agents (same as Agent 0)
-	// This enables cost tracking and display in the TUI panel
-	coreAgent.Cost = cost.New(0, 0.0) // No budget limits, just tracking
+	// Note: Cost manager is already initialized in core.New()
 
 	// Create wrapper
 	agent := &Agent{

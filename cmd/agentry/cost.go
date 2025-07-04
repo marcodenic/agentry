@@ -1,6 +1,3 @@
-//go:build tools
-// +build tools
-
 package main
 
 import (
@@ -36,5 +33,14 @@ func runCostCmd(args []string) {
 		os.Exit(1)
 	}
 	sum := trace.Analyze(*input, events)
-	fmt.Printf("tokens: %d cost: $%.4f\n", sum.Tokens, sum.Cost)
+	fmt.Printf("input tokens: %d, output tokens: %d, total tokens: %d, cost: $%.6f\n",
+		sum.InputTokens, sum.OutputTokens, sum.TotalTokens, sum.Cost)
+
+	// Show per-model breakdown if available
+	if len(sum.ModelUsage) > 0 {
+		fmt.Printf("\nModel usage breakdown:\n")
+		for model, usage := range sum.ModelUsage {
+			fmt.Printf("  %s: input=%d, output=%d\n", model, usage.InputTokens, usage.OutputTokens)
+		}
+	}
 }

@@ -8,45 +8,70 @@ import (
 	"os"
 	"strings"
 
+	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/model"
 )
 
 // Summary holds token usage and estimated cost for a run.
 type Summary struct {
-	Tokens int     `json:"tokens"`
-	Cost   float64 `json:"cost"`
+	InputTokens  int                        `json:"input_tokens"`
+	OutputTokens int                        `json:"output_tokens"`
+	TotalTokens  int                        `json:"total_tokens"`
+	Cost         float64                    `json:"cost"`
+	ModelUsage   map[string]cost.TokenUsage `json:"model_usage"`
 }
-
-// CostPerToken is the estimated cost for a single token in dollars.
-const CostPerToken = 0.000002
 
 // Analyze returns the token count and cost for an input and its trace events.
 func Analyze(input string, events []Event) Summary {
-	tokens := len(strings.Fields(input))
+	pricing := cost.NewPricingTable()
+	modelUsage := make(map[string]cost.TokenUsage)
+	totalInputTokens := 0
+	totalOutputTokens := 0
+	totalCost := 0.0
+
+	// Only count actual API token usage - no word-based estimates
 	for _, ev := range events {
 		switch ev.Type {
 		case EventStepStart:
 			switch d := ev.Data.(type) {
 			case model.Completion:
-				tokens += len(strings.Fields(d.Content))
-			case map[string]any:
-				if s, ok := d["Content"].(string); ok {
-					tokens += len(strings.Fields(s))
+				// Use actual token counts from API response if available
+				if d.InputTokens > 0 || d.OutputTokens > 0 {
+					totalInputTokens += d.InputTokens
+					totalOutputTokens += d.OutputTokens
+
+					// We need to determine the model name from context
+					// For now, we'll use a default model for cost calculation
+					// In a real implementation, this would be tracked in the trace
+					modelName := "gpt-4o" // Default fallback
+					cost := pricing.CalculateCost(modelName, d.InputTokens, d.OutputTokens)
+					totalCost += cost
+
+					usage := modelUsage[modelName]
+					usage.InputTokens += d.InputTokens
+					usage.OutputTokens += d.OutputTokens
+					modelUsage[modelName] = usage
 				}
+				// Note: No fallback to word-based counting - only use actual API token counts
 			}
-		case EventToolEnd:
-			if m, ok := ev.Data.(map[string]any); ok {
-				if r, ok := m["result"].(string); ok {
-					tokens += len(strings.Fields(r))
-				}
-			}
-		case EventFinal:
-			if s, ok := ev.Data.(string); ok {
-				tokens += len(strings.Fields(s))
-			}
+		// Note: Tool and final events are not counted separately
+		// Their token usage is included in the API response token counts
 		}
 	}
-	return Summary{Tokens: tokens, Cost: float64(tokens) * CostPerToken}
+
+	// If we didn't get any actual token counts, estimate from input only
+	if totalInputTokens == 0 && totalOutputTokens == 0 {
+		totalInputTokens = len(strings.Fields(input))
+		totalCost = float64(totalInputTokens) * cost.CostPerToken
+	}
+
+	return Summary{
+		InputTokens:  totalInputTokens,
+		OutputTokens: totalOutputTokens,
+		TotalTokens:  totalInputTokens + totalOutputTokens,
+		Cost:         totalCost,
+		ModelUsage:   modelUsage,
+	}
 }
 
 // ParseLog decodes newline-delimited JSON trace events from r.

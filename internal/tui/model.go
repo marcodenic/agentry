@@ -139,32 +139,34 @@ type DebugTraceEvent struct {
 }
 
 type AgentInfo struct {
-	Agent                  *core.Agent
-	History                string
-	Status                 AgentStatus
-	LastContentType        ContentType // Track what type of content was last added
-	PendingStatusUpdate    string      // Track ongoing status update for progressive completion
-	CurrentTool            string
-	TokenCount             int
-	TokenHistory           []int
-	ActivityData           []float64   // Activity level per second (0.0 to 1.0)
-	ActivityTimes          []time.Time // Timestamp for each activity data point
-	LastToken              time.Time
-	LastActivity           time.Time
-	CurrentActivity        int // Tokens processed in current second
-	ModelName              string
-	Scanner                *bufio.Scanner
-	Cancel                 context.CancelFunc
-	Spinner                spinner.Model
-	TokenProgress          progress.Model // Animated progress bar for token usage
-	Name                   string
-	Role                   string            // Agent role for display (e.g., "System", "Research", "DevOps")
-	TokensStarted          bool              // Flag to stop thinking animation when tokens start
-	StreamingResponse      string            // Current AI response being streamed (unformatted)
-	DebugTrace             []DebugTraceEvent // Detailed trace history for debug view
-	CurrentStep            int               // Current step number for trace events
-	DebugStreamingResponse string            // Separate streaming response for debug view
-	tracePipeWriter        io.WriteCloser    // Pipe writer for trace events (spawned agents)
+	Agent               *core.Agent
+	History             string
+	Status              AgentStatus
+	LastContentType     ContentType // Track what type of content was last added
+	PendingStatusUpdate string      // Track ongoing status update for progressive completion
+	CurrentTool         string
+	// TokenCount removed - use Agent.Cost.TotalTokens() for accurate token counts
+	TokenHistory      []int
+	ActivityData      []float64   // Activity level per second (0.0 to 1.0)
+	ActivityTimes     []time.Time // Timestamp for each activity data point
+	LastToken         time.Time
+	LastActivity      time.Time
+	CurrentActivity   int // Tokens processed in current second
+	ModelName         string
+	Scanner           *bufio.Scanner
+	Cancel            context.CancelFunc
+	Spinner           spinner.Model
+	TokenProgress     progress.Model // Animated progress bar for token usage
+	Name              string
+	Role              string // Agent role for display (e.g., "System", "Research", "DevOps")
+	TokensStarted     bool   // Flag to stop thinking animation when tokens start
+	StreamingResponse string // Current AI response being streamed (unformatted)
+
+	// Debug and trace fields
+	DebugTrace             []DebugTraceEvent // Debug trace events
+	CurrentStep            int               // Current step number
+	DebugStreamingResponse string            // Debug streaming response
+	tracePipeWriter        io.WriteCloser
 }
 
 // New creates a new TUI model bound to an Agent.

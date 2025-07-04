@@ -63,18 +63,16 @@ func (m Model) View() string {
 	totalTokens := 0
 	totalCost := 0.0
 
-	// Calculate total cost by summing individual agent costs (same logic as agent panel)
-	const CostPerToken = 0.000002 // Same as in agent_panel.go
+	// Simply sum up the costs from each agent's cost manager
 	for _, info := range m.infos {
-		totalTokens += info.TokenCount
-		if info.Agent.Cost != nil {
-			// Use the same cost calculation as individual agent display
-			individualCost := float64(info.TokenCount) * CostPerToken
-			totalCost += individualCost
+		if info.Agent != nil && info.Agent.Cost != nil {
+			// Get both tokens and cost from the agent's cost manager for consistency
+			totalTokens += info.Agent.Cost.TotalTokens()
+			totalCost += info.Agent.Cost.TotalCost()
 		}
 	}
 
-	footerText := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.4f", m.cwd, len(m.infos), totalTokens, totalCost)
+	footerText := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.6f", m.cwd, len(m.infos), totalTokens, totalCost)
 	footer := base.Width(m.width).Align(lipgloss.Right).Render(footerText)
 
 	// Add empty line between input and footer

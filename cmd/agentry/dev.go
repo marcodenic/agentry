@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/marcodenic/agentry/internal/config"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/marcodenic/agentry/internal/config"
 
 	"github.com/marcodenic/agentry/internal/trace"
 )
@@ -71,7 +72,8 @@ func runDev(args []string) {
 		}
 		sum := trace.Analyze(line, col.Events())
 		fmt.Println(out)
-		fmt.Printf("tokens: %d cost: $%.4f\n", sum.Tokens, sum.Cost)
+		fmt.Printf("input tokens: %d, output tokens: %d, total tokens: %d, cost: $%.6f\n",
+			sum.InputTokens, sum.OutputTokens, sum.TotalTokens, sum.Cost)
 		if opts.saveID != "" {
 			_ = ag.SaveState(context.Background(), opts.saveID)
 		}

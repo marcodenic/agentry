@@ -123,6 +123,11 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 				} `json:"tool_calls"`
 			} `json:"message"`
 		} `json:"choices"`
+		Usage struct {
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+			TotalTokens      int `json:"total_tokens"`
+		} `json:"usage"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return Completion{}, err
@@ -132,7 +137,11 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 	}
 
 	choice := res.Choices[0].Message
-	comp := Completion{Content: choice.Content}
+	comp := Completion{
+		Content:      choice.Content,
+		InputTokens:  res.Usage.PromptTokens,
+		OutputTokens: res.Usage.CompletionTokens,
+	}
 	for _, tc := range choice.ToolCalls {
 		comp.ToolCalls = append(comp.ToolCalls, ToolCall{
 			ID:        tc.ID,

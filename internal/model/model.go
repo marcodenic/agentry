@@ -27,8 +27,10 @@ type ToolCall struct {
 
 // Completion holds either final content or tool calls.
 type Completion struct {
-	Content   string
-	ToolCalls []ToolCall
+	Content      string
+	ToolCalls    []ToolCall
+	InputTokens  int // Actual input tokens from API
+	OutputTokens int // Actual output tokens from API
 }
 
 // Client defines the interface for language model backends.

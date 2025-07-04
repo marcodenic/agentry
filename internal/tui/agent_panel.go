@@ -29,7 +29,10 @@ func (m Model) agentPanel(panelWidth int) string {
 	totalTokens := 0
 	runningCount := 0
 	for _, ag := range m.infos {
-		totalTokens += ag.TokenCount
+		// Get token count from agent's cost manager for accuracy
+		if ag.Agent != nil && ag.Agent.Cost != nil {
+			totalTokens += ag.Agent.Cost.TotalTokens()
+		}
 		if ag.Status == StatusRunning {
 			runningCount++
 		}
@@ -91,8 +94,15 @@ func (m Model) agentPanel(panelWidth int) string {
 		if ag.ModelName != "" && strings.Contains(strings.ToLower(ag.ModelName), "gpt-4") {
 			maxTokens = 128000
 		}
-		tokenPct := float64(ag.TokenCount) / float64(maxTokens) * 100
-		tokenLine := fmt.Sprintf("  tokens: %d (%.1f%%)", ag.TokenCount, tokenPct)
+
+		// Get token count from agent's cost manager for accuracy
+		actualTokens := 0
+		if ag.Agent != nil && ag.Agent.Cost != nil {
+			actualTokens = ag.Agent.Cost.TotalTokens()
+		}
+
+		tokenPct := float64(actualTokens) / float64(maxTokens) * 100
+		tokenLine := fmt.Sprintf("  tokens: %d (%.1f%%)", actualTokens, tokenPct)
 		lines = append(lines, tokenLine)
 		bar := m.renderTokenBar(ag, panelWidth)
 		lines = append(lines, "  "+bar)
@@ -106,13 +116,12 @@ func (m Model) agentPanel(panelWidth int) string {
 			lines = append(lines, "  "+activityChart)
 		}
 
-		if ag.Agent.Cost != nil {
-			// Show individual agent cost based on their token count
-			// Use the same cost per token as the cost manager
-			const CostPerToken = 0.000002 // Same as in cost package
-			individualCost := float64(ag.TokenCount) * CostPerToken
+		if ag.Agent != nil && ag.Agent.Cost != nil {
+			// Simply get the current cost directly from the agent's cost manager
+			individualCost := ag.Agent.Cost.TotalCost()
+
 			if individualCost > 0 {
-				costLine := fmt.Sprintf("  cost: $%.4f", individualCost)
+				costLine := fmt.Sprintf("  cost: $%.6f", individualCost)
 				costLine = lipgloss.NewStyle().
 					Foreground(lipgloss.Color(m.theme.AIBarColor)).
 					Render(costLine)
