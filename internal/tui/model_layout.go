@@ -38,7 +38,9 @@ func (m Model) handleWindowResize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 	// Update progress bar widths for all agents when window resizes
 	panelWidth := int(float64(msg.Width) * 0.25)
 	for _, info := range m.infos {
-		barWidth := panelWidth - 6 // Account for "  " prefix and some padding
+		// Use same width calculation as activity chart: panelWidth - 8
+		// This accounts for "  " prefix (2 chars) + " XX%" suffix (4 chars) + padding (2 chars)
+		barWidth := panelWidth - 8
 		if barWidth < 10 {
 			barWidth = 10 // Minimum width
 		}

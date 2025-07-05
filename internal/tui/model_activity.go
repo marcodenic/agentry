@@ -67,6 +67,17 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 					DebugStreamingResponse: "", // Initialize debug streaming response
 				}
 
+				// Set proper token progress bar width based on current panel width
+				panelWidth := int(float64(m.width) * 0.25)
+				barWidth := panelWidth - 8 // Same calculation as layout and activity chart
+				if barWidth < 10 {
+					barWidth = 10
+				}
+				if barWidth > 50 {
+					barWidth = 50
+				}
+				info.TokenProgress.Width = barWidth
+
 				// Get the model name from the agent
 				newModelName := teamAgent.Agent.ModelName
 				if newModelName == "" {

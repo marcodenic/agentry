@@ -272,6 +272,20 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	if info.ModelName == "" {
 		info.ModelName = "unknown"
 	}
+
+	// Set initial progress bar width (will be updated on first window resize event)
+	// Assume a reasonable default window width of 120 characters
+	defaultWindowWidth := 120
+	panelWidth := int(float64(defaultWindowWidth) * 0.25)
+	barWidth := panelWidth - 8
+	if barWidth < 10 {
+		barWidth = 10
+	}
+	if barWidth > 50 {
+		barWidth = 50
+	}
+	info.TokenProgress.Width = barWidth
+
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
 	// Create team context with role loading support

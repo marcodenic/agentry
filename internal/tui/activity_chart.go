@@ -26,12 +26,19 @@ func (m Model) getAdvancedStatusDot(status AgentStatus) string {
 }
 
 // renderTokenBar draws an animated progress bar for token usage with green-to-red gradient.
-// The percentage and width should already be set during the Update cycle, this just renders the current state.
-func (m Model) renderTokenBar(info *AgentInfo, tokenPct float64, width int) string {
-	// NOTE: Do not call SetPercent() or set Width here! These should be handled
-	// in the Update cycle (model_tokens.go for percentage, model_layout.go for width)
-	// to ensure commands are properly captured.
-	// This function should only render the current state.
+func (m Model) renderTokenBar(info *AgentInfo, tokenPct float64, panelWidth int) string {
+	// Calculate width using the EXACT same method as renderActivityChart
+	// to ensure perfect alignment
+	chartWidth := panelWidth - 8 // Same calculation as activity chart
+	if chartWidth < 10 {
+		chartWidth = 10 // Same minimum as activity chart
+	}
+	if chartWidth > 50 {
+		chartWidth = 50 // Same maximum as activity chart
+	}
+
+	// Set the width to match activity chart exactly
+	info.TokenProgress.Width = chartWidth
 
 	return info.TokenProgress.View()
 }
@@ -44,13 +51,17 @@ func (m Model) renderActivityChart(activityData []float64, panelWidth int) strin
 
 	// Calculate available width for the chart:
 	// panelWidth - "  " prefix (2 chars) - " XX%" suffix (4 chars) - padding (2 chars) = available width
-	availableWidth := panelWidth - 8
-	if availableWidth < 10 {
-		availableWidth = 10 // Minimum chart width
+	chartWidth := panelWidth - 8
+	if chartWidth < 10 {
+		chartWidth = 10 // Minimum chart width
 	}
-	if availableWidth > 50 {
-		availableWidth = 50 // Maximum chart width for readability
+	if chartWidth > 50 {
+		chartWidth = 50 // Maximum chart width for readability
 	}
+	
+	// Adjust sparkline width to match token bar behavior:
+	// Token bar adds " 0%" (4 chars) automatically, so reduce sparkline width accordingly
+	availableWidth := chartWidth - 4
 
 	// Create sparkline chart with height 1 for a single row
 	chart := sparkline.New(availableWidth, 1,
@@ -86,7 +97,7 @@ func (m Model) renderActivityChart(activityData []float64, panelWidth int) strin
 
 	if len(activityData) > 0 {
 		currentActivity := activityData[len(activityData)-1]
-		pctText := fmt.Sprintf(" %2.0f%%", currentActivity*100)
+		pctText := fmt.Sprintf(" %2.0f%%", currentActivity*100) // Removed extra spaces to match token bar
 		pctStyled := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#6B7280")).
 			Faint(true).
@@ -96,7 +107,7 @@ func (m Model) renderActivityChart(activityData []float64, panelWidth int) strin
 		pctStyled := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#6B7280")).
 			Faint(true).
-			Render("  0%")
+			Render("  0%") // Removed extra spaces to match token bar
 		result.WriteString(pctStyled)
 	}
 
