@@ -224,29 +224,29 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 
 	// Initialize with ASCII logo as welcome content
 	rawLogoContent := `
-                                                             
-                                                             
-    ████▒               ▒████                  
-      ▒▓███▓▒       ▒▓███▓▒                    
-        ▒█▒████▓▒▓████▓█▒                      
-        ▒█   ▓█████▓▒  █▒                      
-        ▒█▓███▓▓█▓▓███▓█▒                      
-     ▒▓███▓▒   ▒▓▒   ▒▓███▓▒                   
-   ▒███▓▓█     ▒▓▒     █▓▓▓██▒                 
-        ▒█     ▒▓▒     █▒                      
-        ▒█     ▒▓▒     █▒                      
-        ▒█     ▒▓▒     █▒                      
-        ▒█     ▒▓▒     █▒                      
-        ▒█     ▒▓▒     █▒                      
-        ▒█     ▒▓▒     █▒                      
-               ▒▓▒                             
-                                    
-                         v0.2.0                 
-   █▀█ █▀▀ █▀▀ █▀█ ▀█▀ █▀▄ █ █                 
-   █▀█ █ █ █▀▀ █ █  █  █▀▄  █                  
-   ▀ ▀ ▀▀▀ ▀▀▀ ▀ ▀  ▀  ▀ ▀  ▀                  
- AGENT  ORCHESTRATION  FRAMEWORK               
-                                                             `
+                                 
+                                 
+    ████▒               ▒████    
+      ▒▓███▓▒       ▒▓███▓▒      
+        ▒█▒████▓▒▓████▓█▒        
+        ▒█   ▓█████▓▒  █▒        
+        ▒█▓███▓▓█▓▓███▓█▒        
+     ▒▓███▓▒   ▒▓▒   ▒▓███▓▒     
+   ▒███▓▓█     ▒▓▒     █▓▓▓██▒   
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+               ▒▓▒               
+                                 
+                         v0.2.0  
+   █▀█ █▀▀ █▀▀ █▀█ ▀█▀ █▀▄ █ █   
+   █▀█ █ █ █▀▀ █ █  █  █▀▄  █    
+   ▀ ▀ ▀▀▀ ▀▀▀ ▀ ▀  ▀  ▀ ▀  ▀    
+ AGENT  ORCHESTRATION  FRAMEWORK 
+                                `
 
 	// Apply beautiful gradient coloring to the logo
 	logoContent := applyGradientToLogo(rawLogoContent)
