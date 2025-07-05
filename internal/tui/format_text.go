@@ -9,15 +9,15 @@ import (
 
 func (m Model) formatWithBar(bar, text string, width int) string {
 	if text == "" {
-		return bar + " "
+		return bar + "  " // Use 2 spaces for AI responses
 	}
 	cleanText := strings.ReplaceAll(text, "┃", "")
 	cleanText = strings.Trim(cleanText, " \t")
 	if cleanText == "" {
-		return bar + " "
+		return bar + "  " // Use 2 spaces for AI responses
 	}
 	
-	barWidth := lipgloss.Width(bar) + 1
+	barWidth := lipgloss.Width(bar) + 2  // Account for the "  " spacing we add
 	textWidth := width - barWidth
 	if textWidth <= 20 {
 		textWidth = 60
@@ -34,8 +34,8 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 			var cleanedLines []string
 			
 			for _, line := range lines {
-				// Remove leading whitespace that glamour adds for padding
-				trimmed := strings.TrimLeft(line, " \t")
+				// Remove leading whitespace but preserve ANSI formatting
+				trimmed := strings.TrimLeft(line, " \t\u00A0\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000")
 				cleanedLines = append(cleanedLines, trimmed)
 			}
 			
@@ -47,7 +47,7 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 				cleanedLines = cleanedLines[:len(cleanedLines)-1]
 			}
 			
-			// Add the bar to each line
+			// Add the bar to each line with consistent spacing
 			var result strings.Builder
 			first := true
 			for _, line := range cleanedLines {
@@ -55,7 +55,7 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 					result.WriteString("\n")
 				}
 				first = false
-				result.WriteString(bar + " " + line)
+				result.WriteString(bar + "  " + line) // Use 2 spaces for markdown rendered content
 			}
 			return result.String()
 		}
@@ -71,7 +71,7 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 		}
 		first = false
 		if len(line) <= textWidth {
-			result.WriteString(bar + " " + line)
+			result.WriteString(bar + "  " + line) // Use 2 spaces for non-markdown content
 		} else {
 			words := strings.Fields(line)
 			var currentLine strings.Builder
@@ -93,7 +93,7 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 							result.WriteString("\n")
 						}
 						lineFirst = false
-						result.WriteString(bar + " " + currentLine.String())
+						result.WriteString(bar + "  " + currentLine.String()) // Use 2 spaces for consistency
 						currentLine.Reset()
 					}
 					currentLine.WriteString(word)
@@ -103,7 +103,7 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 				if !lineFirst {
 					result.WriteString("\n")
 				}
-				result.WriteString(bar + " " + currentLine.String())
+				result.WriteString(bar + "  " + currentLine.String()) // Use 2 spaces for consistency
 			}
 		}
 	}
@@ -146,21 +146,21 @@ func (m Model) formatSingleCommand(command string) string {
 
 func (m Model) formatUserInput(bar, text string, width int) string {
 	if text == "" {
-		return bar + " "
+		return bar + "    " // Use 4 spaces to match AI spacing
 	}
 	cleanText := strings.ReplaceAll(text, "┃", "")
 	cleanText = strings.Trim(cleanText, " \t")
 	if cleanText == "" {
-		return bar + " "
+		return bar + "    " // Use 4 spaces to match AI spacing
 	}
-	barWidth := lipgloss.Width(bar) + 1
+	barWidth := lipgloss.Width(bar) + 4  // Account for more spacing to match AI output
 	textWidth := width - barWidth
 	if textWidth <= 10 {
 		textWidth = 40
 	}
 	words := strings.Fields(cleanText)
 	if len(words) == 0 {
-		return bar + " "
+		return bar + "    " // Use 4 spaces to match AI spacing
 	}
 	var lines []string
 	var currentLine strings.Builder
@@ -187,14 +187,15 @@ func (m Model) formatUserInput(bar, text string, width int) string {
 		lines = append(lines, currentLine.String())
 	}
 	if len(lines) == 0 {
-		return bar + " "
+		return bar + "    " // Use 4 spaces to match AI spacing
 	}
 	var result strings.Builder
 	for i, line := range lines {
 		if i > 0 {
 			result.WriteString("\n")
 		}
-		result.WriteString(bar + " " + line)
+		// Add consistent left padding to match AI responses 
+		result.WriteString(bar + "    " + line) // Use "    " (4 spaces) to match AI indentation
 	}
 	return result.String()
 }
