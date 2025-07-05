@@ -40,7 +40,17 @@ func (m Model) renderTokenBar(info *AgentInfo, tokenPct float64, panelWidth int)
 	// Set the width to match activity chart exactly
 	info.TokenProgress.Width = chartWidth
 
-	return info.TokenProgress.View()
+	// Get the base progress bar (without percentage)
+	barStr := info.TokenProgress.View()
+	
+	// Add our own styled percentage to match the activity chart
+	pctText := fmt.Sprintf(" %2.0f%%", tokenPct)
+	pctStyled := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#6B7280")).
+		Faint(true).
+		Render(pctText)
+	
+	return barStr + pctStyled
 }
 
 // renderActivityChart shows recent activity levels as a scrolling chart using ntcharts sparkline.
@@ -59,9 +69,9 @@ func (m Model) renderActivityChart(activityData []float64, panelWidth int) strin
 		chartWidth = 50 // Maximum chart width for readability
 	}
 	
-	// Adjust sparkline width to match token bar behavior:
-	// Token bar adds " 0%" (4 chars) automatically, so reduce sparkline width accordingly
-	availableWidth := chartWidth - 4
+	// Since token bar no longer includes percentage automatically, 
+	// both bars now use the same width for their main content
+	availableWidth := chartWidth
 
 	// Create sparkline chart with height 1 for a single row
 	chart := sparkline.New(availableWidth, 1,
