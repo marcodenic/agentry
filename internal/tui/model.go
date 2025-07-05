@@ -327,23 +327,23 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	// This was missing in TUI mode, causing "agent tool placeholder" errors
 	tm.RegisterAgentTool(ag.Tools)
 
-	// Initialize status bar with colors that match the current theme
-	// Use subtle grays and low contrast to match the existing footer style
+	// Initialize status bar with gradient colors from the agentry logo
+	// Using the beautiful purple to teal gradient for a modern, cohesive look
 	agentsColors := statusbar.ColorConfig{
-		Foreground: lipgloss.AdaptiveColor{Light: "#000000", Dark: "#ffffff"},
-		Background: lipgloss.AdaptiveColor{Light: "#4a5568", Dark: "#4a5568"}, // Subtle gray
+		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#8B5FBF", Dark: "#8B5FBF"}, // Soft purple
 	}
 	cwdColors := statusbar.ColorConfig{
-		Foreground: lipgloss.AdaptiveColor{Light: "#000000", Dark: "#ffffff"},
-		Background: lipgloss.AdaptiveColor{Light: "#2d3748", Dark: "#2d3748"}, // Darker gray for middle section
+		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#5B82D7", Dark: "#5B82D7"}, // Medium blue
 	}
 	tokensColors := statusbar.ColorConfig{
-		Foreground: lipgloss.AdaptiveColor{Light: "#000000", Dark: "#ffffff"},
-		Background: lipgloss.AdaptiveColor{Light: "#4a5568", Dark: "#4a5568"}, // Same as agents
+		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#2BA6EF", Dark: "#2BA6EF"}, // Bright blue
 	}
 	costColors := statusbar.ColorConfig{
-		Foreground: lipgloss.AdaptiveColor{Light: "#000000", Dark: "#ffffff"},
-		Background: lipgloss.AdaptiveColor{Light: "#4a5568", Dark: "#4a5568"}, // Same as agents
+		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#00D6EF", Dark: "#00D6EF"}, // Soft teal
 	}
 	// Put agents first, CWD in the expandable middle, then tokens and cost
 	statusBarModel := statusbar.New(agentsColors, cwdColors, tokensColors, costColors)

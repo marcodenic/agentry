@@ -73,7 +73,7 @@ func (m *Model) SetColors(firstColumnColors, secondColumnColors, thirdColumnColo
 	m.FourthColumnColors = fourthColumnColors
 }
 
-// View returns a string representation of a statusbar.
+// View returns a string representation of a statusbar with advanced styling.
 func (m Model) View() string {
 	if m.Width <= 0 {
 		return ""
@@ -81,10 +81,12 @@ func (m Model) View() string {
 	
 	width := lipgloss.Width
 
+	// Create sophisticated styles for each column with subtle effects
 	firstColumn := lipgloss.NewStyle().
 		Foreground(m.FirstColumnColors.Foreground).
 		Background(m.FirstColumnColors.Background).
 		Padding(0, 1).
+		Bold(true).
 		Render(truncate.StringWithTail(m.FirstColumn, 30, "..."))
 
 	thirdColumn := lipgloss.NewStyle().
@@ -92,12 +94,14 @@ func (m Model) View() string {
 		Background(m.ThirdColumnColors.Background).
 		Align(lipgloss.Right).
 		Padding(0, 1).
+		Bold(true).
 		Render(m.ThirdColumn)
 
 	fourthColumn := lipgloss.NewStyle().
 		Foreground(m.FourthColumnColors.Foreground).
 		Background(m.FourthColumnColors.Background).
 		Padding(0, 1).
+		Bold(true).
 		Render(m.FourthColumn)
 
 	// Calculate remaining width for the expandable middle column
@@ -106,21 +110,32 @@ func (m Model) View() string {
 		remainingWidth = 0
 	}
 
+	// Special styling for the CWD section (middle) - make it stand out with italics
 	secondColumn := lipgloss.NewStyle().
 		Foreground(m.SecondColumnColors.Foreground).
 		Background(m.SecondColumnColors.Background).
 		Padding(0, 1).
 		Width(remainingWidth).
+		Italic(true).
+		Bold(true).
 		Render(truncate.StringWithTail(
 			m.SecondColumn,
 			uint(remainingWidth-2), // Account for padding
 			"..."),
 		)
 
-	return lipgloss.JoinHorizontal(lipgloss.Top,
+	// Join all columns with subtle transitions
+	statusBar := lipgloss.JoinHorizontal(lipgloss.Top,
 		firstColumn,
 		secondColumn,
 		thirdColumn,
 		fourthColumn,
 	)
+
+	// Apply overall status bar styling with clean, borderless design
+	finalStyle := lipgloss.NewStyle().
+		Width(m.Width).
+		Align(lipgloss.Left)
+
+	return finalStyle.Render(statusBar)
 }

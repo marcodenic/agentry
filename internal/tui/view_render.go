@@ -76,11 +76,11 @@ func (m Model) View() string {
 		}
 	}
 
-	// Update status bar content - put agents first, CWD in expandable middle, then tokens and cost
-	agentsDisplay := fmt.Sprintf("agents: %d", len(m.infos))
-	cwdDisplay := fmt.Sprintf("cwd: %s", m.cwd)
-	tokensDisplay := fmt.Sprintf("tokens: %d", totalTokens)
-	costDisplay := fmt.Sprintf("cost: $%.6f", totalCost)
+	// Update status bar content with modern icons and descriptive labels
+	agentsDisplay := fmt.Sprintf("◆ agents: %d", len(m.infos))
+	cwdDisplay := fmt.Sprintf("⌂ cwd: %s", m.cwd)
+	tokensDisplay := fmt.Sprintf("◈ tokens: %d", totalTokens)
+	costDisplay := fmt.Sprintf("◎ cost: $%.6f", totalCost)
 
 	// Set status bar size and content
 	m.statusBarModel.SetSize(m.width)
