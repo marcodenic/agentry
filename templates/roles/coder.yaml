@@ -98,6 +98,7 @@ builtins:
   - sysinfo # System information and hardware specs
 
 model:
-      provider: anthropic
+      provider: openai
       options:
-        model: claude-3-7-sonnet-latest
+        model: gpt-4.1-nano
+        #model: claude-3-7-sonnet-latest
