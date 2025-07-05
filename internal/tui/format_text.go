@@ -29,12 +29,28 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 		// This is an AI response - apply markdown rendering if detected
 		renderedText := m.RenderMarkdownIfNeeded(cleanText, textWidth)
 		if renderedText != cleanText {
-			// Markdown was applied - the text is already formatted and wrapped by glamour
-			// Just add the bar to each line without additional word wrapping
+			// Markdown was applied - clean up glamour's extra padding and spacing
 			lines := strings.Split(renderedText, "\n")
+			var cleanedLines []string
+			
+			for _, line := range lines {
+				// Remove leading whitespace that glamour adds for padding
+				trimmed := strings.TrimLeft(line, " \t")
+				cleanedLines = append(cleanedLines, trimmed)
+			}
+			
+			// Remove empty lines at the beginning and end
+			for len(cleanedLines) > 0 && strings.TrimSpace(cleanedLines[0]) == "" {
+				cleanedLines = cleanedLines[1:]
+			}
+			for len(cleanedLines) > 0 && strings.TrimSpace(cleanedLines[len(cleanedLines)-1]) == "" {
+				cleanedLines = cleanedLines[:len(cleanedLines)-1]
+			}
+			
+			// Add the bar to each line
 			var result strings.Builder
 			first := true
-			for _, line := range lines {
+			for _, line := range cleanedLines {
 				if !first {
 					result.WriteString("\n")
 				}
