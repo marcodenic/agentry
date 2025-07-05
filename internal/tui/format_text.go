@@ -16,11 +16,36 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 	if cleanText == "" {
 		return bar + " "
 	}
+	
 	barWidth := lipgloss.Width(bar) + 1
 	textWidth := width - barWidth
 	if textWidth <= 20 {
 		textWidth = 60
 	}
+	
+	// Apply markdown rendering for AI responses
+	aiBar := m.aiBar()
+	if bar == aiBar {
+		// This is an AI response - apply markdown rendering if detected
+		renderedText := m.RenderMarkdownIfNeeded(cleanText, textWidth)
+		if renderedText != cleanText {
+			// Markdown was applied - the text is already formatted and wrapped by glamour
+			// Just add the bar to each line without additional word wrapping
+			lines := strings.Split(renderedText, "\n")
+			var result strings.Builder
+			first := true
+			for _, line := range lines {
+				if !first {
+					result.WriteString("\n")
+				}
+				first = false
+				result.WriteString(bar + " " + line)
+			}
+			return result.String()
+		}
+		// If markdown wasn't applied, continue with normal text wrapping below
+	}
+	
 	lines := strings.Split(cleanText, "\n")
 	var result strings.Builder
 	first := true
