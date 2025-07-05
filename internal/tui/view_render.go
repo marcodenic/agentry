@@ -76,9 +76,19 @@ func (m Model) View() string {
 		}
 	}
 
-	footerText := fmt.Sprintf("cwd: %s | agents: %d | tokens: %d cost: $%.6f", m.cwd, len(m.infos), totalTokens, totalCost)
-	footer := base.Width(m.width).Align(lipgloss.Right).Render(footerText)
+	// Update status bar content - put agents first, CWD in expandable middle, then tokens and cost
+	agentsDisplay := fmt.Sprintf("agents: %d", len(m.infos))
+	cwdDisplay := fmt.Sprintf("cwd: %s", m.cwd)
+	tokensDisplay := fmt.Sprintf("tokens: %d", totalTokens)
+	costDisplay := fmt.Sprintf("cost: $%.6f", totalCost)
 
-	// Add empty line between input and footer
+	// Set status bar size and content
+	m.statusBarModel.SetSize(m.width)
+	m.statusBarModel.SetContent(agentsDisplay, cwdDisplay, tokensDisplay, costDisplay)
+
+	// Render the status bar
+	footer := m.statusBarModel.View()
+
+	// Add spacing line between input and status bar for proper layout
 	return lipgloss.JoinVertical(lipgloss.Left, content, "", footer)
 }

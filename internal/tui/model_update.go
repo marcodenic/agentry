@@ -78,6 +78,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	m.input, _ = m.input.Update(msg)
 	m.tools, _ = m.tools.Update(msg)
+	m.statusBarModel, _ = m.statusBarModel.Update(msg)
 
 	return m, tea.Batch(cmds...)
 }

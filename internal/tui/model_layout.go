@@ -22,8 +22,8 @@ func (m Model) handleWindowResize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 	chatWidth := int(float64(msg.Width)*0.75) - 2 // 75% width for chat area
 
 	// Calculate viewport height more accurately:
-	// Total height - top section margin - horizontal separator (1) - input section height - footer section height - padding
-	viewportHeight := msg.Height - 5 // Leave space for separator, input, footer, and padding
+	// Total height - horizontal separator (1) - input section height (1) - spacing line (1) - status bar height (1) = height - 4
+	viewportHeight := msg.Height - 4 // Space for separator, input line, spacing, and status bar
 
 	m.vp.Width = chatWidth
 	m.vp.Height = viewportHeight
@@ -34,6 +34,9 @@ func (m Model) handleWindowResize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 
 	// Set agent panel size (25% width)
 	m.tools.SetSize(int(float64(msg.Width)*0.25)-2, viewportHeight)
+
+	// Update status bar size
+	m.statusBarModel.SetSize(msg.Width)
 
 	// Update progress bar widths for all agents when window resizes
 	panelWidth := int(float64(msg.Width) * 0.25)

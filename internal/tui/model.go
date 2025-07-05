@@ -21,6 +21,7 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/glyphs"
+	"github.com/marcodenic/agentry/internal/statusbar"
 	"github.com/marcodenic/agentry/internal/team"
 )
 
@@ -108,6 +109,9 @@ type Model struct {
 
 	// Robot companion for Agent 0
 	robot *RobotFace
+
+	// Status bar
+	statusBarModel statusbar.Model
 
 	pricing *cost.PricingTable
 
@@ -323,6 +327,27 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	// This was missing in TUI mode, causing "agent tool placeholder" errors
 	tm.RegisterAgentTool(ag.Tools)
 
+	// Initialize status bar with colors that match the current theme
+	// Use subtle grays and low contrast to match the existing footer style
+	agentsColors := statusbar.ColorConfig{
+		Foreground: lipgloss.AdaptiveColor{Light: "#000000", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#4a5568", Dark: "#4a5568"}, // Subtle gray
+	}
+	cwdColors := statusbar.ColorConfig{
+		Foreground: lipgloss.AdaptiveColor{Light: "#000000", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#2d3748", Dark: "#2d3748"}, // Darker gray for middle section
+	}
+	tokensColors := statusbar.ColorConfig{
+		Foreground: lipgloss.AdaptiveColor{Light: "#000000", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#4a5568", Dark: "#4a5568"}, // Same as agents
+	}
+	costColors := statusbar.ColorConfig{
+		Foreground: lipgloss.AdaptiveColor{Light: "#000000", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#4a5568", Dark: "#4a5568"}, // Same as agents
+	}
+	// Put agents first, CWD in the expandable middle, then tokens and cost
+	statusBarModel := statusbar.New(agentsColors, cwdColors, tokensColors, costColors)
+
 	m := Model{
 		agents:          []*core.Agent{ag},
 		infos:           infos,
@@ -338,6 +363,7 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		keys:            th.Keybinds,
 		showInitialLogo: true,
 		robot:           NewRobotFace(),
+		statusBarModel:  statusBarModel,
 		pricing:         cost.NewPricingTable(),
 	}
 	return m
