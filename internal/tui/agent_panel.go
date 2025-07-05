@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/marcodenic/agentry/internal/glyphs"
@@ -91,8 +90,9 @@ func (m Model) agentPanel(panelWidth int) string {
 		}
 
 		maxTokens := 8000
-		if ag.ModelName != "" && strings.Contains(strings.ToLower(ag.ModelName), "gpt-4") {
-			maxTokens = 128000
+		if ag.ModelName != "" {
+			// Use pricing data to get the actual context limit
+			maxTokens = m.pricing.GetContextLimit(ag.ModelName)
 		}
 
 		// Get token count - use streaming count during active streaming, real count otherwise
@@ -106,7 +106,7 @@ func (m Model) agentPanel(panelWidth int) string {
 		}
 
 		tokenPct := float64(actualTokens) / float64(maxTokens) * 100
-		tokenLine := fmt.Sprintf("  tokens: %d (%.1f%%)", actualTokens, tokenPct)
+		tokenLine := fmt.Sprintf("  tokens: %d/%d", actualTokens, maxTokens)
 		lines = append(lines, tokenLine)
 
 		// The progress bar percentage will be set in renderTokenBar

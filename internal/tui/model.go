@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/glyphs"
 	"github.com/marcodenic/agentry/internal/team"
 )
@@ -103,6 +104,8 @@ type Model struct {
 
 	// Robot companion for Agent 0
 	robot *RobotFace
+
+	pricing *cost.PricingTable
 
 	err error
 
@@ -316,6 +319,7 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		keys:            th.Keybinds,
 		showInitialLogo: true,
 		robot:           NewRobotFace(),
+		pricing:         cost.NewPricingTable(),
 	}
 	return m
 }

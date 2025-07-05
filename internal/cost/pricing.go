@@ -14,8 +14,10 @@ import (
 
 // ModelPricing holds the pricing information for a specific model
 type ModelPricing struct {
-	InputPrice  float64 // Price per 1M tokens for input
-	OutputPrice float64 // Price per 1M tokens for output
+	InputPrice    float64 // Price per 1M tokens for input
+	OutputPrice   float64 // Price per 1M tokens for output
+	ContextLimit  int     // Maximum context window size in tokens
+	OutputLimit   int     // Maximum output tokens
 }
 
 // PricingTable holds all model pricing information
@@ -96,10 +98,26 @@ func (pt *PricingTable) parseAPIData(apiData map[string]interface{}) {
 			inputPrice, inputOk := cost["input"].(float64)
 			outputPrice, outputOk := cost["output"].(float64)
 
+			// Extract context limits
+			var contextLimit, outputLimit int
+			if limit, ok := model["limit"].(map[string]interface{}); ok {
+				if ctx, ok := limit["context"].(float64); ok {
+					contextLimit = int(ctx)
+				}
+				if out, ok := limit["output"].(float64); ok {
+					outputLimit = int(out)
+				}
+			}
+
 			if inputOk && outputOk {
 				// Store with provider prefix
 				fullModelName := fmt.Sprintf("%s/%s", providerID, modelID)
-				pt.prices[fullModelName] = ModelPricing{InputPrice: inputPrice, OutputPrice: outputPrice}
+				pt.prices[fullModelName] = ModelPricing{
+					InputPrice:   inputPrice, 
+					OutputPrice:  outputPrice,
+					ContextLimit: contextLimit,
+					OutputLimit:  outputLimit,
+				}
 			}
 		}
 	}
@@ -369,4 +387,20 @@ func (pt *PricingTable) GetCachedDataAge() (time.Duration, error) {
 		return 0, nil // File exists
 	}
 	return 0, fmt.Errorf("no cached data found")
+}
+
+// GetContextLimit returns the context window limit for a given model
+func (pt *PricingTable) GetContextLimit(modelName string) int {
+	pricing, found := pt.GetPricingByModelName(modelName)
+	if !found || pricing.ContextLimit == 0 {
+		// Fallback to reasonable defaults if no pricing data found
+		if strings.Contains(strings.ToLower(modelName), "gpt-4") {
+			return 128000
+		}
+		if strings.Contains(strings.ToLower(modelName), "claude") {
+			return 200000
+		}
+		return 8000 // Conservative default
+	}
+	return pricing.ContextLimit
 }
