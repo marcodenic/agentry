@@ -73,77 +73,10 @@ func normalizeMarkdownSyntax(content string) string {
 	return strings.Join(normalized, "\n")
 }
 
-// isLikelyMarkdown performs a simple heuristic check to see if content contains markdown
-func IsLikelyMarkdown(content string) bool {
-	// Check for common markdown patterns
-	markers := []string{
-		"#",   // Headers
-		"**",  // Bold
-		"*",   // Italic/Bold
-		"`",   // Code
-		"```", // Code blocks
-		"[",   // Links
-		"1.",  // Numbered lists
-		"-",   // Bullet lists
-		"•",   // Unicode bullet points (common in AI output)
-		">",   // Blockquotes
-		"|",   // Tables (but not our UI bars)
-	}
-
-	content = strings.TrimSpace(content)
-	if len(content) == 0 {
-		return false
-	}
-
-	// Don't treat content as markdown if it only contains our UI bars
-	lines := strings.Split(content, "\n")
-	nonBarLines := 0
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" && !strings.HasPrefix(trimmed, "┃") && !strings.HasPrefix(trimmed, "|") {
-			nonBarLines++
-		}
-	}
-
-	// If most lines are UI bars, don't treat as markdown
-	if len(lines) > 0 && float64(nonBarLines)/float64(len(lines)) < 0.3 {
-		return false
-	}
-
-	// Check for markdown markers
-	for _, marker := range markers {
-		if strings.Contains(content, marker) {
-			// Special handling for "-", "•" and "|" to avoid false positives
-			if marker == "-" {
-				// Only count as markdown if it's at start of line (list item)
-				if strings.Contains(content, "\n- ") || strings.HasPrefix(content, "- ") {
-					return true
-				}
-			} else if marker == "•" {
-				// Only count as markdown if it's used as a list item
-				if strings.Contains(content, "\n• ") || strings.HasPrefix(content, "• ") {
-					return true
-				}
-			} else if marker == "|" {
-				// Only count as markdown if it looks like a table
-				if strings.Contains(content, " | ") {
-					return true
-				}
-			} else {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-// renderMarkdownIfNeeded conditionally renders markdown based on content analysis
+// renderMarkdownIfNeeded applies markdown rendering to AI responses
 func (m Model) RenderMarkdownIfNeeded(content string, width int) string {
-	if !IsLikelyMarkdown(content) {
-		return content
-	}
-
+	// For AI responses, always try markdown rendering to ensure proper formatting
+	// The glamour library handles plain text gracefully, so this is safe
 	rendered, err := m.renderMarkdown(content, width)
 	if err != nil {
 		// If markdown rendering fails, return original content
