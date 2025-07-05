@@ -44,8 +44,9 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 	if info.StreamingTokenCount%5 == 0 { // Update every 5 tokens for performance
 		// Use SAME calculation that agent_panel.go uses for the tokens line
 		maxTokens := 8000
-		if info.ModelName != "" && strings.Contains(strings.ToLower(info.ModelName), "gpt-4") {
-			maxTokens = 128000
+		if info.ModelName != "" {
+			// Use pricing data to get the actual context limit
+			maxTokens = m.pricing.GetContextLimit(info.ModelName)
 		}
 
 		actualTokens := 0
