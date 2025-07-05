@@ -8,23 +8,35 @@ import (
 )
 
 func (m Model) formatWithBar(bar, text string, width int) string {
+	// Determine spacing based on bar type
+	aiBar := m.aiBar()
+	var spacing string
+	var barWidthSpacing int
+	
+	if bar == aiBar {
+		spacing = "  "  // Use 2 spaces for AI responses (accounts for Glamour padding)
+		barWidthSpacing = 2
+	} else {
+		spacing = "    " // Use 4 spaces for user inputs and status messages
+		barWidthSpacing = 4
+	}
+	
 	if text == "" {
-		return bar + "  " // Use 2 spaces for AI responses
+		return bar + spacing
 	}
 	cleanText := strings.ReplaceAll(text, "┃", "")
 	cleanText = strings.Trim(cleanText, " \t")
 	if cleanText == "" {
-		return bar + "  " // Use 2 spaces for AI responses
+		return bar + spacing
 	}
 	
-	barWidth := lipgloss.Width(bar) + 2  // Account for the "  " spacing we add
+	barWidth := lipgloss.Width(bar) + barWidthSpacing
 	textWidth := width - barWidth
 	if textWidth <= 20 {
 		textWidth = 60
 	}
 	
 	// Apply markdown rendering for AI responses
-	aiBar := m.aiBar()
 	if bar == aiBar {
 		// This is an AI response - apply markdown rendering if detected
 		renderedText := m.RenderMarkdownIfNeeded(cleanText, textWidth)
@@ -55,7 +67,7 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 					result.WriteString("\n")
 				}
 				first = false
-				result.WriteString(bar + "  " + line) // Use 2 spaces for markdown rendered content
+				result.WriteString(bar + spacing + line) // Use dynamic spacing
 			}
 			return result.String()
 		}
@@ -71,7 +83,7 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 		}
 		first = false
 		if len(line) <= textWidth {
-			result.WriteString(bar + "  " + line) // Use 2 spaces for non-markdown content
+			result.WriteString(bar + spacing + line) // Use dynamic spacing
 		} else {
 			words := strings.Fields(line)
 			var currentLine strings.Builder
@@ -93,7 +105,7 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 							result.WriteString("\n")
 						}
 						lineFirst = false
-						result.WriteString(bar + "  " + currentLine.String()) // Use 2 spaces for consistency
+						result.WriteString(bar + spacing + currentLine.String()) // Use dynamic spacing
 						currentLine.Reset()
 					}
 					currentLine.WriteString(word)
@@ -103,7 +115,7 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 				if !lineFirst {
 					result.WriteString("\n")
 				}
-				result.WriteString(bar + "  " + currentLine.String()) // Use 2 spaces for consistency
+				result.WriteString(bar + spacing + currentLine.String()) // Use dynamic spacing
 			}
 		}
 	}
@@ -141,7 +153,7 @@ func (m Model) formatHistoryWithBars(history string, width int) string {
 }
 
 func (m Model) formatSingleCommand(command string) string {
-	return fmt.Sprintf("%s %s", m.statusBar(), command)
+	return fmt.Sprintf("%s    %s", m.statusBar(), command) // Use 4 spaces to match user input alignment
 }
 
 func (m Model) formatUserInput(bar, text string, width int) string {
