@@ -27,7 +27,7 @@ func main() {
 		}
 	case "update":
 		fmt.Println("Updating pricing from models.dev API...")
-		err := pricing.UpdateFromAPI()
+		err := pricing.RefreshFromAPI()
 		if err != nil {
 			log.Printf("Warning: Could not update pricing from API: %v", err)
 			fmt.Println("Using hardcoded pricing data instead.")

@@ -133,7 +133,7 @@ func DefaultRegistry() Registry {
 	for n, s := range builtinMap {
 		r[n] = NewWithSchema(n, s.Desc, s.Schema, s.Exec)
 	}
-	
+
 	return r
 }
 

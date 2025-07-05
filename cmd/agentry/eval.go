@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/marcodenic/agentry/internal/config"
 	"os"
+
+	"github.com/marcodenic/agentry/internal/config"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/eval"

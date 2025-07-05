@@ -2,8 +2,6 @@ package cost
 
 import "sync"
 
-
-
 // TokenUsage represents token usage for a model call
 type TokenUsage struct {
 	InputTokens  int
@@ -12,8 +10,7 @@ type TokenUsage struct {
 
 type Manager struct {
 	mu            sync.Mutex
-	ModelUsage    map[string]TokenUsage // Model name -> token usage
-	ToolTokens    map[string]int        // Tool name -> token count (deprecated)
+	ModelUsage    map[string]TokenUsage // Model name -> token usage with input/output breakdown
 	BudgetTokens  int
 	BudgetDollars float64
 	pricing       *PricingTable
@@ -22,7 +19,6 @@ type Manager struct {
 func New(budgetTokens int, budgetDollars float64) *Manager {
 	return &Manager{
 		ModelUsage:    map[string]TokenUsage{},
-		ToolTokens:    map[string]int{},
 		BudgetTokens:  budgetTokens,
 		BudgetDollars: budgetDollars,
 		pricing:       NewPricingTable(),
@@ -42,27 +38,6 @@ func (m *Manager) AddModelUsage(modelName string, inputTokens, outputTokens int)
 	return m.overBudgetLocked()
 }
 
-// AddModel adds tokens for a model (deprecated, use AddModelUsage instead)
-func (m *Manager) AddModel(name string, tokens int) bool {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	// For backward compatibility, treat all tokens as output tokens
-	current := m.ModelUsage[name]
-	current.OutputTokens += tokens
-	m.ModelUsage[name] = current
-
-	return m.overBudgetLocked()
-}
-
-// AddTool is deprecated - tool results are included in API response token counts
-// This method is kept for backward compatibility but does nothing
-func (m *Manager) AddTool(name string, tokens int) bool {
-	// No-op: tool results are already included in API response token counts
-	// Don't even check budget since we're not adding anything
-	return false
-}
-
 func (m *Manager) TotalTokens() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -74,8 +49,6 @@ func (m *Manager) totalTokensLocked() int {
 	for _, usage := range m.ModelUsage {
 		total += usage.InputTokens + usage.OutputTokens
 	}
-	// Note: Tool tokens are no longer counted separately as they're included in API response token counts
-	// The ToolTokens map is kept for backward compatibility but not used in calculations
 	return total
 }
 
@@ -132,9 +105,5 @@ func (m *Manager) totalCostLocked() float64 {
 		cost := m.pricing.CalculateCost(modelName, usage.InputTokens, usage.OutputTokens)
 		totalCost += cost
 	}
-
-	// Note: Tool costs are no longer tracked separately as they're included in API response token counts
-	// The ToolTokens map is kept for backward compatibility but not used in calculations
-
 	return totalCost
 }

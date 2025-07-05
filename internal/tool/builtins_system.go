@@ -42,7 +42,7 @@ func getSystemBuiltins() map[string]builtinSpec {
 						"default":     3,
 					},
 					"path": map[string]any{
-						"type":        "string", 
+						"type":        "string",
 						"description": "Root path to analyze (default: current directory)",
 						"default":     ".",
 					},
@@ -64,24 +64,24 @@ func getSystemBuiltins() map[string]builtinSpec {
 				if d, ok := args["depth"].(float64); ok {
 					depth = int(d)
 				}
-				
+
 				rootPath := "."
 				if p, ok := args["path"].(string); ok && p != "" {
 					rootPath = p
 				}
-				
+
 				showFiles := true
 				if sf, ok := args["show_files"].(bool); ok {
 					showFiles = sf
 				}
-				
+
 				// Use find command with smart filtering
 				ignorePatterns := []string{
-					"node_modules", ".git", "dist", "build", "target", "vendor", 
+					"node_modules", ".git", "dist", "build", "target", "vendor",
 					".next", "__pycache__", ".pytest_cache", "coverage",
 					"*.egg-info", ".venv", "venv", ".env", "tmp", ".tmp",
 				}
-				
+
 				var cmd strings.Builder
 				cmd.WriteString("find ")
 				cmd.WriteString(rootPath)
@@ -95,42 +95,42 @@ func getSystemBuiltins() map[string]builtinSpec {
 					cmd.WriteString("'")
 				}
 				cmd.WriteString(" \\) -prune -o ")
-				
+
 				if showFiles {
 					cmd.WriteString("-type f")
 				} else {
 					cmd.WriteString("-type d")
 				}
-				
+
 				cmd.WriteString(" -print | head -50 | sort")
-				
+
 				result, err := ExecSandbox(ctx, cmd.String(), sbox.Options{})
 				if err != nil {
 					return "", fmt.Errorf("failed to get project tree: %w", err)
 				}
-				
+
 				// Format the output nicely
 				lines := strings.Split(strings.TrimSpace(result), "\n")
 				var output strings.Builder
 				output.WriteString("📂 Project Structure:\n")
 				output.WriteString("==================\n")
-				
+
 				for _, line := range lines {
 					if line == "" {
 						continue
 					}
-					
+
 					// Calculate indentation based on depth
 					parts := strings.Split(line, "/")
 					currentDepth := len(parts) - 1
-					
+
 					if currentDepth > depth {
 						continue
 					}
-					
+
 					indent := strings.Repeat("  ", currentDepth)
 					filename := parts[len(parts)-1]
-					
+
 					// Add emoji based on file type
 					if strings.Contains(line, ".") {
 						// It's a file
@@ -152,7 +152,7 @@ func getSystemBuiltins() map[string]builtinSpec {
 						output.WriteString(indent + "📁 " + filename + "/\n")
 					}
 				}
-				
+
 				return output.String(), nil
 			},
 		},

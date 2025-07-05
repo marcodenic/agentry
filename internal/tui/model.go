@@ -28,7 +28,7 @@ import (
 func createTokenProgressBar() progress.Model {
 	// Use a corrected green-to-red gradient with better green start color
 	prog := progress.New(progress.WithGradient("#00AA00", "#FF0000"))
-	prog.Width = 20 // Set a default width to prevent crashes
+	prog.Width = 20      // Set a default width to prevent crashes
 	prog.SetPercent(0.0) // Explicitly start at 0%
 	return prog
 }
@@ -283,7 +283,8 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		tm, err = team.NewTeam(ag, 10, "")
 	}
 	if err != nil {
-		panic(err) // For now, panic on error - TODO: handle gracefully
+		// If team creation fails, the TUI cannot function
+		panic(fmt.Sprintf("failed to initialize team: %v", err))
 	}
 
 	// CRITICAL FIX: Load Agent 0's proper role configuration (like prompt mode does)

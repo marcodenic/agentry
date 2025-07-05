@@ -246,18 +246,6 @@ func (t *Team) GetAgents() []string {
 	return append([]string(nil), t.names...)
 }
 
-// Agents returns a list of all core agents in the team.
-func (t *Team) Agents() []*core.Agent {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-
-	agents := make([]*core.Agent, 0, len(t.agents))
-	for _, agent := range t.agents {
-		agents = append(agents, agent.Agent)
-	}
-	return agents
-}
-
 // Names returns a list of all agent names in the team.
 func (t *Team) Names() []string {
 	return t.GetAgents()

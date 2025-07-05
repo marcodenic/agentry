@@ -14,10 +14,10 @@ import (
 
 // ModelPricing holds the pricing information for a specific model
 type ModelPricing struct {
-	InputPrice    float64 // Price per 1M tokens for input
-	OutputPrice   float64 // Price per 1M tokens for output
-	ContextLimit  int     // Maximum context window size in tokens
-	OutputLimit   int     // Maximum output tokens
+	InputPrice   float64 // Price per 1M tokens for input
+	OutputPrice  float64 // Price per 1M tokens for output
+	ContextLimit int     // Maximum context window size in tokens
+	OutputLimit  int     // Maximum output tokens
 }
 
 // PricingTable holds all model pricing information
@@ -67,8 +67,6 @@ func (pt *PricingTable) loadFromCache() bool {
 	return true
 }
 
-
-
 // parseAPIData extracts pricing information from the models.dev API response
 func (pt *PricingTable) parseAPIData(apiData map[string]interface{}) {
 	// First pass: collect all models with provider prefixes
@@ -113,7 +111,7 @@ func (pt *PricingTable) parseAPIData(apiData map[string]interface{}) {
 				// Store with provider prefix
 				fullModelName := fmt.Sprintf("%s/%s", providerID, modelID)
 				pt.prices[fullModelName] = ModelPricing{
-					InputPrice:   inputPrice, 
+					InputPrice:   inputPrice,
 					OutputPrice:  outputPrice,
 					ContextLimit: contextLimit,
 					OutputLimit:  outputLimit,
@@ -121,7 +119,7 @@ func (pt *PricingTable) parseAPIData(apiData map[string]interface{}) {
 			}
 		}
 	}
-	
+
 	// Only store provider/model format - no fallback to plain model names
 }
 
@@ -133,7 +131,7 @@ func (pt *PricingTable) getCacheFilePath() string {
 		// Fallback to relative path from current directory
 		return filepath.Join("internal", "cost", "data", "models_pricing.json")
 	}
-	
+
 	// Look for go.mod starting from current directory and going up
 	dir := cwd
 	for {
@@ -142,7 +140,7 @@ func (pt *PricingTable) getCacheFilePath() string {
 			// Found go.mod, this is the module root
 			return filepath.Join(dir, "internal", "cost", "data", "models_pricing.json")
 		}
-		
+
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			// Reached filesystem root, fallback to relative path
@@ -150,39 +148,13 @@ func (pt *PricingTable) getCacheFilePath() string {
 		}
 		dir = parent
 	}
-	
+
 	// Fallback to relative path
 	return filepath.Join("internal", "cost", "data", "models_pricing.json")
 }
 
-// GetPricing returns the pricing for a given model
-func (pt *PricingTable) GetPricing(model string) (ModelPricing, bool) {
-	pt.mu.RLock()
-	defer pt.mu.RUnlock()
-
-	// Only exact match - no fuzzy matching
-	if pricing, ok := pt.prices[model]; ok {
-		return pricing, true
-	}
-
-	return ModelPricing{}, false
-}
-
-// GetPricingByProvider returns the pricing for a given provider and model
-func (pt *PricingTable) GetPricingByProvider(provider, model string) (ModelPricing, bool) {
-	pt.mu.RLock()
-	defer pt.mu.RUnlock()
-
-	// Only try provider/model format - no fallback to plain model names
-	providerModel := fmt.Sprintf("%s/%s", provider, model)
-	if pricing, ok := pt.prices[providerModel]; ok {
-		return pricing, true
-	}
-
-	return ModelPricing{}, false
-}
-
-// GetPricingByModelName handles provider-model format names like "openai-gpt-4" or "anthropic-claude-instant"
+// GetPricingByModelName handles provider-model format names with fuzzy matching
+// Examples: "openai/gpt-4", "anthropic/claude-3-7-sonnet-latest"
 func (pt *PricingTable) GetPricingByModelName(modelName string) (ModelPricing, bool) {
 	pt.mu.RLock()
 	defer pt.mu.RUnlock()
@@ -197,7 +169,7 @@ func (pt *PricingTable) GetPricingByModelName(modelName string) (ModelPricing, b
 	if len(parts) >= 2 {
 		provider := parts[0]
 		model := strings.Join(parts[1:], "-")
-		
+
 		// Try provider/model format
 		providerModel := fmt.Sprintf("%s/%s", provider, model)
 		if pricing, ok := pt.prices[providerModel]; ok {
@@ -214,7 +186,7 @@ func (pt *PricingTable) GetPricingByModelName(modelName string) (ModelPricing, b
 func (pt *PricingTable) findBestMatch(modelName string) (ModelPricing, bool) {
 	// Common suffixes that don't affect pricing
 	suffixes := []string{"-latest", "-beta", "-preview", "-alpha", "-rc", "-stable"}
-	
+
 	// Try removing each suffix
 	for _, suffix := range suffixes {
 		if strings.HasSuffix(modelName, suffix) {
@@ -224,14 +196,14 @@ func (pt *PricingTable) findBestMatch(modelName string) (ModelPricing, bool) {
 			}
 		}
 	}
-	
+
 	// For provider/model format, also try suffix removal and fuzzy matching
 	if strings.Contains(modelName, "/") {
 		parts := strings.Split(modelName, "/")
 		if len(parts) == 2 {
 			provider := parts[0]
 			model := parts[1]
-			
+
 			// Try removing suffixes from the model part
 			for _, suffix := range suffixes {
 				if strings.HasSuffix(model, suffix) {
@@ -242,15 +214,13 @@ func (pt *PricingTable) findBestMatch(modelName string) (ModelPricing, bool) {
 					}
 				}
 			}
-			
+
 			// Try fuzzy matching against all models with the same provider
 			baseModel := model
 			for _, suffix := range suffixes {
-				if strings.HasSuffix(baseModel, suffix) {
-					baseModel = strings.TrimSuffix(baseModel, suffix)
-				}
+				baseModel = strings.TrimSuffix(baseModel, suffix)
 			}
-			
+
 			// Find best match by checking if any pricing key starts with provider/baseModel
 			bestMatch := ""
 			for pricingKey := range pt.prices {
@@ -265,7 +235,7 @@ func (pt *PricingTable) findBestMatch(modelName string) (ModelPricing, bool) {
 					}
 				}
 			}
-			
+
 			if bestMatch != "" {
 				if pricing, ok := pt.prices[bestMatch]; ok {
 					return pricing, true
@@ -273,7 +243,7 @@ func (pt *PricingTable) findBestMatch(modelName string) (ModelPricing, bool) {
 			}
 		}
 	}
-	
+
 	// Try progressive shortening for versioned models
 	// e.g., "claude-3-7-sonnet" -> "claude-3-7" -> "claude-3"
 	if strings.Contains(modelName, "/") {
@@ -281,7 +251,7 @@ func (pt *PricingTable) findBestMatch(modelName string) (ModelPricing, bool) {
 		if len(parts) == 2 {
 			provider := parts[0]
 			model := parts[1]
-			
+
 			modelParts := strings.Split(model, "-")
 			// Try progressively shorter versions
 			for i := len(modelParts) - 1; i >= 2; i-- {
@@ -293,7 +263,7 @@ func (pt *PricingTable) findBestMatch(modelName string) (ModelPricing, bool) {
 			}
 		}
 	}
-	
+
 	return ModelPricing{}, false
 }
 
@@ -348,11 +318,6 @@ func (pt *PricingTable) RefreshFromAPI() error {
 	pt.parseAPIData(apiData)
 
 	return nil
-}
-
-// UpdateFromAPI updates pricing from the models.dev API (deprecated, use RefreshFromAPI)
-func (pt *PricingTable) UpdateFromAPI() error {
-	return pt.RefreshFromAPI()
 }
 
 // SetCustomPricing allows setting custom pricing for a model

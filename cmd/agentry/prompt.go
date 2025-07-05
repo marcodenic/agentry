@@ -45,7 +45,7 @@ func runPrompt(cmd string, args []string) {
 
 	// Apply agent_0 role configuration to restrict tools
 	fmt.Printf("🔧 Before agent_0 config: agent has %d tools\n", len(ag.Tools))
-	
+
 	// FIX: Create team context for coordination capabilities (unified architecture)
 	// Load role configurations from include paths FIRST so Agent 0 can get proper config
 	configDir := ""
@@ -57,7 +57,7 @@ func runPrompt(cmd string, args []string) {
 		fmt.Printf("Warning: Failed to create team context: %v\n", err)
 	} else {
 		fmt.Printf("🔧 Team context created: Agent 0 now has coordination capabilities\n")
-		
+
 		// Load Agent 0's proper role configuration directly
 		agent0RolePath := "templates/roles/agent_0.yaml"
 		if role, err := team.LoadRoleFromFile(agent0RolePath); err == nil {
@@ -66,12 +66,12 @@ func runPrompt(cmd string, args []string) {
 		} else {
 			fmt.Printf("⚠️  Failed to load Agent 0 role from %s: %v\n", agent0RolePath, err)
 		}
-		
+
 		// Register the agent delegation tool to replace the placeholder
 		teamCtx.RegisterAgentTool(ag.Tools)
 		fmt.Printf("🔧 Agent delegation tool registered with team\n")
 	}
-	
+
 	fmt.Printf("🔧 After agent_0 config: agent has %d tools\n", len(ag.Tools))
 
 	if opts.maxIter > 0 {

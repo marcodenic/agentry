@@ -13,7 +13,7 @@ import (
 func TestCrossPlatformBuiltinTools(t *testing.T) {
 	// Create a context
 	ctx := context.Background()
-	
+
 	// Set sandbox to disabled for direct execution
 	tool.SetSandboxEngine("disabled")
 
@@ -37,18 +37,18 @@ func TestCrossPlatformBuiltinTools(t *testing.T) {
 		if !exists {
 			t.Skip("write tool not available in registry")
 		}
-		
+
 		writeArgs := map[string]any{
 			"file":    "test.txt",
 			"content": "Hello, cross-platform testing!",
 		}
-		
+
 		result, err := writeTool.Execute(ctx, writeArgs)
 		if err != nil {
 			t.Fatalf("write tool failed: %v", err)
 		}
 		t.Logf("write result: %s", result)
-		
+
 		// Verify file was created
 		if _, err := os.Stat("test.txt"); os.IsNotExist(err) {
 			t.Error("write tool did not create the file")
@@ -61,17 +61,17 @@ func TestCrossPlatformBuiltinTools(t *testing.T) {
 		if !exists {
 			t.Skip("view tool not available in registry")
 		}
-		
+
 		viewArgs := map[string]any{
 			"path": "test.txt",
 		}
-		
+
 		result, err := viewTool.Execute(ctx, viewArgs)
 		if err != nil {
 			t.Fatalf("view tool failed: %v", err)
 		}
 		t.Logf("view result: %s", result)
-		
+
 		// Should contain the content we wrote
 		if !strings.Contains(result, "Hello, cross-platform testing!") {
 			t.Errorf("view tool did not return expected content, got: %s", result)
@@ -84,17 +84,17 @@ func TestCrossPlatformBuiltinTools(t *testing.T) {
 		if !exists {
 			t.Skip("ls tool not available in registry")
 		}
-		
+
 		lsArgs := map[string]any{
 			"path": ".",
 		}
-		
+
 		result, err := lsTool.Execute(ctx, lsArgs)
 		if err != nil {
 			t.Fatalf("ls tool failed: %v", err)
 		}
 		t.Logf("ls result: %s", result)
-		
+
 		// Should contain our test.txt file
 		if !strings.Contains(result, "test.txt") {
 			t.Errorf("ls tool did not show test.txt file, got: %s", result)
@@ -107,10 +107,10 @@ func TestCrossPlatformBuiltinTools(t *testing.T) {
 		if !exists {
 			t.Skip("bash tool not available in registry")
 		}
-		
+
 		var bashArgs map[string]any
 		var expectedContent string
-		
+
 		if runtime.GOOS == "windows" {
 			// On Windows, test PowerShell command
 			bashArgs = map[string]any{
@@ -124,13 +124,13 @@ func TestCrossPlatformBuiltinTools(t *testing.T) {
 			}
 			expectedContent = "bash test"
 		}
-		
+
 		result, err := bashTool.Execute(ctx, bashArgs)
 		if err != nil {
 			t.Fatalf("bash tool failed: %v", err)
 		}
 		t.Logf("bash result: %s", result)
-		
+
 		if !strings.Contains(result, expectedContent) {
 			t.Errorf("bash tool did not return expected content, got: %s", result)
 		}
@@ -142,33 +142,33 @@ func TestCrossPlatformBuiltinTools(t *testing.T) {
 		if !exists {
 			t.Skip("edit tool not available in registry")
 		}
-		
+
 		editArgs := map[string]any{
 			"file":    "test.txt",
 			"content": "Updated cross-platform content!",
 		}
-		
+
 		result, err := editTool.Execute(ctx, editArgs)
 		if err != nil {
 			t.Fatalf("edit tool failed: %v", err)
 		}
 		t.Logf("edit result: %s", result)
-		
+
 		// Now view the file to check if it was updated
 		viewTool, exists := reg.Use("view")
 		if !exists {
 			t.Skip("view tool not available for verification")
 		}
-		
+
 		viewArgs := map[string]any{
 			"path": "test.txt",
 		}
-		
+
 		viewResult, err := viewTool.Execute(ctx, viewArgs)
 		if err != nil {
 			t.Fatalf("view tool failed after edit: %v", err)
 		}
-		
+
 		if !strings.Contains(viewResult, "Updated cross-platform content!") {
 			t.Errorf("edit tool did not update the file content, got: %s", viewResult)
 		}
@@ -179,22 +179,22 @@ func TestCrossPlatformBuiltinTools(t *testing.T) {
 		if !exists {
 			t.Skip("glob tool not available in registry")
 		}
-		
+
 		// First, let's see what directory we're in and what files exist
 		lsTool, _ := reg.Use("ls")
 		lsResult, _ := lsTool.Execute(ctx, map[string]any{"path": "."})
 		t.Logf("Current directory contents: %s", lsResult)
-		
+
 		globArgs := map[string]any{
 			"pattern": "*.txt",
 		}
-		
+
 		result, err := globTool.Execute(ctx, globArgs)
 		if err != nil {
 			t.Fatalf("glob tool failed: %v", err)
 		}
 		t.Logf("glob result: %s", result)
-		
+
 		// Should find our test.txt file
 		if !strings.Contains(result, "test.txt") {
 			t.Errorf("glob tool did not find test.txt file, got: %s", result)
@@ -207,18 +207,18 @@ func TestCrossPlatformBuiltinTools(t *testing.T) {
 		if !exists {
 			t.Skip("grep tool not available in registry")
 		}
-		
+
 		grepArgs := map[string]any{
 			"pattern": "Updated",
 			"file":    "test.txt",
 		}
-		
+
 		result, err := grepTool.Execute(ctx, grepArgs)
 		if err != nil {
 			t.Fatalf("grep tool failed: %v", err)
 		}
 		t.Logf("grep result: %s", result)
-		
+
 		// Should find the pattern in our file
 		if !strings.Contains(result, "Updated") {
 			t.Errorf("grep tool did not find expected pattern, got: %s", result)
@@ -231,17 +231,17 @@ func TestCrossPlatformBuiltinTools(t *testing.T) {
 		if !exists {
 			t.Skip("fetch tool not available in registry")
 		}
-		
+
 		fetchArgs := map[string]any{
 			"url": "https://httpbin.org/robots.txt",
 		}
-		
+
 		result, err := fetchTool.Execute(ctx, fetchArgs)
 		if err != nil {
 			t.Skipf("fetch tool failed (likely no internet connection): %v", err)
 		}
 		t.Logf("fetch result: %s", result)
-		
+
 		// Should get some content from the URL
 		if len(strings.TrimSpace(result)) == 0 {
 			t.Error("fetch tool returned empty content")

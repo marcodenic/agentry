@@ -52,8 +52,8 @@ func Analyze(input string, events []Event) Summary {
 				}
 				// Note: No fallback to word-based counting - only use actual API token counts
 			}
-		// Note: Tool and final events are not counted separately
-		// Their token usage is included in the API response token counts
+			// Note: Tool and final events are not counted separately
+			// Their token usage is included in the API response token counts
 		}
 	}
 

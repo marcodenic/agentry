@@ -29,7 +29,7 @@ func (t *Team) isPortAvailable(port int) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	// Close the listener immediately
 	listener.Close()
 	return true
@@ -53,12 +53,12 @@ func (t *Team) GetRole(name string) *RoleConfig {
 func (t *Team) ListRoles() []*RoleConfig {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	
+
 	roles := make([]*RoleConfig, 0, len(t.roles))
 	for _, role := range t.roles {
 		roles = append(roles, role)
 	}
-	
+
 	return roles
 }
 

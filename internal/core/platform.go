@@ -8,7 +8,7 @@ import (
 // GetPlatformContext returns OS-specific guidance for agents with tiered tool hierarchy
 func GetPlatformContext(allowedCommands []string, allowedBuiltins []string) string {
 	var platformInfo string
-	
+
 	switch runtime.GOOS {
 	case "windows":
 		platformInfo = "PLATFORM: Windows with PowerShell"
@@ -19,43 +19,43 @@ func GetPlatformContext(allowedCommands []string, allowedBuiltins []string) stri
 	default:
 		platformInfo = "PLATFORM: Unknown OS"
 	}
-	
+
 	result := platformInfo + "\n\n"
-	
+
 	// Tier 1: Enterprise-grade builtin tools (PREFERRED)
 	if len(allowedBuiltins) > 0 {
 		fileOpsTools := getFileOperationTools(allowedBuiltins)
 		webTools := getWebTools(allowedBuiltins)
 		otherTools := getOtherBuiltinTools(allowedBuiltins)
-		
+
 		if len(fileOpsTools) > 0 || len(webTools) > 0 || len(otherTools) > 0 {
 			result += "🎯 PREFERRED TOOLS (use these first):\n"
-			
+
 			if len(fileOpsTools) > 0 {
 				result += "\n📁 File Operations (enterprise-grade, atomic, cross-platform):\n"
 				for _, tool := range fileOpsTools {
 					result += "- " + tool + ": " + getBuiltinDescription(tool) + "\n"
 				}
 			}
-			
+
 			if len(webTools) > 0 {
 				result += "\n🌐 Web & Network Operations:\n"
 				for _, tool := range webTools {
 					result += "- " + tool + ": " + getBuiltinDescription(tool) + "\n"
 				}
 			}
-			
+
 			if len(otherTools) > 0 {
 				result += "\n🔧 Other Tools:\n"
 				for _, tool := range otherTools {
 					result += "- " + tool + ": " + getBuiltinDescription(tool) + "\n"
 				}
 			}
-			
+
 			result += "\n"
 		}
 	}
-	
+
 	// Tier 2: Shell commands (FALLBACK)
 	if len(allowedCommands) > 0 {
 		result += "⚙️ SYSTEM COMMANDS (for system operations and special cases):\n"
@@ -66,7 +66,7 @@ func GetPlatformContext(allowedCommands []string, allowedBuiltins []string) stri
 			}
 		}
 	}
-	
+
 	return result
 }
 
@@ -99,7 +99,7 @@ func getOtherBuiltinTools(allowedBuiltins []string) []string {
 	fileOps := []string{"read_lines", "edit_range", "insert_at", "search_replace", "fileinfo", "view", "create"}
 	webOps := []string{"web_search", "read_webpage", "api", "download", "fetch"}
 	var result []string
-	
+
 	for _, tool := range allowedBuiltins {
 		if !contains(fileOps, tool) && !contains(webOps, tool) {
 			result = append(result, tool)
@@ -186,29 +186,21 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
-// GetPlatformContextLegacy returns the old format for backward compatibility
-func GetPlatformContextLegacy() string {
-	return GetPlatformContext(
-		[]string{"list", "view", "write", "run", "search", "find", "cwd", "env"},
-		[]string{},
-	)
-}
-
 // InjectPlatformContext adds OS-specific guidance to agent prompts with filtered commands
 func InjectPlatformContext(prompt string, allowedCommands []string, allowedBuiltins []string) string {
 	platformInfo := GetPlatformContext(allowedCommands, allowedBuiltins)
-	
+
 	// If prompt already contains platform info, don't duplicate
 	if strings.Contains(prompt, "PLATFORM:") {
 		return prompt
 	}
-	
+
 	return prompt + "\n" + platformInfo
 }
 
 // InjectPlatformContextLegacy provides backward compatibility
 func InjectPlatformContextLegacy(prompt string) string {
-	return InjectPlatformContext(prompt, 
+	return InjectPlatformContext(prompt,
 		[]string{"list", "view", "write", "run", "search", "find", "cwd", "env"},
 		[]string{},
 	)

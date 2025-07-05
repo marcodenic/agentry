@@ -28,12 +28,12 @@ func getNetworkBuiltins() map[string]builtinSpec {
 				if url == "" {
 					return "", errors.New("missing url")
 				}
-				
+
 				// Validate that this is actually a URL and not a file path
 				if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 					return "", fmt.Errorf("fetch tool requires HTTP/HTTPS URLs, got '%s'. Use 'view' tool for local files", url)
 				}
-				
+
 				// Cross-platform URL fetching
 				if runtime.GOOS == "windows" {
 					// Use PowerShell Invoke-WebRequest

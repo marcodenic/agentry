@@ -18,7 +18,7 @@ func TestFileOperationTools(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	testFile := filepath.Join(tempDir, "test.go")
-	
+
 	t.Run("create", func(t *testing.T) {
 		content := `package main
 
