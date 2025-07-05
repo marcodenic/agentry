@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/NimbleMarkets/ntcharts/sparkline"
@@ -71,7 +72,8 @@ func (m Model) renderActivityChart(activityData []float64, panelWidth int) strin
 	
 	// Since token bar no longer includes percentage automatically, 
 	// both bars now use the same width for their main content
-	availableWidth := chartWidth
+	// Sparkline always adds a trailing space, so use width+1 then remove the space
+	availableWidth := chartWidth + 1
 
 	// Create sparkline chart with height 1 for a single row
 	chart := sparkline.New(availableWidth, 1,
@@ -98,8 +100,11 @@ func (m Model) renderActivityChart(activityData []float64, panelWidth int) strin
 	// Draw the Braille sparkline (for smooth, high-resolution appearance)
 	chart.DrawBraille()
 
-	// Get the rendered sparkline
+	// Get the rendered sparkline and remove the trailing space that sparkline always adds
 	sparklineStr := chart.View()
+	// Remove the pattern: space followed by ANSI reset code at the end
+	spacePattern := regexp.MustCompile(` \x1b\[0m$`)
+	sparklineStr = spacePattern.ReplaceAllString(sparklineStr, "\x1b[0m")
 
 	// Add percentage indicator
 	var result strings.Builder
