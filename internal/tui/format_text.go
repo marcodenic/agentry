@@ -12,15 +12,15 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 	aiBar := m.aiBar()
 	var spacing string
 	var barWidthSpacing int
-	
+
 	if bar == aiBar {
-		spacing = "  "  // Use 2 spaces for AI responses (accounts for Glamour padding)
+		spacing = "  " // Use 2 spaces for AI responses (accounts for Glamour padding)
 		barWidthSpacing = 2
 	} else {
 		spacing = "    " // Use 4 spaces for user inputs and status messages
 		barWidthSpacing = 4
 	}
-	
+
 	if text == "" {
 		return bar + spacing
 	}
@@ -29,13 +29,13 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 	if cleanText == "" {
 		return bar + spacing
 	}
-	
+
 	barWidth := lipgloss.Width(bar) + barWidthSpacing
 	textWidth := width - barWidth
 	if textWidth <= 20 {
 		textWidth = 60
 	}
-	
+
 	// Apply markdown rendering for AI responses
 	if bar == aiBar {
 		// This is an AI response - apply markdown rendering if detected
@@ -44,13 +44,13 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 			// Markdown was applied - clean up glamour's extra padding and spacing
 			lines := strings.Split(renderedText, "\n")
 			var cleanedLines []string
-			
+
 			for _, line := range lines {
 				// Remove leading whitespace but preserve ANSI formatting
 				trimmed := strings.TrimLeft(line, " \t\u00A0\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000")
 				cleanedLines = append(cleanedLines, trimmed)
 			}
-			
+
 			// Remove empty lines at the beginning and end
 			for len(cleanedLines) > 0 && strings.TrimSpace(cleanedLines[0]) == "" {
 				cleanedLines = cleanedLines[1:]
@@ -58,7 +58,7 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 			for len(cleanedLines) > 0 && strings.TrimSpace(cleanedLines[len(cleanedLines)-1]) == "" {
 				cleanedLines = cleanedLines[:len(cleanedLines)-1]
 			}
-			
+
 			// Add the bar to each line with consistent spacing
 			var result strings.Builder
 			first := true
@@ -73,7 +73,7 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 		}
 		// If markdown wasn't applied, continue with normal text wrapping below
 	}
-	
+
 	lines := strings.Split(cleanText, "\n")
 	var result strings.Builder
 	first := true
@@ -165,7 +165,7 @@ func (m Model) formatUserInput(bar, text string, width int) string {
 	if cleanText == "" {
 		return bar + "    " // Use 4 spaces to match AI spacing
 	}
-	barWidth := lipgloss.Width(bar) + 4  // Account for more spacing to match AI output
+	barWidth := lipgloss.Width(bar) + 4 // Account for more spacing to match AI output
 	textWidth := width - barWidth
 	if textWidth <= 10 {
 		textWidth = 40
@@ -206,7 +206,7 @@ func (m Model) formatUserInput(bar, text string, width int) string {
 		if i > 0 {
 			result.WriteString("\n")
 		}
-		// Add consistent left padding to match AI responses 
+		// Add consistent left padding to match AI responses
 		result.WriteString(bar + "    " + line) // Use "    " (4 spaces) to match AI indentation
 	}
 	return result.String()

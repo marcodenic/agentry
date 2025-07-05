@@ -461,10 +461,10 @@ func (info *AgentInfo) startProgressiveStatusUpdate(content string, m Model) {
 	var statusFormatted string
 	if strings.Contains(content, "✦") || strings.Contains(content, "▶") || strings.Contains(content, "●") {
 		// Content already has glyphs, just add proper spacing alignment
-		statusFormatted = "    " + content // Use 4 spaces to align with user input
+		statusFormatted = "  " + content // Use 4 spaces to align with user input
 	} else {
 		// Content doesn't have glyphs, use status bar
-		statusFormatted = m.statusBar() + "    " + content // Use 4 spaces to align with user input
+		statusFormatted = m.statusBar() + "  " + content // Use 4 spaces to align with user input
 	}
 	info.addContentWithSpacing(statusFormatted, ContentTypeStatusMessage)
 	info.PendingStatusUpdate = content // Track the pending update
