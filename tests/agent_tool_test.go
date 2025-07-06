@@ -56,7 +56,7 @@ func TestAgentToolDelegates(t *testing.T) {
 
 func TestAgentToolUnknown(t *testing.T) {
 	tm, registry := newTestTeam(t, "ok")
-	t.Logf("Initial agent count: %d", len(tm.Agents()))
+	t.Logf("Initial agent count: %d", len(tm.GetTeamAgents()))
 	ctx := team.WithContext(context.Background(), tm)
 	tl, _ := registry.Use("agent")
 	out, err := tl.Execute(ctx, map[string]any{"agent": "coder", "input": "hi"})
@@ -66,8 +66,8 @@ func TestAgentToolUnknown(t *testing.T) {
 	if out != "ok" {
 		t.Fatalf("unexpected output %s", out)
 	}
-	t.Logf("Final agent count: %d", len(tm.Agents()))
-	if len(tm.Agents()) != 3 {
-		t.Fatalf("agent not spawned, got %d", len(tm.Agents()))
+	t.Logf("Final agent count: %d", len(tm.GetTeamAgents()))
+	if len(tm.GetTeamAgents()) != 1 {
+		t.Fatalf("agent not spawned, got %d", len(tm.GetTeamAgents()))
 	}
 }

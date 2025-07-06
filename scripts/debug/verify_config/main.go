@@ -18,7 +18,7 @@ func main() {
 
 	// Load the smart config
 	configPath := filepath.Join(wd, "config", "smart-config.yaml")
-	cfg, err := config.FromFile(configPath)
+	cfg, err := config.Load(configPath)
 	if err != nil {
 		fmt.Printf("❌ Error loading config: %v\n", err)
 		return

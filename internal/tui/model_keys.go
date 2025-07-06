@@ -77,8 +77,8 @@ func (m Model) handlePause() (Model, tea.Cmd) {
 			info.StreamingResponse = ""
 		}
 
-		info.Status = StatusIdle   // Set to idle so new messages can be sent
-		info.TokensStarted = false // Reset streaming state
+		info.Status = StatusIdle                                   // Set to idle so new messages can be sent
+		info.TokensStarted = false                                 // Reset streaming state
 		stopMessage := m.statusBar() + "    Agent stopped by user" // Use 4 spaces for alignment
 		info.addContentWithSpacing(stopMessage, ContentTypeStatusMessage)
 		m.infos[m.active] = info
