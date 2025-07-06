@@ -422,7 +422,7 @@ Agentry uses YAML configuration files to define models, tools, and behavior. The
 - **`examples/.agentry.yaml`**: Reference configuration for users
 
 ### Configuration Documentation
-- **[CONFIG_GUIDE.md](CONFIG_GUIDE.md)**: Complete guide to all configuration files
+- **[CONFIG_GUIDE.md](docs/CONFIG_GUIDE.md)**: Complete guide to all configuration files
 - **[CONFIG_CLEANUP_SUMMARY.md](CONFIG_CLEANUP_SUMMARY.md)**: Recent improvements and standards
 
 ### Validation
