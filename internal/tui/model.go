@@ -309,18 +309,11 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		panic(fmt.Sprintf("failed to initialize team: %v", err))
 	}
 
-	// CRITICAL FIX: Load Agent 0's proper role configuration (like prompt mode does)
-	// This must happen BEFORE registering the agent tool
-	agent0RolePath := "templates/roles/agent_0.yaml"
-	if role, err := team.LoadRoleFromFile(agent0RolePath); err == nil {
-		ag.Prompt = role.Prompt
-		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-			fmt.Printf("🔧 Agent 0 loaded proper role configuration from %s (prompt length: %d chars)\n", agent0RolePath, len(role.Prompt))
-		}
-	} else {
-		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-			fmt.Printf("⚠️  Failed to load Agent 0 role from %s: %v\n", agent0RolePath, err)
-		}
+	// CRITICAL FIX: Use the canonical embedded prompt for Agent 0
+	// This ensures consistent behavior across all modes (TUI, chat, dev)
+	ag.Prompt = core.GetDefaultPrompt()
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		fmt.Printf("🔧 Agent 0 loaded canonical embedded prompt (length: %d chars)\n", len(ag.Prompt))
 	}
 
 	// CRITICAL FIX: Register the agent tool to replace the placeholder

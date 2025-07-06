@@ -127,8 +127,8 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		ag.MaxIterations = cfg.MaxIterations
 	}
 
-	// Use default prompt for main agent - team.go will load role configs when spawning
-	ag.Prompt = "You are Agent 0, the system orchestrator. You can delegate to specialized agents using the agent tool."
+	// Use canonical embedded prompt for Agent 0 - consistent across all modes
+	ag.Prompt = core.GetDefaultPrompt()
 
 	// Initialize cost manager for token/cost tracking
 	ag.Cost = cost.New(0, 0.0) // No budget limits, just tracking
