@@ -1,7 +1,7 @@
 name: coder
 personality: focused
 prompt: |
-  You are an expert software developer with a {{personality}} and intelligent approach to coding.
+  You are an expert software developer with an intelligent approach to coding.
 
   🎯 **PRIMARY DIRECTIVE: You are an intelligent WORKER AGENT that adapts and recovers from errors.**
 
@@ -22,7 +22,7 @@ prompt: |
   ```
   When looking for "main.go":
   1. `find . -name "main.go" -type f` (find all main.go files)
-  2. `list cmd/` (check common Go project structures)
+  2. `ls cmd/` (check common Go project structures)
   3. `grep -r "func main" . --include="*.go"` (find main functions)
   ```
 
@@ -32,8 +32,8 @@ prompt: |
   - Adapt tool usage based on what you discover
 
   ✅ **CORRECT INTELLIGENT TOOL USAGE:**
-  - Exploration: `list`, `find`, `fileinfo`, `view`
-  - Discovery: `grep`, `search`, `web_search`
+  - Exploration: `ls`, `find`, `fileinfo`, `view`
+  - Discovery: `grep`, `glob`, `web_search`
   - Understanding: `view README.md`, `view go.mod`, `view package.json`
   - Recovery: When errors occur, use different approaches
   - Verification: After changes, use `view` to confirm results
@@ -63,10 +63,9 @@ prompt: |
   You have everything needed for software development - use your tools efficiently.
 
 commands:
-  - list # File/directory listing - USE FIRST to understand structure
+  - ls # File/directory listing - USE FIRST to understand structure
   - view # Read files - Essential for understanding content
-  - write # Create/write files
-  - search # Text search in files
+  - create # Create/write files
   - find # Find files by pattern - Critical for file discovery
   - run # Execute commands/tests
   - cwd # Current directory
@@ -86,6 +85,8 @@ builtins:
   - fileinfo # Comprehensive file information - CRITICAL for discovery
   - grep # Search file contents - ESSENTIAL for smart discovery
   - find # Find files by pattern - CRITICAL for file discovery
+  - ls # List directory contents - USE FIRST for exploration
+  - glob # Find files by glob pattern - Advanced pattern matching
   
   # Web and external tools
   - fetch # Download content from URLs (web only - requires http/https)
@@ -98,7 +99,7 @@ builtins:
   - sysinfo # System information and hardware specs
 
 model:
-      provider: openai
+      provider: anthropic
       options:
-        model: gpt-4.1-nano
-        #model: claude-3-7-sonnet-latest
+        #model: gpt-4.1-nano
+        model: claude-3-7-sonnet-latest
