@@ -224,27 +224,27 @@ func grepFileExec(ctx context.Context, args map[string]any) (string, error) {
 
 	// Use shell grep for full functionality
 	cmd := "grep"
-	
+
 	if recursive, ok := args["recursive"].(bool); ok && recursive {
 		cmd += " -r"
 	}
-	
+
 	if ignoreCase, ok := args["ignore_case"].(bool); ok && ignoreCase {
 		cmd += " -i"
 	}
-	
+
 	if lineNumbers, ok := args["line_numbers"].(bool); ok && lineNumbers {
 		cmd += " -n"
 	}
-	
+
 	cmd += fmt.Sprintf(" %s", pattern)
-	
+
 	if path, ok := args["path"].(string); ok && path != "" {
 		cmd += fmt.Sprintf(" %s", path)
 	} else {
 		cmd += " ."
 	}
-	
+
 	if filePattern, ok := args["file_pattern"].(string); ok && filePattern != "" {
 		cmd += fmt.Sprintf(" --include=%s", filePattern)
 	}
@@ -259,15 +259,15 @@ func listDirExec(ctx context.Context, args map[string]any) (string, error) {
 	}
 
 	cmd := "ls"
-	
+
 	if long, ok := args["long"].(bool); ok && long {
 		cmd += " -l"
 	}
-	
+
 	if all, ok := args["all"].(bool); ok && all {
 		cmd += " -a"
 	}
-	
+
 	if sortBy, ok := args["sort_by"].(string); ok {
 		switch sortBy {
 		case "size":
@@ -276,7 +276,7 @@ func listDirExec(ctx context.Context, args map[string]any) (string, error) {
 			cmd += " -t"
 		}
 	}
-	
+
 	cmd += " " + path
 
 	return ExecSandbox(ctx, cmd, sbox.Options{})

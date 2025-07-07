@@ -70,10 +70,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle viewport scrolling based on active tab
 	if m.activeTab == 0 {
 		m.vp, _ = m.vp.Update(msg)
-		m.vp.GotoBottom() // Ensure we stay at the bottom
+		// Only auto-scroll to bottom when new content is being added, not on every update
+		// This allows users to scroll through chat history without being forced to bottom
 	} else {
 		m.debugVp, _ = m.debugVp.Update(msg)
-		m.debugVp.GotoBottom() // Ensure we stay at the bottom
+		// Only auto-scroll to bottom when new content is being added, not on every update
+		// This allows users to scroll through debug history without being forced to bottom
 	}
 
 	m.input, _ = m.input.Update(msg)
