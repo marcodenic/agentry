@@ -167,18 +167,22 @@ tools:
     type: builtin
   - name: mcp # 🎮 connect to MCP servers
     type: builtin
-  - name: lsp_diagnostics # 🩺 run language diagnostics (Go via gopls, TS via tsc)
+  - name: lsp_diagnostics # 🩺 run language diagnostics (Go:gopls, TS:tsc, Py:pyright, Rust:cargo, JS:eslint)
     type: builtin
 ```
 
 ### 🩺 Diagnostics (LSP)
 
-Use the lsp_diagnostics tool to surface Go/TypeScript issues:
+Use the lsp_diagnostics tool to surface issues across common languages:
 
 - Go: gopls check
 - TypeScript: tsc --noEmit
+- Python: pyright
+- Rust: cargo check
+- JavaScript: eslint
 
 It outputs JSON with diagnostics having fields: file, line, col, code, severity, message.
+When tools are not installed, the language is skipped gracefully. Files are auto-discovered.
 In the TUI, press Ctrl+D (default) to run diagnostics and see a per-file summary in the right panel.
 
 ### 🎯 Advanced File Operations

@@ -84,7 +84,7 @@ This document explains the purpose of each configuration file in the Agentry pro
 ### Tool Configuration
 - Always include `agent` tool for delegation
 - Include appropriate tools for the use case
-- Add `lsp_diagnostics` when working with Go or TypeScript projects; it auto-discovers files
+- Add `lsp_diagnostics` when working with Go, TypeScript, Python, Rust, or JavaScript projects; it auto-discovers files and runs available tools
 - Document tool descriptions clearly
 
 ## Maintenance Guidelines

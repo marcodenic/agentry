@@ -15,7 +15,7 @@ import (
 // Register a simple LSP diagnostics builtin that shells out to language-specific checkers
 func init() {
 	builtinMap["lsp_diagnostics"] = builtinSpec{
-		Desc: "Run language diagnostics (Go: gopls check, TypeScript: tsc --noEmit)",
+		Desc: "Run language diagnostics (Go: gopls check, TypeScript: tsc --noEmit, Python: pyright, Rust: cargo check, JavaScript: eslint)",
 		Schema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -109,8 +109,14 @@ func expandPaths(v any) ([]string, error) {
 }
 
 func discoverWorkspaceFiles() ([]string, error) {
-	// Basic discovery: Go and TS/TSX files under current directory
-	patterns := []string{"**/*.go", "**/*.ts", "**/*.tsx"}
+	// Basic discovery: common files under current directory
+	patterns := []string{
+		"**/*.go",
+		"**/*.ts", "**/*.tsx",
+		"**/*.js", "**/*.jsx", "**/*.mjs", "**/*.cjs",
+		"**/*.py",
+		"**/*.rs",
+	}
 	var files []string
 	for _, pat := range patterns {
 		// Expand ** by using doublestar-like behavior via filepath.Glob fallback
