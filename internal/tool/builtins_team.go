@@ -234,7 +234,11 @@ func getTeamBuiltins() map[string]builtinSpec {
 					}
 					var b strings.Builder
 					b.WriteString("📋 Coordination Events (full):\n")
-					for _, ln := range lines { b.WriteString("- "); b.WriteString(ln); b.WriteString("\n") }
+					for _, ln := range lines {
+						b.WriteString("- ")
+						b.WriteString(ln)
+						b.WriteString("\n")
+					}
 					return b.String(), nil
 				case "recent":
 					lines := t.CoordinationHistoryStrings(10)
@@ -243,7 +247,11 @@ func getTeamBuiltins() map[string]builtinSpec {
 					}
 					var b strings.Builder
 					b.WriteString("🕐 Recent Events:\n")
-					for _, ln := range lines { b.WriteString("- "); b.WriteString(ln); b.WriteString("\n") }
+					for _, ln := range lines {
+						b.WriteString("- ")
+						b.WriteString(ln)
+						b.WriteString("\n")
+					}
 					return b.String(), nil
 				default:
 					return "❌ Invalid detail level. Use: summary, full, or recent", nil

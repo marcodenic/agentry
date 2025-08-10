@@ -1,0 +1,15 @@
+{
+  // Force VS Code Go tools to use your Go 1.23.8 toolchain
+  "go.alternateTools": {
+    "go": "/usr/local/go/bin/go"
+  },
+  "go.toolsEnvVars": {
+    "GOROOT": "/usr/local/go",
+    "GOPATH": "/home/marco/go"
+  },
+  // Optional: speed up module resolution in workspace
+  "go.useLanguageServer": true,
+  "gopls": {
+    "ui.semanticTokens": true
+  }
+}

@@ -188,8 +188,8 @@ func (r *RobotFace) GetStyledFace() string {
 }
 
 // renderMultiColorFace renders a robot face with a single consistent style
-func (r *RobotFace) renderMultiColorFace(face, baseColor string, withTransparency bool) string {
-	// Use single color for everything to ensure eyes are always identical
+func (r *RobotFace) renderMultiColorFace(face, baseColor string, _ bool) string {
+	// Use provided color for consistent rendering across states
 	style := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(baseColor)).
 		Bold(true)
@@ -199,7 +199,7 @@ func (r *RobotFace) renderMultiColorFace(face, baseColor string, withTransparenc
 }
 
 // renderFadingEyes renders robot eyes with fading effect for activity
-func (r *RobotFace) renderFadingEyes(face, baseColor string) string {
+func (r *RobotFace) renderFadingEyes(face, _ string) string {
 	// Create a smooth transition between different green intensities
 	transitionColors := []string{
 		"#32CD32", "#2BC02B", "#24B324", "#1DA61D",

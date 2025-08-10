@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/marcodenic/agentry/internal/config"
@@ -40,25 +39,6 @@ func runDev(args []string) {
 		}
 		line := sc.Text()
 		if strings.HasPrefix(line, "converse") {
-			rest := strings.TrimSpace(strings.TrimPrefix(line, "converse"))
-			_ = 2 // n was used for agent count
-			topic := ""
-			if rest != "" {
-				fields := strings.Fields(rest)
-				if len(fields) > 0 {
-					if v, err := strconv.Atoi(fields[0]); err == nil && v > 0 {
-						_ = v // n = v
-						rest = strings.TrimSpace(rest[len(fields[0]):])
-					}
-				}
-				topic = strings.TrimSpace(rest)
-			}
-			if topic == "" {
-				topic = "Hello agents, let's chat!"
-			} else if (strings.HasPrefix(topic, "\"") && strings.HasSuffix(topic, "\"")) ||
-				(strings.HasPrefix(topic, "'") && strings.HasSuffix(topic, "'")) {
-				topic = strings.Trim(topic, "'\"")
-			}
 			// Team conversation functionality is being refactored
 			fmt.Printf("Team conversation mode temporarily disabled during refactoring\n")
 			continue
@@ -79,3 +59,6 @@ func runDev(args []string) {
 		}
 	}
 }
+
+// Reference to avoid unused function warning during refactors
+var _ = runDev

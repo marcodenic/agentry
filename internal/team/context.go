@@ -3,7 +3,7 @@ package team
 import (
 	"context"
 	"errors"
-    
+
 	// avoid import cycles by referring to tool package only in type-free way
 	"github.com/marcodenic/agentry/internal/tool"
 )

@@ -99,12 +99,12 @@ Examples:
 `)
 }
 
-func runToolCmd(args []string) {
+func runToolCmd(_ []string) {
 	fmt.Println("Tool command not implemented")
 }
 
 // Stub implementation for optional command if not present in this build.
-func runRefreshModelsCmd(args []string) {
+func runRefreshModelsCmd(_ []string) {
 	fmt.Println("Fetching latest model pricing/specs from models.dev ...")
 	pt := cost.NewPricingTable()
 	if err := pt.RefreshFromAPI(); err != nil {

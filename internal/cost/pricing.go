@@ -43,7 +43,7 @@ func NewPricingTable() *PricingTable {
 func (pt *PricingTable) loadPrices() error {
 	// Only load from cache - no hardcoded defaults
 	if !pt.loadFromCache() {
-		return fmt.Errorf("pricing cache file is missing or corrupted. Please run 'agentry refresh-pricing' to download fresh pricing data")
+		return fmt.Errorf("pricing cache file is missing or corrupted. Please run 'agentry refresh-models' to download fresh pricing data")
 	}
 	return nil
 }

@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"io"
 	"fmt"
+	"io"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -99,7 +99,7 @@ func (m Model) handleDiagnostics() (Model, tea.Cmd) {
 				Severity string `json:"severity"`
 				Message  string `json:"message"`
 			} `json:"diagnostics"`
-			Ok bool `json:"ok"`
+			Ok    bool   `json:"ok"`
 			Error string `json:"error"`
 		}
 		var r res

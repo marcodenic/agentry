@@ -2,11 +2,11 @@ package lsp
 
 import (
 	"bytes"
-	"regexp"
-	"strconv"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 )
 
 var languages []string
@@ -114,7 +114,7 @@ func ParseDiagnostics(output string) []Diagnostic {
 				Severity: m[reTSC1.SubexpIndex("sev")],
 				Message:  m[reTSC1.SubexpIndex("msg")],
 				Tool:     "tsc",
-				Language:  "typescript",
+				Language: "typescript",
 			})
 			continue
 		}
@@ -127,7 +127,7 @@ func ParseDiagnostics(output string) []Diagnostic {
 				Severity: m[reTSC2.SubexpIndex("sev")],
 				Message:  m[reTSC2.SubexpIndex("msg")],
 				Tool:     "tsc",
-				Language:  "typescript",
+				Language: "typescript",
 			})
 			continue
 		}
@@ -147,7 +147,7 @@ func ParseDiagnostics(output string) []Diagnostic {
 				Severity: sev,
 				Message:  m[reGo.SubexpIndex("msg")],
 				Tool:     "gopls",
-				Language:  "go",
+				Language: "go",
 			})
 			continue
 		}
@@ -160,4 +160,3 @@ func atoiSafe(s string) int {
 	n, _ := strconv.Atoi(s)
 	return n
 }
-

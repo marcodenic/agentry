@@ -11,7 +11,7 @@ import (
 func TestOpenAIClient(t *testing.T) {
 	key := os.Getenv("OPENAI_API_KEY")
 	if key == "" {
-	t.Skip("OPENAI_API_KEY not set")
+		t.Skip("OPENAI_API_KEY not set")
 	}
 	c := model.NewOpenAI(key, "gpt-4o")
 	msgs := []model.ChatMessage{{Role: "user", Content: "Hello"}}
