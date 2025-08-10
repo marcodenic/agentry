@@ -36,18 +36,18 @@ func LoadRolesFromIncludePaths(includePaths []string, configDir string) (map[str
 
 		role, err := LoadRoleFromFile(fullPath)
 		if err != nil {
-			fmt.Printf("Warning: failed to load role from %s: %v\n", fullPath, err)
+			fmt.Fprintf(os.Stderr, "Warning: failed to load role from %s: %v\n", fullPath, err)
 			continue
 		}
 
 		if role.Name == "" {
-			fmt.Printf("Warning: role in %s has no name, skipping\n", fullPath)
+			fmt.Fprintf(os.Stderr, "Warning: role in %s has no name, skipping\n", fullPath)
 			continue
 		}
 
 		roles[role.Name] = role
 		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-			fmt.Printf("✅ Loaded role: %s (model: %v)\n", role.Name, role.Model)
+			fmt.Fprintf(os.Stderr, "✅ Loaded role: %s (model: %v)\n", role.Name, role.Model)
 		}
 	}
 

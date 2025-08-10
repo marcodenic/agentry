@@ -93,7 +93,7 @@ func New(client model.Client, modelName string, reg tool.Registry, mem memory.St
 		ModelName:     modelName,
 		Tracer:        tr,
 		Cost:          cost.New(0, 0.0), // Initialize cost manager immediately
-		MaxIterations: 8,
+	MaxIterations: 24,
 		ErrorHandling: DefaultErrorHandling(),
 	}
 }

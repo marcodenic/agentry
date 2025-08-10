@@ -1,8 +1,8 @@
 name: writer
 model:
-  provider: anthropic
+  provider: openai
   options:
-    model: claude-3-7-sonnet-latest
+    model: gpt-5
 prompt: |
   You craft engaging prose and explain complex topics clearly with a {{personality}} voice.
 tools:

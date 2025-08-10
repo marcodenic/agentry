@@ -63,12 +63,12 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 	if roleConfig.Model != nil {
 		// Use role-specific model configuration
 		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-			fmt.Printf("🔧 SpawnAgent: Attempting to create model client for role %s with provider %s\n", role, roleConfig.Model.Provider)
+			fmt.Fprintf(os.Stderr, "🔧 SpawnAgent: Attempting to create model client for role %s with provider %s\n", role, roleConfig.Model.Provider)
 		}
 		c, err := model.FromManifest(*roleConfig.Model)
 		if err != nil {
 			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-				fmt.Printf("❌ SpawnAgent: failed to create model client for role %s: %v, falling back to mock\n", role, err)
+				fmt.Fprintf(os.Stderr, "❌ SpawnAgent: failed to create model client for role %s: %v, falling back to mock\n", role, err)
 			}
 			client = model.NewMock()
 			modelName = "mock"
@@ -76,7 +76,7 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 			client = c
 			modelName = fmt.Sprintf("%s/%s", roleConfig.Model.Provider, roleConfig.Model.Options["model"])
 			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-				fmt.Printf("✅ SpawnAgent: Successfully created %s model client for role %s\n", modelName, role)
+				fmt.Fprintf(os.Stderr, "✅ SpawnAgent: Successfully created %s model client for role %s\n", modelName, role)
 			}
 		}
 	} else {
@@ -84,7 +84,7 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 		client = t.parent.Client
 		modelName = t.parent.ModelName
 		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-			fmt.Printf("⚠️  SpawnAgent: No model config for role %s, using parent's client (%s)\n", role, modelName)
+			fmt.Fprintf(os.Stderr, "⚠️  SpawnAgent: No model config for role %s, using parent's client (%s)\n", role, modelName)
 		}
 	}
 

@@ -1,5 +1,9 @@
 name: researcher
 personality: thorough
+model:
+  provider: openai
+  options:
+    model: gpt-5
 prompt: |
   You are a research specialist with a {{personality}} approach to information gathering.
 

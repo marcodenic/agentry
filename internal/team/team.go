@@ -81,7 +81,7 @@ func NewTeamWithRoles(parent *core.Agent, maxTurns int, name string, includePath
 		for name, role := range roles {
 			team.roles[name] = role
 			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-				fmt.Printf("📋 Team role loaded: %s\n", name)
+				fmt.Fprintf(os.Stderr, "📋 Team role loaded: %s\n", name)
 			}
 		}
 	}
@@ -296,15 +296,12 @@ func (t *Team) GetTeamAgents() []*Agent {
 
 // logToFile logs the message to a file (only if not in TUI mode)
 func logToFile(message string) {
-	// Check if we're in TUI mode by looking for the TUI environment
-	// In TUI mode, we should avoid any stdout/stderr output that could interfere
 	if os.Getenv("AGENTRY_TUI_MODE") == "1" {
-		return // Skip logging in TUI mode to avoid interfering with display
+		return
 	}
 
 	file, err := os.OpenFile("agent_communication.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		// Don't use log.Println as it may interfere with TUI
 		return
 	}
 	defer file.Close()
@@ -316,7 +313,7 @@ func logToFile(message string) {
 // debugPrintf prints debug information only when not in TUI mode
 func debugPrintf(format string, v ...interface{}) {
 	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-		fmt.Printf(format, v...)
+		fmt.Fprintf(os.Stderr, format, v...)
 	}
 }
 
@@ -546,8 +543,8 @@ func (t *Team) SendMessageToAgent(ctx context.Context, fromAgentID, toAgentID, m
 	}
 
 	// Log the direct communication
-	fmt.Printf("💬 DIRECT MESSAGE: %s → %s\n", fromAgentID, toAgentID)
-	fmt.Printf("📝 Message: %s\n", message)
+	fmt.Fprintf(os.Stderr, "💬 DIRECT MESSAGE: %s → %s\n", fromAgentID, toAgentID)
+	fmt.Fprintf(os.Stderr, "📝 Message: %s\n", message)
 
 	// Store in coordination events
 	t.LogCoordinationEvent("direct_message", fromAgentID, toAgentID, message, map[string]interface{}{
@@ -576,7 +573,7 @@ func (t *Team) SendMessageToAgent(ctx context.Context, fromAgentID, toAgentID, m
 	messages = append(messages, newMessage)
 
 	t.SetSharedData(inboxKey, messages)
-	fmt.Printf("📬 Message delivered to %s's inbox\n", toAgentID)
+	fmt.Fprintf(os.Stderr, "📬 Message delivered to %s's inbox\n", toAgentID)
 
 	return nil
 }
@@ -587,13 +584,13 @@ func (t *Team) BroadcastToAllAgents(ctx context.Context, fromAgentID, message st
 	agentNames := append([]string(nil), t.names...)
 	t.mutex.RUnlock()
 
-	fmt.Printf("📢 BROADCAST from %s: %s\n", fromAgentID, message)
+	fmt.Fprintf(os.Stderr, "📢 BROADCAST from %s: %s\n", fromAgentID, message)
 
 	for _, agentName := range agentNames {
 		if agentName != fromAgentID { // Don't send to self
 			err := t.SendMessageToAgent(ctx, fromAgentID, agentName, message)
 			if err != nil {
-				fmt.Printf("❌ Failed to broadcast to %s: %v\n", agentName, err)
+				fmt.Fprintf(os.Stderr, "❌ Failed to broadcast to %s: %v\n", agentName, err)
 			}
 		}
 	}
@@ -675,7 +672,7 @@ func (t *Team) PublishWorkspaceEvent(agentID, eventType, description string, dat
 
 	t.SetSharedData(eventsKey, eventList)
 
-	fmt.Printf("📡 WORKSPACE EVENT: %s | %s: %s\n", agentID, eventType, description)
+	fmt.Fprintf(os.Stderr, "📡 WORKSPACE EVENT: %s | %s: %s\n", agentID, eventType, description)
 
 	// Log coordination event
 	t.LogCoordinationEvent("workspace_event", agentID, "*", fmt.Sprintf("%s: %s", eventType, description), map[string]interface{}{
@@ -705,7 +702,7 @@ func (t *Team) GetWorkspaceEvents(limit int) []WorkspaceEvent {
 
 // RequestHelp allows an agent to request help from other agents
 func (t *Team) RequestHelp(ctx context.Context, agentID, helpDescription string, preferredHelper string) error {
-	fmt.Printf("🆘 HELP REQUEST from %s: %s\n", agentID, helpDescription)
+	fmt.Fprintf(os.Stderr, "🆘 HELP REQUEST from %s: %s\n", agentID, helpDescription)
 
 	// Publish workspace event
 	t.PublishWorkspaceEvent(agentID, "help_request", helpDescription, map[string]interface{}{
@@ -726,8 +723,8 @@ func (t *Team) RequestHelp(ctx context.Context, agentID, helpDescription string,
 
 // ProposeCollaboration allows agents to propose working together
 func (t *Team) ProposeCollaboration(ctx context.Context, proposerID, targetAgentID, proposal string) error {
-	fmt.Printf("🤝 COLLABORATION PROPOSAL: %s → %s\n", proposerID, targetAgentID)
-	fmt.Printf("📝 Proposal: %s\n", proposal)
+	fmt.Fprintf(os.Stderr, "🤝 COLLABORATION PROPOSAL: %s → %s\n", proposerID, targetAgentID)
+	fmt.Fprintf(os.Stderr, "📝 Proposal: %s\n", proposal)
 
 	// Store proposal in shared memory
 	proposalKey := fmt.Sprintf("proposal_%s_to_%s_%d", proposerID, targetAgentID, time.Now().Unix())

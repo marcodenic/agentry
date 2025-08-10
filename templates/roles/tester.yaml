@@ -1,8 +1,8 @@
 name: tester
 model:
-  provider: anthropic
+  provider: openai
   options:
-    model: claude-3-7-sonnet-latest
+    model: gpt-5
 prompt: |
   You thoroughly test code with a {{personality}} mindset, finding edge cases and bugs.
   Use the appropriate shell tool for your OS: powershell/cmd on Windows, bash/sh on Unix/Linux/macOS.
