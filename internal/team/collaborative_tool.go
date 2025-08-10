@@ -178,87 +178,19 @@ func (ct *CollaborativeTool) SubscribeToEvents(agentID string, eventTypes []stri
 	return ct.engine.eventBus.Subscribe(agentID, eventTypes)
 }
 
-// CreateWorkflow creates a new collaborative workflow
-func (ct *CollaborativeTool) CreateWorkflow(workflowID, name string, steps []WorkflowStep, dependencies map[string][]string) error {
-	workflow := &Workflow{
-		ID:           workflowID,
-		Name:         name,
-		Steps:        steps,
-		Dependencies: dependencies,
-		Conditions:   make(map[string]WorkflowCondition),
-	}
-
-	ct.engine.workflow.mutex.Lock()
-	ct.engine.workflow.workflows[workflowID] = workflow
-	ct.engine.workflow.mutex.Unlock()
-
-	// Notify all agents about new workflow
-	event := AgentEvent{
-		Type: "workflow_created",
-		From: "system",
-		Data: map[string]interface{}{
-			"workflow_id": workflowID,
-			"name":        name,
-			"steps":       len(steps),
-		},
-		Priority: "normal",
-	}
-	ct.engine.eventBus.Publish(event)
-
-	return nil
+// CreateWorkflow is not supported (no separate workflow engine).
+func (ct *CollaborativeTool) CreateWorkflow(_ string, _ string, _ any, _ map[string][]string) error {
+	return fmt.Errorf("workflow creation is not supported; use Agent 0 to orchestrate task sequences")
 }
 
-// StartWorkflow starts executing a workflow
-func (ct *CollaborativeTool) StartWorkflow(workflowID string, initiatorAgent string) error {
-	ct.engine.workflow.mutex.Lock()
-	defer ct.engine.workflow.mutex.Unlock()
-
-	workflow, exists := ct.engine.workflow.workflows[workflowID]
-	if !exists {
-		return fmt.Errorf("workflow %s not found", workflowID)
-	}
-
-	execution := &WorkflowExecution{
-		WorkflowID: workflowID,
-		Status:     "running",
-		StepStatus: make(map[string]string),
-		StartedAt:  time.Now(),
-		Results:    make(map[string]interface{}),
-	}
-
-	// Initialize all steps as pending
-	for _, step := range workflow.Steps {
-		execution.StepStatus[step.ID] = "pending"
-	}
-
-	ct.engine.workflow.running[workflowID] = execution
-
-	// Notify all agents about workflow start
-	event := AgentEvent{
-		Type: "workflow_started",
-		From: initiatorAgent,
-		Data: map[string]interface{}{
-			"workflow_id": workflowID,
-			"initiator":   initiatorAgent,
-		},
-		Priority: "high",
-	}
-	ct.engine.eventBus.Publish(event)
-
-	return nil
+// StartWorkflow is not supported (no separate workflow engine).
+func (ct *CollaborativeTool) StartWorkflow(_ string, _ string) error {
+	return fmt.Errorf("workflow start is not supported; use Agent 0 to orchestrate task sequences")
 }
 
-// GetWorkflowStatus returns the status of a workflow
-func (ct *CollaborativeTool) GetWorkflowStatus(workflowID string) (*WorkflowExecution, error) {
-	ct.engine.workflow.mutex.RLock()
-	defer ct.engine.workflow.mutex.RUnlock()
-
-	execution, exists := ct.engine.workflow.running[workflowID]
-	if !exists {
-		return nil, fmt.Errorf("workflow %s not running", workflowID)
-	}
-
-	return execution, nil
+// GetWorkflowStatus is not supported (no separate workflow engine).
+func (ct *CollaborativeTool) GetWorkflowStatus(_ string) (any, error) {
+	return nil, fmt.Errorf("workflow status is not supported; no workflow engine is present")
 }
 
 // GetGlobalStatus returns overall system status

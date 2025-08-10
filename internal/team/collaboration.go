@@ -10,7 +10,6 @@ import (
 type CollaborationEngine struct {
 	team        *Team
 	eventBus    *EventBus
-	workflow    *WorkflowOrchestrator
 	fileManager *CollaborativeFileManager
 	statusBoard *StatusBoard
 	mutex       sync.RWMutex
@@ -31,46 +30,6 @@ type AgentEvent struct {
 	MessageID string                 `json:"message_id"`
 	ReplyTo   string                 `json:"reply_to,omitempty"`
 	Priority  string                 `json:"priority"` // high, normal, low
-}
-
-// WorkflowOrchestrator manages dependencies and execution order
-type WorkflowOrchestrator struct {
-	workflows map[string]*Workflow
-	running   map[string]*WorkflowExecution
-	mutex     sync.RWMutex
-}
-
-type Workflow struct {
-	ID           string                       `json:"id"`
-	Name         string                       `json:"name"`
-	Steps        []WorkflowStep               `json:"steps"`
-	Dependencies map[string][]string          `json:"dependencies"` // step_id -> list of prerequisite step_ids
-	Conditions   map[string]WorkflowCondition `json:"conditions"`
-}
-
-type WorkflowStep struct {
-	ID         string                 `json:"id"`
-	AgentID    string                 `json:"agent_id"`
-	Task       string                 `json:"task"`
-	Timeout    time.Duration          `json:"timeout"`
-	Parameters map[string]interface{} `json:"parameters"`
-	OnSuccess  []string               `json:"on_success"` // next steps to execute
-	OnFailure  []string               `json:"on_failure"` // steps to execute on failure
-	RetryCount int                    `json:"retry_count"`
-}
-
-type WorkflowCondition struct {
-	Type       string                 `json:"type"` // file_exists, agent_status, custom
-	Parameters map[string]interface{} `json:"parameters"`
-}
-
-type WorkflowExecution struct {
-	WorkflowID  string                 `json:"workflow_id"`
-	Status      string                 `json:"status"`      // running, completed, failed, paused
-	StepStatus  map[string]string      `json:"step_status"` // step_id -> status
-	StartedAt   time.Time              `json:"started_at"`
-	CompletedAt *time.Time             `json:"completed_at"`
-	Results     map[string]interface{} `json:"results"`
 }
 
 // CollaborativeFileManager handles file locking and change notifications
@@ -141,7 +100,6 @@ func NewCollaborationEngine(team *Team) *CollaborationEngine {
 	return &CollaborationEngine{
 		team:        team,
 		eventBus:    NewEventBus(),
-		workflow:    NewWorkflowOrchestrator(),
 		fileManager: NewCollaborativeFileManager(),
 		statusBoard: NewStatusBoard(),
 	}
@@ -155,13 +113,6 @@ func NewEventBus() *EventBus {
 }
 
 // NewWorkflowOrchestrator creates a new workflow orchestrator
-func NewWorkflowOrchestrator() *WorkflowOrchestrator {
-	return &WorkflowOrchestrator{
-		workflows: make(map[string]*Workflow),
-		running:   make(map[string]*WorkflowExecution),
-	}
-}
-
 // NewCollaborativeFileManager creates a new collaborative file manager
 func NewCollaborativeFileManager() *CollaborativeFileManager {
 	return &CollaborativeFileManager{

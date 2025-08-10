@@ -17,18 +17,18 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | 0.7 | Agent role template updates   | Tool discoverability  | Updated coder.yaml, agent_0.yaml      | ✅     |
 | 0.8 | Comprehensive test coverage   | Reliability           | Unit tests for all new tools          | ✅     |
 
-## ❶ Persistent Memory & Workflow Resumption (core)Resumable Workflows\*\*
+## ❶ Persistent Memory & Resumption (core)
 
-- Enable agents to remember and resume tasks across sessions, with first-class support for persistent state storage and workflow checkpointing.
+- Enable agents to remember and resume tasks across sessions, with first-class support for persistent state storage and checkpointing.
 - Integrate long-term memory (e.g., SQLite/vector DB per agent/project) and provide APIs for agents to read/write knowledge, facts, and plans.
-- Implement checkpointing and task resumption, allowing agents to serialize/deserialize state and continue complex workflows after restarts.
+- Implement checkpointing and task resumption, allowing agents to serialize/deserialize state and continue complex tasks after restarts.
 - Provide example scenarios (e.g., scheduled agents, multi-day research tasks) to demonstrate reliability and persistence.
 
-2. **Declarative Workflow Orchestration (DSL for Agents)**
+2. **Agent-Orchestrated Task Sequences**
 
-   - Extend Agentry’s YAML/JSON config to support scripting of multi-agent interactions and orchestration patterns (parallel, sequential, conditional, etc.).
-   - Develop a high-level, human-readable DSL for defining agent roles, communication, and tool usage, lowering the barrier for complex workflows.
-   - Plan for a future no-code/low-code UI to edit and visualize workflows, making orchestration accessible to a broader audience.
+   - Keep orchestration within Agent 0 and Team APIs (no separate DSL/engine).
+   - Support common patterns (sequential, simple parallelism) through Agent 0 decisions and team calls.
+   - Consider a UI visualization later that reflects Agent 0 coordination without a dedicated workflow engine.
 
 3. **Enhanced Sandboxing and Plugin Ecosystem**
 
@@ -125,7 +125,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 
 # ------------------------------------------------
 
-# E1. **Persistent Memory & Resumable Workflows**
+# E1. **Persistent Memory & Resumption**
 
 # R1.1 Pluggable durable KV (+ optional Postgres) for short texts.
 
@@ -141,9 +141,9 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 
 #
 
-# E2. **Declarative YAML Workflow DSL**
+# E2. **Agent-Orchestrated Task Sequences (no separate DSL)**
 
-# R2.1 Extend `.agentry.yaml` → `.agentry.flow.yaml`.
+# R2.1 Keep orchestration in Agent 0 and Team APIs (no separate `.flow.yaml`).
 
 # R2.2 Grammar primitives: `agents`, `tasks`, `parallel`, `sequential`,
 
@@ -209,7 +209,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 
 # R6.2 Web dashboard (Go + HTMX or SvelteKit) w/ panels:
 
-# • Live agent timeline (“AI workflow debugger”)
+# • Live agent timeline (coordination debugger)
 
 # • Tool invocation log & arguments
 
@@ -283,7 +283,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 
 # ------------------------------------------------
 
-# M1 – Design docs + protobufs + Flow DSL schema.
+# M1 – Design docs for Agent 0 task sequencing and persistence.
 
 # M2 – Persistent memstore + snapshot/resume + unit tests.
 
@@ -426,14 +426,14 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | 2.3 | gVisor / Firecracker runner | Hard isolation      | CRI shim prototype                   |  2.2 | ✅  |
 | 2.4 | Signed‑plugin registry      | Supply‑chain trust  | Publish index.json + SHA256 sig      | —    | ✅  |
 
-## ❸ Declarative Workflow DSL (dx)
+## ❸ Agent-Orchestrated Task Sequences (dx)
 
 | ID  |  ‑ [ ] Task                 | Why                   | How                         | Deps |
 | --- | --------------------------- | --------------------- | --------------------------- | ---- | --- |
-| 3.1 | YAML Flow schema v0.1       | Non‑dev orchestration | `.flow.yaml` → `[]Step`     | —    | ✅  |
-| 3.2 | Flow runner engine          | Execute DSL           | Goroutines; aggregate trace | 3.1  | ✅  |
-| 3.3 | CLI `agentry run flow.yaml` | DX                    | Detect & run                | 3.2  | ✅  |
-| 3.4 | Sample flows repo           | Showcase              | 3 demos under `examples/`   | 3.2  | ✅  |
+| 3.1 | Sequencing guidelines       | Orchestration patterns| Agent 0 prompts + config    | —    | ✅  |
+| 3.2 | Team APIs improvements      | Execute sequences     | Core/Team API enhancements  | 3.1  | ✅  |
+| 3.3 | CLI support                 | DX                    | `invoke`/`team` UX polish   | 3.2  | ✅  |
+| 3.4 | Examples                    | Showcase              | 3 demos under `examples/`   | 3.2  | ✅  |
 
 ## ❹ Distributed Scheduling & Cluster Mode (cloud)
 
