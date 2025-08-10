@@ -107,7 +107,7 @@
 **Core Collaboration System:**
 - `internal/team/team.go` - Multi-agent coordination and communication
 - `internal/team/collaborative_features.go` - Collaboration tools and messaging
-- `internal/team/collaboration.go` - Team status and coordination logic
+ - `internal/team/team.go` - Team status, shared memory, and coordination logic
 - `templates/roles/agent_0.yaml` - Enhanced agent_0 prompt with complexity assessment
 
 **Advanced Testing:**

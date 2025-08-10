@@ -22,6 +22,8 @@ type teamAPI interface {
 	// coordination
 	GetCoordinationSummary() string
 	CoordinationHistoryStrings(limit int) []string
+	// discovery
+	Names() []string
 }
 
 // getTeamBuiltins returns team coordination builtin tools
@@ -60,8 +62,38 @@ func getTeamBuiltins() map[string]builtinSpec {
 				"required":   []string{},
 			},
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				// Basic team status - will be enhanced with actual team data
-				return fmt.Sprintf("Team Status Report - %s\n\nAvailable Agents:\n- coder: Ready for programming tasks\n- tester: Ready for testing tasks\n- writer: Ready for documentation tasks\n- devops: Ready for deployment tasks\n- researcher: Ready for research tasks\n- designer: Ready for design tasks\n- reviewer: Ready for review tasks\n- editor: Ready for editing tasks\n- deployer: Ready for deployment tasks\n- team_planner: Ready for planning tasks\n\nTeam is ready for coordination.", time.Now().Format("2006-01-02 15:04:05")), nil
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
+				}
+
+				names := t.Names()
+				var b strings.Builder
+				b.WriteString(fmt.Sprintf("Team Status - %s\n", time.Now().Format("2006-01-02 15:04:05")))
+				if len(names) == 0 {
+					b.WriteString("No agents registered.\n")
+				} else {
+					b.WriteString("Agents:\n")
+					for _, n := range names {
+						b.WriteString("- ")
+						b.WriteString(n)
+						b.WriteString("\n")
+					}
+				}
+				// Append a short coordination summary
+				b.WriteString("\nRecent Coordination:\n")
+				lines := t.CoordinationHistoryStrings(5)
+				if len(lines) == 0 {
+					b.WriteString("- none\n")
+				} else {
+					for _, ln := range lines {
+						b.WriteString("- ")
+						b.WriteString(ln)
+						b.WriteString("\n")
+					}
+				}
+				return b.String(), nil
 			},
 		},
 		"send_message": {
@@ -121,19 +153,18 @@ func getTeamBuiltins() map[string]builtinSpec {
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
 				agentName, _ := args["agent"].(string)
 
-				// List of available agents - these match the agent_0.yaml configuration
-				availableAgents := []string{
-					"coder", "tester", "writer", "devops", "designer",
-					"deployer", "editor", "reviewer", "researcher", "team_planner",
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
 				}
-
-				for _, available := range availableAgents {
-					if available == agentName {
-						return fmt.Sprintf("✅ Agent '%s' is available and ready", agentName), nil
+				names := t.Names()
+				for _, n := range names {
+					if n == agentName {
+						return fmt.Sprintf("✅ Agent '%s' is available", agentName), nil
 					}
 				}
-
-				return fmt.Sprintf("❌ Agent '%s' is not available. Available agents: %s", agentName, strings.Join(availableAgents, ", ")), nil
+				return fmt.Sprintf("❌ Agent '%s' is not available. Available agents: %s", agentName, strings.Join(names, ", ")), nil
 			},
 		},
 		"shared_memory": {
@@ -266,7 +297,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 					"action": map[string]any{
 						"type":        "string",
 						"description": "Type of collaboration action",
-						"enum":        []string{"send_message", "request_help", "update_status", "get_team_status", "coordinate_workflow"},
+						"enum":        []string{"send_message", "request_help", "update_status", "get_team_status"},
 					},
 					"to": map[string]any{
 						"type":        "string",
@@ -388,34 +419,38 @@ func getTeamBuiltins() map[string]builtinSpec {
 					return result, nil
 
 				case "get_team_status":
-					timestamp := time.Now().Format("2006-01-02 15:04:05")
-					result := fmt.Sprintf("👥 TEAM STATUS REPORT - %s\n\n", timestamp)
-					result += "🎯 ACTIVE AGENTS:\n"
-					result += "├── coder: Working on calculator implementation (Progress: 70%%)\n"
-					result += "├── tester: Idle, waiting for code to test\n"
-					result += "├── writer: Working on documentation (Progress: 40%%)\n"
-					result += "├── devops: Idle, ready for deployment tasks\n"
-					result += "└── researcher: Idle, ready for research tasks\n\n"
-					result += "💬 RECENT COMMUNICATIONS:\n"
-					result += "├── coder → tester: \"Ready for testing\"\n"
-					result += "├── writer → coder: \"Need API specification\"\n"
-					result += "└── System: Workflow coordination active\n\n"
-					result += "📈 OVERALL PROGRESS: 55%% complete\n"
-					result += "🚦 SYSTEM STATUS: Collaborative workflows active"
-					return result, nil
+					tv := ctx.Value(TeamContextKey)
+					t, _ := tv.(teamAPI)
+					if t == nil {
+						return "", fmt.Errorf("no team in context")
+					}
+					names := t.Names()
+					var b strings.Builder
+					b.WriteString(fmt.Sprintf("Team Status - %s\n\n", time.Now().Format("2006-01-02 15:04:05")))
+					if len(names) == 0 {
+						b.WriteString("Agents: none\n")
+					} else {
+						b.WriteString("Agents:\n")
+						for _, n := range names {
+							b.WriteString("- ")
+							b.WriteString(n)
+							b.WriteString("\n")
+						}
+					}
+					b.WriteString("\nRecent Events:\n")
+					lines := t.CoordinationHistoryStrings(10)
+					if len(lines) == 0 {
+						b.WriteString("- none\n")
+					} else {
+						for _, ln := range lines {
+							b.WriteString("- ")
+							b.WriteString(ln)
+							b.WriteString("\n")
+						}
+					}
+					return b.String(), nil
 
-				case "coordinate_workflow":
-					timestamp := time.Now().Format("2006-01-02 15:04:05")
-					result := fmt.Sprintf("🔄 Workflow coordination initiated - %s\n\n", timestamp)
-					result += "📋 WORKFLOW: Multi-agent collaboration activated\n\n"
-					result += "🎯 COORDINATION STEPS:\n"
-					result += "1. Coder implements functionality\n"
-					result += "2. Tester validates implementation\n"
-					result += "3. Writer creates documentation\n"
-					result += "4. Reviewer provides feedback\n"
-					result += "5. DevOps handles deployment\n\n"
-					result += "✅ All agents have been notified of the workflow coordination."
-					return result, nil
+				// removed coordinate_workflow action (no separate workflow engine)
 
 				default:
 					return "", fmt.Errorf("unknown collaboration action: %s", action)
