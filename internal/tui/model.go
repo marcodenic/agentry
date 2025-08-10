@@ -323,11 +323,10 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		panic(fmt.Sprintf("failed to initialize team: %v", err))
 	}
 
-	// CRITICAL FIX: Use the canonical embedded prompt for Agent 0
-	// This ensures consistent behavior across all modes (TUI, chat, dev)
+	// Resolve prompt; fail fast if missing
 	ag.Prompt = core.GetDefaultPrompt()
-	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-		fmt.Printf("🔧 Agent 0 loaded canonical embedded prompt (length: %d chars)\n", len(ag.Prompt))
+	if strings.TrimSpace(ag.Prompt) == "" {
+		panic("no default prompt found: set AGENTRY_DEFAULT_PROMPT or install templates (see docs)")
 	}
 
 	// CRITICAL FIX: Register the agent tool to replace the placeholder

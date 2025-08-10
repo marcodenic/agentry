@@ -2,6 +2,7 @@ package team
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
+	"github.com/marcodenic/agentry/internal/memstore"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
@@ -26,12 +28,11 @@ type Team struct {
 	roles        map[string]*RoleConfig
 	portRange    PortRange
 	name         string
-	msg          string
-	turn         int
 	maxTurns     int
 	mutex        sync.RWMutex
 	// ENHANCED: Shared memory and communication tracking
 	sharedMemory map[string]interface{} // Shared data between agents
+	store        memstore.SharedStore   // Durable-backed store (in-memory by default)
 	coordination []CoordinationEvent    // Log of coordination events
 }
 
@@ -48,8 +49,15 @@ func NewTeam(parent *core.Agent, maxTurns int, name string) (*Team, error) {
 		roles:        make(map[string]*RoleConfig),
 		portRange:    PortRange{Start: 9000, End: 9099}, // ENHANCED: Initialize shared memory and coordination tracking
 		sharedMemory: make(map[string]interface{}),
+		store:        memstore.Get(),
 		coordination: make([]CoordinationEvent, 0),
 	}
+
+	// Kick off default GC for the store (once-per-process)
+	memstore.StartDefaultGC(60 * time.Second)
+
+	// Best-effort: load persisted coordination events for this team
+	team.loadCoordinationFromStore()
 
 	return team, nil
 }
@@ -317,8 +325,18 @@ func debugPrintf(format string, v ...interface{}) {
 // SetSharedData stores data in shared memory accessible to all agents
 func (t *Team) SetSharedData(key string, value interface{}) {
 	t.mutex.Lock()
-	defer t.mutex.Unlock()
 	t.sharedMemory[key] = value
+	t.mutex.Unlock()
+
+	// Persist a JSON representation to the shared store (best-effort)
+	if t.store != nil {
+		if b, err := json.Marshal(value); err == nil {
+			_ = t.store.Set(t.name, key, b, 0)
+		} else {
+			// Fallback to string formatting to avoid losing data entirely
+			_ = t.store.Set(t.name, key, []byte(fmt.Sprintf("%v", value)), 0)
+		}
+	}
 
 	// Log the shared memory update
 	event := CoordinationEvent{
@@ -330,16 +348,61 @@ func (t *Team) SetSharedData(key string, value interface{}) {
 		Timestamp: time.Now(),
 		Metadata:  map[string]interface{}{"key": key, "value_type": fmt.Sprintf("%T", value)},
 	}
+	t.mutex.Lock()
 	t.coordination = append(t.coordination, event)
+	t.mutex.Unlock()
 	debugPrintf("📊 Shared memory updated: %s\n", key)
 }
 
 // GetSharedData retrieves data from shared memory
 func (t *Team) GetSharedData(key string) (interface{}, bool) {
 	t.mutex.RLock()
-	defer t.mutex.RUnlock()
 	value, exists := t.sharedMemory[key]
-	return value, exists
+	t.mutex.RUnlock()
+	if exists {
+		return value, true
+	}
+
+	// Try backing store if not present in in-memory map
+	if t.store != nil {
+		if b, ok, err := t.store.Get(t.name, key); err == nil && ok {
+			var out interface{}
+			if err := json.Unmarshal(b, &out); err != nil {
+				// treat as plain string
+				out = string(b)
+			}
+			// normalize common JSON generic types into typed Go forms used by callers
+			out = normalizeShared(out)
+			// cache in memory for quick typed access in-session
+			t.mutex.Lock()
+			t.sharedMemory[key] = out
+			t.mutex.Unlock()
+			return out, true
+		}
+	}
+
+	return nil, false
+}
+
+// normalizeShared converts generic []any of map[string]any into []map[string]any
+// to satisfy existing callers that assert concrete types.
+func normalizeShared(v interface{}) interface{} {
+	switch vv := v.(type) {
+	case []interface{}:
+		// Check if it's a slice of maps; convert to []map[string]interface{}
+		converted := make([]map[string]interface{}, 0, len(vv))
+		for _, it := range vv {
+			if m, ok := it.(map[string]interface{}); ok {
+				converted = append(converted, m)
+			} else {
+				// Not homogeneous; return original
+				return v
+			}
+		}
+		return converted
+	default:
+		return v
+	}
 }
 
 // GetAllSharedData returns all shared memory data
@@ -359,7 +422,7 @@ func (t *Team) LogCoordinationEvent(eventType, from, to, content string, metadat
 	defer t.mutex.Unlock()
 
 	event := CoordinationEvent{
-		ID:        fmt.Sprintf("%s_%d", eventType, time.Now().Unix()),
+		ID:        fmt.Sprintf("%s_%d", eventType, time.Now().UnixNano()),
 		Type:      eventType,
 		From:      from,
 		To:        to,
@@ -368,6 +431,13 @@ func (t *Team) LogCoordinationEvent(eventType, from, to, content string, metadat
 		Metadata:  metadata,
 	}
 	t.coordination = append(t.coordination, event)
+
+	// Persist the event (best-effort)
+	if t.store != nil {
+		if b, err := json.Marshal(event); err == nil {
+			_ = t.store.Set(t.name, "coord-"+event.ID, b, 0)
+		}
+	}
 
 	// Enhanced console logging
 	debugPrintf("📝 COORDINATION EVENT: %s -> %s | %s: %s\n", from, to, eventType, content)
@@ -381,6 +451,37 @@ func (t *Team) GetCoordinationHistory() []CoordinationEvent {
 	result := make([]CoordinationEvent, len(t.coordination))
 	copy(result, t.coordination)
 	return result
+}
+
+// loadCoordinationFromStore loads persisted coordination events at startup.
+func (t *Team) loadCoordinationFromStore() {
+	if t.store == nil {
+		return
+	}
+	keys, err := t.store.Keys(t.name)
+	if err != nil || len(keys) == 0 {
+		return
+	}
+	// Collect coord-* keys
+	events := make([]CoordinationEvent, 0)
+	for _, k := range keys {
+		if len(k) < 6 || k[:6] != "coord-" {
+			continue
+		}
+		if b, ok, err := t.store.Get(t.name, k); err == nil && ok {
+			var ev CoordinationEvent
+			if err := json.Unmarshal(b, &ev); err == nil {
+				events = append(events, ev)
+			}
+		}
+	}
+	if len(events) == 0 {
+		return
+	}
+	// Append to in-memory log, keep order by timestamp
+	t.mutex.Lock()
+	t.coordination = append(t.coordination, events...)
+	t.mutex.Unlock()
 }
 
 // GetCoordinationSummary returns a summary of recent coordination events

@@ -8,11 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/marcodenic/agentry/internal/audit"
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/cost"
+	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/team"
@@ -29,7 +31,7 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		tl, err := tool.FromManifest(m)
 		if err != nil {
 			if errors.Is(err, tool.ErrUnknownBuiltin) {
-				fmt.Printf("skipping builtin %s: not available\n", m.Name)
+				debug.Printf("skipping builtin %s: not available", m.Name)
 				continue
 			}
 			return nil, err
@@ -55,7 +57,7 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 			input, _ := args["input"].(string)
 			t, ok := team.FromContext(ctx)
 			if !ok || t == nil {
-				fmt.Printf("❌ Agent tool: no team found in context\n")
+				debug.Printf("Agent tool: no team found in context")
 				return "", fmt.Errorf("team not found in context")
 			}
 			return t.Call(ctx, name, input)
@@ -122,7 +124,7 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 
 	// Debug: check what tools the agent actually gets (only in non-TUI mode)
 	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-		fmt.Printf("🔧 buildAgent: registry has %d tools, agent has %d tools\n", len(reg), len(ag.Tools))
+		debug.Printf("buildAgent: registry has %d tools, agent has %d tools", len(reg), len(ag.Tools))
 	}
 
 	if logWriter != nil {
@@ -132,8 +134,11 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		ag.MaxIterations = cfg.MaxIterations
 	}
 
-	// Use canonical embedded prompt for Agent 0 - consistent across all modes
+	// Resolve default prompt from user-editable files; fail if missing
 	ag.Prompt = core.GetDefaultPrompt()
+	if strings.TrimSpace(ag.Prompt) == "" {
+		return nil, fmt.Errorf("no default prompt found: place agent_0.yaml under one of: $AGENTRY_DEFAULT_PROMPT, $AGENTRY_CONFIG_HOME/roles/, ~/.config/agentry/roles/, <exedir>/templates/roles/, ./templates/roles/")
+	}
 
 	// Initialize cost manager for token/cost tracking
 	ag.Cost = cost.New(0, 0.0) // No budget limits, just tracking

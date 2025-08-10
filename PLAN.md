@@ -2,7 +2,7 @@
 
 This plan is the single source of truth for Agentry’s architecture, priorities, and progress. Update it with every material change (features, tests, docs). Keep it concise and actionable.
 
-Last updated: 2025-08-10 (LSP diagnostics: structured parsing + TUI surface, team built-ins wiring)
+Last updated: 2025-08-10 (SharedStore foundation wired, in-memory+file backends; team uses store for shared memory)
 
 ---
 
@@ -53,9 +53,9 @@ New since last update:
 ## Milestones and Deliverables
 
 M1 — Shared Memory + Real Team Built-ins (1–2 weeks)
-- SharedStore interface + in-memory backend; file/sqlite adapters stubbed.
+- SharedStore interface + in-memory backend; file adapter implemented; sqlite adapter stubbed.
 - Replace Team.sharedMemory map with SharedStore (namespaced).
-- Persist conversation steps and coordination events; add TTL/GC respect from config.
+- Persist coordination events via SharedStore; add TTL/GC worker (configurable via AGENTRY_STORE_GC_SEC).
 - Make builtins_team call real Team methods (send_message, shared_memory, coordination_status, agent tool via TeamFromContext).
 - Centralize agent tool registration when creating a Team; ensure TUI/CLI paths do this. (Partially done: CLI & TUI register via Team)
 - Tests: shared store get/set/list; delegation uses team-backed agent tool; persistence smoke.
@@ -85,9 +85,10 @@ M4 — Remote Execution & Scale (later)
 
 ## Task Backlog (prioritized)
 
-- [ ] Define SharedStore interface and in-memory implementation.
-- [ ] Swap Team.sharedMemory to SharedStore with namespaces (team/session/project).
-- [ ] Persist conversation steps and coordination events; implement TTL/GC worker.
+- [x] Define SharedStore interface and in-memory implementation.
+- [x] Swap Team.sharedMemory to SharedStore with namespaces (team/session/project) — team now persists keys via store; retains in-proc cache for typed access.
+- [x] Persist conversation checkpoints via SharedStore (SaveState/LoadState/Checkpoint/Resume for prompt/vars/history/model). Vector snapshots/references: pending.
+- [x] Persist coordination events via SharedStore; implement TTL/GC worker.
 - [ ] Built-ins (team): implement real send_message, shared_memory (get/set/list), coordination_status using Team + SharedStore.
  - [x] Built-ins (team): implement real send_message, shared_memory (get/set/list), coordination_status using Team (SharedStore durability pending).
 - [ ] Centralize agent tool registration when Team is created; ensure all entrypoints pass Team via context.
@@ -97,7 +98,7 @@ M4 — Remote Execution & Scale (later)
 - [ ] LSP: document and expose `lsp_diagnostics` in configs and README.
 - [x] LSP: parse structured diagnostics (file:line:col:code:msg) for gopls/tsc.
 - [x] LSP: TUI surface quick action and summary; highlight/jump-to-file hints deferred.
-- [ ] Durable adapters: file/sqlite SharedStore; wire vector store backends with namespaces.
+- [ ] Durable adapters: sqlite SharedStore; wire vector store backends with namespaces.
 - [ ] Sandbox enforcement for shell/privileged tools; extend permissions per role.
 - [ ] Status board updates + tool to fetch summary.
 - [ ] E2E tests: workflow happy/failure, persistence/resume, file lock conflicts, sandbox denials.
@@ -114,6 +115,46 @@ Owners (initial)
 - Safety: default-deny dangerous tools unless explicitly permitted in role config.
 - Resume correctness: version workflow state; idempotent step execution.
 
+## Newly Identified Issues (2025-08-10) — Actions
+
+These were found during a focused code/CLI review and should be addressed to harden DX, automation, and correctness.
+
+- JSON purity for automation commands
+  - Issue: Some code paths (e.g., buildAgent, runPrompt) print to stdout, which contaminates JSON output for commands like `invoke/team/memory`.
+  - Action: Route all non-JSON logs to stderr or `internal/debug`; ensure JSON commands write exactly one JSON object/array to stdout.
+
+- Default prompt loading depends on working directory
+  - Issue: `GetDefaultPrompt` reads `templates/roles/agent_0.yaml` from CWD; brittle in different run contexts.
+  - Action: Embed the default prompt with `go:embed`; allow override via config/include when present.
+
+- CLI flag parsing is ad hoc and fragile
+  - Issue: Manual prefiltering + `flag.ExitOnError` across subcommands; easy to mis-handle mixed positional/flags.
+  - Action: Centralize parsing (thin helper or adopt `pflag`); remove hard exits; standardize global flags (e.g., `--json`).
+
+- Pricing cache path and cache age semantics
+  - Issue: Writing cache inside repo path (internal/cost/data/...); age wasn’t based on mtime.
+  - Action: Use `os.UserCacheDir()/agentry/models_pricing.json`; compute age from file mtime; document location.
+
+- Cost/token metrics double-count risk
+  - Issue: Tool output tokens were added separately and then accounted again by subsequent model calls.
+  - Action: Count only model input/output tokens per step; avoid adding tool outputs to the token counter.
+
+- Max-iteration silent termination
+  - Issue: Agent loop returned empty string with nil error on hitting the iteration cap.
+  - Action: Return a concrete error (e.g., "max iterations reached without final answer").
+
+- Persistence flags are no-ops
+  - Issue: `--save-id`, `--resume-id`, `--checkpoint-id` expose functionality not implemented.
+  - Action: Mark as experimental in help/docs or implement a minimal file-based store first; wire into SharedStore milestone.
+
+- pprof discoverability/build tag
+  - Issue: Help advertises `pprof` while it’s gated by a build tag/tools; UX confusing.
+  - Action: Gate the help text or move under `analyze diagnostics`; clarify build instructions.
+
+Testing additions
+- Add a test asserting `invoke` emits one JSON line to stdout and nothing else, even on errors; verify large stdin input doesn’t truncate.
+- Add a unit test for pricing cache: refresh, read back, age > 0, and cost computed for a provider/model key.
+
 ## Quality Gates
 - Build + Lint + Unit tests must pass on all supported platforms (Linux/macOS/Windows).
 - Add integration tests for team delegation, shared memory, workflow, and file locks.
@@ -123,7 +164,11 @@ Status for this change set
 - Build: PASS locally on Go 1.23.8; CLI builds; TUI compiles.
 - Lint/Typecheck: PASS at compile-time; no new type issues observed.
 - Unit tests: targeted LSP diagnostics test PASS; some unrelated legacy tests still failing (file ops/web tools) to be triaged separately.
-- Smoke: TUI shows Diagnostics panel; Ctrl+D triggers lsp_diagnostics and renders counts; team built-ins operate against real Team via context.
+- Smoke: TUI shows Diagnostics panel; Ctrl+D triggers lsp_diagnostics and renders counts; team built-ins operate against real Team via context. Shared memory persists via store (default in-memory; file-backed optional). Coordination events restore on startup.
+
+Environment knobs
+- AGENTRY_STORE=memory|file (default: memory)
+- AGENTRY_STORE_PATH=/path/to/store (used when AGENTRY_STORE=file; default: ~/.local/share/agentry/store)
 
 ## Update Policy
 - After any substantive change: update PLAN.md, relevant docs in docs/, and (if applicable) role templates and examples. Keep this file authoritative and terse.
@@ -143,8 +188,9 @@ Single sources of truth
 Minimal command set (current/proposed)
 - `tui` — interactive UI over the same engine.
 - `invoke` — one-shot calls; supports `--agent` and `--trace` today; will add `--session`.
+ - `invoke` — one-shot calls; supports `--agent`, `--trace`, and `--session` (stateful checkpoints).
 - `team` — `roles|list|spawn|call|stop` (all JSON by default).
-- `memory` — `export|import` today; will add `get|set|list` with scopes.
+- `memory` — `export|import|get|set|list|delete` backed by SharedStore (default namespace derived from project path; supports --ns and TTL on set).
 - `workflow run --file examples/workflow.yaml` (supports `--json`).
 - `serve` — optional HTTP/stdio API for external tools; JSON only.
 - `analyze` — includes cost/tokens; deprecate separate `cost`.

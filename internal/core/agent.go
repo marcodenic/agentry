@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -131,9 +130,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	msgs := BuildMessages(a.Prompt, a.Vars, a.Mem.History(), input)
 	specs := tool.BuildSpecs(a.Tools)
 
-	// We'll get actual input tokens from the API response, but estimate for now
-	estimatedInputTokens := len(strings.Fields(input))
-	tokenCounter.WithLabelValues(a.ID.String()).Add(float64(estimatedInputTokens))
+	// Do not estimate tokens here; rely on actual counts from responses
 
 	limit := a.MaxIterations
 	if limit <= 0 {
@@ -155,7 +152,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		actualInputTokens := res.InputTokens
 		actualOutputTokens := res.OutputTokens
 
-		// Update metrics with actual tokens
+		// Update metrics with actual tokens (count input+output per step)
 		tokenCounter.WithLabelValues(a.ID.String()).Add(float64(actualInputTokens + actualOutputTokens))
 
 		// Update cost manager with actual token usage
@@ -248,11 +245,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 			debug.Printf("Agent '%s' tool '%s' succeeded, result length: %d", a.ID, tc.Name, len(r))
 
-			// Note: Tool results are not separately tracked for cost calculation
-			// They are included in the API response token counts when the conversation continues
-			// Only update metrics for monitoring purposes
-			tok := len(strings.Fields(r))
-			tokenCounter.WithLabelValues(a.ID.String()).Add(float64(tok))
+			// Tool output tokens are accounted for in subsequent model calls; avoid double-counting here
 			a.Trace(ctx, trace.EventToolEnd, map[string]any{"name": tc.Name, "result": r})
 			step.ToolResults[tc.ID] = r
 			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})
@@ -274,5 +267,5 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		_ = a.Checkpoint(ctx)
 	}
 	a.Trace(ctx, trace.EventYield, nil)
-	return "", nil
+	return "", fmt.Errorf("max iterations reached without final answer")
 }

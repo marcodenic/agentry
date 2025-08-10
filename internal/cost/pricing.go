@@ -50,21 +50,30 @@ func (pt *PricingTable) loadPrices() error {
 
 // loadFromCache loads pricing data from the cached JSON file
 func (pt *PricingTable) loadFromCache() bool {
-	cacheFile := pt.getCacheFilePath()
-
-	data, err := os.ReadFile(cacheFile)
-	if err != nil {
-		return false
+	// Try current primary cache path
+	primary := pt.getCacheFilePath()
+	if data, err := os.ReadFile(primary); err == nil {
+		var apiData map[string]interface{}
+		if json.Unmarshal(data, &apiData) == nil {
+			pt.parseAPIData(apiData)
+			return true
+		}
 	}
 
-	var apiData map[string]interface{}
-	if err := json.Unmarshal(data, &apiData); err != nil {
-		return false
+	// Fallback: try legacy locations and migrate if found
+	for _, legacy := range pt.getLegacyCacheCandidates() {
+		if data, err := os.ReadFile(legacy); err == nil {
+			var apiData map[string]interface{}
+			if json.Unmarshal(data, &apiData) == nil {
+				pt.parseAPIData(apiData)
+				// Best-effort migrate to primary path
+				_ = os.MkdirAll(filepath.Dir(primary), 0o755)
+				_ = os.WriteFile(primary, data, 0o644)
+				return true
+			}
+		}
 	}
-
-	// Parse the cached API data
-	pt.parseAPIData(apiData)
-	return true
+	return false
 }
 
 // parseAPIData extracts pricing information from the models.dev API response
@@ -125,32 +134,59 @@ func (pt *PricingTable) parseAPIData(apiData map[string]interface{}) {
 
 // getCacheFilePath returns the path to the cached pricing file
 func (pt *PricingTable) getCacheFilePath() string {
-	// Try to find the module root by looking for go.mod
-	cwd, err := os.Getwd()
-	if err != nil {
-		// Fallback to relative path from current directory
-		return filepath.Join("internal", "cost", "data", "models_pricing.json")
+	// Allow explicit override for cache file path
+	if v := os.Getenv("AGENTRY_MODELS_CACHE"); v != "" {
+		_ = os.MkdirAll(filepath.Dir(v), 0o755)
+		return v
 	}
 
-	// Look for go.mod starting from current directory and going up
-	dir := cwd
-	for {
-		goModPath := filepath.Join(dir, "go.mod")
-		if _, err := os.Stat(goModPath); err == nil {
-			// Found go.mod, this is the module root
-			return filepath.Join(dir, "internal", "cost", "data", "models_pricing.json")
-		}
+	// Prefer OS-specific user cache directory (e.g., XDG cache on Linux)
+	if cacheRoot, err := os.UserCacheDir(); err == nil && cacheRoot != "" {
+		dir := filepath.Join(cacheRoot, "agentry")
+		// Ensure directory exists (best-effort)
+		_ = os.MkdirAll(dir, 0o755)
+		return filepath.Join(dir, "models_pricing.json")
+	}
 
+	// Fallback: place next to the executable if writable
+	if exe, err := os.Executable(); err == nil {
+		dir := filepath.Dir(exe)
+		return filepath.Join(dir, "models_pricing.json")
+	}
+
+	// Last resort: relative to CWD (legacy layout)
+	return filepath.Join("internal", "cost", "data", "models_pricing.json")
+}
+
+// getLegacyCacheCandidates returns possible legacy paths where the cache
+// existed before switching to the user cache directory.
+func (pt *PricingTable) getLegacyCacheCandidates() []string {
+	candidates := []string{}
+
+	// Relative legacy path from current working directory
+	candidates = append(candidates, filepath.Join("internal", "cost", "data", "models_pricing.json"))
+
+	// Attempt to locate module root (contains go.mod) and use legacy path there
+	if root := findModuleRoot(); root != "" {
+		candidates = append(candidates, filepath.Join(root, "internal", "cost", "data", "models_pricing.json"))
+	}
+	return candidates
+}
+
+// findModuleRoot walks up from CWD to find a directory containing go.mod
+func findModuleRoot() string {
+	dir, _ := os.Getwd()
+	for dir != "" {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			// Reached filesystem root, fallback to relative path
 			break
 		}
 		dir = parent
 	}
-
-	// Fallback to relative path
-	return filepath.Join("internal", "cost", "data", "models_pricing.json")
+	return ""
 }
 
 // GetPricingByModelName handles provider-model format names with fuzzy matching
@@ -342,30 +378,34 @@ func (pt *PricingTable) ListModels() map[string]ModelPricing {
 // GetCachedDataAge returns how old the cached data is, or an error if no cache exists
 func (pt *PricingTable) GetCachedDataAge() (time.Duration, error) {
 	cacheFile := pt.getCacheFilePath()
-	info, err := os.ReadFile(cacheFile)
+	fi, err := os.Stat(cacheFile)
 	if err != nil {
 		return 0, fmt.Errorf("no cached data found")
 	}
-
-	// Get file modification time would be better, but for now return 0 if file exists
-	if len(info) > 0 {
-		return 0, nil // File exists
-	}
-	return 0, fmt.Errorf("no cached data found")
+	return time.Since(fi.ModTime()), nil
 }
 
 // GetContextLimit returns the context window limit for a given model
 func (pt *PricingTable) GetContextLimit(modelName string) int {
 	pricing, found := pt.GetPricingByModelName(modelName)
-	if !found || pricing.ContextLimit == 0 {
-		// Fallback to reasonable defaults if no pricing data found
-		if strings.Contains(strings.ToLower(modelName), "gpt-4") {
-			return 128000
-		}
-		if strings.Contains(strings.ToLower(modelName), "claude") {
-			return 200000
-		}
+	if found && pricing.ContextLimit > 0 {
+		return pricing.ContextLimit
+	}
+
+	// Fallback to reasonable defaults when pricing data is missing.
+	// Prefer the model part after provider/ prefix if present.
+	lower := strings.ToLower(modelName)
+	if i := strings.Index(lower, "/"); i >= 0 && i+1 < len(lower) {
+		lower = lower[i+1:]
+	}
+
+	switch {
+	case strings.Contains(lower, "claude"):
+		return 200000
+	case strings.Contains(lower, "gpt"):
+		// Treat GPT family (gpt-4, gpt-5, etc.) as 128k by default
+		return 128000
+	default:
 		return 8000 // Conservative default
 	}
-	return pricing.ContextLimit
 }

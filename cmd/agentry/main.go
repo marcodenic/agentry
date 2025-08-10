@@ -78,7 +78,7 @@ Commands:
   pprof          Profiling utilities
   tool           Tool management
   analyze        Analyze trace files
-  refresh-models Download and cache latest model pricing from models.dev
+	refresh-models Download and cache latest model pricing from models.dev
   version        Show version
   help           Show this help
 
@@ -95,7 +95,10 @@ Examples:
   agentry refresh-models           # Download latest model pricing
   agentry "create a hello world"   # Direct prompt
   agentry --version                # Show version
-  agentry --help                   # Show help
+	agentry --help                   # Show help
+
+Notes:
+	- 'pprof' may require a build with tools enabled; see docs for diagnostics builds.
 `)
 }
 
@@ -113,5 +116,5 @@ func runRefreshModelsCmd(_ []string) {
 	}
 	// Give a small summary
 	models := pt.ListModels()
-	fmt.Printf("Refreshed %d models and cached to internal/cost/data/models_pricing.json\n", len(models))
+	fmt.Printf("Refreshed %d models and cached to your user cache dir (agentry/models_pricing.json)\n", len(models))
 }
