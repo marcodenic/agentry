@@ -60,6 +60,9 @@ tools:
   - name: grep
     type: builtin
     description: Search file contents - ESSENTIAL for smart discovery
+  - name: lsp_diagnostics
+    type: builtin
+    description: Run language diagnostics (gopls/tsc)
 
   # Enhanced exploration tools
   - name: ls

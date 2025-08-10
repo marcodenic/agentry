@@ -119,6 +119,10 @@ type Model struct {
 
 	theme Theme
 	keys  Keybinds
+
+	// Diagnostics
+	diags       []Diag
+	diagRunning bool
 }
 
 type AgentStatus int
@@ -147,6 +151,16 @@ type DebugTraceEvent struct {
 	Data      map[string]interface{}
 	StepNum   int
 	Details   string
+}
+
+// Diag is a structured diagnostic entry for rendering
+type Diag struct {
+	File     string
+	Line     int
+	Col      int
+	Code     string
+	Severity string
+	Message  string
 }
 
 type AgentInfo struct {

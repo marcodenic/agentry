@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"context"
 
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/core"
@@ -148,3 +149,6 @@ func findRoleTemplatesDir() string {
 
 	return ""
 }
+
+// osBackgroundContext provides a cancellable background context.
+func osBackgroundContext() context.Context { return context.Background() }

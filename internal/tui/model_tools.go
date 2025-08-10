@@ -12,6 +12,30 @@ func (m Model) handleToolUseMessage(msg toolUseMsg) (Model, tea.Cmd) {
 	// Complete the progressive status update (add green tick and change bar color)
 	info.completeProgressiveStatusUpdate(m)
 
+	// Special handling for diagnostics tool to store structured results
+	if msg.name == "lsp_diagnostics" {
+		if r, ok := msg.args["result"].(map[string]any); ok {
+			// reset list
+			m.diags = nil
+			if arr, ok := r["diagnostics"].([]any); ok {
+				for _, it := range arr {
+					if m2, ok := it.(map[string]any); ok {
+						d := Diag{
+							File:     strVal(m2["file"]),
+							Line:     intVal(m2["line"]),
+							Col:      intVal(m2["col"]),
+							Code:     strVal(m2["code"]),
+							Severity: strVal(m2["severity"]),
+							Message:  strVal(m2["message"]),
+						}
+						m.diags = append(m.diags, d)
+					}
+				}
+			}
+		}
+		m.diagRunning = false
+	}
+
 	if msg.id == m.active {
 		m.vp.SetContent(info.History)
 		m.vp.GotoBottom()
@@ -46,4 +70,24 @@ func (m Model) handleModelMessage(msg modelMsg) (Model, tea.Cmd) {
 
 	m.infos[msg.id] = info
 	return m, m.readCmd(msg.id)
+}
+
+// Helpers to decode numbers/strings from any
+func strVal(v any) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
+}
+func intVal(v any) int {
+	switch t := v.(type) {
+	case float64:
+		return int(t)
+	case int:
+		return t
+	case int64:
+		return int(t)
+	default:
+		return 0
+	}
 }

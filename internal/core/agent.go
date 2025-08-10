@@ -19,18 +19,40 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
+// Agent represents a conversational agent with LLM capabilities
 type Agent struct {
 	ID            uuid.UUID
-	Prompt        string
-	Vars          map[string]string
+	Client        model.Client
+	ModelName     string
 	Tools         tool.Registry
 	Mem           memory.Store
 	Vector        memory.VectorStore
-	Client        model.Client
-	ModelName     string
+	Vars          map[string]string
 	Tracer        trace.Writer
 	Cost          *cost.Manager
 	MaxIterations int
+	Prompt        string
+	// Error handling configuration
+	ErrorHandling ErrorHandlingConfig
+}
+
+// ErrorHandlingConfig defines how the agent handles errors
+type ErrorHandlingConfig struct {
+	// TreatErrorsAsResults makes tool errors visible to the agent instead of terminating
+	TreatErrorsAsResults bool
+	// MaxErrorRetries limits how many consecutive errors an agent can handle
+	MaxErrorRetries int
+	// IncludeErrorContext adds detailed error context to help with recovery
+	IncludeErrorContext bool
+}
+
+// DefaultErrorHandling returns sensible defaults for error handling
+func DefaultErrorHandling() ErrorHandlingConfig {
+	return ErrorHandlingConfig{
+		TreatErrorsAsResults: true,
+		MaxErrorRetries:      3,
+		IncludeErrorContext:  true,
+	}
 }
 
 var (
@@ -73,6 +95,7 @@ func New(client model.Client, modelName string, reg tool.Registry, mem memory.St
 		Tracer:        tr,
 		Cost:          cost.New(0, 0.0), // Initialize cost manager immediately
 		MaxIterations: 8,
+		ErrorHandling: DefaultErrorHandling(),
 	}
 }
 
@@ -89,6 +112,7 @@ func (a *Agent) Spawn() *Agent {
 		Tracer:        a.Tracer,
 		Cost:          cost.New(0, 0.0), // Each spawned agent gets its own cost manager
 		MaxIterations: a.MaxIterations,
+		ErrorHandling: DefaultErrorHandling(),
 	}
 
 	debug.Printf("Agent.Spawn: Parent ID=%s, Spawned ID=%s", a.ID.String()[:8], spawned.ID.String()[:8])
@@ -115,6 +139,10 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	if limit <= 0 {
 		limit = 8
 	}
+
+	// Track consecutive errors for resilience
+	consecutiveErrors := 0
+
 	for i := 0; i < limit; i++ {
 		res, err := a.Client.Complete(ctx, msgs, specs)
 		if err != nil {
@@ -156,14 +184,36 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			a.Trace(ctx, trace.EventFinal, res.Content)
 			return res.Content, nil
 		}
+
+		// Track if any tools in this step had errors
+		stepHadErrors := false
+
 		for _, tc := range res.ToolCalls {
 			t, ok := a.Tools.Use(tc.Name)
 			if !ok {
-				return "", fmt.Errorf("unknown tool: %s", tc.Name)
+				errorMsg := fmt.Sprintf("Error: Unknown tool '%s'. Available tools: %v", tc.Name, getToolNames(a.Tools))
+
+				if a.ErrorHandling.TreatErrorsAsResults {
+					step.ToolResults[tc.ID] = errorMsg
+					msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: errorMsg})
+					stepHadErrors = true
+					continue
+				} else {
+					return "", fmt.Errorf("unknown tool: %s", tc.Name)
+				}
 			}
 			var args map[string]any
 			if err := json.Unmarshal(tc.Arguments, &args); err != nil {
-				return "", err
+				errorMsg := fmt.Sprintf("Error: Invalid tool arguments for '%s': %v", tc.Name, err)
+
+				if a.ErrorHandling.TreatErrorsAsResults {
+					step.ToolResults[tc.ID] = errorMsg
+					msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: errorMsg})
+					stepHadErrors = true
+					continue
+				} else {
+					return "", err
+				}
 			}
 			applyVarsMap(args, a.Vars)
 
@@ -176,7 +226,24 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			toolLatency.WithLabelValues(a.ID.String(), tc.Name).Observe(time.Since(start).Seconds())
 			if err != nil {
 				debug.Printf("Agent '%s' tool '%s' failed: %v", a.ID, tc.Name, err)
-				return "", err
+
+				// Format error message with context if enabled
+				var errorMsg string
+				if a.ErrorHandling.IncludeErrorContext {
+					errorMsg = fmt.Sprintf("Error executing tool '%s': %v\n\nContext:\n- Tool: %s\n- Arguments: %v\n- Suggestion: Please try a different approach or check the tool usage.",
+						tc.Name, err, tc.Name, args)
+				} else {
+					errorMsg = fmt.Sprintf("Error executing tool '%s': %v", tc.Name, err)
+				}
+
+				if a.ErrorHandling.TreatErrorsAsResults {
+					step.ToolResults[tc.ID] = errorMsg
+					msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: errorMsg})
+					stepHadErrors = true
+					continue
+				} else {
+					return "", err
+				}
 			}
 
 			debug.Printf("Agent '%s' tool '%s' succeeded, result length: %d", a.ID, tc.Name, len(r))
@@ -190,6 +257,19 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			step.ToolResults[tc.ID] = r
 			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})
 		}
+
+		// Handle error recovery logic
+		if stepHadErrors {
+			consecutiveErrors++
+			if consecutiveErrors > a.ErrorHandling.MaxErrorRetries {
+				return "", fmt.Errorf("too many consecutive errors (%d), stopping execution", consecutiveErrors)
+			}
+			debug.Printf("Agent '%s' had errors in step, continuing with error feedback (consecutive: %d/%d)",
+				a.ID, consecutiveErrors, a.ErrorHandling.MaxErrorRetries)
+		} else {
+			consecutiveErrors = 0 // Reset counter on successful step
+		}
+
 		a.Mem.AddStep(step)
 		_ = a.Checkpoint(ctx)
 	}

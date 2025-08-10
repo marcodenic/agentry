@@ -1,14 +1,14 @@
 theme: dark
 models:
-  - name: mock
-    provider: mock
   - name: openai
     provider: openai
     options:
       # API key; defaults to $OPENAI_KEY if omitted
       key: ""
       # Model name; defaults to gpt-4o if omitted
-      model: gpt-4o
+  model: gpt-5
+  - name: mock
+    provider: mock
 tools:
   # Built-in tools available in Agentry. Add or remove as needed.
   - name: echo
@@ -42,6 +42,9 @@ tools:
   - name: patch
     type: builtin
     description: Apply a unified diff patch
+  - name: lsp_diagnostics
+    type: builtin
+    description: Run language diagnostics (gopls/tsc)
   - name: agent
     type: builtin
     description: Delegate tasks to another agent

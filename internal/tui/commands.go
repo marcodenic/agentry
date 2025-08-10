@@ -3,7 +3,9 @@ package tui
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"io"
+	"fmt"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -63,6 +65,49 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	}()
 	m.infos[id] = info
 	return m, tea.Batch(m.readCmd(id), waitErr(errCh), waitComplete(id, completeCh), startThinkingAnimation(id))
+}
+
+// handleDiagnostics triggers lsp_diagnostics tool and parses results
+func (m Model) handleDiagnostics() (Model, tea.Cmd) {
+	if m.diagRunning {
+		return m, nil
+	}
+	info := m.infos[m.active]
+	if info == nil || info.Agent == nil {
+		return m, nil
+	}
+	// show status start
+	info.startProgressiveStatusUpdate("Running diagnostics", m)
+	m.infos[m.active] = info
+	m.vp.SetContent(info.History)
+	m.vp.GotoBottom()
+	m.diagRunning = true
+
+	return m, func() tea.Msg {
+		// Execute tool directly on Agent 0
+		tl, ok := info.Agent.Tools["lsp_diagnostics"]
+		if !ok {
+			return errMsg{error: fmt.Errorf("lsp_diagnostics tool not available")}
+		}
+		out, err := tl.Execute(context.Background(), map[string]any{})
+		type res struct {
+			Diagnostics []struct {
+				File     string `json:"file"`
+				Line     int    `json:"line"`
+				Col      int    `json:"col"`
+				Code     string `json:"code"`
+				Severity string `json:"severity"`
+				Message  string `json:"message"`
+			} `json:"diagnostics"`
+			Ok bool `json:"ok"`
+			Error string `json:"error"`
+		}
+		var r res
+		if err == nil {
+			_ = json.Unmarshal([]byte(out), &r)
+		}
+		return toolUseMsg{id: m.active, name: "lsp_diagnostics", args: map[string]any{"result": r, "raw": out, "err": err}}
+	}
 }
 
 // cycleActive moves the focus to the next or previous agent.

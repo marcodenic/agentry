@@ -139,6 +139,48 @@ func (m Model) agentPanel(panelWidth int) string {
 		lines = append(lines, "")
 	}
 
+	// Diagnostics summary block
+	if len(m.diags) > 0 || m.diagRunning {
+		title := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(m.theme.PanelTitleColor)).
+			Bold(true).
+			Render("🩺 DIAGNOSTICS")
+		lines = append(lines, title)
+		if m.diagRunning {
+			lines = append(lines, "  running...")
+		}
+		if len(m.diags) > 0 {
+			// Aggregate counts
+			errs := 0
+			warns := 0
+			perFile := map[string]int{}
+			for _, d := range m.diags {
+				if d.Severity == "warning" {
+					warns++
+				} else {
+					errs++
+				}
+				perFile[d.File]++
+			}
+			lines = append(lines, fmt.Sprintf("  errors: %d  warnings: %d", errs, warns))
+			// Show top 3 files
+			shown := 0
+			for f, c := range perFile {
+				lines = append(lines, fmt.Sprintf("  • %s (%d)", f, c))
+				shown++
+				if shown >= 3 {
+					break
+				}
+			}
+			// Show first diagnostic preview
+			d := m.diags[0]
+			preview := fmt.Sprintf("  %s %s:%d:%d %s", severityGlyph(d.Severity), d.File, d.Line, d.Col, d.Message)
+			lines = append(lines, lipgloss.NewStyle().Faint(true).Render(preview))
+		}
+		lines = append(lines, lipgloss.NewStyle().Faint(true).Render("  press "+m.keys.Diagnostics+" to run"))
+		lines = append(lines, "")
+	}
+
 	if len(m.infos) > 0 {
 		lines = append(lines, lipgloss.NewStyle().
 			Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
@@ -155,4 +197,15 @@ func (m Model) agentPanel(panelWidth int) string {
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
+func severityGlyph(sev string) string {
+	switch sev {
+	case "warning":
+		return "⚠️"
+	case "info":
+		return "ℹ️"
+	default:
+		return "❌"
+	}
 }

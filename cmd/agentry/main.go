@@ -25,14 +25,24 @@ func main() {
 
 	switch cmd {
 	case "chat":
-		runChatMode(args)
+		// Deprecated: chat mode is now an alias for the default TUI.
+		fmt.Println("[deprecation] 'agentry chat' is deprecated. Use 'agentry' to launch the TUI.")
+		runTui(args)
 	case "dev":
-		runDev(args)
+		// Deprecated: dev mode is now an alias for the default TUI (use flags for debugging).
+		fmt.Println("[deprecation] 'agentry dev' is deprecated. Use 'agentry' (TUI) with appropriate flags.")
+		runTui(args)
 	case "eval", "test":
 		runEval(args)
 
 	case "tui":
 		runTui(args)
+	case "invoke":
+		runInvokeCmd(args)
+	case "team":
+		runTeamCmd(args)
+	case "memory":
+		runMemoryCmd(args)
 	case "cost":
 		runCostCmd(args)
 	case "pprof":
@@ -56,12 +66,12 @@ func showHelp() {
 	fmt.Printf(`agentry - AI Agent Coordination Platform
 
 Usage:
-  agentry <command> [options]
+	agentry <command> [options]
 
 Commands:
-  chat           Interactive chat mode for natural language delegation
-  tui            Terminal UI mode with rich interface (default)
-  dev            Development REPL with tracing
+	tui            Terminal UI mode (default when no command is provided)
+	chat           [deprecated] Alias to TUI; use 'agentry' instead
+	dev            [deprecated] Alias to TUI; use 'agentry' with flags instead
   eval, test     Run evaluations/tests
   cost           Analyze cost from trace logs
   pprof          Profiling utilities
@@ -79,10 +89,8 @@ Options:
   --help      Show help
 
 Examples:
-  agentry                          # Start TUI (default)
-  agentry chat                     # Start interactive chat
-  agentry tui                      # Start TUI explicitly
-  agentry dev                      # Start development REPL
+	agentry                          # Start TUI (default)
+	agentry tui                      # Start TUI explicitly
   agentry refresh-models           # Download latest model pricing
   agentry "create a hello world"   # Direct prompt
   agentry --version                # Show version
@@ -92,4 +100,9 @@ Examples:
 
 func runToolCmd(args []string) {
 	fmt.Println("Tool command not implemented")
+}
+
+// Stub implementation for optional command if not present in this build.
+func runRefreshModelsCmd(args []string) {
+	fmt.Println("refresh-models not implemented in this build")
 }

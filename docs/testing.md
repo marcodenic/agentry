@@ -7,7 +7,7 @@ cd ts-sdk
 npm test
 ```
 
-### All-in-One (Makefile)ical, up-to-date test checklist, see [../TEST.md](../TEST.md).
+For the canonical, up-to-date test checklist, see [../TEST.md](../TEST.md).
 
 This guide explains how to set up your environment, run all tests, and validate Agentry functionality. It is intended for human users and new contributors.
 
@@ -59,20 +59,15 @@ make dev
 
 ## End-to-End Scenarios
 
-- Run sample flows:
-  - `agentry flow examples/flows/research_task`
-  - `agentry flow examples/flows/etl_pipeline`
-  - `agentry flow examples/flows/multi_agent_chat`
 - Try the TUI: `agentry tui --config examples/.agentry.yaml`
-- Try team chat: `agentry tui --team 3`
-- Try checkpoint/resume: `agentry flow ... --checkpoint-id test`
+- Team ops: `agentry team roles`, `agentry team spawn --name coder --role coder`, `agentry team call --agent coder --input "hi"`
+- One-shot: `agentry invoke "say hi"`, `agentry invoke --agent coder "write hello.go"`
 
 ---
 
 ## Built-in Tools & Plugins
 
 - Validate all built-in tools (see README for full list)
-- Test plugin loading: `agentry plugin fetch examples/registry/index.json example`
 - Test OpenAPI/MCP tool generation: see `examples/echo-openapi.yaml`, `examples/ping-mcp.json`
 
 ---

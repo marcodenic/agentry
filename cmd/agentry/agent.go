@@ -115,6 +115,11 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 
 	ag := core.New(client, modelName, reg, memory.NewInMemory(), vec, nil)
 
+	// Configure error handling for resilience
+	ag.ErrorHandling.TreatErrorsAsResults = true
+	ag.ErrorHandling.MaxErrorRetries = 3
+	ag.ErrorHandling.IncludeErrorContext = true
+
 	// Debug: check what tools the agent actually gets (only in non-TUI mode)
 	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
 		fmt.Printf("🔧 buildAgent: registry has %d tools, agent has %d tools\n", len(reg), len(ag.Tools))

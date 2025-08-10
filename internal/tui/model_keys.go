@@ -25,6 +25,8 @@ func (m Model) handleKeyMessages(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handleToggleTab()
 	case m.keys.Pause:
 		return m.handlePause()
+	case m.keys.Diagnostics:
+		return m.handleDiagnostics()
 	case m.keys.Submit:
 		return m.handleSubmit()
 	}

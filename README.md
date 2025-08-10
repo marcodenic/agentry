@@ -12,10 +12,10 @@ For the upcoming cloud deployment model, see [README-cloud.md](./README-cloud.md
 
 | 🚩 **Pillar**        | ✨ **v1.0 Features**                                     |
 | -------------------- | -------------------------------------------------------- |
-| 🦴 **Minimal core**  | ~200 LOC run loop, zero heavy deps                       |
+go install github.com/marcodenic/agentry/cmd/agentry@latest
 | � **Tool System**   | 30+ built-in tools; JSON/YAML manifests; Go plugins     |
 | 🤹‍♂️ **Sub-agents**    | `Spawn()` + `RunParallel()` helper                       |
-| 🧭 **Model routing** | Rule-based selector, multi-LLM support                   |
+agentry tui --config examples/.agentry.yaml
 | 🧠 **Memory**        | Conversation + VectorStore interface (RAG-ready)         |
 | 🕵️‍♂️ **Tracing**       | Structured events, JSONL dump, SSE stream                |
 | ⚙️ **Config**        | `.agentry.yaml` bootstraps agent, models, tools          |
@@ -68,28 +68,30 @@ go install ./cmd/agentry
 ## 🚀 Quick Start
 
 ```bash
-# 🖥️ CLI dev REPL with tracing
 go install github.com/marcodenic/agentry/cmd/agentry@latest
-agentry dev
 
-# � Terminal UI
+# Terminal UI (default)
+agentry                 # launches TUI
 agentry tui --config examples/.agentry.yaml
 
-# 💬 Interactive chat
-agentry chat --config examples/.agentry.yaml
+# JSON-first automation
+agentry invoke "summarize README"
+agentry invoke --agent coder "add a Makefile target"
+agentry team roles
+agentry team spawn --name coder --role coder
+agentry team call --agent coder --input "print hello in bash"
+agentry memory export --out mem.json
 ```
 
 The `examples/.agentry.yaml` file contains a ready-to-use configuration for these commands.
 
-You can now use subcommands for different modes:
+Subcommands:
 
-- `agentry tui` (TUI interface, default)
-- `agentry chat` (interactive chat)
-- `agentry dev` (development REPL)
-- `agentry eval` (evaluation)
-- `agentry analyze trace.log` (token/cost summary)
-- `agentry pprof profile.out` (launch pprof web UI)
-- `agentry version` (show version)
+- tui (interactive; default when no command provided)
+- invoke (one-shot; optional --agent and --trace)
+- team (roles, list, spawn, call, stop)
+- memory (export, import)
+- eval, analyze, pprof, version
 
 Adjust the agent iteration limit using `--max-iter` or `max_iterations` in the config file.
 
@@ -98,7 +100,7 @@ Adjust the agent iteration limit using `--max-iter` or `max_iterations` in the c
 Pass `--resume-id name` to load a saved session and `--save-id name` to persist after each run.
 Use `--checkpoint-id name` to continuously snapshot the run loop and resume after a crash.
 
-The new `tui` command launches a split-screen interface:
+The `tui` command launches a split-screen interface:
 
 ```
 +-------+-----------------------------+
@@ -165,7 +167,19 @@ tools:
     type: builtin
   - name: mcp # 🎮 connect to MCP servers
     type: builtin
+  - name: lsp_diagnostics # 🩺 run language diagnostics (Go via gopls, TS via tsc)
+    type: builtin
 ```
+
+### 🩺 Diagnostics (LSP)
+
+Use the lsp_diagnostics tool to surface Go/TypeScript issues:
+
+- Go: gopls check
+- TypeScript: tsc --noEmit
+
+It outputs JSON with diagnostics having fields: file, line, col, code, severity, message.
+In the TUI, press Ctrl+D (default) to run diagnostics and see a per-file summary in the right panel.
 
 ### 🎯 Advanced File Operations
 
@@ -259,14 +273,14 @@ Use the `mcp` tool to connect to Multi-User Connection Protocol servers. Set its
 address in your YAML config and the agent can send MCP commands and read the
 responses.
 
-### 📋 Agent Delegation
+### 📋 Agent Delegation (via tool or CLI)
 
 Planners can forward work to specialised agents using the `agent` tool.
 Include it in your `.agentry.yaml` and call it with the target agent name and
 task description:
 
 ```bash
-agent --agent coder --task "write unit tests"
+agentry invoke --agent coder "write unit tests"
 ```
 
 ### OpenAPI & MCP Specs
@@ -283,31 +297,19 @@ HTTP-backed tools. Example specs are provided in `examples/echo-openapi.yaml` an
 ## 🧑‍💻 Try it Live
 
 ```bash
-# 🏃‍♂️ One-off REPL (OpenAI key picked up from .env.local)
-agentry dev               # type messages, see responses
-
-# � Terminal UI
 agentry tui --config examples/.agentry.yaml
-
-# 💬 Interactive chat
-agentry chat --config examples/.agentry.yaml
+agentry invoke "say hi"
 ```
 
 ---
 
-## 🦾 Full End-to-End Example
+## 🦾 End-to-End Example (CLI)
 
 You can test the core functionality using the CLI modes:
 
 ```bash
-# Terminal UI (default)
 agentry tui --config examples/.agentry.yaml
-
-# Interactive chat
-agentry chat --config examples/.agentry.yaml
-
-# Development REPL
-agentry dev --config examples/.agentry.yaml
+agentry invoke --agent coder "create hello.go"
 ```
 
 Then, from inside `ts-sdk`, run each command one at a time:
@@ -432,7 +434,7 @@ Agentry uses YAML configuration files to define models, tools, and behavior. The
 ```
 
 ### Key Principles
-- **Agent 0**: Uses ultra cost-effective models (gpt-4.1-nano) for coordination
+- **Agent 0**: Uses gpt-5 for system/orchestrator duties
 - **Specialist Agents**: Use appropriate models defined in role templates
 - **No Complex Routing**: Simple model-per-agent approach
 - **Always Include**: The `agent` tool for delegation capabilities
@@ -460,7 +462,7 @@ This target executes Go and TypeScript tests, builds the CLI, and launches `agen
 go test ./...
 cd ts-sdk && npm install && npm test
 go install ./cmd/agentry
-agentry dev
+agentry tui --config examples/.agentry.yaml
 ```
 
 ## 🪟 Windows Setup

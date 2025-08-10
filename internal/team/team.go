@@ -81,6 +81,17 @@ func NewTeamWithRoles(parent *core.Agent, maxTurns int, name string, includePath
 	return team, nil
 }
 
+// GetRoles returns the loaded role configurations by name.
+func (t *Team) GetRoles() map[string]*RoleConfig {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	out := make(map[string]*RoleConfig, len(t.roles))
+	for k, v := range t.roles {
+		out[k] = v
+	}
+	return out
+}
+
 // Add registers ag under name so it can be addressed via Call.
 func (t *Team) Add(name string, ag *core.Agent) {
 	// CRITICAL: Remove the "agent" tool from added agents to prevent delegation cascading
@@ -127,6 +138,11 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 
 	// Set role-appropriate prompt
 	coreAgent.Prompt = fmt.Sprintf("You are a %s agent specialized in %s tasks. You have access to all necessary tools to complete your assignments.", name, name)
+
+	// Configure error handling for resilience
+	coreAgent.ErrorHandling.TreatErrorsAsResults = true
+	coreAgent.ErrorHandling.MaxErrorRetries = 3
+	coreAgent.ErrorHandling.IncludeErrorContext = true
 
 	// Remove ONLY the "agent" tool to prevent delegation cascading
 	// Keep all other tools (create, write, edit_range, etc.) so agents can actually work
@@ -200,7 +216,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	// Execute the input on the core agent using the same pattern as converse.runAgent
 	result, err := runAgent(ctx, agent.Agent, input, agentID, t.names)
 
-	// Update agent status and log completion
+	// Update agent status and handle errors gracefully
 	if err != nil {
 		agent.SetStatus("error")
 		debugPrintf("❌ Agent %s failed: %v\n", agentID, err)
@@ -208,6 +224,13 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 		t.LogCoordinationEvent("delegation_failed", agentID, "agent_0", err.Error(), map[string]interface{}{
 			"error": err.Error(),
 		})
+
+		// Instead of returning the error directly, format it as feedback for the parent agent
+		errorFeedback := fmt.Sprintf("❌ Agent '%s' encountered an error: %v\n\nSuggestions:\n- Try a different approach\n- Simplify the request\n- Use alternative tools\n- Break the task into smaller steps",
+			agentID, err)
+
+		// Return the error as feedback instead of propagating it
+		return errorFeedback, nil
 	} else {
 		agent.SetStatus("ready")
 		debugPrintf("✅ Agent %s completed successfully\n", agentID)
@@ -229,7 +252,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	}
 	debugPrintf("🏁 Delegation complete: Agent 0 <- %s\n\n", agentID)
 
-	return result, err
+	return result, nil
 }
 
 // runAgent executes an agent with the given input, similar to converse.runAgent
@@ -384,6 +407,25 @@ func (t *Team) GetCoordinationSummary() string {
 	}
 
 	return summary
+}
+
+// CoordinationHistoryStrings returns formatted lines of coordination events.
+// If limit <= 0, returns all events; otherwise returns the last 'limit' events.
+func (t *Team) CoordinationHistoryStrings(limit int) []string {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	if len(t.coordination) == 0 {
+		return nil
+	}
+	start := 0
+	if limit > 0 && len(t.coordination) > limit {
+		start = len(t.coordination) - limit
+	}
+	res := make([]string, 0, len(t.coordination)-start)
+	for _, e := range t.coordination[start:] {
+		res = append(res, fmt.Sprintf("%s %s -> %s | %s", e.Timestamp.Format("15:04:05"), e.From, e.To, e.Content))
+	}
+	return res
 }
 
 // ENHANCED: Direct agent-to-agent communication methods

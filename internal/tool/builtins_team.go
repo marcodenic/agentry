@@ -7,6 +7,23 @@ import (
 	"time"
 )
 
+// TeamContextKey is used to store a team implementation in context for builtins.
+// The concrete value should implement the teamAPI interface below.
+var TeamContextKey = struct{ key string }{"agentry.team"}
+
+// teamAPI defines the minimal surface the team builtins depend on.
+type teamAPI interface {
+	// messaging
+	SendMessageToAgent(ctx context.Context, fromAgentID, toAgentID, message string) error
+	// shared memory
+	GetSharedData(key string) (interface{}, bool)
+	SetSharedData(key string, value interface{})
+	GetAllSharedData() map[string]interface{}
+	// coordination
+	GetCoordinationSummary() string
+	CoordinationHistoryStrings(limit int) []string
+}
+
 // getTeamBuiltins returns team coordination builtin tools
 func getTeamBuiltins() map[string]builtinSpec {
 	return map[string]builtinSpec{
@@ -75,7 +92,16 @@ func getTeamBuiltins() map[string]builtinSpec {
 				if msgType == "" {
 					msgType = "info"
 				}
-
+				// Resolve team from context without importing the team package
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
+				}
+				// Use Agent 0 as sender by default
+				if err := t.SendMessageToAgent(ctx, "agent_0", to, message); err != nil {
+					return "", err
+				}
 				return fmt.Sprintf("✅ Message sent to %s [%s]: %s", to, msgType, message), nil
 			},
 		},
@@ -135,21 +161,39 @@ func getTeamBuiltins() map[string]builtinSpec {
 				action, _ := args["action"].(string)
 				key, _ := args["key"].(string)
 				value, _ := args["value"].(string)
-
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
+				}
 				switch action {
 				case "get":
 					if key == "" {
 						return "❌ Key required for get operation", nil
 					}
-					// This is a placeholder - in real implementation, we'd access team shared memory
-					return fmt.Sprintf("📊 Shared data '%s': (placeholder - would retrieve from team)", key), nil
+					if v, ok := t.GetSharedData(key); ok {
+						return fmt.Sprintf("📊 %s = %v", key, v), nil
+					}
+					return fmt.Sprintf("📊 %s not set", key), nil
 				case "set":
 					if key == "" || value == "" {
 						return "❌ Key and value required for set operation", nil
 					}
+					t.SetSharedData(key, value)
 					return fmt.Sprintf("✅ Stored '%s' in shared memory", key), nil
 				case "list":
-					return "📋 Shared memory contents: (placeholder - would list all keys)", nil
+					data := t.GetAllSharedData()
+					if len(data) == 0 {
+						return "📋 Shared memory is empty", nil
+					}
+					var b strings.Builder
+					b.WriteString("📋 Shared memory keys:\n")
+					for k := range data {
+						b.WriteString("- ")
+						b.WriteString(k)
+						b.WriteString("\n")
+					}
+					return b.String(), nil
 				default:
 					return "❌ Invalid action. Use: get, set, or list", nil
 				}
@@ -175,14 +219,32 @@ func getTeamBuiltins() map[string]builtinSpec {
 				if detail == "" {
 					detail = "summary"
 				}
-
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
+				}
 				switch detail {
 				case "summary":
-					return "📊 Coordination Summary: Recent agent interactions and shared memory status", nil
+					return t.GetCoordinationSummary(), nil
 				case "full":
-					return "📋 Full Coordination Log: Complete history of agent communications and events", nil
+					lines := t.CoordinationHistoryStrings(0)
+					if len(lines) == 0 {
+						return "📋 No coordination events.", nil
+					}
+					var b strings.Builder
+					b.WriteString("📋 Coordination Events (full):\n")
+					for _, ln := range lines { b.WriteString("- "); b.WriteString(ln); b.WriteString("\n") }
+					return b.String(), nil
 				case "recent":
-					return "🕐 Recent Events: Last 10 coordination events and current agent status", nil
+					lines := t.CoordinationHistoryStrings(10)
+					if len(lines) == 0 {
+						return "🕐 No recent coordination events.", nil
+					}
+					var b strings.Builder
+					b.WriteString("🕐 Recent Events:\n")
+					for _, ln := range lines { b.WriteString("- "); b.WriteString(ln); b.WriteString("\n") }
+					return b.String(), nil
 				default:
 					return "❌ Invalid detail level. Use: summary, full, or recent", nil
 				}

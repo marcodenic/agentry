@@ -5,10 +5,10 @@ This document explains the purpose of each configuration file in the Agentry pro
 ## Main Configuration Files
 
 ### `.agentry.yaml` (Root)
-- **Purpose**: Primary configuration for production use
-- **Model**: Uses ultra cost-effective `gpt-4.1-nano` for Agent 0
-- **Tools**: Full set of built-in tools for general use
-- **Usage**: Used by default when running `agentry` command
+- Purpose: Primary configuration for production use
+- Model: Uses `gpt-5` for Agent 0 (system/orchestrator)
+- Tools: Full set of built-in tools for general use, including `lsp_diagnostics`
+- Usage: Used by default when running `agentry` command
 
 ### `examples/.agentry.yaml`
 - **Purpose**: Example configuration for users to copy and modify
@@ -71,9 +71,9 @@ This document explains the purpose of each configuration file in the Agentry pro
 ## Configuration Standards
 
 ### Model Selection
-- **Agent 0**: Always use ultra cost-effective models (`gpt-4.1-nano`)
-- **Test configs**: Use `gpt-4.1-nano` or `mock` provider
-- **Specialist agents**: Use appropriate models in role templates
+- Agent 0: Use `gpt-5` for the system/orchestrator role
+- Test configs: Use `mock` or low-cost models for CI
+- Specialist agents: Choose per-role models in templates
 
 ### Format Standards
 - Use `models:` array format (not singular `model:`)
@@ -84,6 +84,7 @@ This document explains the purpose of each configuration file in the Agentry pro
 ### Tool Configuration
 - Always include `agent` tool for delegation
 - Include appropriate tools for the use case
+- Add `lsp_diagnostics` when working with Go or TypeScript projects; it auto-discovers files
 - Document tool descriptions clearly
 
 ## Maintenance Guidelines

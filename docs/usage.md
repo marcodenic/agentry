@@ -3,43 +3,42 @@
 ## Quick Start
 
 ```bash
-# CLI dev REPL with tracing
 go install github.com/marcodenic/agentry/cmd/agentry@latest
-agentry dev
-
-# HTTP server + JS client
-agentry serve --config examples/.agentry.yaml
-npm i @marcodenic/agentry
 ```
 
 The `examples/.agentry.yaml` file contains a ready-to-use configuration for these commands.
 
-You can now use subcommands instead of the --mode flag:
+Core subcommands:
 
-- `agentry dev` (REPL)
-- `agentry serve` (HTTP server)
-- `agentry tui` (TUI interface)
-- `agentry eval` (evaluation)
-- `agentry flow` (run `.agentry.flow.yaml`)
-- `agentry analyze trace.log` (token/cost summary)
-- `agentry pprof profile.out` (launch pprof web UI)
-- `agentry cost` (summarize trace logs)
+- `tui` (interactive; default when no command provided)
+- `invoke` (one-shot; optional `--agent`, `--trace`)
+- `team` (`roles`, `list`, `spawn`, `call`, `stop`)
+- `memory` (`export`, `import`; more coming)
+- `eval`, `analyze`, `pprof`, `version`
 
 Use `--port 9090` or set `AGENTRY_PORT` to change the HTTP server port. Set
 `--max-iter` or `max_iterations:` in `.agentry.yaml` to control the iteration limit.
 
-Example:
+Examples:
 
 ```bash
-agentry flow .
-```
+# one-shot, run Agent 0
+agentry invoke "summarize README"
 
-Run the sample scenarios in `examples/flows`:
+# delegate directly to a role by name
+agentry invoke --agent coder "add a Makefile target"
 
-```bash
-agentry flow examples/flows/research_task
-agentry flow examples/flows/etl_pipeline
-agentry flow examples/flows/multi_agent_chat
+# trace to a JSONL file
+agentry invoke --trace trace.jsonl "explain the code"
+
+# team ops
+agentry team roles
+agentry team spawn --name coder --role coder
+agentry team call --agent coder --input "print hello world"
+
+# memory export/import (stub)
+agentry memory export --out mem.json
+agentry memory import --in mem.json
 ```
 
 Pass `--resume-id name` to load a saved session and `--save-id name` to persist after each run.

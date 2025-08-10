@@ -14,6 +14,7 @@ type Keybinds struct {
 	NextPane  string `json:"nextPane"`
 	PrevPane  string `json:"prevPane"`
 	Pause     string `json:"pause"`
+	Diagnostics string `json:"diagnostics"`
 }
 
 // Theme holds colour settings and keybinds.
@@ -71,6 +72,7 @@ func DefaultTheme() Theme {
 			NextPane:  "ctrl+n",
 			PrevPane:  "ctrl+p",
 			Pause:     "ctrl+s",
+			Diagnostics: "ctrl+d",
 		},
 	}
 }
