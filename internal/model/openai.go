@@ -7,13 +7,14 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 )
 
 // OpenAI client uses OpenAI's chat completion API.
 type OpenAI struct {
 	key         string
 	model       string
-	Temperature float64
+	Temperature *float64
 	client      *http.Client
 }
 
@@ -91,7 +92,11 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 		"messages":    oaMsgs,
 		"tools":       oaTools,
 		"tool_choice": "auto",
-		"temperature": o.Temperature,
+	}
+
+	// Only include temperature when explicitly set and supported by the model
+	if o.Temperature != nil && supportsTemperature(o.model) {
+		reqBody["temperature"] = *o.Temperature
 	}
 
 	b, _ := json.Marshal(reqBody)
@@ -156,4 +161,15 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 // ModelName returns the model name used by this OpenAI client
 func (o *OpenAI) ModelName() string {
 	return o.model
+}
+
+// supportsTemperature returns whether this model supports the temperature parameter.
+// Some reasoning-oriented models (e.g., gpt-5, o1 family) don’t accept temperature.
+func supportsTemperature(model string) bool {
+	m := strings.ToLower(model)
+	// Blocklist known families that reject temperature
+	if strings.HasPrefix(m, "gpt-5") || strings.HasPrefix(m, "o1") || strings.HasPrefix(m, "o3") || strings.HasPrefix(m, "o4") {
+		return false
+	}
+	return true
 }

@@ -20,7 +20,7 @@ This guide explains how to set up your environment, run all tests, and validate 
    - Go (>=1.23)
    - Node.js (>=18) and npm
    - (Optional) Docker (for sandboxing, plugins)
-3. **Copy `.env.example` to `.env.local`** and set your `OPENAI_KEY` if you have one.
+3. **Copy `.env.example` to `.env.local`** and set your `OPENAI_API_KEY` if you have one.
 4. **Install dependencies:**
    - `go mod tidy`
    - `cd ts-sdk && npm install`

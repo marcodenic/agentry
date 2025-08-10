@@ -19,7 +19,7 @@ func runEval(args []string) {
 		os.Exit(1)
 	}
 	applyOverrides(cfg, opts)
-	key := os.Getenv("OPENAI_KEY")
+	key := os.Getenv("OPENAI_API_KEY")
 	if key != "" {
 		for i, m := range cfg.Models {
 			if m.Name == "openai" {

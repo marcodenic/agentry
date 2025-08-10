@@ -3,9 +3,9 @@ models:
   - name: openai
     provider: openai
     options:
-      # API key; defaults to $OPENAI_KEY if omitted
+    # API key; read from $OPENAI_API_KEY if omitted
       key: ""
-      # Model name; defaults to gpt-4o if omitted
+  # Model name
   model: gpt-5
   - name: mock
     provider: mock

@@ -4,7 +4,7 @@ package model
 func WithTemperature(c Client, t float64) Client {
 	if oa, ok := c.(*OpenAI); ok {
 		cp := *oa
-		cp.Temperature = t
+	cp.Temperature = &t
 		return &cp
 	}
 	return c

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	agentry "github.com/marcodenic/agentry/internal"
+	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/env"
 )
 
@@ -104,5 +105,13 @@ func runToolCmd(args []string) {
 
 // Stub implementation for optional command if not present in this build.
 func runRefreshModelsCmd(args []string) {
-	fmt.Println("refresh-models not implemented in this build")
+	fmt.Println("Fetching latest model pricing/specs from models.dev ...")
+	pt := cost.NewPricingTable()
+	if err := pt.RefreshFromAPI(); err != nil {
+		fmt.Printf("Failed to refresh: %v\n", err)
+		os.Exit(1)
+	}
+	// Give a small summary
+	models := pt.ListModels()
+	fmt.Printf("Refreshed %d models and cached to internal/cost/data/models_pricing.json\n", len(models))
 }

@@ -1,13 +1,13 @@
 theme: dark
 
-# Model configuration - OpenAI GPT-4 as primary, Anthropic Claude as backup
+# Model configuration - OpenAI gpt-5 as primary, Anthropic Claude as backup
 models:
   - name: openai
     provider: openai
     options:
-      # API key will be read from $OPENAI_KEY environment variable
-      model: gpt-4.1-nano
-      temperature: 0.1
+  # API key will be read from $OPENAI_API_KEY environment variable
+      model: gpt-5
+      temperature: "0.1"
   - name: anthropic
     provider: anthropic
     options:

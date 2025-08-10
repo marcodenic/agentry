@@ -399,12 +399,12 @@ The default system prompt for solo mode lives in `templates/roles/agent_0.yaml`.
 
 ## ⚙️ Environment Configuration
 
-Copy `.env.example` to `.env.local` and fill in `OPENAI_KEY` to enable real OpenAI calls. The file is loaded automatically on startup and during tests.
+Copy `.env.example` to `.env.local` and fill in `OPENAI_API_KEY` to enable real OpenAI calls. The file is loaded automatically on startup and during tests.
 
 To run evaluation with the real model:
 
 ```bash
-OPENAI_KEY=your-key agentry eval --config my.agentry.yaml
+OPENAI_API_KEY=your-key agentry eval --config my.agentry.yaml
 ```
 
 When the real model is active, the CLI uses `tests/openai_eval_suite.json` so the assertions match ChatGPT's typical response.
