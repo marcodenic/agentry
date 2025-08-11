@@ -87,6 +87,7 @@ func BuildMessages(prompt string, vars map[string]string, hist []memory.Step, in
 
 	prompt = applyVars(prompt, vars)
 	msgs := []model.ChatMessage{{Role: "system", Content: prompt}}
+    
 	for _, h := range hist {
 		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: h.Output, ToolCalls: h.ToolCalls})
 		for id, res := range h.ToolResults {

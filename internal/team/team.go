@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -221,8 +222,46 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	logMessage := fmt.Sprintf("DELEGATION: Agent 0 -> %s | Task: %s", agentID, input)
 	logToFile(logMessage)
 
+	// Inject inbox into prompt for this turn (lightweight option)
+	originalPrompt := agent.Agent.Prompt
+	// Collect unread inbox messages
+	inbox := t.GetAgentInbox(agentID)
+	unread := make([]map[string]interface{}, 0, len(inbox))
+	for _, m := range inbox {
+		if read, ok := m["read"].(bool); !ok || !read {
+			unread = append(unread, m)
+		}
+	}
+	if len(unread) > 0 {
+		// Build an INBOX section appended to the system prompt
+		var sb strings.Builder
+		sb.WriteString(originalPrompt)
+		sb.WriteString("\n\nINBOX: You have ")
+		sb.WriteString(fmt.Sprintf("%d unread message(s). Read and consider them before continuing.\n", len(unread)))
+		for _, m := range unread {
+			from, _ := m["from"].(string)
+			msg, _ := m["message"].(string)
+			ts := ""
+			if tv, ok := m["timestamp"].(time.Time); ok {
+				ts = tv.Format("15:04:05")
+			}
+			sb.WriteString("- ")
+			if ts != "" { sb.WriteString("["); sb.WriteString(ts); sb.WriteString("] ") }
+			if from != "" { sb.WriteString(from); sb.WriteString(": ") }
+			sb.WriteString(msg)
+			sb.WriteString("\n")
+		}
+		agent.Agent.Prompt = sb.String()
+	}
+
 	// Execute the input on the core agent using the same pattern as converse.runAgent
 	result, err := runAgent(ctx, agent.Agent, input, agentID, t.names)
+
+	// Restore original prompt and mark inbox messages as read after processing
+	agent.Agent.Prompt = originalPrompt
+	if len(unread) > 0 {
+		t.MarkMessagesAsRead(agentID)
+	}
 
 	// Update agent status and handle errors gracefully
 	if err != nil {
@@ -265,6 +304,8 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 
 // runAgent executes an agent with the given input, similar to converse.runAgent
 func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []string) (string, error) {
+	// Attach agent name into context for builtins to use sensible defaults
+	ctx = context.WithValue(ctx, tool.AgentNameContextKey, name)
 	// Use the standard agent.Run() method instead of custom logic
 	// This ensures that all tracing, token counting, and other instrumentation works correctly
 	return ag.Run(ctx, input)

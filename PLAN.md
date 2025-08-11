@@ -2,7 +2,7 @@
 
 This plan is the single source of truth for Agentry’s architecture, priorities, and progress. Update it with every material change (features, tests, docs). Keep it concise and actionable.
 
-Last updated: 2025-08-10 (CLI JSON purity enforced; Team context wired for built-ins; default iterations increased; roles/templates moved to gpt-5; SharedStore in-memory+file backends active)
+Last updated: 2025-08-11 (Inbox built-ins + request_help; lightweight inbox injection per turn; workspace_events builtin; CLI JSON purity; Team context wired; default iterations increased; SharedStore in-memory+file backends active)
 
 ---
 
@@ -34,11 +34,16 @@ New since last update:
 - Iteration caps: default MaxIterations raised (agent default 24; CLI defaults floor to 16 if unset) to avoid premature termination during tool use.
 - Models: all role templates (coder, tester, writer, researcher) and team templates (dev/docs/website) set to `openai/gpt-5`.
 
+- Team built-ins expanded: `inbox_read`, `inbox_clear`, `workspace_events`, and `request_help` (wraps Team.RequestHelp). No duplicate collaborate surface.
+- Lightweight inbox: per agent turn, unread inbox messages are appended to the system prompt and then marked read.
+- send_message now uses the current agent from context as sender when available (fallback agent_0).
+
  Gaps to close:
 - Durable stores: File-backed SharedStore is active; SQLite adapter and namespaced vector backends still pending wiring.
 - No separate workflow engine: Agent 0 orchestrates multi-step sequences directly.
 - File collaboration safety (locks/watch) and sandbox enforcement are not integrated.
 - LSP: only diagnostics via gopls/tsc; no symbol/completion/navigation yet.
+ - Workspace eventing: direct messages do not yet publish workspace events; push/subscription deferred.
 
 ## Guiding Architecture Decisions
 
@@ -61,6 +66,10 @@ M1 — Shared Memory + Real Team Built-ins (1–2 weeks)
 - Make builtins_team call real Team methods (send_message, shared_memory, coordination_status, agent tool via TeamFromContext).
 - Centralize agent tool registration when creating a Team; ensure TUI/CLI paths do this. (Done: CLI & TUI register via Team; refactor into a single helper is optional.)
 - Tests: shared store get/set/list; delegation uses team-backed agent tool; persistence smoke.
+
+Additional delivered in M1 scope:
+- Inbox/workspace tools: `inbox_read`/`inbox_clear`, `workspace_events`, and `request_help` built-ins.
+- Lightweight inbox injection into system prompt each agent turn; mark messages as read after processing.
 
 M2 — File Locks + TUI visibility (1–2 weeks)
 - Integrate file locks in edit_range/insert_at (opt-in via config); basic watcher notifications.
@@ -92,6 +101,9 @@ M4 — Remote Execution & Scale (later)
 - [x] Persist coordination events via SharedStore; implement TTL/GC worker.
 - [x] Built-ins (team): implement real send_message, shared_memory (get/set/list), coordination_status using Team + SharedStore; attach Team into CLI contexts.
 - [x] Centralize agent tool registration when Team is created; ensure all entrypoints pass Team via context (invoke, team, TUI).
+- [x] Built-ins (team): `inbox_read`/`inbox_clear`, `workspace_events`, and `request_help` wrapper.
+- [x] Lightweight inbox injection: append unread messages each agent turn; mark read afterwards.
+- [ ] Eventing: publish a workspace event on direct message arrival; consider push/subscription for inbox notifications.
 - [ ] Agent 0 sequencing: ensure reliable multi-step coordination without a separate workflow engine; persist key checkpoints where useful.
 - [ ] File locks: integrate CollaborativeFileManager in edit_range/insert_at (config flag), with notifications.
 - [ ] TUI: Team/Memory pane (agents, events, shared keys), and a quick “/team status” command.
@@ -165,9 +177,9 @@ Status for this change set
 - Lint/Typecheck: PASS at compile-time; no new type issues observed.
 - Unit tests: existing suite not re-run in this pass.
 - Smoke (CLI):
-  - invoke: stdout JSON-only (delegation to coder tested).
+  - invoke: stdout JSON-only.
   - team roles/spawn/call: JSON-only; flags parsed correctly.
-  - team call via Agent 0: `send_message` and `shared_memory list` complete; recent coordination can be queried.
+  - team call: `send_message`, `shared_memory list`, `coordination_status`, `inbox_read`, `workspace_events`, and `request_help` available; inbox auto-injection observed.
   - Logs and human-readable status go to stderr; stdout remains machine-readable.
 
 Environment knobs
