@@ -248,8 +248,15 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 				ts = tv.Format("15:04:05")
 			}
 			sb.WriteString("- ")
-			if ts != "" { sb.WriteString("["); sb.WriteString(ts); sb.WriteString("] ") }
-			if from != "" { sb.WriteString(from); sb.WriteString(": ") }
+			if ts != "" {
+				sb.WriteString("[")
+				sb.WriteString(ts)
+				sb.WriteString("] ")
+			}
+			if from != "" {
+				sb.WriteString(from)
+				sb.WriteString(": ")
+			}
 			sb.WriteString(msg)
 			sb.WriteString("\n")
 		}
@@ -277,7 +284,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	result, err := runAgent(dctx, agent.Agent, input, agentID, t.names)
 	duration := time.Since(startTime)
 	debugPrintf("🔧 Call: runAgent completed for %s in %s", agentID, duration)
-	
+
 	if err != nil {
 		debugPrintf("❌ Call: runAgent failed for %s: %v", agentID, err)
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
@@ -357,9 +364,9 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 		}
 		return 0
 	}())
-	
+
 	result, err := ag.Run(ctx, input)
-	
+
 	debugPrintf("🏁 runAgent: ag.Run completed for agent %s", name)
 	debugPrintf("🏁 runAgent: Result length: %d", len(result))
 	debugPrintf("🏁 runAgent: Error: %v", err)
@@ -370,7 +377,7 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 		return 0
 	}())
 	debugPrintf("🏁 runAgent: Agent %s context final state: %v", name, ctx.Err())
-	
+
 	return result, err
 }
 

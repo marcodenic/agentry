@@ -237,7 +237,7 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	ti.Focus()
 	// Initialize viewport with reasonable default dimensions
 	// This prevents text wrapping issues before the first window resize event
-	defaultWidth := 90 // 75% of assumed 120 char window width
+	defaultWidth := 90  // 75% of assumed 120 char window width
 	defaultHeight := 20 // Reasonable default height
 	vp := viewport.New(defaultWidth, defaultHeight)
 	debugVp := viewport.New(defaultWidth, defaultHeight)
@@ -315,7 +315,6 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	}
 	info.TokenProgress.Width = barWidth
 
-
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
 	// Create team context with role loading support
@@ -329,7 +328,6 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	if err != nil {
 		panic(fmt.Sprintf("failed to initialize team: %v", err))
 	}
-
 
 	ag.Prompt = core.GetDefaultPrompt()
 	if strings.TrimSpace(ag.Prompt) == "" {

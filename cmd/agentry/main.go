@@ -32,7 +32,7 @@ func main() {
 		allArgs := os.Args[1:]
 		actualCmd := ""
 		actualArgs := []string{}
-		
+
 		// Find the first non-flag argument
 		for i := 0; i < len(allArgs); i++ {
 			arg := allArgs[i]
@@ -44,18 +44,18 @@ func main() {
 			} else {
 				// This is the actual command or prompt
 				actualCmd = arg
-				actualArgs = allArgs[:i] // All flags before this
+				actualArgs = allArgs[:i]                          // All flags before this
 				actualArgs = append(actualArgs, allArgs[i+1:]...) // Plus any remaining args
 				break
 			}
 		}
-		
+
 		// If no command found after flags, default to TUI
 		if actualCmd == "" {
 			runTui(allArgs)
 			return
 		}
-		
+
 		// Check if it's a known command
 		switch actualCmd {
 		case "tui":

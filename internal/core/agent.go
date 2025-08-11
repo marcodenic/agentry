@@ -20,16 +20,16 @@ import (
 
 // Agent represents a conversational agent with LLM capabilities
 type Agent struct {
-	ID            uuid.UUID
-	Client        model.Client
-	ModelName     string
-	Tools         tool.Registry
-	Mem           memory.Store
-	Vector        memory.VectorStore
-	Vars          map[string]string
-	Tracer        trace.Writer
-	Cost          *cost.Manager
-	Prompt        string
+	ID        uuid.UUID
+	Client    model.Client
+	ModelName string
+	Tools     tool.Registry
+	Mem       memory.Store
+	Vector    memory.VectorStore
+	Vars      map[string]string
+	Tracer    trace.Writer
+	Cost      *cost.Manager
+	Prompt    string
 	// Error handling configuration
 	ErrorHandling ErrorHandlingConfig
 }
@@ -130,13 +130,35 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	debug.Printf("Agent.Run: Built %d messages, %d tool specs", len(msgs), len(specs))
 	debug.Printf("Agent.Run: About to call model client with model %s", a.ModelName)
 
+	// DEBUG: Print the full system prompt that will be sent to the API
+	if len(msgs) > 0 && msgs[0].Role == "system" {
+		debug.Printf("=== FULL SYSTEM PROMPT BEING SENT TO API ===")
+		debug.Printf("%s", msgs[0].Content)
+		debug.Printf("=== END SYSTEM PROMPT ===")
+	}
+
+	// DEBUG: Print available tool specs
+	debug.Printf("=== AVAILABLE TOOLS ===")
+	for name := range specs {
+		debug.Printf("Tool: %s", name)
+	}
+	debug.Printf("=== END TOOLS ===")
+
+	// DEBUG: Print available tool names from registry
+	debug.Printf("=== AVAILABLE TOOL NAMES ===")
+	toolNames := getToolNames(a.Tools)
+	for _, name := range toolNames {
+		debug.Printf("Tool: %s", name)
+	}
+	debug.Printf("=== END TOOL NAMES ===")
+
 	// Do not estimate tokens here; rely on actual counts from responses
 
 	// Track consecutive errors for resilience
 	consecutiveErrors := 0
 
 	for i := 0; ; i++ {
-	// Note: No iteration cap; agent runs until it produces a final answer.
+		// Note: No iteration cap; agent runs until it produces a final answer.
 		debug.Printf("Agent.Run: Starting iteration %d", i)
 		res, err := a.Client.Complete(ctx, msgs, specs)
 		debug.Printf("Agent.Run: Model call completed for iteration %d, err=%v", i, err)
