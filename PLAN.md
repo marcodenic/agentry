@@ -44,6 +44,7 @@ New since last update:
 - File collaboration safety (locks/watch) and sandbox enforcement are not integrated.
 - LSP: only diagnostics via gopls/tsc; no symbol/completion/navigation yet.
  - Workspace eventing: direct messages do not yet publish workspace events; push/subscription deferred.
+- Extended capabilities: `ask_user` tool, image generation, fact-checking/citation, and semantic memory search not yet implemented.
 
 ## Guiding Architecture Decisions
 
@@ -89,7 +90,13 @@ M4 — LSP Enhancements (1–2 weeks)
 - Optional completion hook to assist coding agents.
 - Tests: gopls symbol lookup, tsc errors parsed, rename dry-run.
 
-M4 — Remote Execution & Scale (later)
+M4 — Extended Agent Capabilities (2-3 weeks)
+- User Interaction Tools: implement `ask_user` tool for mid-process confirmation/guidance.
+- Image/Design Agent: integrate image generation (DALL-E/Stable Diffusion) and visual creation tools.
+- Verification/Citation Agent: add fact-checking capabilities with source attribution and citation tracking.
+- Enhanced Memory: fully wire vector stores into agent reasoning; semantic search integration.
+
+M5 — Remote Execution & Scale (later)
 - Remote/cluster agent spawn and queue; SharedStore coordination across nodes.
 - Streaming event bus to clients (SSE/WebSocket) for live collaboration.
 
@@ -104,6 +111,10 @@ M4 — Remote Execution & Scale (later)
 - [x] Built-ins (team): `inbox_read`/`inbox_clear`, `workspace_events`, and `request_help` wrapper.
 - [x] Lightweight inbox injection: append unread messages each agent turn; mark read afterwards.
 - [ ] Eventing: publish a workspace event on direct message arrival; consider push/subscription for inbox notifications.
+- [ ] User Interaction Tools: implement `ask_user` tool to pause execution and collect user feedback/confirmation.
+- [ ] Image/Design Agent: implement `draw` tool and integrate image generation APIs (DALL-E, Stable Diffusion).
+- [ ] Verification/Citation Agent: create `fact_check` and `cite_sources` tools; add researcher role with verification focus.
+- [ ] Enhanced Vector Memory: wire vector stores into agent reasoning; add `memory_search` tool for semantic retrieval.
 - [ ] Agent 0 sequencing: ensure reliable multi-step coordination without a separate workflow engine; persist key checkpoints where useful.
 - [ ] File locks: integrate CollaborativeFileManager in edit_range/insert_at (config flag), with notifications.
 - [ ] TUI: Team/Memory pane (agents, events, shared keys), and a quick “/team status” command.
@@ -126,6 +137,9 @@ Owners (initial)
 - Deadlocks in locks: add lock expirations and stale-lock recovery.
 - Safety: default-deny dangerous tools unless explicitly permitted in role config.
 - Resume correctness: version persisted state; idempotent step execution for Agent 0 sequences.
+- User Interaction: implement timeouts for `ask_user` prompts to prevent indefinite blocking.
+- Image Generation: add rate limiting and cost controls for expensive generative AI APIs.
+- Citation Accuracy: implement validation workflows to ensure fact-checking doesn't introduce errors.
 
 ## Newly Identified Issues (2025-08-10) — Actions
 

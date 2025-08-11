@@ -443,6 +443,32 @@ Agentry uses YAML configuration files to define models, tools, and behavior. The
 - **No Complex Routing**: Simple model-per-agent approach
 - **Always Include**: The `agent` tool for delegation capabilities
 
+### 🚀 Extended Capabilities (Roadmap)
+
+Agentry supports additional specialized agent types and tools for complex workflows:
+
+#### 🤝 User Interaction
+- **`ask_user` tool**: Pause execution to collect user confirmation, feedback, or guidance
+- **Interactive Workflows**: Long-running tasks that benefit from human oversight and decision-making
+- **Confirmation Dialogs**: Critical actions that require explicit user approval
+
+#### 🎨 Image & Design Generation
+- **Designer Agent**: Specialized role for visual creation and UI/UX design
+- **Image Generation**: Integration with DALL-E, Stable Diffusion, and other generative AI models
+- **Visual Tools**: Create diagrams, mockups, and visual assets programmatically
+
+#### 🔍 Fact-Checking & Citation
+- **Verification Agent**: Dedicated fact-checking with source attribution
+- **Citation Tracking**: Automatic source referencing and credibility assessment
+- **Information Validation**: Cross-reference claims across multiple reliable sources
+
+#### 🧠 Enhanced Memory
+- **Semantic Search**: Vector-based memory retrieval across sessions and projects
+- **Long-term Knowledge**: Persistent knowledge base that agents can reference and update
+- **Context Preservation**: Maintain relevant information across extended agent workflows
+
+These capabilities build on Agentry's solid foundation of team coordination, shared memory, and tool orchestration.
+
 ---
 
 ## 🧪 Testing & Validation
