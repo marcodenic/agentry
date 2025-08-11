@@ -52,7 +52,7 @@ func runPrompt(cmd string, args []string) {
 	if opts.configPath != "" {
 		configDir = filepath.Dir(opts.configPath)
 	}
-	teamCtx, err := team.NewTeamWithRoles(ag, 10, "", cfg.Include, configDir)
+	teamCtx, err := team.NewTeamWithRoles(ag, 0, "", cfg.Include, configDir)
 	if err != nil {
 		fmt.Printf("Warning: Failed to create team context: %v\n", err)
 	} else {

@@ -93,7 +93,7 @@ func New(client model.Client, modelName string, reg tool.Registry, mem memory.St
 		ModelName:     modelName,
 		Tracer:        tr,
 		Cost:          cost.New(0, 0.0), // Initialize cost manager immediately
-		MaxIterations: 24,
+		MaxIterations: 0,                // 0 = unlimited; run until task completion
 		ErrorHandling: DefaultErrorHandling(),
 	}
 }
@@ -132,15 +132,15 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 	// Do not estimate tokens here; rely on actual counts from responses
 
-	limit := a.MaxIterations
-	if limit <= 0 {
-		limit = 8
-	}
-
 	// Track consecutive errors for resilience
 	consecutiveErrors := 0
 
-	for i := 0; i < limit; i++ {
+	for i := 0; ; i++ {
+		// If a cap is explicitly set, enforce it
+		if a.MaxIterations > 0 && i >= a.MaxIterations {
+			a.Trace(ctx, trace.EventYield, nil)
+			return "", fmt.Errorf("max iterations reached (%d) without final answer", a.MaxIterations)
+		}
 		res, err := a.Client.Complete(ctx, msgs, specs)
 		if err != nil {
 			return "", err
@@ -266,6 +266,4 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		a.Mem.AddStep(step)
 		_ = a.Checkpoint(ctx)
 	}
-	a.Trace(ctx, trace.EventYield, nil)
-	return "", fmt.Errorf("max iterations reached without final answer")
 }

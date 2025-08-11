@@ -1,3 +1,4 @@
 1. content in the output is eventually truncated ...[earlier messages truncated]... ... it shouldnt be.
 2. i would like to be able to push up in the input and iterate through previous messages sent.. eg, so i can push up arrow on my keyboard and the input populates with my last sent message, and if i hit up again i get the second last sent message etc etc
 3. i would like the text input to grow as user input grows beyond a single line. users should be able to see their whole text content in the input.
+4. while typing in the input, sometimes the text content visible in the history moves up and down a little bit. that should not happen.
