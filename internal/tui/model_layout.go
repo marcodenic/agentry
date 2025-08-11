@@ -16,15 +16,24 @@ func abs(x int) int {
 func (m Model) handleWindowResize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 	m.width = msg.Width
 	m.height = msg.Height
-	m.input.Width = msg.Width - 2 // Full width minus padding for input
+	// Update input width to align with effective content width assumptions (see view_render.go)
+	m.input.SetWidth(msg.Width - 1)
 
 	// Calculate chat area dimensions
 	chatWidth := int(float64(msg.Width)*0.75) - 2 // 75% width for chat area
 
-	// Calculate viewport height more accurately:
-	// Total height - horizontal separator (1) - input section height (1) - spacing line (1) - status bar (1) = height - 4
-	viewportHeight := msg.Height - 4 // Space for separator, input line, spacing, and status bar
+	// Calculate viewport height more accurately using dynamic input rows:
+	// Total height - horizontal separator (1) - input section height (dynamic) - spacing line (1) - status bar (1)
+	inputRows := m.inputHeight
+	if inputRows < 1 {
+		inputRows = 1
+	}
+	viewportHeight := msg.Height - (1 + inputRows + 1 + 1)
+	if viewportHeight < 3 {
+		viewportHeight = 3
+	}
 
+	// Set chat viewport size
 	m.vp.Width = chatWidth
 	m.vp.Height = viewportHeight
 

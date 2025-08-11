@@ -12,7 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -24,20 +24,6 @@ import (
 	"github.com/marcodenic/agentry/internal/statusbar"
 	"github.com/marcodenic/agentry/internal/team"
 )
-
-// createTokenProgressBar creates a progress bar with green-to-red gradient
-func createTokenProgressBar() progress.Model {
-	// Use a corrected green-to-red gradient with better green start color
-	// Disable built-in percentage so we can add our own styled percentage
-	prog := progress.New(
-		progress.WithGradient("#00AA00", "#FF0000"),
-		progress.WithoutPercentage(),
-	)
-	prog.Width = 20      // Set a default width to prevent crashes
-	prog.SetPercent(0.0) // Explicitly start at 0%
-	return prog
-}
-
 // applyGradientToLogo applies a beautiful gradient effect to the ASCII logo
 func applyGradientToLogo(logo string) string {
 	lines := strings.Split(logo, "\n")
@@ -94,7 +80,7 @@ type Model struct {
 
 	vp      viewport.Model
 	debugVp viewport.Model // Separate viewport for debug/memory view
-	input   textinput.Model
+	input   textarea.Model
 	tools   list.Model
 
 	cwd string
@@ -123,6 +109,11 @@ type Model struct {
 	// Diagnostics
 	diags       []Diag
 	diagRunning bool
+
+	// Dynamic input sizing and history
+	inputHeight  int
+	inputHistory []string
+	historyIndex int // -1 when not navigating history
 }
 
 type AgentStatus int
@@ -225,13 +216,23 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	l.KeyMap.AcceptWhileFiltering = NoNavKeyMap.AcceptWhileFiltering
 	l.KeyMap.ShowFullHelp = NoNavKeyMap.ShowFullHelp
 	l.KeyMap.CloseFullHelp = NoNavKeyMap.CloseFullHelp
-	l.KeyMap.Quit = NoNavKeyMap.Quit
-	l.KeyMap.ForceQuit = NoNavKeyMap.ForceQuit
-	ti := textinput.New()
+	ti := textarea.New()
+	// Hide the default line number gutter (avoids the leading "1 │")
+	// Newer bubbles exposes SetShowLineNumbers; fall back to field if needed.
+	// Use both patterns to be safe across versions.
+	if setter, ok := interface{}(&ti).(interface{ SetShowLineNumbers(bool) }); ok {
+		setter.SetShowLineNumbers(false)
+	} else {
+		ti.ShowLineNumbers = false
+	}
+	// Remove the default prompt (which renders a vertical bar) and any padding
+	ti.Prompt = ""
 	ti.Placeholder = "Type your message... (Press Enter to send)"
-	ti.CharLimit = 2000 // Allow longer messages
+	// Prevent left padding from shifting the first row
+	if styler, ok := interface{}(&ti).(interface{ SetBaseStyle(lipgloss.Style) }); ok {
+		styler.SetBaseStyle(lipgloss.NewStyle().Padding(0))
+	}
 	ti.Focus()
-
 	vp := viewport.New(0, 0)
 	debugVp := viewport.New(0, 0)
 	cwd, _ := os.Getwd()

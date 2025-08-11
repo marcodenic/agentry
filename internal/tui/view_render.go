@@ -53,8 +53,75 @@ func (m Model) View() string {
 		horizontalLine = ""
 	}
 
-	// Add full-width input
-	inputSection := base.Width(m.width).Render(m.input.View())
+	// Update dynamic input height based on visual rows (wrap-aware auto-grow)
+	rows := 1
+	if v := m.input.Value(); v != "" {
+		// Use the textarea's actual width to match its internal wrapping
+		w := m.width - 3
+		if w < 1 {
+			w = 1
+		}
+		rows = 0
+		for _, line := range strings.Split(v, "\n") {
+			lw := lipgloss.Width(line)
+			if lw <= 0 {
+				rows += 1
+				continue
+			}
+			// ceil(lw / w) visual lines for this paragraph
+			rows += (lw + w - 1) / w
+		}
+		if rows < 1 {
+			rows = 1
+		}
+	}
+
+	// Ensure the input doesn't push the rest of the UI off-screen.
+	// Reserve a minimum viewport height for the chat/agents section.
+	minChatRows := m.height / 2
+	if minChatRows < 8 {
+		minChatRows = 8
+	}
+	reservedRows := 1 + 1 // horizontal line + status bar (no spacer line)
+	maxInputRows := m.height - (reservedRows + minChatRows)
+	// Hard cap input to 10 visual rows per requirement
+	if maxInputRows > 10 {
+		maxInputRows = 10
+	}
+	if maxInputRows < 1 {
+		maxInputRows = 1
+	}
+	if rows > maxInputRows {
+		rows = maxInputRows
+	}
+
+	// Keep input height exactly equal to calculated row count (no cushion) to avoid blank lines
+	if rows != m.inputHeight {
+		m.inputHeight = rows
+		m.input.SetHeight(rows)
+	}
+
+	// Dynamically update viewport heights based on current input height so layout adapts as you type
+	viewportHeight := m.height - (1 + rows + 1)
+	if viewportHeight < minChatRows {
+		// Keep at least the minimum chat rows when possible
+		if m.height > (reservedRows + minChatRows) {
+			viewportHeight = minChatRows
+		} else if viewportHeight < 3 {
+			viewportHeight = 3
+		}
+	}
+	if viewportHeight < 3 {
+		viewportHeight = 3
+	}
+	// Apply only if changed to avoid unnecessary churn
+	if m.vp.Height != viewportHeight {
+		m.vp.Height = viewportHeight
+		m.debugVp.Height = viewportHeight
+	}
+
+	// Render input as-is to avoid double-wrapping/cropping by lipgloss
+	inputSection := m.input.View()
 
 	// Stack everything vertically
 	content := lipgloss.JoinVertical(lipgloss.Left, topSection, horizontalLine, inputSection)
@@ -89,6 +156,6 @@ func (m Model) View() string {
 	// Render the status bar
 	footer := m.statusBarModel.View()
 
-	// Add spacing line between input and status bar for proper layout
-	return lipgloss.JoinVertical(lipgloss.Left, content, "", footer)
+	// Stack without an extra spacer to avoid apparent blank lines
+	return lipgloss.JoinVertical(lipgloss.Left, content, footer)
 }

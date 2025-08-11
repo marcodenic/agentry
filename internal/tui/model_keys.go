@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -16,6 +17,37 @@ func (m Model) handleKeyMessages(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.jumpToAgent(0), nil
 	} else if key.Matches(msg, LastAgentKey) {
 		return m.jumpToAgent(len(m.order) - 1), nil
+	}
+
+	// Input history navigation when input is focused
+	if m.input.Focused() {
+		switch msg.String() {
+		case "up":
+			if len(m.inputHistory) > 0 {
+				if m.historyIndex == -1 {
+					m.historyIndex = len(m.inputHistory) - 1
+				} else if m.historyIndex > 0 {
+					m.historyIndex--
+				}
+				if m.historyIndex >= 0 && m.historyIndex < len(m.inputHistory) {
+					m.input.SetValue(m.inputHistory[m.historyIndex])
+					m.input.CursorEnd()
+				}
+				return m, nil
+			}
+		case "down":
+			if m.historyIndex >= 0 {
+				if m.historyIndex < len(m.inputHistory)-1 {
+					m.historyIndex++
+					m.input.SetValue(m.inputHistory[m.historyIndex])
+				} else {
+					m.historyIndex = -1
+					m.input.SetValue("")
+				}
+				m.input.CursorEnd()
+				return m, nil
+			}
+		}
 	}
 
 	switch msg.String() {
@@ -102,7 +134,15 @@ func (m Model) handleSubmit() (Model, tea.Cmd) {
 		}
 
 		txt := m.input.Value()
+		// Store in input history for up/down navigation
+		if strings.TrimSpace(txt) != "" {
+			m.inputHistory = append(m.inputHistory, txt)
+			m.historyIndex = -1
+		}
 		m.input.SetValue("")
+		// Reset input height after submission
+		m.inputHeight = 1
+		m.input.SetHeight(1)
 		// ALL input goes through Agent 0's natural language processing
 		// No slash commands - everything is handled by delegation
 		return m.startAgent(m.active, txt)
