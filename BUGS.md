@@ -1,3 +1,4 @@
 1. content in the output is eventually truncated ...[earlier messages truncated]... ... it shouldnt be.
 2. i would like to be able to push up in the input and iterate through previous messages sent.. eg, so i can push up arrow on my keyboard and the input populates with my last sent message, and if i hit up again i get the second last sent message etc etc
 3. while typing in the input, sometimes the text content visible in the history moves up and down a little bit. that should not happen.
+4. while an agent is working, we should display an elapsed time counter for that agent in the sidebar, perhaps we use something like this: https://github.com/charmbracelet/bubbletea/blob/main/examples/stopwatch/main.go

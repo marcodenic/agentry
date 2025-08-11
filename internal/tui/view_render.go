@@ -82,7 +82,8 @@ func (m Model) View() string {
 	if minChatRows < 8 {
 		minChatRows = 8
 	}
-	reservedRows := 1 + 1 // horizontal line + status bar (no spacer line)
+	// Reserve rows for: horizontal line, spacer line, and the status bar
+	reservedRows := 1 + 1 + 1
 	maxInputRows := m.height - (reservedRows + minChatRows)
 	// Hard cap input to 10 visual rows per requirement
 	if maxInputRows > 10 {
@@ -102,7 +103,8 @@ func (m Model) View() string {
 	}
 
 	// Dynamically update viewport heights based on current input height so layout adapts as you type
-	viewportHeight := m.height - (1 + rows + 1)
+	// Subtract: horizontal line (1) + input rows + spacer line (1) + status bar (1)
+	viewportHeight := m.height - (1 + rows + 1 + 1)
 	if viewportHeight < minChatRows {
 		// Keep at least the minimum chat rows when possible
 		if m.height > (reservedRows + minChatRows) {
@@ -156,6 +158,6 @@ func (m Model) View() string {
 	// Render the status bar
 	footer := m.statusBarModel.View()
 
-	// Stack without an extra spacer to avoid apparent blank lines
-	return lipgloss.JoinVertical(lipgloss.Left, content, footer)
+	// Include a single spacer line between input and status bar
+	return lipgloss.JoinVertical(lipgloss.Left, content, "", footer)
 }

@@ -22,8 +22,8 @@ func (m Model) handleWindowResize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 	// Calculate chat area dimensions
 	chatWidth := int(float64(msg.Width)*0.75) - 2 // 75% width for chat area
 
-	// Calculate viewport height more accurately using dynamic input rows:
-	// Total height - horizontal separator (1) - input section height (dynamic) - spacing line (1) - status bar (1)
+	// Calculate viewport height using dynamic input rows with spacer and status bar pinned at bottom:
+	// Total height - horizontal separator (1) - input section height (dynamic) - spacer line (1) - status bar (1)
 	inputRows := m.inputHeight
 	if inputRows < 1 {
 		inputRows = 1
