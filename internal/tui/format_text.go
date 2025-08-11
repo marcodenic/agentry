@@ -32,8 +32,10 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 
 	barWidth := lipgloss.Width(bar) + barWidthSpacing
 	textWidth := width - barWidth
+	// Use a more reasonable fallback width if calculation results in too narrow text area
 	if textWidth <= 20 {
-		textWidth = 60
+		// Fallback to a reasonable text width (80% of default viewport width)
+		textWidth = 72 // 90 * 0.8 = 72 chars for text content
 	}
 
 	// Apply markdown rendering for AI responses
@@ -167,8 +169,10 @@ func (m Model) formatUserInput(bar, text string, width int) string {
 	}
 	barWidth := lipgloss.Width(bar) + 4 // Account for more spacing to match AI output
 	textWidth := width - barWidth
+	// Use a more reasonable fallback width if calculation results in too narrow text area
 	if textWidth <= 10 {
-		textWidth = 40
+		// Fallback to a reasonable text width (80% of default viewport width)
+		textWidth = 72 // 90 * 0.8 = 72 chars for text content
 	}
 	words := strings.Fields(cleanText)
 	if len(words) == 0 {

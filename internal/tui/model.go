@@ -235,8 +235,12 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		styler.SetBaseStyle(lipgloss.NewStyle().Padding(0))
 	}
 	ti.Focus()
-	vp := viewport.New(0, 0)
-	debugVp := viewport.New(0, 0)
+	// Initialize viewport with reasonable default dimensions
+	// This prevents text wrapping issues before the first window resize event
+	defaultWidth := 90 // 75% of assumed 120 char window width
+	defaultHeight := 20 // Reasonable default height
+	vp := viewport.New(defaultWidth, defaultHeight)
+	debugVp := viewport.New(defaultWidth, defaultHeight)
 	cwd, _ := os.Getwd()
 
 	// Initialize with ASCII logo as welcome content

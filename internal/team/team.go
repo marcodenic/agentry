@@ -263,6 +263,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 			timeout = d
 		}
 	}
+	debugPrintf("🔧 Call: Creating context with timeout %s for agent %s", timeout, agentID)
 	dctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -271,8 +272,14 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 		t.PublishWorkspaceEvent("agent_0", "delegation_started", fmt.Sprintf("Delegated to %s", agentID), map[string]interface{}{"agent": agentID, "timeout": timeout.String()})
 	}
 
+	debugPrintf("🔧 Call: About to call runAgent for %s", agentID)
+	startTime := time.Now()
 	result, err := runAgent(dctx, agent.Agent, input, agentID, t.names)
+	duration := time.Since(startTime)
+	debugPrintf("🔧 Call: runAgent completed for %s in %s", agentID, duration)
+	
 	if err != nil {
+		debugPrintf("❌ Call: runAgent failed for %s: %v", agentID, err)
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			// Explicit timeout handling
 			msg := fmt.Sprintf("⏳ Delegation to '%s' timed out after %s. Consider simplifying the task, choosing a different agent, or increasing AGENTRY_DELEGATION_TIMEOUT.", agentID, timeout)
@@ -310,6 +317,12 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 		agent.SetStatus("ready")
 		debugPrintf("✅ Agent %s completed successfully\n", agentID)
 		debugPrintf("📤 Result length: %d characters\n", len(result))
+		debugPrintf("🧮 Agent %s final token count: %d\n", agentID, func() int {
+			if agent.Agent.Cost != nil {
+				return agent.Agent.Cost.TotalTokens()
+			}
+			return 0
+		}())
 		if len(result) > 100 {
 			debugPrintf("📄 Result preview: %.100s...\n", result)
 		} else {
@@ -337,8 +350,27 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 	// Use the standard agent.Run() method instead of custom logic
 	// This ensures that all tracing, token counting, and other instrumentation works correctly
 	debugPrintf("🚀 runAgent: About to call ag.Run for agent %s with input length %d", name, len(input))
+	debugPrintf("🚀 runAgent: Agent %s context timeout: %v", name, ctx.Err())
+	debugPrintf("🚀 runAgent: Agent %s cost manager: %p, tokens before: %d", name, ag.Cost, func() int {
+		if ag.Cost != nil {
+			return ag.Cost.TotalTokens()
+		}
+		return 0
+	}())
+	
 	result, err := ag.Run(ctx, input)
-	debugPrintf("🏁 runAgent: ag.Run completed for agent %s, result length: %d, error: %v", name, len(result), err)
+	
+	debugPrintf("🏁 runAgent: ag.Run completed for agent %s", name)
+	debugPrintf("🏁 runAgent: Result length: %d", len(result))
+	debugPrintf("🏁 runAgent: Error: %v", err)
+	debugPrintf("🏁 runAgent: Agent %s tokens after: %d", name, func() int {
+		if ag.Cost != nil {
+			return ag.Cost.TotalTokens()
+		}
+		return 0
+	}())
+	debugPrintf("🏁 runAgent: Agent %s context final state: %v", name, ctx.Err())
+	
 	return result, err
 }
 

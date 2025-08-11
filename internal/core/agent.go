@@ -152,6 +152,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		// Use actual token counts from API response
 		actualInputTokens := res.InputTokens
 		actualOutputTokens := res.OutputTokens
+		debug.Printf("Agent.Run: Iteration %d - Input tokens: %d, Output tokens: %d", i, actualInputTokens, actualOutputTokens)
 
 		// Update metrics with actual tokens (count input+output per step)
 		tokenCounter.WithLabelValues(a.ID.String()).Add(float64(actualInputTokens + actualOutputTokens))
@@ -159,6 +160,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		// Update cost manager with actual token usage
 		if a.Cost != nil {
 			if a.Cost.AddModelUsage(a.ModelName, actualInputTokens, actualOutputTokens) {
+				debug.Printf("Agent.Run: Updated cost manager, total tokens now: %d", a.Cost.TotalTokens())
 				if a.Cost.OverBudget() {
 					debug.Printf("budget exceeded")
 				}
@@ -168,6 +170,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
 		step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
 		if len(res.ToolCalls) == 0 {
+			debug.Printf("Agent.Run: No tool calls, returning final result (length: %d)", len(res.Content))
 			a.Mem.AddStep(step)
 			_ = a.Checkpoint(ctx)
 
@@ -180,6 +183,12 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 			// Emit final message with the complete content for fallback
 			a.Trace(ctx, trace.EventFinal, res.Content)
+			debug.Printf("Agent.Run: Returning successfully with %d total tokens", func() int {
+				if a.Cost != nil {
+					return a.Cost.TotalTokens()
+				}
+				return 0
+			}())
 			return res.Content, nil
 		}
 
