@@ -99,6 +99,8 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 					teamAgent.Agent.Tracer = tracer
 				}
 				info.Scanner = bufio.NewScanner(pr)
+				// Bump scanner buffer to avoid "token too long" when spawned agents emit large events
+				info.Scanner.Buffer(make([]byte, 0, 256*1024), 4*1024*1024)
 				// Store the pipe writer so we can clean it up later if needed
 				info.tracePipeWriter = pw
 

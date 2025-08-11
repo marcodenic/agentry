@@ -169,6 +169,20 @@ func (m *Model) formatToolAction(toolName string, args map[string]any) string {
 			return fmt.Sprintf("%s Diagnostics on %d path(s)", glyphs.BlueCircle(), len(paths))
 		}
 		return glyphs.BlueCircle() + " Diagnostics: scanning workspace"
+	case "project_tree":
+		// Provide details about what path/depth/files are requested
+		path := "."
+		if p, ok := args["path"].(string); ok && p != "" {
+			path = p
+		}
+		depth := 0
+		if v, ok := args["depth"].(int); ok { depth = v } else if v, ok := args["depth"].(float64); ok { depth = int(v) }
+		showFiles := true
+		if v, ok := args["show_files"].(bool); ok { showFiles = v }
+		desc := fmt.Sprintf("%s Using project_tree on %s", glyphs.YellowStar(), path)
+		if depth > 0 { desc += fmt.Sprintf(" (depth=%d)", depth) }
+		if !showFiles { desc += " (dirs only)" }
+		return desc
 	case "fetch":
 		if url, ok := args["url"].(string); ok {
 			return fmt.Sprintf("%s Fetching %s", glyphs.BlueCircle(), url)

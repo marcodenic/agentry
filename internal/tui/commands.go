@@ -50,6 +50,9 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 		info.Agent.Tracer = tracer
 	}
 	info.Scanner = bufio.NewScanner(pr)
+	// Increase scanner buffer to handle large JSONL trace events (e.g., big tool results)
+	// Default is 64K which is too small for some tool outputs.
+	info.Scanner.Buffer(make([]byte, 0, 256*1024), 4*1024*1024)
 	ctx := team.WithContext(context.Background(), m.team)
 	ctx, cancel := context.WithCancel(ctx)
 	info.Cancel = cancel
