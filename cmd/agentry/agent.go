@@ -130,9 +130,7 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	if logWriter != nil {
 		ag.Tracer = trace.NewJSONL(logWriter)
 	}
-	if cfg.MaxIterations > 0 {
-		ag.MaxIterations = cfg.MaxIterations
-	}
+	// No iteration cap
 
 	// Resolve default prompt from user-editable files; fail if missing
 	ag.Prompt = core.GetDefaultPrompt()

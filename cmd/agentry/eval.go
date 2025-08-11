@@ -34,9 +34,7 @@ func runEval(args []string) {
 	if err != nil {
 		panic(err)
 	}
-	if opts.maxIter > 0 {
-		ag.MaxIterations = opts.maxIter
-	}
+	// No iteration cap
 	if opts.ckptID != "" {
 		ag.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(opts.ckptID))
 		_ = ag.Resume(context.Background())

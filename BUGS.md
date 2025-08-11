@@ -2,3 +2,4 @@
 2. i would like to be able to push up in the input and iterate through previous messages sent.. eg, so i can push up arrow on my keyboard and the input populates with my last sent message, and if i hit up again i get the second last sent message etc etc
 3. while typing in the input, sometimes the text content visible in the history moves up and down a little bit. that should not happen.
 4. while an agent is working, we should display an elapsed time counter for that agent in the sidebar, perhaps we use something like this: https://github.com/charmbracelet/bubbletea/blob/main/examples/stopwatch/main.go
+5. when agentry loads, just below the current agentry logo, title and version number.. we should also display whether agent 0 prompt file is present and whether the user has at least one api key defined in env variables.

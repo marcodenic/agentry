@@ -23,9 +23,7 @@ func runDev(args []string) {
 	if err != nil {
 		panic(err)
 	}
-	if opts.maxIter > 0 {
-		ag.MaxIterations = opts.maxIter
-	}
+	// No iteration cap
 	if opts.resumeID != "" {
 		_ = ag.LoadState(context.Background(), opts.resumeID)
 	}

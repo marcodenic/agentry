@@ -64,9 +64,9 @@ func getNetworkBuiltins() map[string]builtinSpec {
 			},
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
 				host, _ := args["host"].(string)
-				port, _ := args["port"].(float64)
+				p, _ := getIntArg(args, "port", 0)
 				cmd, _ := args["command"].(string)
-				addr := net.JoinHostPort(host, fmt.Sprintf("%d", int(port)))
+				addr := net.JoinHostPort(host, fmt.Sprintf("%d", p))
 				conn, err := net.DialTimeout("tcp", addr, 3*time.Second)
 				if err != nil {
 					return "", err
@@ -75,7 +75,7 @@ func getNetworkBuiltins() map[string]builtinSpec {
 				_, _ = conn.Write([]byte(cmd + "\n"))
 				buf := make([]byte, 1024)
 				n, _ := conn.Read(buf)
-				return string(buf[:n]), nil
+				return strings.TrimRight(string(buf[:n]), "\r\n"), nil
 			},
 		},
 	}

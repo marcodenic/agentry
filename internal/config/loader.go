@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -65,7 +64,6 @@ type File struct {
 	Metrics           bool                         `yaml:"metrics" json:"metrics"`
 	Collector         string                       `yaml:"collector" json:"collector"`
 	Port              string                       `yaml:"port" json:"port"`
-	MaxIterations     int                          `yaml:"max_iterations" json:"max_iterations"`
 	Sandbox           Sandbox                      `yaml:"sandbox" json:"sandbox"`
 	Permissions       Permissions                  `yaml:"permissions" json:"permissions"`
 	Budget            Budget                       `yaml:"budget" json:"budget"`
@@ -165,9 +163,7 @@ func merge(dst *File, src File) {
 	if src.Port != "" {
 		dst.Port = src.Port
 	}
-	if src.MaxIterations > 0 {
-		dst.MaxIterations = src.MaxIterations
-	}
+	// MaxIterations removed: agent runs until completion
 	if src.Sandbox.Engine != "" {
 		dst.Sandbox = src.Sandbox
 	}
@@ -224,10 +220,6 @@ func Load(path string) (*File, error) {
 	if v := os.Getenv("AGENTRY_PORT"); v != "" {
 		out.Port = v
 	}
-	if v := os.Getenv("AGENTRY_MAX_ITER"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			out.MaxIterations = n
-		}
-	}
+	// AGENTRY_MAX_ITER removed: agent runs until completion
 	return &out, nil
 }

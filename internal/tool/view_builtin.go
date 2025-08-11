@@ -60,21 +60,15 @@ func viewFileExec(ctx context.Context, args map[string]any) (string, error) {
 		return "", errors.New("missing path")
 	}
 
-	startLine := 1.0
-	if sl, ok := args["start_line"].(float64); ok {
-		startLine = sl
-	}
+	startLine, _ := getIntArg(args, "start_line", 1)
 
-	endLine, hasEndLine := args["end_line"].(float64)
+	endLine, hasEndLine := getIntArg(args, "end_line", 0)
 	showLineNumbers := true
 	if sln, ok := args["show_line_numbers"].(bool); ok {
 		showLineNumbers = sln
 	}
 
-	maxLines := 1000.0
-	if ml, ok := args["max_lines"].(float64); ok {
-		maxLines = ml
-	}
+	maxLines, _ := getIntArg(args, "max_lines", 1000)
 
 	path = absPath(path)
 	if err := recordView(path); err != nil {

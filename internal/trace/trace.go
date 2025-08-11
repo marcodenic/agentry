@@ -21,7 +21,7 @@ const (
 	EventModelStart EventType = "model_start"
 	// EventToken represents a streaming token from the AI response
 	EventToken EventType = "token"
-	// EventYield signals that the agent stopped because the iteration limit was reached.
+	// EventYield is reserved; not used by default since agents run without iteration caps.
 	EventYield EventType = "yield"
 	// EventSummary indicates a run summary with token and cost statistics.
 	EventSummary EventType = "summary"

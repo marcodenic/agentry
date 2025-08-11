@@ -222,33 +222,32 @@ func grepFileExec(ctx context.Context, args map[string]any) (string, error) {
 		return "", fmt.Errorf("missing required parameter: pattern")
 	}
 
-	// Use shell grep for full functionality
-	cmd := "grep"
+	// Determine target path or file (support alias 'file')
+	target := "."
+	if p, ok := args["file"].(string); ok && p != "" {
+		target = p
+	} else if p, ok := args["path"].(string); ok && p != "" {
+		target = p
+	}
 
+	// Use shell grep for full functionality; build with safe quoting
+	sq := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'" }
+
+	cmd := "grep"
 	if recursive, ok := args["recursive"].(bool); ok && recursive {
 		cmd += " -r"
 	}
-
 	if ignoreCase, ok := args["ignore_case"].(bool); ok && ignoreCase {
 		cmd += " -i"
 	}
-
 	if lineNumbers, ok := args["line_numbers"].(bool); ok && lineNumbers {
 		cmd += " -n"
 	}
-
-	cmd += fmt.Sprintf(" %s", pattern)
-
-	if path, ok := args["path"].(string); ok && path != "" {
-		cmd += fmt.Sprintf(" %s", path)
-	} else {
-		cmd += " ."
-	}
-
 	if filePattern, ok := args["file_pattern"].(string); ok && filePattern != "" {
-		cmd += fmt.Sprintf(" --include=%s", filePattern)
+		cmd += " --include=" + sq(filePattern)
 	}
 
+	cmd += " -- " + sq(pattern) + " " + sq(target)
 	return ExecSandbox(ctx, cmd, sbox.Options{})
 }
 

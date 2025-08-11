@@ -10,15 +10,10 @@ The `examples/.agentry.yaml` file contains a ready-to-use configuration for thes
 
 Core subcommands:
 
-- `tui` (interactive; default when no command provided)
-- `invoke` (one-shot; optional `--agent`, `--trace`)
-- `team` (`roles`, `list`, `spawn`, `call`, `stop`)
-- `memory` (`export`, `import`; more coming)
-- `eval`, `analyze`, `pprof`, `version`
 
 Use `--port 9090` or set `AGENTRY_PORT` to change the HTTP server port. Set
-`--max-iter` or `max_iterations:` in `.agentry.yaml` to control the iteration limit.
-
+Agents run until they produce a final answer; there is no built-in iteration cap.
+ 
 Examples:
 
 ```bash

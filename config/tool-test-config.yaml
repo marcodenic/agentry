@@ -109,7 +109,7 @@ tools:
 
 # Test-specific settings
 settings:
-  max_iterations: 10
+  # max_iterations removed; agents run until completion
   timeout: 30
   enable_trace: true
   sandbox_mode: true

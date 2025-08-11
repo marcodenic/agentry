@@ -49,9 +49,18 @@ func (m *Model) formatToolAction(toolName string, args map[string]any) string {
 		return glyphs.YellowStar() + " Editing file"
 	case "edit_range":
 		path, _ := args["path"].(string)
-		var start, end int
-		if v, ok := args["start_line"].(float64); ok { start = int(v) }
-		if v, ok := args["end_line"].(float64); ok { end = int(v) }
+		start := 0
+		if v, ok := args["start_line"].(int); ok {
+			start = v
+		} else if v, ok := args["start_line"].(float64); ok {
+			start = int(v)
+		}
+		end := 0
+		if v, ok := args["end_line"].(int); ok {
+			end = v
+		} else if v, ok := args["end_line"].(float64); ok {
+			end = int(v)
+		}
 		if path != "" && start > 0 && end > 0 {
 			return fmt.Sprintf("%s Editing %s lines %d-%d", glyphs.YellowStar(), path, start, end)
 		}
@@ -61,8 +70,12 @@ func (m *Model) formatToolAction(toolName string, args map[string]any) string {
 		return glyphs.YellowStar() + " Editing range"
 	case "insert_at":
 		path, _ := args["path"].(string)
-		var lineNum int
-		if v, ok := args["line"].(float64); ok { lineNum = int(v) }
+		lineNum := -1
+		if v, ok := args["line"].(int); ok {
+			lineNum = v
+		} else if v, ok := args["line"].(float64); ok {
+			lineNum = int(v)
+		}
 		if path != "" {
 			if lineNum >= 0 {
 				return fmt.Sprintf("%s Inserting into %s at line %d", glyphs.YellowStar(), path, lineNum)
@@ -75,7 +88,9 @@ func (m *Model) formatToolAction(toolName string, args map[string]any) string {
 		search, _ := args["search"].(string)
 		replace, _ := args["replace"].(string)
 		regex := false
-		if v, ok := args["regex"].(bool); ok { regex = v }
+		if v, ok := args["regex"].(bool); ok {
+			regex = v
+		}
 		sr := truncateString(search, 60)
 		rp := truncateString(replace, 60)
 		if path != "" && search != "" {
@@ -111,7 +126,9 @@ func (m *Model) formatToolAction(toolName string, args map[string]any) string {
 	case "grep":
 		pattern, _ := args["pattern"].(string)
 		path := "."
-		if p, ok := args["path"].(string); ok && p != "" { path = p }
+		if p, ok := args["path"].(string); ok && p != "" {
+			path = p
+		}
 		if pattern != "" {
 			return fmt.Sprintf("%s Grep %q in %s", glyphs.YellowStar(), truncateString(pattern, 60), path)
 		}
@@ -119,7 +136,9 @@ func (m *Model) formatToolAction(toolName string, args map[string]any) string {
 	case "find":
 		name, _ := args["name"].(string)
 		base := "."
-		if p, ok := args["path"].(string); ok && p != "" { base = p }
+		if p, ok := args["path"].(string); ok && p != "" {
+			base = p
+		}
 		if name != "" {
 			return fmt.Sprintf("%s Finding %q under %s", glyphs.BlueCircle(), name, base)
 		}
@@ -127,7 +146,9 @@ func (m *Model) formatToolAction(toolName string, args map[string]any) string {
 	case "glob":
 		pattern, _ := args["pattern"].(string)
 		base := "."
-		if p, ok := args["path"].(string); ok && p != "" { base = p }
+		if p, ok := args["path"].(string); ok && p != "" {
+			base = p
+		}
 		if pattern != "" {
 			return fmt.Sprintf("%s Glob %q under %s", glyphs.BlueCircle(), pattern, base)
 		}
@@ -135,7 +156,9 @@ func (m *Model) formatToolAction(toolName string, args map[string]any) string {
 	case "web_search":
 		query, _ := args["query"].(string)
 		provider := "duckduckgo"
-		if v, ok := args["provider"].(string); ok && v != "" { provider = v }
+		if v, ok := args["provider"].(string); ok && v != "" {
+			provider = v
+		}
 		if query != "" {
 			return fmt.Sprintf("%s Web search (%s): %s", glyphs.YellowStar(), provider, truncateString(query, 80))
 		}
@@ -302,7 +325,7 @@ func (m *Model) addDebugTraceEvent(id uuid.UUID, ev trace.Event) {
 			}
 		}
 	case trace.EventYield:
-		details = "Agent yielded (iteration limit reached)"
+		details = "Agent yielded"
 	case trace.EventSummary:
 		details = "Summary with token and cost statistics"
 	default:

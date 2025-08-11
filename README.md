@@ -93,7 +93,7 @@ Subcommands:
 - memory (export, import)
 - eval, analyze, pprof, version
 
-Adjust the agent iteration limit using `--max-iter` or `max_iterations` in the config file.
+Agents run until completion; there is no iteration cap.
 
 ```
 

@@ -53,8 +53,8 @@ func editRangeExec(ctx context.Context, args map[string]any) (string, error) {
 		return "", errors.New("missing path")
 	}
 
-	startLine, _ := args["start_line"].(float64)
-	endLine, _ := args["end_line"].(float64)
+	startLine, _ := getIntArg(args, "start_line", 0)
+	endLine, _ := getIntArg(args, "end_line", 0)
 	content, _ := args["content"].(string)
 
 	if startLine < 1 || endLine < 1 {
@@ -127,6 +127,9 @@ func editRangeExec(ctx context.Context, args map[string]any) (string, error) {
 		os.Remove(tempPath)
 		return "", fmt.Errorf("failed to move temp file: %w", err)
 	}
+
+	// Update view record to the new modtime to avoid false "changed since viewed" on follow-ups
+	_ = recordView(path)
 
 	resultInfo := map[string]any{
 		"path":           path,

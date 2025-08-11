@@ -20,10 +20,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/cost"
+	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/glyphs"
 	"github.com/marcodenic/agentry/internal/statusbar"
 	"github.com/marcodenic/agentry/internal/team"
 )
+
 // applyGradientToLogo applies a beautiful gradient effect to the ASCII logo
 func applyGradientToLogo(logo string) string {
 	lines := strings.Split(logo, "\n")
@@ -324,10 +326,10 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		panic(fmt.Sprintf("failed to initialize team: %v", err))
 	}
 
-	// Resolve prompt; fail fast if missing
+	// Resolve prompt; warn if missing but do not panic or provide fallback here
 	ag.Prompt = core.GetDefaultPrompt()
 	if strings.TrimSpace(ag.Prompt) == "" {
-		panic("no default prompt found: set AGENTRY_DEFAULT_PROMPT or install templates (see docs)")
+		debug.Printf("Warning: No default prompt found. Set AGENTRY_DEFAULT_PROMPT or install templates (see docs). Proceeding without a system prompt.")
 	}
 
 	// CRITICAL FIX: Register the agent tool to replace the placeholder

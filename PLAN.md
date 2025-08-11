@@ -31,7 +31,7 @@ New since last update:
 - Role loader fixes; team wiring registers the `agent` tool consistently.
 - JSON purity: CLI commands (`invoke`, `team`, `memory`) now emit exactly one JSON value to stdout; human logs are routed to stderr.
 - Team built-ins run under real Team context in CLI paths (we attach Team to context), enabling `send_message`, `shared_memory`, and `coordination_status` to operate headless.
-- Iteration caps: default MaxIterations raised (agent default 24; CLI defaults floor to 16 if unset) to avoid premature termination during tool use.
+// Iteration caps removed: agents run until completion to avoid premature termination.
 - Models: all role templates (coder, tester, writer, researcher) and team templates (dev/docs/website) set to `openai/gpt-5`.
 
 - Team built-ins expanded: `inbox_read`, `inbox_clear`, `workspace_events`, and `request_help` (wraps Team.RequestHelp). No duplicate collaborate surface.
@@ -151,9 +151,9 @@ These were found during a focused code/CLI review and should be addressed to har
   - Issue: Tool output tokens were added separately and then accounted again by subsequent model calls.
   - Action: Count only model input/output tokens per step; avoid adding tool outputs to the token counter.
 
-- Max-iteration limits — Status: Improved
+// Max-iteration limits — Removed
   - Earlier fix: return a concrete error when cap is hit.
-  - New: increased defaults (agent=24; CLI floor=16) and respect `--max-iter` across commands to allow tool-driven steps to complete.
+  - Removed iteration caps; `--max-iter` no longer supported. Agents run until final answer.
 
 - Persistence flags are no-ops
   - Issue: `--save-id`, `--resume-id`, `--checkpoint-id` expose functionality not implemented.
@@ -223,7 +223,7 @@ Removal timeline
 Global flags and behavior
 - JSON-only stdout by default for non-TUI commands; human-readable logs go to stderr.
 - `--json` (optional future) can still standardize schemas if needed.
-- `--config`, `--max-iter`, `--resume-id/--save-id/--checkpoint-id` honored consistently.
+- `--config`, `--resume-id/--save-id/--checkpoint-id` honored consistently. `--max-iter` removed.
 
 Implementation steps
 1) Add `invoke`, `team`, `memory` subcommands backed by existing Team/Agent engine.

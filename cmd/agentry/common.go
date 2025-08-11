@@ -22,7 +22,6 @@ type commonOpts struct {
 	resumeID     string
 	ckptID       string
 	port         string
-	maxIter      int
 }
 
 func parseCommon(name string, args []string) (*commonOpts, []string) {
@@ -37,7 +36,7 @@ func parseCommon(name string, args []string) (*commonOpts, []string) {
 	fs.StringVar(&opts.resumeID, "resume-id", "", "load conversation state from this ID")
 	fs.StringVar(&opts.ckptID, "checkpoint-id", "", "checkpoint session id")
 	fs.StringVar(&opts.port, "port", "", "HTTP server port")
-	fs.IntVar(&opts.maxIter, "max-iter", 0, "max iterations per run")
+	// max-iter removed: agents run until completion
 	_ = fs.Parse(args)
 	if opts.configPath == "" {
 		if fs.NArg() > 0 {

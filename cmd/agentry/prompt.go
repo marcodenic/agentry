@@ -74,9 +74,7 @@ func runPrompt(cmd string, args []string) {
 
 	fmt.Printf("🔧 After agent_0 config: agent has %d tools\n", len(ag.Tools))
 
-	if opts.maxIter > 0 {
-		ag.MaxIterations = opts.maxIter
-	}
+	// No iteration cap
 	if opts.resumeID != "" {
 		_ = ag.LoadState(context.Background(), opts.resumeID)
 	}

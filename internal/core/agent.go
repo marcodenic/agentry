@@ -29,7 +29,6 @@ type Agent struct {
 	Vars          map[string]string
 	Tracer        trace.Writer
 	Cost          *cost.Manager
-	MaxIterations int
 	Prompt        string
 	// Error handling configuration
 	ErrorHandling ErrorHandlingConfig
@@ -93,7 +92,6 @@ func New(client model.Client, modelName string, reg tool.Registry, mem memory.St
 		ModelName:     modelName,
 		Tracer:        tr,
 		Cost:          cost.New(0, 0.0), // Initialize cost manager immediately
-		MaxIterations: 0,                // 0 = unlimited; run until task completion
 		ErrorHandling: DefaultErrorHandling(),
 	}
 }
@@ -110,7 +108,6 @@ func (a *Agent) Spawn() *Agent {
 		ModelName:     a.ModelName,
 		Tracer:        a.Tracer,
 		Cost:          cost.New(0, 0.0), // Each spawned agent gets its own cost manager
-		MaxIterations: a.MaxIterations,
 		ErrorHandling: DefaultErrorHandling(),
 	}
 
@@ -136,11 +133,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	consecutiveErrors := 0
 
 	for i := 0; ; i++ {
-		// If a cap is explicitly set, enforce it
-		if a.MaxIterations > 0 && i >= a.MaxIterations {
-			a.Trace(ctx, trace.EventYield, nil)
-			return "", fmt.Errorf("max iterations reached (%d) without final answer", a.MaxIterations)
-		}
+	// Note: No iteration cap; agent runs until it produces a final answer.
 		res, err := a.Client.Complete(ctx, msgs, specs)
 		if err != nil {
 			return "", err

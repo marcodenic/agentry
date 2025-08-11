@@ -1,38 +1,23 @@
 package tool
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/sbox"
 )
 
-var osType = runtime.GOOS
-var shellCmd, shellFlag string
-
-func init() {
-	if osType == "windows" {
-		shellCmd = "powershell.exe"
-		shellFlag = "-Command"
-	} else {
-		shellCmd = "bash"
-		shellFlag = "-c"
-	}
-}
+// runtime import kept for platform-specific code elsewhere in package; no local vars needed here.
 
 func absPath(p string) string {
 	if filepath.IsAbs(p) {
@@ -73,10 +58,6 @@ func permitted(name string) bool {
 // on disk since they were last viewed.
 var viewedFiles sync.Map
 
-// confirmOverwrite toggles interactive confirmation before overwriting. Set the
-// AGENTRY_CONFIRM environment variable to any non-empty value to enable.
-var confirmOverwrite = os.Getenv("AGENTRY_CONFIRM") != ""
-
 func recordView(path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -86,38 +67,10 @@ func recordView(path string) error {
 	return nil
 }
 
-func confirm(msg string) bool {
-	if !confirmOverwrite {
-		return false
-	}
-	fmt.Printf("%s [y/N]: ", msg)
-	rd := bufio.NewReader(os.Stdin)
-	line, _ := rd.ReadString('\n')
-	line = strings.TrimSpace(strings.ToLower(line))
-	return line == "y" || line == "yes"
-}
-
 func checkForOverwrite(path string) error {
-	info, err := os.Stat(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	v, ok := viewedFiles.Load(path)
-	if !ok {
-		if confirm("overwrite " + path + " without viewing?") {
-			return nil
-		}
-		return fmt.Errorf("file %s must be viewed before modification", path)
-	}
-	if mod := v.(time.Time); !info.ModTime().Equal(mod) {
-		if confirm("file " + path + " changed since viewed, overwrite?") {
-			return nil
-		}
-		return fmt.Errorf("file %s changed since viewed", path)
-	}
+	// Overwrite checks are disabled to avoid interactive prompts and friction.
+	// Git provides safety for undoing changes. We still keep recordView for tooling.
+	_ = path
 	return nil
 }
 
@@ -240,16 +193,4 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 	return nil, ErrUnknownManifest
 }
 
-func parsePatchFiles(patchStr string) []string {
-	var files []string
-	for _, line := range strings.Split(patchStr, "\n") {
-		if strings.HasPrefix(line, "+++ ") {
-			f := strings.TrimPrefix(line, "+++ ")
-			f = strings.TrimPrefix(f, "b/")
-			if f != "/dev/null" && f != "" {
-				files = append(files, f)
-			}
-		}
-	}
-	return files
-}
+// parsePatchFiles moved to patch package and TUI; keep no duplicate here.

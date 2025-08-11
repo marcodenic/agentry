@@ -54,16 +54,14 @@ func readLinesExec(ctx context.Context, args map[string]any) (string, error) {
 		return "", errors.New("missing path")
 	}
 
-	startLine, _ := args["start_line"].(float64)
+	// Accept int or float64 for start_line
+	startLine, _ := getIntArg(args, "start_line", 1)
 	if startLine < 1 {
 		return "", errors.New("start_line must be >= 1")
 	}
 
-	endLine, hasEndLine := args["end_line"].(float64)
-	maxLines := 1000.0
-	if ml, ok := args["max_lines"].(float64); ok {
-		maxLines = ml
-	}
+	endLineInt, hasEndLine := getIntArg(args, "end_line", 0)
+	maxLinesInt, _ := getIntArg(args, "max_lines", 1000)
 
 	path = absPath(path)
 	file, err := os.Open(path)
@@ -76,34 +74,48 @@ func readLinesExec(ctx context.Context, args map[string]any) (string, error) {
 		return "", fmt.Errorf("failed to record view: %w", err)
 	}
 
+	// Read all lines first for easier slicing and to allow optional context fields
+	var allLines []string
 	scanner := bufio.NewScanner(file)
-	lines := []string{}
-	currentLine := 1
-	linesRead := 0
-
-	for scanner.Scan() && linesRead < int(maxLines) {
-		if currentLine >= int(startLine) {
-			if hasEndLine && currentLine > int(endLine) {
-				break
-			}
-			lines = append(lines, scanner.Text())
-			linesRead++
-		}
-		currentLine++
+	for scanner.Scan() {
+		allLines = append(allLines, scanner.Text())
 	}
-
 	if err := scanner.Err(); err != nil {
 		return "", fmt.Errorf("error reading file: %w", err)
 	}
 
+	// Compute slice bounds
+	startIdx := startLine - 1
+	if startIdx < 0 {
+		startIdx = 0
+	}
+	endIdx := len(allLines)
+	if hasEndLine && endLineInt < endIdx {
+		endIdx = endLineInt
+	}
+	if startIdx > endIdx {
+		startIdx = endIdx
+	}
+
+	// Apply max lines limit
+	limit := startIdx + maxLinesInt
+	if limit < endIdx {
+		endIdx = limit
+	}
+
+	selected := allLines[startIdx:endIdx]
+
 	result := map[string]any{
 		"path":       path,
 		"start_line": int(startLine),
-		"lines_read": len(lines),
-		"content":    strings.Join(lines, "\n"),
+		"lines_read": len(selected),
+		"content":    strings.Join(selected, "\n"),
 	}
 	if hasEndLine {
-		result["end_line"] = int(endLine)
+		result["end_line"] = int(endLineInt)
+	}
+	if len(allLines) > 0 {
+		result["file_header"] = allLines[0]
 	}
 
 	jsonResult, _ := json.Marshal(result)

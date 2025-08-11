@@ -68,10 +68,7 @@ func apiRequestExec(ctx context.Context, args map[string]any) (string, error) {
 		method = strings.ToUpper(m)
 	}
 
-	timeout := 30
-	if t, ok := args["timeout"].(float64); ok {
-		timeout = int(t)
-	}
+	timeout, _ := getIntArg(args, "timeout", 30)
 
 	var body io.Reader
 	if bodyStr, ok := args["body"].(string); ok && bodyStr != "" {
