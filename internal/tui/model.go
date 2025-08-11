@@ -311,6 +311,7 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	}
 	info.TokenProgress.Width = barWidth
 
+
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
 	// Create team context with role loading support
@@ -322,18 +323,15 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		tm, err = team.NewTeam(ag, 10, "")
 	}
 	if err != nil {
-		// If team creation fails, the TUI cannot function
 		panic(fmt.Sprintf("failed to initialize team: %v", err))
 	}
 
-	// Resolve prompt; warn if missing but do not panic or provide fallback here
+
 	ag.Prompt = core.GetDefaultPrompt()
 	if strings.TrimSpace(ag.Prompt) == "" {
 		debug.Printf("Warning: No default prompt found. Set AGENTRY_DEFAULT_PROMPT or install templates (see docs). Proceeding without a system prompt.")
 	}
 
-	// CRITICAL FIX: Register the agent tool to replace the placeholder
-	// This was missing in TUI mode, causing "agent tool placeholder" errors
 	tm.RegisterAgentTool(ag.Tools)
 
 	// Initialize status bar with gradient colors from the agentry logo

@@ -3,6 +3,7 @@ package team
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -143,7 +144,8 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	registry := tool.DefaultRegistry() // Get all available tools
 
 	// Create new agent with full capabilities, not inherited restrictions
-	coreAgent := core.New(t.parent.Client, t.parent.ModelName, registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
+	// Pass parent's tracer to enable proper trace events for spawned agents
+	coreAgent := core.New(t.parent.Client, t.parent.ModelName, registry, memory.NewInMemory(), memory.NewInMemoryVector(), t.parent.Tracer)
 
 	// Set role-appropriate prompt
 	coreAgent.Prompt = fmt.Sprintf("You are a %s agent specialized in %s tasks. You have access to all necessary tools to complete your assignments.", name, name)
@@ -254,8 +256,34 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 		agent.Agent.Prompt = sb.String()
 	}
 
-	// Execute the input on the core agent using the same pattern as converse.runAgent
-	result, err := runAgent(ctx, agent.Agent, input, agentID, t.names)
+	// Execute the input on the core agent with a bounded timeout to avoid indefinite hangs
+	timeout := 120 * time.Second
+	if v := os.Getenv("AGENTRY_DELEGATION_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			timeout = d
+		}
+	}
+	dctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Skip workspace event publishing in TUI mode to prevent console interference
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		t.PublishWorkspaceEvent("agent_0", "delegation_started", fmt.Sprintf("Delegated to %s", agentID), map[string]interface{}{"agent": agentID, "timeout": timeout.String()})
+	}
+
+	result, err := runAgent(dctx, agent.Agent, input, agentID, t.names)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			// Explicit timeout handling
+			msg := fmt.Sprintf("⏳ Delegation to '%s' timed out after %s. Consider simplifying the task, choosing a different agent, or increasing AGENTRY_DELEGATION_TIMEOUT.", agentID, timeout)
+			t.LogCoordinationEvent("delegation_timeout", agentID, "agent_0", msg, map[string]interface{}{"timeout": timeout.String()})
+			// Skip workspace event publishing in TUI mode
+			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+				t.PublishWorkspaceEvent("agent_0", "delegation_timeout", msg, map[string]interface{}{"agent": agentID})
+			}
+			return msg, nil
+		}
+	}
 
 	// Restore original prompt and mark inbox messages as read after processing
 	agent.Agent.Prompt = originalPrompt
@@ -308,7 +336,10 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 	ctx = context.WithValue(ctx, tool.AgentNameContextKey, name)
 	// Use the standard agent.Run() method instead of custom logic
 	// This ensures that all tracing, token counting, and other instrumentation works correctly
-	return ag.Run(ctx, input)
+	debugPrintf("🚀 runAgent: About to call ag.Run for agent %s with input length %d", name, len(input))
+	result, err := ag.Run(ctx, input)
+	debugPrintf("🏁 runAgent: ag.Run completed for agent %s, result length: %d, error: %v", name, len(result), err)
+	return result, err
 }
 
 // GetAgents returns a list of all agent names in the team.
@@ -713,7 +744,10 @@ func (t *Team) PublishWorkspaceEvent(agentID, eventType, description string, dat
 
 	t.SetSharedData(eventsKey, eventList)
 
-	fmt.Fprintf(os.Stderr, "📡 WORKSPACE EVENT: %s | %s: %s\n", agentID, eventType, description)
+	// Only log to stderr in non-TUI mode to avoid console interference
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		fmt.Fprintf(os.Stderr, "📡 WORKSPACE EVENT: %s | %s: %s\n", agentID, eventType, description)
+	}
 
 	// Log coordination event
 	t.LogCoordinationEvent("workspace_event", agentID, "*", fmt.Sprintf("%s: %s", eventType, description), map[string]interface{}{
@@ -743,13 +777,18 @@ func (t *Team) GetWorkspaceEvents(limit int) []WorkspaceEvent {
 
 // RequestHelp allows an agent to request help from other agents
 func (t *Team) RequestHelp(ctx context.Context, agentID, helpDescription string, preferredHelper string) error {
-	fmt.Fprintf(os.Stderr, "🆘 HELP REQUEST from %s: %s\n", agentID, helpDescription)
+	// Only log to stderr in non-TUI mode to avoid console interference
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		fmt.Fprintf(os.Stderr, "🆘 HELP REQUEST from %s: %s\n", agentID, helpDescription)
+	}
 
-	// Publish workspace event
-	t.PublishWorkspaceEvent(agentID, "help_request", helpDescription, map[string]interface{}{
-		"preferred_helper": preferredHelper,
-		"urgency":          "normal",
-	})
+	// Skip workspace event publishing in TUI mode to prevent console interference
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		t.PublishWorkspaceEvent(agentID, "help_request", helpDescription, map[string]interface{}{
+			"preferred_helper": preferredHelper,
+			"urgency":          "normal",
+		})
+	}
 
 	// If preferred helper specified, send direct message
 	if preferredHelper != "" && preferredHelper != "*" {
@@ -779,11 +818,13 @@ func (t *Team) ProposeCollaboration(ctx context.Context, proposerID, targetAgent
 
 	t.SetSharedData(proposalKey, proposalData)
 
-	// Publish workspace event
-	t.PublishWorkspaceEvent(proposerID, "collaboration_proposal", fmt.Sprintf("Proposed collaboration with %s", targetAgentID), map[string]interface{}{
-		"target_agent": targetAgentID,
-		"proposal":     proposal,
-	})
+	// Skip workspace event publishing in TUI mode to prevent console interference
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		t.PublishWorkspaceEvent(proposerID, "collaboration_proposal", fmt.Sprintf("Proposed collaboration with %s", targetAgentID), map[string]interface{}{
+			"target_agent": targetAgentID,
+			"proposal":     proposal,
+		})
+	}
 
 	// Send direct message
 	message := fmt.Sprintf("Collaboration proposal: %s. Please respond with your thoughts.", proposal)

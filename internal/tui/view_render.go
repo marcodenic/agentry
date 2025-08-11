@@ -145,19 +145,16 @@ func (m Model) View() string {
 		}
 	}
 
-	// Update status bar content with modern icons and descriptive labels
+
+	// Only show agent/cost/cwd/tokens info in the status bar, not workspace events
 	agentsDisplay := fmt.Sprintf("◆ agents: %d", len(m.infos))
 	cwdDisplay := fmt.Sprintf("⌂ cwd: %s", m.cwd)
 	tokensDisplay := fmt.Sprintf("◈ tokens: %d", totalTokens)
 	costDisplay := fmt.Sprintf("◎ cost: $%.6f", totalCost)
-
-	// Set status bar size and content
 	m.statusBarModel.SetSize(m.width)
 	m.statusBarModel.SetContent(agentsDisplay, cwdDisplay, tokensDisplay, costDisplay)
-
-	// Render the status bar
 	footer := m.statusBarModel.View()
 
-	// Include a single spacer line between input and status bar
+	// Restore: input section, single blank line, then status bar flush at the bottom
 	return lipgloss.JoinVertical(lipgloss.Left, content, "", footer)
 }

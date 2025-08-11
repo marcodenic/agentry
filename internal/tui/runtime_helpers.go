@@ -176,12 +176,22 @@ func (m *Model) formatToolAction(toolName string, args map[string]any) string {
 			path = p
 		}
 		depth := 0
-		if v, ok := args["depth"].(int); ok { depth = v } else if v, ok := args["depth"].(float64); ok { depth = int(v) }
+		if v, ok := args["depth"].(int); ok {
+			depth = v
+		} else if v, ok := args["depth"].(float64); ok {
+			depth = int(v)
+		}
 		showFiles := true
-		if v, ok := args["show_files"].(bool); ok { showFiles = v }
+		if v, ok := args["show_files"].(bool); ok {
+			showFiles = v
+		}
 		desc := fmt.Sprintf("%s Using project_tree on %s", glyphs.YellowStar(), path)
-		if depth > 0 { desc += fmt.Sprintf(" (depth=%d)", depth) }
-		if !showFiles { desc += " (dirs only)" }
+		if depth > 0 {
+			desc += fmt.Sprintf(" (depth=%d)", depth)
+		}
+		if !showFiles {
+			desc += " (dirs only)"
+		}
 		return desc
 	case "fetch":
 		if url, ok := args["url"].(string); ok {

@@ -127,6 +127,9 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	msgs := BuildMessages(a.Prompt, a.Vars, a.Mem.History(), input)
 	specs := tool.BuildSpecs(a.Tools)
 
+	debug.Printf("Agent.Run: Built %d messages, %d tool specs", len(msgs), len(specs))
+	debug.Printf("Agent.Run: About to call model client with model %s", a.ModelName)
+
 	// Do not estimate tokens here; rely on actual counts from responses
 
 	// Track consecutive errors for resilience
@@ -134,10 +137,15 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 	for i := 0; ; i++ {
 	// Note: No iteration cap; agent runs until it produces a final answer.
+		debug.Printf("Agent.Run: Starting iteration %d", i)
 		res, err := a.Client.Complete(ctx, msgs, specs)
+		debug.Printf("Agent.Run: Model call completed for iteration %d, err=%v", i, err)
 		if err != nil {
+			debug.Printf("Agent.Run: Model call failed: %v", err)
 			return "", err
 		}
+
+		debug.Printf("Agent.Run: Got response with %d tool calls", len(res.ToolCalls))
 
 		a.Trace(ctx, trace.EventStepStart, res)
 

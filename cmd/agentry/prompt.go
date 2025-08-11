@@ -27,10 +27,11 @@ func runAnalyzeCmd(args []string) {
 }
 
 func runPrompt(cmd string, args []string) {
-	opts, _ := parseCommon(cmd, args)
+	opts, remainingArgs := parseCommon(cmd, args)
+	// The actual prompt is the cmd + any remaining args after flag parsing
 	prompt := cmd
-	if len(args) > 0 {
-		prompt = cmd + " " + strings.Join(args, " ")
+	if len(remainingArgs) > 0 {
+		prompt = cmd + " " + strings.Join(remainingArgs, " ")
 	}
 	cfg, err := config.Load(opts.configPath)
 	if err != nil {
@@ -88,6 +89,7 @@ func runPrompt(cmd string, args []string) {
 		fmt.Printf("🔧 Team context attached to execution context\n")
 	}
 
+	fmt.Printf("🔧 Running Agent 0 with prompt: %q\n", prompt)
 	out, err := ag.Run(ctx, prompt)
 	if err != nil {
 		fmt.Printf("ERR: %v\n", err)

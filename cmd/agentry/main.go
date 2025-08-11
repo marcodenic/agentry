@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	agentry "github.com/marcodenic/agentry/internal"
 	"github.com/marcodenic/agentry/internal/cost"
@@ -22,6 +23,53 @@ func main() {
 	if cmd == "--version" || cmd == "-v" {
 		fmt.Printf("agentry %s\n", agentry.Version)
 		return
+	}
+
+	// If cmd starts with "-", treat it as flags for the default action
+	// Look for the actual command or prompt after the flags
+	if strings.HasPrefix(cmd, "-") {
+		// Parse all arguments to find the actual command or prompt
+		allArgs := os.Args[1:]
+		actualCmd := ""
+		actualArgs := []string{}
+		
+		// Find the first non-flag argument
+		for i := 0; i < len(allArgs); i++ {
+			arg := allArgs[i]
+			if strings.HasPrefix(arg, "-") {
+				// Skip flag and its value
+				if i+1 < len(allArgs) && !strings.HasPrefix(allArgs[i+1], "-") {
+					i++ // Skip the flag value
+				}
+			} else {
+				// This is the actual command or prompt
+				actualCmd = arg
+				actualArgs = allArgs[:i] // All flags before this
+				actualArgs = append(actualArgs, allArgs[i+1:]...) // Plus any remaining args
+				break
+			}
+		}
+		
+		// If no command found after flags, default to TUI
+		if actualCmd == "" {
+			runTui(allArgs)
+			return
+		}
+		
+		// Check if it's a known command
+		switch actualCmd {
+		case "tui":
+			runTui(actualArgs)
+			return
+		case "eval", "test":
+			runEval(actualArgs)
+			return
+		// Add other commands as needed
+		default:
+			// It's a prompt, run it
+			runPrompt(actualCmd, actualArgs)
+			return
+		}
 	}
 
 	switch cmd {
