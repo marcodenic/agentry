@@ -61,6 +61,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleErrorMessage(msg)
 	case agentCompleteMsg:
 		return m.handleAgentComplete(msg)
+	case agentStartMsg:
+		return m.handleAgentStart(msg)
 	case thinkingAnimationMsg:
 		return m.handleThinkingAnimation(msg)
 	case tea.WindowSizeMsg:

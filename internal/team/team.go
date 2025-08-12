@@ -350,6 +350,84 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	return result, nil
 }
 
+// CallParallel executes multiple agent tasks in parallel for improved efficiency
+func (t *Team) CallParallel(ctx context.Context, tasks []interface{}) (string, error) {
+	if len(tasks) == 0 {
+		return "", errors.New("no tasks provided")
+	}
+
+	type taskResult struct {
+		index  int
+		result string
+		err    error
+	}
+
+	results := make(chan taskResult, len(tasks))
+	
+	// Start all tasks in parallel
+	for i, taskInterface := range tasks {
+		go func(index int, taskInterface interface{}) {
+			task, ok := taskInterface.(map[string]interface{})
+			if !ok {
+				results <- taskResult{index: index, err: fmt.Errorf("task %d: invalid task format", index)}
+				return
+			}
+
+			agentName, ok := task["agent"].(string)
+			if !ok {
+				results <- taskResult{index: index, err: fmt.Errorf("task %d: agent name is required", index)}
+				return
+			}
+
+			input, ok := task["input"].(string)
+			if !ok {
+				results <- taskResult{index: index, err: fmt.Errorf("task %d: input is required", index)}
+				return
+			}
+
+			debugPrintf("🚀 Starting parallel task %d: %s -> %s", index, agentName, input[:min(50, len(input))])
+			result, err := t.Call(ctx, agentName, input)
+			results <- taskResult{index: index, result: result, err: err}
+		}(i, taskInterface)
+	}
+
+	// Collect results
+	taskResults := make([]string, len(tasks))
+	var errs []error
+	
+	for i := 0; i < len(tasks); i++ {
+		result := <-results
+		if result.err != nil {
+			errs = append(errs, result.err)
+		} else {
+			taskResults[result.index] = result.result
+		}
+	}
+
+	if len(errs) > 0 {
+		return "", fmt.Errorf("parallel execution errors: %v", errs)
+	}
+
+	// Combine results from all agents
+	var combinedResult strings.Builder
+	combinedResult.WriteString("📋 **Parallel Agent Execution Results:**\n\n")
+	
+	for i, result := range taskResults {
+		taskInterface := tasks[i]
+		task := taskInterface.(map[string]interface{})
+		agentName := task["agent"].(string)
+		
+		combinedResult.WriteString(fmt.Sprintf("**Agent %d (%s):**\n", i+1, agentName))
+		combinedResult.WriteString(result)
+		if i < len(taskResults)-1 {
+			combinedResult.WriteString("\n\n---\n\n")
+		}
+	}
+
+	debugPrintf("✅ Parallel execution completed successfully with %d agents", len(tasks))
+	return combinedResult.String(), nil
+}
+
 // runAgent executes an agent with the given input, similar to converse.runAgent
 func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []string) (string, error) {
 	// Attach agent name into context for builtins to use sensible defaults

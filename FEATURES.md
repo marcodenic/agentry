@@ -1,4 +1,4 @@
-- content in the output is eventually truncated ...[earlier messages truncated]... ... it shouldnt be.
+- content in the output is eventually truncated ...[earlier messages truncated]... ... it shouldnt be. i should also be able to scroll back in the history without fighting currently streaming messages. currently the user is not able to scroll back up while messages are streaming, nor are they able to actually see much of a history because its getting truncated.
 
 - i would like to be able to push up in the input and iterate through previous messages sent.. eg, so i can push up arrow on my keyboard and the input populates with my last sent message, and if i hit up again i get the second last sent message etc. add history to the text input, so the user can hit up key to populate the input with their last prompt.
 

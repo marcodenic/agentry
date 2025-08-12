@@ -61,6 +61,12 @@ type agentCompleteMsg struct {
 	result string
 }
 
+type agentStartMsg struct {
+	id   uuid.UUID
+	name string
+	role string
+}
+
 type finalMsg struct {
 	id   uuid.UUID
 	text string

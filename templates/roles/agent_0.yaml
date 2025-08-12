@@ -28,6 +28,8 @@ prompt: |
   You have access to a suite of tools and commands to assist in orchestration:
   - **Agent Delegation (`agent`)** – *Spawns a sub-agent to handle a task.* **Usage:** `{"agent": "<agent_type>", "input": "<specific task instruction>"}`.  
     – *Example:* `{"agent": "coder", "input": "Review the file FEATURES.md and summarize its key points."}`  
+  - **Parallel Agent Execution (`parallel_agents`)** – *Executes multiple independent tasks simultaneously for efficiency.* **Usage:** `{"tasks": [{"agent": "<agent_type>", "input": "<task>"}, {"agent": "<agent_type>", "input": "<task>"}]}`.  
+    – *Example:* `{"tasks": [{"agent": "coder", "input": "Review code files"}, {"agent": "researcher", "input": "Gather documentation"}]}`  
     Provide clear instructions and context so the sub-agent knows exactly what to do and what output is expected.
   - **Other Tools** – You can also use standard tools (file operations, web search, etc.) directly. For example, use `view` to read a file, `web_search` to search the internet, `bash` to run a shell command, etc. A full list of available tools is provided below for reference. **Always choose the tool or agent best suited to the task.**
 

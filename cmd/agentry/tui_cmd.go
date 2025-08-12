@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,7 +17,39 @@ import (
 	"github.com/marcodenic/agentry/internal/tui"
 )
 
+// loadEnvFile loads environment variables from a .env file
+func loadEnvFile(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			os.Setenv(key, value)
+		}
+	}
+	return scanner.Err()
+}
+
 func runTui(args []string) {
+	// Load .env.local file if it exists
+	if _, err := os.Stat(".env.local"); err == nil {
+		if err := loadEnvFile(".env.local"); err != nil {
+			fmt.Printf("Warning: failed to load .env.local: %v\n", err)
+		}
+	}
+
 	// Enable TUI mode to suppress debug output
 	debug.SetTUIMode(true)
 

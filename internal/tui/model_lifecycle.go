@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -13,6 +14,25 @@ func (m Model) handleAgentComplete(msg agentCompleteMsg) (Model, tea.Cmd) {
 	if info.Status != StatusIdle {
 		info.Status = StatusIdle
 		m.infos[msg.id] = info
+	}
+	return m, nil
+}
+
+// handleAgentStart processes agent start messages for better UI feedback
+func (m Model) handleAgentStart(msg agentStartMsg) (Model, tea.Cmd) {
+	info := m.infos[msg.id]
+	if info != nil {
+		info.Status = StatusRunning
+		// Add a status message to the conversation
+		statusMsg := fmt.Sprintf("\n\n✨ **%s** (%s) is starting to work...\n", msg.name, msg.role)
+		info.History += statusMsg
+		m.infos[msg.id] = info
+		
+		// If this is the active agent, update the viewport
+		if msg.id == m.active {
+			m.vp.SetContent(info.History)
+			m.vp.GotoBottom()
+		}
 	}
 	return m, nil
 }
@@ -30,9 +50,9 @@ func (m Model) handleThinkingAnimation(msg thinkingAnimationMsg) (Model, tea.Cmd
 		return m, nil
 	}
 
-	// ASCII spinner frames
-	frames := []string{"|", "/", "-", "\\"}
-	currentSpinner := frames[msg.frame]
+	// Dots spinner frames (replacing slash spinner)
+	frames := []string{"   ", "•  ", "•• ", "•••"}
+	currentSpinner := frames[msg.frame%len(frames)]
 
 	// Build display content WITHOUT modifying history
 	displayHistory := info.History

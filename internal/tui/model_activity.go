@@ -107,6 +107,15 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 				m.infos[teamAgent.Agent.ID] = info
 				m.order = append(m.order, teamAgent.Agent.ID)
 
+				// Emit start message for better UI feedback
+				newAgentCmds = append(newAgentCmds, func() tea.Msg {
+					return agentStartMsg{
+						id:   teamAgent.Agent.ID,
+						name: displayName,
+						role: role,
+					}
+				})
+
 				// Schedule readCmd for the new agent to listen to its trace events
 				newAgentCmds = append(newAgentCmds, m.readCmd(teamAgent.Agent.ID))
 			}
