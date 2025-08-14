@@ -37,7 +37,12 @@ func main() {
 		for i := 0; i < len(allArgs); i++ {
 			arg := allArgs[i]
 			if strings.HasPrefix(arg, "-") {
-				// Skip flag and its value
+				// Handle boolean flags that don't take values
+				if arg == "--debug" || arg == "-debug" {
+					// Boolean flag, no value to skip
+					continue
+				}
+				// Skip flag and its value for non-boolean flags
 				if i+1 < len(allArgs) && !strings.HasPrefix(allArgs[i+1], "-") {
 					i++ // Skip the flag value
 				}
@@ -115,38 +120,50 @@ func showHelp() {
 	fmt.Printf(`agentry - AI Agent Coordination Platform
 
 Usage:
-	agentry <command> [options]
+	agentry [command] [options]
+	agentry "prompt text"
 
 Commands:
-	tui            Terminal UI mode (default when no command is provided)
-	chat           [deprecated] Alias to TUI; use 'agentry' instead
-	dev            [deprecated] Alias to TUI; use 'agentry' with flags instead
-  eval, test     Run evaluations/tests
-  cost           Analyze cost from trace logs
-  pprof          Profiling utilities
-  tool           Tool management
-  analyze        Analyze trace files
-	refresh-models Download and cache latest model pricing from models.dev
-  version        Show version
-  help           Show this help
+	tui               Terminal UI mode (default when no command provided)
+	eval, test        Run evaluations/tests
+	cost              Analyze cost from trace logs
+	pprof             Profiling utilities
+	tool              Tool management
+	analyze           Analyze trace files
+	refresh-models    Download and cache latest model pricing from models.dev
+	version           Show version
+	help              Show this help
 
-Options:
-  --config    Path to config file
-  --theme     Theme override
-  --version   Show version
-  -v          Show version (short)
-  --help      Show help
+Direct Prompt:
+	agentry "create a hello world"      # Execute prompt directly
+	agentry "spawn coder to fix bug"    # Delegate to specialized agent
+
+TUI Options:
+	--config PATH     Path to config file (.agentry.yaml)
+	--theme NAME      Theme override (dark, light, etc.)
+	--save-id ID      Save conversation state to this ID
+	--resume-id ID    Load conversation state from this ID
+	--port PORT       HTTP server port
+
+Debug Mode:
+	AGENTRY_DEBUG=1 ./agentry "prompt"  # Enable debug output
+	AGENTRY_DEBUG=1 ./agentry           # Debug TUI (logs to file)
 
 Examples:
-	agentry                          # Start TUI (default)
-	agentry tui                      # Start TUI explicitly
-  agentry refresh-models           # Download latest model pricing
-  agentry "create a hello world"   # Direct prompt
-  agentry --version                # Show version
-	agentry --help                   # Show help
+	agentry                              # Start TUI (default)
+	agentry "write a README file"        # Direct prompt
+	agentry tui --theme dark             # TUI with dark theme
+	AGENTRY_DEBUG=1 agentry "test"       # Debug mode
+	agentry refresh-models               # Update model pricing
+
+Deprecated Commands (use alternatives):
+	chat              → Use 'agentry' (TUI mode)
+	dev               → Use 'AGENTRY_DEBUG=1 agentry'
 
 Notes:
-	- 'pprof' may require a build with tools enabled; see docs for diagnostics builds.
+	- In TUI mode, debug output is redirected to avoid interface conflicts
+	- Direct prompts run through Agent 0 and can delegate to other agents
+	- Config files support model selection, tool configuration, and themes
 `)
 }
 

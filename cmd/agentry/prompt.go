@@ -27,7 +27,8 @@ func runAnalyzeCmd(args []string) {
 }
 
 func runPrompt(cmd string, args []string) {
-	opts, remainingArgs := parseCommon(cmd, args)
+	// Use "agentry" as the flag set name for runPrompt, not the prompt text
+	opts, remainingArgs := parseCommon("agentry", args)
 	// The actual prompt is the cmd + any remaining args after flag parsing
 	prompt := cmd
 	if len(remainingArgs) > 0 {

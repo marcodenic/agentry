@@ -56,6 +56,10 @@ func (a *Anthropic) Complete(ctx context.Context, msgs []ChatMessage, tools []To
 			systemPrompt = m.Content
 			continue
 		}
+		// Skip messages with empty content (Anthropic requires non-empty content)
+		if strings.TrimSpace(m.Content) == "" {
+			continue
+		}
 		// Anthropic only supports user and assistant roles
 		role := m.Role
 		if role != "user" && role != "assistant" {

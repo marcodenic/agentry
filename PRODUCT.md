@@ -1,5 +1,65 @@
 # Agentry Product Notes
 
+## Command Line Usage
+
+### Direct Prompt Invocation
+You can invoke agentry with a direct prompt:
+```bash
+./agentry "your prompt here"
+```
+
+This runs the prompt through Agent 0 and returns the result. Useful for:
+- Testing delegation scenarios
+- Quick one-off tasks
+- CI/CD integration
+- Debugging agent behavior
+
+Example:
+```bash
+./agentry "spawn a coder to review PRODUCT.md and report back"
+```
+
+### Available Commands
+```bash
+# Start TUI (default when no command provided)
+./agentry
+./agentry tui
+
+# Direct prompt execution  
+./agentry "create a hello world program"
+
+# Command utilities
+./agentry cost                          # Analyze cost from trace logs
+./agentry analyze <trace-file>          # Analyze trace files
+./agentry refresh-models                # Download latest model pricing
+./agentry version                       # Show version
+./agentry help                          # Show help
+
+# Deprecated (will show warning)
+./agentry chat                          # Use ./agentry instead
+./agentry dev                           # Use ./agentry with AGENTRY_DEBUG=1
+```
+
+### Common Flags (TUI Mode)
+```bash
+./agentry --config path/to/.agentry.yaml
+./agentry --theme dark
+./agentry --save-id session1
+./agentry --resume-id session1
+```
+
+### Debug Mode
+Enable debug output with environment variable:
+```bash
+# Enable debug output
+AGENTRY_DEBUG=1 ./agentry "test prompt"
+
+# Debug with TUI (output goes to agentry.log)
+AGENTRY_DEBUG=1 ./agentry
+```
+
+**Note**: In TUI mode, debug output is automatically redirected to avoid interfering with the interface.
+
 ## New Feature: Agent TODO List Tool
 
 ### Motivation
@@ -138,8 +198,75 @@ Sources    Limits   Context
 
 ---
 
+## Context Management Architecture
+
+### Core Design: Provider → Budget → Assembler Pipeline
+
+Replace hardcoded context injection with intelligent, token-aware context assembly:
+
+**Context Packs** - Discrete, scored chunks of information:
+- **TaskSpecProvider**: User request + agent role specifics
+- **RulesProvider**: Project conventions, AGENT.md files 
+- **WorkspaceSummaryProvider**: Dynamic project structure detection
+- **ActiveFileProvider**: Current file with prefix/suffix windowing
+- **RelatedFilesProvider**: Hybrid search (lexical + semantic + structural)
+- **LSPDefsProvider**: Symbol definitions, references, hover docs
+- **GitDiffProvider**: Staged/unstaged changes, commit context
+- **TestFailProvider**: Recent test failures and error traces
+- **RunOutputProvider**: Command outputs, build results
+- **HistoryProvider**: Conversation history (compacted)
+- **MemoryProvider**: Persistent project knowledge
+
+**Agent Profiles** - Define which context packs each agent type gets:
+```go
+Profiles = {
+    "coder": ["TaskSpec", "ActiveFile", "LSPDefs", "RelatedFiles", "GitDiff", "TestFail"],
+    "planner": ["TaskSpec", "Rules", "WorkspaceSummary", "History", "Memory"],  
+    "reviewer": ["GitDiff", "RelatedFiles", "Rules", "TestFail", "RunOutput"]
+}
+```
+
+**Token Budgeting** - Enforce context window limits per model:
+- Calculate available space: `modelCtx - system - userAsk - guardrails`
+- Allocate budget by provider weights and task relevance
+- Apply truncation strategies (prefix/suffix, outlines, excerpts)
+- Always include provenance metadata (file:line references)
+
+### Context Window Limits (from models_pricing.json)
+- **Claude Models**: 200k tokens (aggressive budget: ~150k)
+- **GPT Models**: 128k tokens (aggressive budget: ~96k) 
+- **Fallback**: 8k tokens (conservative: ~6k)
+
+Use `GetContextLimit(modelName)` from pricing table for accurate limits.
+
+### File Selection Algorithm
+Hybrid scoring for RelatedFiles provider:
+```
+score = 0.45 * semanticSim(task, fileEmb)
+      + 0.25 * lexicalHits(tfidf/ripgrep density)  
+      + 0.15 * structuralAffinity(import graph distance)
+      + 0.10 * recency(recently edited/open)
+      + 0.05 * centrality(call graph degree)
+```
+
+### LSP Integration Strategy
+- Auto-start language servers based on detected project languages
+- Cache definitions per file+version to avoid re-querying
+- Include definition snippets (20-80 lines) + hover docs + reference sites
+- Provide symbol context for code near cursor position
+
+### Implementation Steps
+1. **Replace buildContextualInput()** with Provider→Budget→Assembler pipeline
+2. **Add ContextRegistry** to Team for pluggable providers
+3. **Implement token counting** and budget enforcement per model
+4. **Add agent profile mapping** (coder→coder profile, etc.)
+5. **Integrate with existing memstore** for persistent memory
+
+---
+
 ## Next Steps
 - Implement the TODO tool for all agents
-- Refactor context injection to use packs, profiles, and budgeting
-- Test with both OpenAI and Anthropic models, adjusting context size as needed
-- Document context management and TODO tool in CONTEXT.md and PRODUCT.md
+- **CRITICAL**: Refactor context injection to prevent rate limit violations
+- Replace hardcoded context with dynamic, token-budgeted providers
+- Test context window management across model providers
+- Add LSP integration for richer code context

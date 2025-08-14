@@ -1,0 +1,38 @@
+{
+  "description": "Initial context size limits to prevent TPM (tokens-per-minute) rate limit breaches",
+  "version": "1.0",
+  "limits": {
+    "gpt-5": {
+      "context_window": 400000,
+      "safe_initial_input": 120000,
+      "max_output_tokens": 30000,
+      "reasoning": "30% of total window, conservative for unknown TPM limits",
+      "tpm_guidance": "OpenAI doesn't publish fixed TPM - depends on account tier"
+    },
+    "claude-sonnet-4-20250514": {
+      "context_window": 200000,
+      "safe_initial_input": 5000,
+      "max_output_tokens": 2000,
+      "reasoning": "ULTRA-CONSERVATIVE: 5k to guarantee no TPM breach with iterations",
+      "tpm_guidance": "Anthropic Tier-1: ~30k input TPM / 8k output TPM - Maximum safety buffer"
+    },
+    "claude-sonnet-4-1m": {
+      "context_window": 1000000,
+      "safe_initial_input": 5000,
+      "max_output_tokens": 2000,
+      "reasoning": "Same ultra-conservative limits as regular Claude due to TPM constraints",
+      "tpm_guidance": "TPM limits apply regardless of context window size"
+    }
+  },
+  "strategy": {
+    "first_minute": "Use safe_initial_input limits",
+    "subsequent_calls": "Send smaller deltas, monitor response headers",
+    "backoff_on_429": "Reduce by 50% and implement exponential backoff",
+    "scale_up": "Increase by 10-20% if headers show plenty of room"
+  },
+  "debug_mode": {
+    "log_token_usage": true,
+    "warn_approaching_limits": true,
+    "track_tpm_consumption": true
+  }
+}

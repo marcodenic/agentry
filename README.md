@@ -12,16 +12,13 @@ For the upcoming cloud deployment model, see [README-cloud.md](./README-cloud.md
 
 | 🚩 **Pillar**        | ✨ **v1.0 Features**                                     |
 | -------------------- | -------------------------------------------------------- |
-go install github.com/marcodenic/agentry/cmd/agentry@latest
-| � **Tool System**   | 30+ built-in tools; JSON/YAML manifests; Go plugins     |
+| 🧰 **Tool System**   | 30+ built-in tools; JSON/YAML manifests; Go plugins     |
 | 🤹‍♂️ **Sub-agents**    | `Spawn()` + `RunParallel()` helper                       |
-agentry tui --config examples/.agentry.yaml
 | 🧠 **Memory**        | Conversation + VectorStore interface (RAG-ready)         |
 | 🕵️‍♂️ **Tracing**       | Structured events, JSONL dump, SSE stream                |
 | ⚙️ **Config**        | `.agentry.yaml` bootstraps agent, models, tools          |
 | 🧪 **Evaluation**    | YAML test suites, CLI `agentry eval`                     |
 | 🛠️ **SDK**           | JS/TS client (`@marcodenic/agentry`), supports streaming |
-
 ---
 
 ## 📦 Installation

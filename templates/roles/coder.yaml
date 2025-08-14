@@ -101,6 +101,6 @@ builtins:
   - sysinfo # System information and hardware specs
 
 model:
-  provider: openai
+  provider: anthropic
   options:
-    model: gpt-4o-mini	
+    model: claude-sonnet-4-20250514	

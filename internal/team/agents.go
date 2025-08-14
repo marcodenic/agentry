@@ -37,8 +37,13 @@ func (t *Team) AddExistingAgent(name string, agent *core.Agent) error {
 
 // SpawnAgent creates a new agent with the given configuration
 func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error) {
+	timer := StartTimer(fmt.Sprintf("SpawnAgent(%s, %s)", name, role))
+	defer timer.Stop()
+
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+
+	timer.Checkpoint("mutex acquired")
 
 	// Get role configuration
 	roleConfig := t.roles[role]
@@ -52,6 +57,8 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 			Metadata:     make(map[string]string),
 		}
 	}
+
+	timer.Checkpoint("role config resolved")
 
 	// Create the core agent
 	registry := tool.DefaultRegistry()

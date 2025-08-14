@@ -10,6 +10,7 @@ import (
 
 	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/model"
+	"github.com/marcodenic/agentry/internal/tokens"
 )
 
 // Summary holds token usage and estimated cost for a run.
@@ -29,9 +30,9 @@ func Analyze(input string, events []Event) Summary {
 	totalOutputTokens := 0
 	totalCost := 0.0
 
-	// Start with a simple heuristic: count input tokens by words in input string.
+	// Start with accurate token counting: count input tokens using tiktoken
 	if s := strings.TrimSpace(input); s != "" {
-		totalInputTokens += wordTokens(s)
+		totalInputTokens += tokens.CountWithFallback(s)
 	}
 
 	// Count tokens from events. Prefer actual API counts when present,
@@ -57,39 +58,39 @@ func Analyze(input string, events []Event) Summary {
 						modelUsage[d.ModelName] = usage
 					}
 				} else {
-					// Fallback: count words in content for tests without API counts
+					// Fallback: count tokens in content for tests without API counts
 					if strings.TrimSpace(d.Content) != "" {
-						totalOutputTokens += wordTokens(d.Content)
+						totalOutputTokens += tokens.CountWithFallback(d.Content)
 					}
 				}
 			case map[string]any:
 				// ParseLog provides map[string]any with capitalized keys
 				if v, ok := d["Content"]; ok {
 					if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-						totalOutputTokens += wordTokens(s)
+						totalOutputTokens += tokens.CountWithFallback(s)
 					}
 				} else if v, ok := d["content"]; ok {
 					if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-						totalOutputTokens += wordTokens(s)
+						totalOutputTokens += tokens.CountWithFallback(s)
 					}
 				}
 			}
 		case EventToolEnd:
-			// Tests expect counting of tool results by words when no API counts provided
+			// Tests expect counting of tool results with accurate token counting when no API counts provided
 			switch d := ev.Data.(type) {
 			case map[string]any:
 				if v, ok := d["result"]; ok {
 					if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-						totalOutputTokens += wordTokens(s)
+						totalOutputTokens += tokens.CountWithFallback(s)
 					}
 				}
 			}
 		case EventFinal:
-			// Count final content words as output tokens
+			// Count final content tokens as output tokens
 			switch d := ev.Data.(type) {
 			case string:
 				if strings.TrimSpace(d) != "" {
-					totalOutputTokens += wordTokens(d)
+					totalOutputTokens += tokens.CountWithFallback(d)
 				}
 			}
 		}
@@ -116,15 +117,6 @@ func Analyze(input string, events []Event) Summary {
 		Cost:         totalCost,
 		ModelUsage:   modelUsage,
 	}
-}
-
-// wordTokens approximates token count by splitting on whitespace.
-func wordTokens(s string) int {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return 0
-	}
-	return len(strings.Fields(s))
 }
 
 // ParseLog decodes newline-delimited JSON trace events from r.

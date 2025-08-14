@@ -51,7 +51,7 @@ func (t *Team) RegisterAgentTool(registry tool.Registry) {
 		"type": "object",
 		"properties": map[string]any{
 			"tasks": map[string]any{
-				"type": "array",
+				"type":        "array",
 				"description": "Array of agent tasks to execute in parallel",
 				"items": map[string]any{
 					"type": "object",

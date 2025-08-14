@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,8 +16,46 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/memstore"
+	"github.com/marcodenic/agentry/internal/tokens"
 	"github.com/marcodenic/agentry/internal/tool"
 )
+
+// Timer utility for performance debugging
+type Timer struct {
+	start time.Time
+	name  string
+}
+
+func StartTimer(name string) *Timer {
+	timer := &Timer{
+		start: time.Now(),
+		name:  name,
+	}
+	if os.Getenv("AGENTRY_DEBUG") == "1" {
+		fmt.Fprintf(os.Stderr, "⏱️  [TIMER] Started: %s\n", name)
+	}
+	return timer
+}
+
+func (t *Timer) Elapsed() time.Duration {
+	return time.Since(t.start)
+}
+
+func (t *Timer) Stop() time.Duration {
+	elapsed := time.Since(t.start)
+	if os.Getenv("AGENTRY_DEBUG") == "1" {
+		fmt.Fprintf(os.Stderr, "⏱️  [TIMER] %s: %v\n", t.name, elapsed)
+	}
+	return elapsed
+}
+
+func (t *Timer) Checkpoint(checkpoint string) time.Duration {
+	elapsed := time.Since(t.start)
+	if os.Getenv("AGENTRY_DEBUG") == "1" {
+		fmt.Fprintf(os.Stderr, "⏱️  [TIMER] %s [%s]: %v\n", t.name, checkpoint, elapsed)
+	}
+	return elapsed
+}
 
 // Team manages a multi-agent conversation step by step.
 // This is a simplified version that consolidates the functionality
@@ -185,6 +225,9 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 // Call implements the Caller interface for compatibility with existing code.
 // It delegates work to the named agent with enhanced communication logging.
 func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) {
+	timer := StartTimer(fmt.Sprintf("Call(%s)", agentID))
+	defer timer.Stop()
+
 	// ENHANCED: Log explicit agent-to-agent communication
 	debugPrintf("\n🔄 AGENT DELEGATION: Agent 0 -> %s\n", agentID)
 	debugPrintf("📝 Task: %s\n", input)
@@ -195,10 +238,12 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 		"task_length": len(input),
 		"agent_type":  agentID,
 	})
+	timer.Checkpoint("coordination logged")
 
 	t.mutex.RLock()
 	agent, exists := t.agentsByName[agentID]
 	t.mutex.RUnlock()
+	timer.Checkpoint("agent lookup completed")
 
 	if !exists {
 		debugPrintf("🆕 Creating new agent: %s\n", agentID)
@@ -209,8 +254,10 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 			return "", fmt.Errorf("failed to spawn agent %s: %w", agentID, err)
 		}
 		agent = spawnedAgent
+		timer.Checkpoint("new agent spawned")
 		debugPrintf("✅ Agent %s created and ready\n", agentID)
 	} else {
+		timer.Checkpoint("existing agent found")
 		debugPrintf("♻️  Using existing agent: %s (Status: %s)\n", agentID, agent.Status)
 	}
 
@@ -223,6 +270,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	// Log the communication to file as well
 	logMessage := fmt.Sprintf("DELEGATION: Agent 0 -> %s | Task: %s", agentID, input)
 	logToFile(logMessage)
+	timer.Checkpoint("logging completed")
 
 	// Inject inbox into prompt for this turn (lightweight option)
 	originalPrompt := agent.Agent.Prompt
@@ -262,6 +310,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 		}
 		agent.Agent.Prompt = sb.String()
 	}
+	timer.Checkpoint("inbox processing completed")
 
 	// Execute the input on the core agent with a bounded timeout to avoid indefinite hangs
 	timeout := 120 * time.Second
@@ -278,11 +327,13 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
 		t.PublishWorkspaceEvent("agent_0", "delegation_started", fmt.Sprintf("Delegated to %s", agentID), map[string]interface{}{"agent": agentID, "timeout": timeout.String()})
 	}
+	timer.Checkpoint("context and events prepared")
 
 	debugPrintf("🔧 Call: About to call runAgent for %s", agentID)
 	startTime := time.Now()
 	result, err := runAgent(dctx, agent.Agent, input, agentID, t.names)
 	duration := time.Since(startTime)
+	timer.Checkpoint("runAgent completed")
 	debugPrintf("🔧 Call: runAgent completed for %s in %s", agentID, duration)
 
 	if err != nil {
@@ -304,6 +355,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	if len(unread) > 0 {
 		t.MarkMessagesAsRead(agentID)
 	}
+	timer.Checkpoint("cleanup completed")
 
 	// Update agent status and handle errors gracefully
 	if err != nil {
@@ -363,7 +415,7 @@ func (t *Team) CallParallel(ctx context.Context, tasks []interface{}) (string, e
 	}
 
 	results := make(chan taskResult, len(tasks))
-	
+
 	// Start all tasks in parallel
 	for i, taskInterface := range tasks {
 		go func(index int, taskInterface interface{}) {
@@ -394,7 +446,7 @@ func (t *Team) CallParallel(ctx context.Context, tasks []interface{}) (string, e
 	// Collect results
 	taskResults := make([]string, len(tasks))
 	var errs []error
-	
+
 	for i := 0; i < len(tasks); i++ {
 		result := <-results
 		if result.err != nil {
@@ -411,12 +463,12 @@ func (t *Team) CallParallel(ctx context.Context, tasks []interface{}) (string, e
 	// Combine results from all agents
 	var combinedResult strings.Builder
 	combinedResult.WriteString("📋 **Parallel Agent Execution Results:**\n\n")
-	
+
 	for i, result := range taskResults {
 		taskInterface := tasks[i]
 		task := taskInterface.(map[string]interface{})
 		agentName := task["agent"].(string)
-		
+
 		combinedResult.WriteString(fmt.Sprintf("**Agent %d (%s):**\n", i+1, agentName))
 		combinedResult.WriteString(result)
 		if i < len(taskResults)-1 {
@@ -430,24 +482,18 @@ func (t *Team) CallParallel(ctx context.Context, tasks []interface{}) (string, e
 
 // runAgent executes an agent with the given input, similar to converse.runAgent
 func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []string) (string, error) {
+	timer := StartTimer(fmt.Sprintf("runAgent(%s)", name))
+	defer timer.Stop()
+
 	// Attach agent name into context for builtins to use sensible defaults
 	ctx = context.WithValue(ctx, tool.AgentNameContextKey, name)
-	
-	// ENHANCED: Inject project context and workspace awareness for better decision making
-	contextualInput := buildContextualInput(ctx, input, name)
-	
-	// Use the standard agent.Run() method instead of custom logic
-	// This ensures that all tracing, token counting, and other instrumentation works correctly
-	debugPrintf("🚀 runAgent: About to call ag.Run for agent %s with input length %d", name, len(contextualInput))
-	debugPrintf("🚀 runAgent: Agent %s context timeout: %v", name, ctx.Err())
-	debugPrintf("🚀 runAgent: Agent %s cost manager: %p, tokens before: %d", name, ag.Cost, func() int {
-		if ag.Cost != nil {
-			return ag.Cost.TotalTokens()
-		}
-		return 0
-	}())
+	timer.Checkpoint("context prepared")
 
+	// Minimal bounded context wrapper (idempotent via sentinel)
+	contextualInput := buildContextMinimal(ctx, input, name)
+	timer.Checkpoint("contextual input built")
 	result, err := ag.Run(ctx, contextualInput)
+	timer.Checkpoint("agent.Run completed")
 
 	debugPrintf("🏁 runAgent: ag.Run completed for agent %s", name)
 	debugPrintf("🏁 runAgent: Result length: %d", len(result))
@@ -463,231 +509,75 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 	return result, err
 }
 
-// buildRootFileTree generates a concise root directory listing to help agents understand project structure
-func buildRootFileTree() string {
-	wd, err := os.Getwd()
-	if err != nil {
-		return ""
-	}
-	
-	entries, err := os.ReadDir(wd)
-	if err != nil {
-		return ""
-	}
-	
-	var dirs []string
-	var files []string
-	var configFiles []string
-	var docFiles []string
-	
-	// Common ignore patterns (like .gitignore)
-	ignorePatterns := map[string]bool{
-		".git":         true,
-		".gitignore":   false, // Keep this one
-		"node_modules": true,
-		".npm":         true,
-		".cache":       true,
-		"target":       true,
-		"dist":         true,
-		"build":        true,
-		".DS_Store":    true,
-		"vendor":       true,
-		".env":         false, // Keep but note it
-		".idea":        true,
-		".vscode":      true,
-		"__pycache__":  true,
-		".pytest_cache": true,
-	}
-	
-	// Detect project type based on key files
-	var projectType string
-	
-	for _, entry := range entries {
-		name := entry.Name()
-		
-		// Apply ignore patterns
-		if ignore, exists := ignorePatterns[name]; exists && ignore {
-			continue
-		}
-		
-		if entry.IsDir() {
-			dirs = append(dirs, name+"/")
-		} else {
-			// Categorize important files
-			switch {
-			case strings.HasSuffix(name, ".md"):
-				docFiles = append(docFiles, name)
-			case name == "go.mod" || name == "go.sum":
-				projectType = "Go"
-				configFiles = append(configFiles, name)
-			case name == "package.json" || name == "package-lock.json" || name == "yarn.lock":
-				projectType = "Node.js/JavaScript"
-				configFiles = append(configFiles, name)
-			case name == "requirements.txt" || name == "setup.py" || name == "pyproject.toml":
-				projectType = "Python"
-				configFiles = append(configFiles, name)
-			case name == "Cargo.toml" || name == "Cargo.lock":
-				projectType = "Rust"
-				configFiles = append(configFiles, name)
-			case name == "Makefile" || name == "makefile":
-				configFiles = append(configFiles, name)
-			case strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml"):
-				configFiles = append(configFiles, name)
-			case strings.HasSuffix(name, ".json") && name != "package.json":
-				configFiles = append(configFiles, name)
-			case name == "Dockerfile" || name == "docker-compose.yml":
-				configFiles = append(configFiles, name)
-			default:
-				files = append(files, name)
-			}
-		}
-	}
-	
-	var result strings.Builder
-	
-	// Project type detection
-	if projectType != "" {
-		result.WriteString(fmt.Sprintf("- **Project Type**: %s\n", projectType))
-	} else {
-		result.WriteString("- **Project Type**: Multi-language or Unknown\n")
-	}
-	
-	// Root directories (first level only, most important)
-	if len(dirs) > 0 {
-		result.WriteString("- **Key Directories**: ")
-		if len(dirs) <= 8 {
-			result.WriteString(strings.Join(dirs, " "))
-		} else {
-			result.WriteString(strings.Join(dirs[:8], " "))
-			result.WriteString(fmt.Sprintf(" ... (%d more)", len(dirs)-8))
-		}
-		result.WriteString("\n")
-	}
-	
-	// Config files (build, dependency, etc.)
-	if len(configFiles) > 0 {
-		result.WriteString("- **Config Files**: ")
-		result.WriteString(strings.Join(configFiles, " "))
-		result.WriteString("\n")
-	}
-	
-	// Documentation files
-	if len(docFiles) > 0 {
-		result.WriteString("- **Documentation**: ")
-		result.WriteString(strings.Join(docFiles, " "))
-		result.WriteString("\n")
-	}
-	
-	// Other notable files (limit to avoid clutter)
-	if len(files) > 0 {
-		result.WriteString("- **Other Files**: ")
-		if len(files) <= 5 {
-			result.WriteString(strings.Join(files, " "))
-		} else {
-			result.WriteString(strings.Join(files[:5], " "))
-			result.WriteString(fmt.Sprintf(" ... (%d more)", len(files)-5))
-		}
-		result.WriteString("\n")
-	}
-	
-	return result.String()
+// ---------------- Minimal Context Builder ----------------
+const (
+	ctxSentinel     = "<!--AGENTRY_CTX_V1-->\n"
+	agent0CapTokens = 1200
+	workerCapTokens = 600
+	projectCacheTTL = 10 * time.Second
+)
+
+var (
+	projectSummaryCache     string
+	projectSummaryCacheLite string
+	projectSummaryExpiry    time.Time
+)
+
+func buildContextMinimal(ctx context.Context, task, agentName string) string {
+	if strings.HasPrefix(task, ctxSentinel) || os.Getenv("AGENTRY_DISABLE_CONTEXT") == "1" { return task }
+	tier := 1
+	if agentName == "0" { tier = 0 }
+	full, lite := projectSummaries()
+	snapshot := lite
+	if tier == 0 { snapshot = full }
+	var lines []string
+	lines = append(lines, strings.TrimRight(ctxSentinel, "\n"))
+	lines = append(lines, snapshot)
+	if tier == 1 { if refs := extractReferencedFiles(task); len(refs) > 0 { lines = append(lines, "Files: "+strings.Join(refs, " ")) } }
+	lines = append(lines, "", "TASK:", task)
+	assembled := strings.Join(lines, "\n")
+	capTokens := workerCapTokens; if tier == 0 { capTokens = agent0CapTokens }
+	if capEnv := os.Getenv("AGENTRY_CTX_CAP_AGENT0"); tier == 0 && capEnv != "" { if v, err := strconv.Atoi(capEnv); err == nil && v > 100 { capTokens = v } }
+	if capEnv := os.Getenv("AGENTRY_CTX_CAP_WORKER"); tier == 1 && capEnv != "" { if v, err := strconv.Atoi(capEnv); err == nil && v > 100 { capTokens = v } }
+	total := tokens.Count(assembled, "gpt-4o-mini")
+	if total <= capTokens { debugPrintf("CTX agent=%s tier=%d tokens=%d truncated=false\n", agentName, tier, total); return assembled }
+	parts := strings.Split(assembled, "\n")
+	idx := 0; for i, l := range parts { if l == "TASK:" { idx = i; break } }
+	firstSnapLine := ""; for i := 1; i < len(parts) && i < 4; i++ { if strings.TrimSpace(parts[i]) != "" { firstSnapLine = parts[i]; break } }
+	header := []string{parts[0]}; if firstSnapLine != "" { header = append(header, firstSnapLine) }; header = append(header, "", "TASK:")
+	remaining := strings.Join(parts[idx+1:], "\n")
+	allowed := capTokens - tokens.Count(strings.Join(header, "\n"), "gpt-4o-mini") - 10; if allowed < 50 { allowed = 50 }
+	truncated := tokens.Truncate(remaining, allowed, "gpt-4o-mini"); if tokens.Count(truncated, "gpt-4o-mini") >= allowed && !strings.Contains(truncated, "[truncated]") { truncated += "\n...[truncated]" }
+	final := strings.Join(append(header, truncated), "\n")
+	debugPrintf("CTX agent=%s tier=%d tokens=%d truncated=true cap=%d\n", agentName, tier, tokens.Count(final, "gpt-4o-mini"), capTokens)
+	return final
 }
 
-// buildContextualInput enhances the task with project context and workspace awareness
-// This gives spawned agents the same rich context that makes modern AI assistants effective
-func buildContextualInput(ctx context.Context, input, agentName string) string {
-	var contextBuilder strings.Builder
-	
-	// Add workspace awareness section
-	contextBuilder.WriteString("## 📁 WORKSPACE CONTEXT\n")
-	contextBuilder.WriteString("You are working in an active software project. Before taking action:\n\n")
-	
-	// Inject current directory context with dynamic root file tree
-	contextBuilder.WriteString("**Current Working Directory:**\n")
-	if rootTree := buildRootFileTree(); rootTree != "" {
-		contextBuilder.WriteString(rootTree)
-	} else {
-		// Fallback to static info if tree building fails
-		contextBuilder.WriteString("- Project structure discovery failed, using fallback\n")
+func projectSummaries() (string, string) {
+	if time.Now().Before(projectSummaryExpiry) && projectSummaryCache != "" { return projectSummaryCache, projectSummaryCacheLite }
+	wd, err := os.Getwd(); if err != nil { return "Project: Unknown", "Project: Unknown" }
+	entries, err := os.ReadDir(wd); if err != nil { return "Project: Unknown", "Project: Unknown" }
+	var dirs, configs []string; projectType := "Unknown"
+	for _, e := range entries {
+		name := e.Name(); if strings.HasPrefix(name, ".") && name != ".gitignore" { continue }
+		if e.IsDir() { dirs = append(dirs, name+"/"); continue }
+		switch name { case "go.mod": projectType = "Go"; configs = append(configs, name); case "package.json": if projectType == "Unknown" { projectType = "Node" }; configs = append(configs, name); case "pyproject.toml", "requirements.txt": if projectType == "Unknown" { projectType = "Python" }; configs = append(configs, name); case "Cargo.toml": if projectType == "Unknown" { projectType = "Rust" }; configs = append(configs, name); case "docker-compose.yml", "Dockerfile", "Makefile": configs = append(configs, name) }
 	}
-	contextBuilder.WriteString("\n")
-	
-	// Add recent workspace activity for context
-	contextBuilder.WriteString("**Recent Workspace Activity:**\n")
-	if team, ok := FromContext(ctx); ok {
-		if t, ok := team.(*Team); ok {
-			recentEvents := t.GetWorkspaceEvents(3) // Get last 3 events
-			if len(recentEvents) > 0 {
-				for _, event := range recentEvents {
-					contextBuilder.WriteString(fmt.Sprintf("- %s: %s (%s)\n", event.AgentID, event.Description, event.Type))
-				}
-			} else {
-				contextBuilder.WriteString("- No recent activity\n")
-			}
-		} else {
-			contextBuilder.WriteString("- Team context not available\n")
-		}
-	} else {
-		contextBuilder.WriteString("- Team context not available\n")
-	}
-	contextBuilder.WriteString("\n")
-	
-	// Add coordination history for context awareness
-	contextBuilder.WriteString("**Recent Team Coordination:**\n")
-	if team, ok := FromContext(ctx); ok {
-		if t, ok := team.(*Team); ok {
-			recentCoordination := t.CoordinationHistoryStrings(3) // Get last 3 coordination events
-			if len(recentCoordination) > 0 {
-				for _, coord := range recentCoordination {
-					contextBuilder.WriteString(fmt.Sprintf("- %s\n", coord))
-				}
-			} else {
-				contextBuilder.WriteString("- No recent coordination\n")
-			}
-		} else {
-			contextBuilder.WriteString("- Team context not available\n")
-		}
-	} else {
-		contextBuilder.WriteString("- Team context not available\n")
-	}
-	contextBuilder.WriteString("\n")
-	
-	// Add task-specific intelligence patterns
-	contextBuilder.WriteString("**Intelligence Guidelines:**\n")
-	contextBuilder.WriteString("1. **EXPLORE FIRST**: Use `ls`, `find`, or `view` to understand structure before making changes\n")
-	contextBuilder.WriteString("2. **USE TOOLS**: For file operations, ALWAYS use the appropriate tool (create, edit_range, patch) rather than just describing\n")
-	contextBuilder.WriteString("3. **VERIFY ACTIONS**: After making changes, use `view` or `ls` to confirm your work\n")
-	contextBuilder.WriteString("4. **BE SPECIFIC**: When asked to create/modify files, do it immediately with the actual tools\n\n")
-	
-	// Add role-specific context
-	switch agentName {
-	case "coder":
-		contextBuilder.WriteString("**Your Role**: Expert software developer\n")
-		contextBuilder.WriteString("- Focus on: Code creation, file editing, testing, debugging\n") 
-		contextBuilder.WriteString("- Primary tools: create, edit_range, patch, view, run\n")
-		contextBuilder.WriteString("- When asked to 'implement' or 'create code' → USE THE CREATE TOOL immediately\n\n")
-	case "writer":
-		contextBuilder.WriteString("**Your Role**: Documentation and content expert\n")
-		contextBuilder.WriteString("- Focus on: Documentation, README files, user guides, explanations\n")
-		contextBuilder.WriteString("- Primary tools: create, edit_range, view\n") 
-		contextBuilder.WriteString("- When asked to 'write docs' → USE THE CREATE TOOL to make actual files\n\n")
-	case "researcher":
-		contextBuilder.WriteString("**Your Role**: Information gathering specialist\n")
-		contextBuilder.WriteString("- Focus on: Finding information, analyzing existing code, documentation lookup\n")
-		contextBuilder.WriteString("- Primary tools: view, find, grep, web_search\n\n")
-	}
-	
-	// Add the actual task
-	contextBuilder.WriteString("## 🎯 YOUR TASK\n")
-	contextBuilder.WriteString(input)
-	contextBuilder.WriteString("\n\n")
-	
-	// Add action encouragement
-	contextBuilder.WriteString("**IMPORTANT**: If this task involves creating/modifying files or running commands, ")
-	contextBuilder.WriteString("you MUST use the appropriate tools immediately. Do not just provide text descriptions - take concrete action!")
-	
-	return contextBuilder.String()
+	if len(dirs) > 5 { dirs = dirs[:5] }; if len(configs) > 4 { configs = configs[:4] }
+	full := fmt.Sprintf("Project: %s; Dirs: %s; Config: %s", projectType, strings.Join(dirs, " "), strings.Join(configs, " "))
+	lite := fmt.Sprintf("Project: %s; Dirs: %s", projectType, strings.Join(dirs, " "))
+	projectSummaryCache, projectSummaryCacheLite = full, lite; projectSummaryExpiry = time.Now().Add(projectCacheTTL); return full, lite
 }
+
+var allowedFileExt = map[string]struct{}{ ".go":{}, ".md":{}, ".txt":{}, ".json":{}, ".yaml":{}, ".yml":{}, ".ts":{}, ".js":{}, ".py":{} }
+
+func extractReferencedFiles(task string) []string {
+	words := strings.Fields(task); seen := make(map[string]struct{}); var out []string
+	for _, w := range words { if len(out) >= 5 { break }; if !strings.Contains(w, ".") { continue }; w = strings.Trim(w, "`'\"()[]{}<>,"); if len(w) > 80 { continue }; ext := filepath.Ext(w); if _, ok := allowedFileExt[ext]; !ok { continue }; if strings.Count(w, "/") > 2 { continue }; if _, ok := seen[w]; ok { continue }; if _, err := os.Stat(w); err == nil { seen[w] = struct{}{}; out = append(out, w) } }
+	return out
+}
+// --------------- End Minimal Context Builder ---------------
+
 
 // GetAgents returns a list of all agent names in the team.
 func (t *Team) GetAgents() []string {

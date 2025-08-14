@@ -22,6 +22,7 @@ type commonOpts struct {
 	resumeID     string
 	ckptID       string
 	port         string
+	debug        bool
 }
 
 func parseCommon(name string, args []string) (*commonOpts, []string) {
@@ -36,9 +37,12 @@ func parseCommon(name string, args []string) (*commonOpts, []string) {
 	fs.StringVar(&opts.resumeID, "resume-id", "", "load conversation state from this ID")
 	fs.StringVar(&opts.ckptID, "checkpoint-id", "", "checkpoint session id")
 	fs.StringVar(&opts.port, "port", "", "HTTP server port")
+	fs.BoolVar(&opts.debug, "debug", false, "enable debug output")
 	// max-iter removed: agents run until completion
 	_ = fs.Parse(args)
-	if opts.configPath == "" {
+
+	// Only set config path from first non-flag argument for commands that expect a config file
+	if opts.configPath == "" && name == "tui" {
 		if fs.NArg() > 0 {
 			opts.configPath = fs.Arg(0)
 		} else {
@@ -61,11 +65,36 @@ func parseCommon(name string, args []string) (*commonOpts, []string) {
 				}
 			}
 		}
+	} else if opts.configPath == "" {
+		// For non-TUI commands, use default config resolution without assuming first arg is config
+		// Look for .agentry.yaml in current directory first
+		if _, err := os.Stat(".agentry.yaml"); err == nil {
+			opts.configPath = ".agentry.yaml"
+		} else {
+			// Fall back to config next to executable
+			if exe, err := os.Executable(); err == nil {
+				if exeDir := filepath.Dir(exe); exeDir != "" {
+					executableConfig := filepath.Join(exeDir, ".agentry.yaml")
+					if _, err := os.Stat(executableConfig); err == nil {
+						opts.configPath = executableConfig
+					} else {
+						opts.configPath = ".agentry.yaml" // Default fallback
+					}
+				}
+			} else {
+				opts.configPath = ".agentry.yaml" // Default fallback
+			}
+		}
 	}
 	return opts, fs.Args()
 }
 
 func applyOverrides(cfg *config.File, o *commonOpts) {
+	// Handle debug flag by setting environment variable
+	if o.debug {
+		os.Setenv("AGENTRY_DEBUG", "1")
+	}
+
 	if o.theme != "" {
 		if cfg.Themes == nil {
 			cfg.Themes = map[string]string{}

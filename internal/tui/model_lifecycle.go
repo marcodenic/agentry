@@ -27,7 +27,7 @@ func (m Model) handleAgentStart(msg agentStartMsg) (Model, tea.Cmd) {
 		statusMsg := fmt.Sprintf("\n\n✨ **%s** (%s) is starting to work...\n", msg.name, msg.role)
 		info.History += statusMsg
 		m.infos[msg.id] = info
-		
+
 		// If this is the active agent, update the viewport
 		if msg.id == m.active {
 			m.vp.SetContent(info.History)
