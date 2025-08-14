@@ -183,3 +183,17 @@ func runRefreshModelsCmd(_ []string) {
 	models := pt.ListModels()
 	fmt.Printf("Refreshed %d models and cached to your user cache dir (agentry/models_pricing.json)\n", len(models))
 }
+
+func runInvokeCmd(args []string) {
+	// Simple invoke command implementation
+	if len(args) == 0 {
+		fmt.Println("Usage: agentry invoke <prompt>")
+		return
+	}
+	
+	// Join all args as the prompt
+	prompt := strings.Join(args, " ")
+	
+	// For now, just delegate to the prompt runner
+	runPrompt(prompt, []string{})
+}

@@ -126,5 +126,15 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 	}
 }
 
+// emitJSON outputs a JSON response to stdout
+func emitJSON(data any) {
+	b, err := json.Marshal(data)
+	if err != nil {
+		fmt.Printf(`{"ok": false, "error": "json marshal failed: %v"}`, err)
+		return
+	}
+	fmt.Println(string(b))
+}
+
 // osBackgroundContext provides a cancellable background context.
 func osBackgroundContext() context.Context { return context.Background() }
