@@ -16,6 +16,8 @@ prompt: |
   - If a file doesn't exist at the expected location → Use `find` to locate it
   - If multiple similar files exist → Use `grep` to identify the correct one
   - If unsure about file contents → Use `view` with line ranges to sample first
+  - If a tool call fails → Try a different approach or simpler version
+  - If API errors occur → Wait briefly and retry with modified parameters
   - Example: "File not found at expected location, searching project structure..."
 
   **3. SMART FILE DISCOVERY:**
@@ -101,4 +103,4 @@ builtins:
 model:
   provider: openai
   options:
-    model: gpt-5
+    model: gpt-4o-mini	

@@ -432,9 +432,13 @@ func (t *Team) CallParallel(ctx context.Context, tasks []interface{}) (string, e
 func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []string) (string, error) {
 	// Attach agent name into context for builtins to use sensible defaults
 	ctx = context.WithValue(ctx, tool.AgentNameContextKey, name)
+	
+	// ENHANCED: Inject project context and workspace awareness for better decision making
+	contextualInput := buildContextualInput(ctx, input, name)
+	
 	// Use the standard agent.Run() method instead of custom logic
 	// This ensures that all tracing, token counting, and other instrumentation works correctly
-	debugPrintf("🚀 runAgent: About to call ag.Run for agent %s with input length %d", name, len(input))
+	debugPrintf("🚀 runAgent: About to call ag.Run for agent %s with input length %d", name, len(contextualInput))
 	debugPrintf("🚀 runAgent: Agent %s context timeout: %v", name, ctx.Err())
 	debugPrintf("🚀 runAgent: Agent %s cost manager: %p, tokens before: %d", name, ag.Cost, func() int {
 		if ag.Cost != nil {
@@ -443,7 +447,7 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 		return 0
 	}())
 
-	result, err := ag.Run(ctx, input)
+	result, err := ag.Run(ctx, contextualInput)
 
 	debugPrintf("🏁 runAgent: ag.Run completed for agent %s", name)
 	debugPrintf("🏁 runAgent: Result length: %d", len(result))
@@ -457,6 +461,232 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 	debugPrintf("🏁 runAgent: Agent %s context final state: %v", name, ctx.Err())
 
 	return result, err
+}
+
+// buildRootFileTree generates a concise root directory listing to help agents understand project structure
+func buildRootFileTree() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	
+	entries, err := os.ReadDir(wd)
+	if err != nil {
+		return ""
+	}
+	
+	var dirs []string
+	var files []string
+	var configFiles []string
+	var docFiles []string
+	
+	// Common ignore patterns (like .gitignore)
+	ignorePatterns := map[string]bool{
+		".git":         true,
+		".gitignore":   false, // Keep this one
+		"node_modules": true,
+		".npm":         true,
+		".cache":       true,
+		"target":       true,
+		"dist":         true,
+		"build":        true,
+		".DS_Store":    true,
+		"vendor":       true,
+		".env":         false, // Keep but note it
+		".idea":        true,
+		".vscode":      true,
+		"__pycache__":  true,
+		".pytest_cache": true,
+	}
+	
+	// Detect project type based on key files
+	var projectType string
+	
+	for _, entry := range entries {
+		name := entry.Name()
+		
+		// Apply ignore patterns
+		if ignore, exists := ignorePatterns[name]; exists && ignore {
+			continue
+		}
+		
+		if entry.IsDir() {
+			dirs = append(dirs, name+"/")
+		} else {
+			// Categorize important files
+			switch {
+			case strings.HasSuffix(name, ".md"):
+				docFiles = append(docFiles, name)
+			case name == "go.mod" || name == "go.sum":
+				projectType = "Go"
+				configFiles = append(configFiles, name)
+			case name == "package.json" || name == "package-lock.json" || name == "yarn.lock":
+				projectType = "Node.js/JavaScript"
+				configFiles = append(configFiles, name)
+			case name == "requirements.txt" || name == "setup.py" || name == "pyproject.toml":
+				projectType = "Python"
+				configFiles = append(configFiles, name)
+			case name == "Cargo.toml" || name == "Cargo.lock":
+				projectType = "Rust"
+				configFiles = append(configFiles, name)
+			case name == "Makefile" || name == "makefile":
+				configFiles = append(configFiles, name)
+			case strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml"):
+				configFiles = append(configFiles, name)
+			case strings.HasSuffix(name, ".json") && name != "package.json":
+				configFiles = append(configFiles, name)
+			case name == "Dockerfile" || name == "docker-compose.yml":
+				configFiles = append(configFiles, name)
+			default:
+				files = append(files, name)
+			}
+		}
+	}
+	
+	var result strings.Builder
+	
+	// Project type detection
+	if projectType != "" {
+		result.WriteString(fmt.Sprintf("- **Project Type**: %s\n", projectType))
+	} else {
+		result.WriteString("- **Project Type**: Multi-language or Unknown\n")
+	}
+	
+	// Root directories (first level only, most important)
+	if len(dirs) > 0 {
+		result.WriteString("- **Key Directories**: ")
+		if len(dirs) <= 8 {
+			result.WriteString(strings.Join(dirs, " "))
+		} else {
+			result.WriteString(strings.Join(dirs[:8], " "))
+			result.WriteString(fmt.Sprintf(" ... (%d more)", len(dirs)-8))
+		}
+		result.WriteString("\n")
+	}
+	
+	// Config files (build, dependency, etc.)
+	if len(configFiles) > 0 {
+		result.WriteString("- **Config Files**: ")
+		result.WriteString(strings.Join(configFiles, " "))
+		result.WriteString("\n")
+	}
+	
+	// Documentation files
+	if len(docFiles) > 0 {
+		result.WriteString("- **Documentation**: ")
+		result.WriteString(strings.Join(docFiles, " "))
+		result.WriteString("\n")
+	}
+	
+	// Other notable files (limit to avoid clutter)
+	if len(files) > 0 {
+		result.WriteString("- **Other Files**: ")
+		if len(files) <= 5 {
+			result.WriteString(strings.Join(files, " "))
+		} else {
+			result.WriteString(strings.Join(files[:5], " "))
+			result.WriteString(fmt.Sprintf(" ... (%d more)", len(files)-5))
+		}
+		result.WriteString("\n")
+	}
+	
+	return result.String()
+}
+
+// buildContextualInput enhances the task with project context and workspace awareness
+// This gives spawned agents the same rich context that makes modern AI assistants effective
+func buildContextualInput(ctx context.Context, input, agentName string) string {
+	var contextBuilder strings.Builder
+	
+	// Add workspace awareness section
+	contextBuilder.WriteString("## 📁 WORKSPACE CONTEXT\n")
+	contextBuilder.WriteString("You are working in an active software project. Before taking action:\n\n")
+	
+	// Inject current directory context with dynamic root file tree
+	contextBuilder.WriteString("**Current Working Directory:**\n")
+	if rootTree := buildRootFileTree(); rootTree != "" {
+		contextBuilder.WriteString(rootTree)
+	} else {
+		// Fallback to static info if tree building fails
+		contextBuilder.WriteString("- Project structure discovery failed, using fallback\n")
+	}
+	contextBuilder.WriteString("\n")
+	
+	// Add recent workspace activity for context
+	contextBuilder.WriteString("**Recent Workspace Activity:**\n")
+	if team, ok := FromContext(ctx); ok {
+		if t, ok := team.(*Team); ok {
+			recentEvents := t.GetWorkspaceEvents(3) // Get last 3 events
+			if len(recentEvents) > 0 {
+				for _, event := range recentEvents {
+					contextBuilder.WriteString(fmt.Sprintf("- %s: %s (%s)\n", event.AgentID, event.Description, event.Type))
+				}
+			} else {
+				contextBuilder.WriteString("- No recent activity\n")
+			}
+		} else {
+			contextBuilder.WriteString("- Team context not available\n")
+		}
+	} else {
+		contextBuilder.WriteString("- Team context not available\n")
+	}
+	contextBuilder.WriteString("\n")
+	
+	// Add coordination history for context awareness
+	contextBuilder.WriteString("**Recent Team Coordination:**\n")
+	if team, ok := FromContext(ctx); ok {
+		if t, ok := team.(*Team); ok {
+			recentCoordination := t.CoordinationHistoryStrings(3) // Get last 3 coordination events
+			if len(recentCoordination) > 0 {
+				for _, coord := range recentCoordination {
+					contextBuilder.WriteString(fmt.Sprintf("- %s\n", coord))
+				}
+			} else {
+				contextBuilder.WriteString("- No recent coordination\n")
+			}
+		} else {
+			contextBuilder.WriteString("- Team context not available\n")
+		}
+	} else {
+		contextBuilder.WriteString("- Team context not available\n")
+	}
+	contextBuilder.WriteString("\n")
+	
+	// Add task-specific intelligence patterns
+	contextBuilder.WriteString("**Intelligence Guidelines:**\n")
+	contextBuilder.WriteString("1. **EXPLORE FIRST**: Use `ls`, `find`, or `view` to understand structure before making changes\n")
+	contextBuilder.WriteString("2. **USE TOOLS**: For file operations, ALWAYS use the appropriate tool (create, edit_range, patch) rather than just describing\n")
+	contextBuilder.WriteString("3. **VERIFY ACTIONS**: After making changes, use `view` or `ls` to confirm your work\n")
+	contextBuilder.WriteString("4. **BE SPECIFIC**: When asked to create/modify files, do it immediately with the actual tools\n\n")
+	
+	// Add role-specific context
+	switch agentName {
+	case "coder":
+		contextBuilder.WriteString("**Your Role**: Expert software developer\n")
+		contextBuilder.WriteString("- Focus on: Code creation, file editing, testing, debugging\n") 
+		contextBuilder.WriteString("- Primary tools: create, edit_range, patch, view, run\n")
+		contextBuilder.WriteString("- When asked to 'implement' or 'create code' → USE THE CREATE TOOL immediately\n\n")
+	case "writer":
+		contextBuilder.WriteString("**Your Role**: Documentation and content expert\n")
+		contextBuilder.WriteString("- Focus on: Documentation, README files, user guides, explanations\n")
+		contextBuilder.WriteString("- Primary tools: create, edit_range, view\n") 
+		contextBuilder.WriteString("- When asked to 'write docs' → USE THE CREATE TOOL to make actual files\n\n")
+	case "researcher":
+		contextBuilder.WriteString("**Your Role**: Information gathering specialist\n")
+		contextBuilder.WriteString("- Focus on: Finding information, analyzing existing code, documentation lookup\n")
+		contextBuilder.WriteString("- Primary tools: view, find, grep, web_search\n\n")
+	}
+	
+	// Add the actual task
+	contextBuilder.WriteString("## 🎯 YOUR TASK\n")
+	contextBuilder.WriteString(input)
+	contextBuilder.WriteString("\n\n")
+	
+	// Add action encouragement
+	contextBuilder.WriteString("**IMPORTANT**: If this task involves creating/modifying files or running commands, ")
+	contextBuilder.WriteString("you MUST use the appropriate tools immediately. Do not just provide text descriptions - take concrete action!")
+	
+	return contextBuilder.String()
 }
 
 // GetAgents returns a list of all agent names in the team.
