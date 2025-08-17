@@ -3,14 +3,15 @@ package core
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"strconv"
 	"strings"
+	"sort"
 
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/memstore"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/trace"
+	"github.com/marcodenic/agentry/internal/env"
 )
 
 func stateKey(id string, a *Agent) string {
@@ -91,8 +92,8 @@ func BuildMessages(prompt string, vars map[string]string, hist []memory.Step, in
 	prompt = applyVars(prompt, vars)
 	msgs := []model.ChatMessage{{Role: "system", Content: prompt}}
 
-	compactAfter := getenvIntFallback("AGENTRY_HISTORY_COMPACT_AFTER", 0)
-	keepNewest := getenvIntFallback("AGENTRY_HISTORY_KEEP", 8)
+	compactAfter := env.Int("AGENTRY_HISTORY_COMPACT_AFTER", 0)
+	keepNewest := env.Int("AGENTRY_HISTORY_KEEP", 8)
 	if compactAfter > 0 && len(hist) > compactAfter {
 		if keepNewest < 1 {
 			keepNewest = 1
@@ -114,15 +115,6 @@ func BuildMessages(prompt string, vars map[string]string, hist []memory.Step, in
 	return msgs
 }
 
-func getenvIntFallback(key string, def int) int {
-	if v := os.Getenv(key); v != "" {
-		if i, err := strconv.Atoi(v); err == nil {
-			return i
-		}
-	}
-	return def
-}
-
 func compactHistory(hist []memory.Step, keepNewest int) ([]memory.Step, string) {
 	if keepNewest >= len(hist) {
 		return hist, ""
@@ -130,32 +122,30 @@ func compactHistory(hist []memory.Step, keepNewest int) ([]memory.Step, string) 
 	cut := len(hist) - keepNewest
 	older := hist[:cut]
 	newer := hist[cut:]
+
 	var totalToolCalls int
-	toolFreq := map[string]int{}
+	toolFreq := make(map[string]int, 8)
 	for _, step := range older {
 		totalToolCalls += len(step.ToolCalls)
 		for _, tc := range step.ToolCalls {
 			toolFreq[tc.Name]++
 		}
 	}
+
 	type kv struct {
 		name string
 		n    int
 	}
 	tops := make([]kv, 0, len(toolFreq))
 	for k, v := range toolFreq {
-		tops = append(tops, kv{k, v})
+		tops = append(tops, kv{name: k, n: v})
 	}
-	for i := 0; i < len(tops)-1; i++ {
-		for j := i + 1; j < len(tops); j++ {
-			if tops[j].n > tops[i].n {
-				tops[i], tops[j] = tops[j], tops[i]
-			}
-		}
-	}
+	// Use sort.Slice (O(n log n)) instead of manual O(n^2) double loop
+	sort.Slice(tops, func(i, j int) bool { return tops[i].n > tops[j].n })
 	if len(tops) > 5 {
 		tops = tops[:5]
 	}
+
 	var b strings.Builder
 	b.WriteString("[HISTORY COMPACTED] Earlier ")
 	b.WriteString(strconv.Itoa(cut))
@@ -164,9 +154,7 @@ func compactHistory(hist []memory.Step, keepNewest int) ([]memory.Step, string) 
 		b.WriteString("none")
 	} else {
 		for i, t := range tops {
-			if i > 0 {
-				b.WriteString(", ")
-			}
+			if i > 0 { b.WriteString(", ") }
 			b.WriteString(t.name + "x" + strconv.Itoa(t.n))
 		}
 	}

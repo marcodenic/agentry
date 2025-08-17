@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -156,6 +157,120 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 		})
 	}
 	return comp, nil
+}
+
+// Stream implements incremental streaming for OpenAI Chat Completions API using SSE.
+// NOTE: This currently targets the older /v1/chat/completions streaming format.
+func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (<-chan StreamChunk, error) {
+	if o.key == "" {
+		return nil, errors.New("missing api key")
+	}
+	out := make(chan StreamChunk, 32)
+
+	go func() {
+		defer close(out)
+		type openAITool struct {
+			Type     string `json:"type"`
+			Function struct {
+				Name        string         `json:"name"`
+				Description string         `json:"description,omitempty"`
+				Parameters  map[string]any `json:"parameters"`
+			} `json:"function"`
+		}
+		oaTools := make([]openAITool, len(tools))
+		for i, t := range tools {
+			oaTools[i].Type = "function"
+			oaTools[i].Function.Name = t.Name
+			oaTools[i].Function.Description = t.Description
+			if t.Parameters != nil && len(t.Parameters) > 0 {
+				oaTools[i].Function.Parameters = t.Parameters
+			} else {
+				oaTools[i].Function.Parameters = map[string]any{"type": "object", "properties": map[string]any{}}
+			}
+		}
+
+		type oaMessage struct {
+			Role       string `json:"role"`
+			Content    string `json:"content"`
+			Name       string `json:"name,omitempty"`
+			ToolCallID string `json:"tool_call_id,omitempty"`
+		}
+		oaMsgs := make([]oaMessage, len(msgs))
+		for i, m := range msgs {
+			oaMsgs[i] = oaMessage{Role: m.Role, Content: m.Content, Name: m.Name, ToolCallID: m.ToolCallID}
+		}
+
+		reqBody := map[string]any{
+			"model":       o.model,
+			"messages":    oaMsgs,
+			"tools":       oaTools,
+			"tool_choice": "auto",
+			"stream":      true,
+		}
+		if o.Temperature != nil && supportsTemperature(o.model) {
+			reqBody["temperature"] = *o.Temperature
+		}
+		b, _ := json.Marshal(reqBody)
+		req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewReader(b))
+		if err != nil { out <- StreamChunk{Err: err}; return }
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+o.key)
+
+		resp, err := o.client.Do(req)
+		if err != nil { out <- StreamChunk{Err: err}; return }
+		defer resp.Body.Close()
+		if resp.StatusCode >= 300 {
+			body, _ := io.ReadAll(resp.Body)
+			out <- StreamChunk{Err: errors.New(string(body))}
+			return
+		}
+		scanner := bufio.NewScanner(resp.Body)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		var finalToolCalls []ToolCall
+		for scanner.Scan() {
+			select { case <-ctx.Done(): out <- StreamChunk{Err: ctx.Err()}; return; default: }
+			line := scanner.Text()
+			if !strings.HasPrefix(line, "data:") { continue }
+			payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			if payload == "[DONE]" {
+				out <- StreamChunk{Done: true, ToolCalls: finalToolCalls}
+				return
+			}
+			var evt struct {
+				Choices []struct {
+					Delta struct {
+						Content string `json:"content"`
+						ToolCalls []struct {
+							ID string `json:"id"`
+							Type string `json:"type"`
+							Function struct {
+								Name string `json:"name"`
+								Arguments string `json:"arguments"`
+							} `json:"function"`
+						} `json:"tool_calls"`
+					} `json:"delta"`
+				} `json:"choices"`
+			}
+			if err := json.Unmarshal([]byte(payload), &evt); err != nil { continue }
+			if len(evt.Choices) == 0 { continue }
+			d := evt.Choices[0].Delta
+			// Capture any incremental tool call deltas when first surfaced
+			if len(d.ToolCalls) > 0 {
+				for _, tc := range d.ToolCalls {
+					finalToolCalls = append(finalToolCalls, ToolCall{ID: tc.ID, Name: tc.Function.Name, Arguments: []byte(tc.Function.Arguments)})
+				}
+			}
+			if d.Content != "" {
+				out <- StreamChunk{ContentDelta: d.Content}
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			out <- StreamChunk{Err: err}
+		} else {
+			out <- StreamChunk{Done: true, ToolCalls: finalToolCalls}
+		}
+	}()
+	return out, nil
 }
 
 // ModelName returns the model name used by this OpenAI client

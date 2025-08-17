@@ -1,6 +1,191 @@
-# Agentry Product Notes
+# Agentry Product & Roadmap
 
-## Command Line Usage
+Single authoritative doc consolidating former PLAN.md + FEATURES.md + forward architecture notes. Keep terse, actionable. (Update whenever shipping or re‑prioritizing.)
+
+## Vision (Condensed)
+Local‑first, observable, resilient multi‑agent orchestration: a small, composable Go core that can:
+- Spawn and coordinate role agents safely (permissioned tools, sandbox pending).
+- Persist working/semantic memory across runs.
+- Provide transparent cost / token / trace observability.
+- Be easy to extend (tools, model backends, context providers) without forking.
+
+## Current Foundations (What Exists)
+- Core loop: tool calling, tracing, cost+token accounting, error resilience (treat errors as results, retry caps).
+- Tools: 30+ built‑ins (atomic file ops, search/replace, web/network, OpenAPI, MCP, audit, patch, delegation, etc.).
+- Models: OpenAI, Anthropic, mock; unified `model.Client` interface.
+- Multi‑agent: Team registry + delegation tool; role templates loaded from file system.
+- Memory: per‑agent in‑proc convo history + vector store (shared across spawned agents) + SharedStore (memory/file) for persistence + checkpoints.
+- TUI: streaming, delegation, token/cost bar, input history, logo gradient, diagnostics summary, safe autoscroll.
+- CLI: JSON‑pure automation commands (`invoke`, `team`, `memory`, `analyze`, `refresh-models`). Deprecated: `chat`, `dev`.
+- Platform context + available roles injected into system prompt (legacy platform injection still active).
+
+## Recently Completed (Highlights)
+- SharedStore (memory + file backends) & TTL/GC; coordination events persisted.
+- Inbox built‑ins: `inbox_read`, `inbox_clear`, `request_help`, `workspace_events` + automatic unread injection per turn.
+- Team built‑ins use real Team context; delegation safety (worker agents lose `agent` tool).
+- LSP diagnostics parsing (gopls / tsc) surfaced in TUI summary.
+- Minimal context builder (removed large hardcoded blocks) – awaiting v2 pipeline.
+- JSON stdout purity for automation commands; human logs to stderr.
+- Pricing cache path moved to user cache dir; model pricing refresh command.
+- Iteration cap removal (agents run until final answer) with optional env budget stop.
+
+## Hardening & Cleanup (Code Tightening – No New User Features)
+Architecture
+- [ ] Context v2: Provider → Budget → Assembler (replace implicit logic in `BuildMessages`).
+- [x] Extract tool execution segment from `Agent.Run` → `executeToolCalls` (testable, smaller cyclomatic complexity).
+- [x] Add cancellation checks in agent loop (before/after model + each tool).
+- [ ] Introduce `AgentConfig` struct (consolidate scattered env usage: budgets, error handling, model name).
+- [x] Provide fallback minimal system prompt if role file missing (avoid empty system message). (DONE)
+- [ ] Replace UUID Prometheus token label with role (`agent_role`) to avoid high cardinality.
+Code Quality
+- [x] Consolidate env helpers (`getenvInt`, etc.) into `internal/env` package; remove duplicates.
+- [x] Simplify `compactHistory` using `sort.Slice` (remove O(n^2) manual sort). (DONE)
+- [ ] Clarify Spawn semantics (vector store sharing) with expanded comment + potential option to isolate.
+- [ ] Collapse `defaultPrompt()` + `GetDefaultPrompt()` duplication; keep one public function.
+- [ ] Guard verbose debug prompt/tool dumps behind selectively enabled debug channels.
+- [ ] Normalize model name format (`provider/model`) with a helper.
+Observability
+- [x] Add model latency histogram; add tool error counter (low cardinality). (Histogram DONE; error counter TODO)
+- [ ] Stream trace chunks in larger groups (reduce per‑char overhead) while preserving UI responsiveness.
+Testing
+- [ ] Unit: tool execution error recovery (consecutive error cap), history compaction edges, spawn inheritance deep copy.
+- [ ] Integration: budget exceed path (soft warn 80%, stop 100%), JSON stdout purity regression test.
+- [ ] Golden: default prompt resolution precedence order.
+Docs
+- [ ] CONTRIBUTING: architecture layers, adding a tool/provider, testing matrix, style/lint, release process.
+- [ ] Memory architecture diagram (conversation vs vector vs shared store namespaces).
+Security / Safety
+- [ ] Shell tool allowlist & destructive command confirmation gate (config toggle).
+- [ ] Network tool response size + content‑type limits.
+- [ ] Redact secrets (heuristics) in debug/traces.
+
+Legend: [x] done, [ ] pending. Purely internal items stay here until shipped; user‑visible features go to roadmap.
+
+## Active / Near‑Term User‑Visible Work
+High Priority
+1. Context pipeline v2 (relevance + token budgeting) – replaces minimal builder.
+2. Agent TODO tool (persistent memstore CRUD) – planning aid.
+3. Delegated agent tool call dedupe per iteration.
+4. Elapsed time counter per agent in TUI.
+5. Startup diagnostics banner (prompt presence + API keys).
+
+Medium
+- Modern spinner + unified streaming tail indicator.
+- Code syntax highlighting in TUI.
+- Agent cycling key rebind (free arrow keys for cursor).
+- Nerd Font optional glyph set with graceful fallback.
+
+Deferred / Exploratory
+- Adaptive context pack weighting & incremental pruning.
+- Inline diff preview before patch apply.
+- Advanced relevance scoring (hybrid semantic + structural graph metrics).
+
+## Roadmap (Milestone Outline)
+M1 (Hardening Sprint) – Core cleanup + context pipeline scaffolding + env helper consolidation + metrics label fix.
+M2 – TODO tool + delegation dedupe + elapsed timers + startup diagnostics; add tests & CONTRIBUTING.
+M3 – File locks (opt‑in) + sandbox enforcement + status board tool/TUI panel.
+M4 – LSP symbol/ref/definition providers + RelatedFiles hybrid scoring integration.
+M5 – Extended agent interaction (ask_user), semantic memory search, optional serve mode.
+Later – Remote/cluster spawn, streaming event bus clients, adaptive context weighting.
+
+## Context Management v2 (Summary)
+Goal: deterministic, budget‑aware assembly vs ad hoc injection.
+Pipeline: Providers → Score/Budget → Assemble → Messages.
+Core Providers (initial set): TaskSpec, History (with compaction), WorkspaceSummary, ActiveFile, RelatedFiles, GitDiff, TestFailures, RunOutput, Memory, Rules, LSPDefs.
+Mechanics:
+- Each provider returns (id, rawContent, estTokens, relevanceScore, truncationFn).
+- Budget allocator sorts by (score * weight), fits greedily, applies truncation on overflow.
+- Always annotate with provenance headers (e.g. `<<file:path.go:23-57>>`).
+Testing: pack ordering, truncation boundary, provider opt‑out when empty.
+
+## Agent TODO Tool (Spec Snapshot)
+Namespace: `todo:project:<project_path_hash>`.
+Item fields: id, title, description, priority (low|medium|high), tags[], agent_id, status (pending|done), created_at, updated_at.
+APIs: todo_add, todo_list (filters: status, tags, agent_id, limit), todo_update, todo_delete, todo_get.
+TTL: optional cleanup for done items (configurable env/role).
+Tests: CRUD happy path, tag filter, TTL expiry (simulated), invalid id update/delete.
+
+## Current Command Line Usage
+### Direct Prompt Invocation
+You can invoke agentry with a direct prompt:
+```bash
+./agentry "your prompt here"
+```
+
+Useful for:
+- Delegation tests
+- One‑offs / CI
+- Debugging
+
+Example:
+```bash
+./agentry "Review PRODUCT.md and give a concise bullet summary (delegate only if needed)"
+```
+
+### Available Commands
+```bash
+# Start TUI (default when no command provided)
+./agentry
+./agentry tui
+
+# Direct prompt execution  
+./agentry "create a hello world program"
+
+# Command utilities
+./agentry analyze <trace-file>          # Analyze trace files / (cost integrated)
+./agentry refresh-models                # Download latest model pricing
+./agentry invoke ...                    # One-shot JSON call
+./agentry team ...                      # Team operations (roles, spawn, call)
+./agentry memory ...                    # SharedStore ops
+./agentry version                       # Show version
+./agentry help                          # Show help
+
+# Deprecated (shows warning; removal pending)
+./agentry chat
+./agentry dev
+```
+
+### Common Flags (TUI Mode)
+```bash
+./agentry --config path/to/.agentry.yaml
+./agentry --theme dark
+./agentry --save-id session1
+./agentry --resume-id session1
+```
+
+### Debug Mode
+```bash
+AGENTRY_DEBUG=1 ./agentry "test prompt"   # Debug output (stderr / log)
+AGENTRY_DEBUG=1 ./agentry                 # TUI debug (logs redirected)
+```
+
+Note: TUI mode redirects verbose debug output to avoid UI interference.
+
+## Tightening Review (Key Current Issues)
+Identified areas (do before adding major new features):
+1. Monolithic `Agent.Run` – extract tool execution & streaming; add ctx cancellation checks.
+2. Duplicated env helper functions – unify; improves testability.
+3. High cardinality metrics (UUID labels) – replace with role labels.
+ 4. Missing fallback system prompt – protect against blank system context. (DONE)
+5. Manual O(n^2) sort in history compaction – replace with `sort.Slice`.
+6. Verbose debug always printing system prompt/tool names – guard behind selective debug levels.
+7. Inconsistent naming: legacy platform injection helper; unified naming & deprecate legacy wrapper.
+8. Lack of explicit model options struct – future unification, though not user visible now.
+9. Potential double counting (already fixed for tool output tokens; keep regression test).
+10. Absence of cancellation/timeouts around external tool execution – add context checks.
+11. Potential secret leakage in traces (env prints) – redact patterns.
+12. Shared vector store semantics undocumented – add inline comment + README clarification.
+
+## Update Policy
+After material change: update this file + relevant docs + role templates (if affected). Keep backlog accurate (remove shipped, avoid stale duplicates).
+
+## Status Legend
+Internal Hardening tasks stay until merged; user roadmap items move to Completed once minimal slice is merged & documented.
+
+---
+Historical separate PLAN.md & FEATURES.md merged here (2025‑08‑18).
+---
+
 
 ### Direct Prompt Invocation
 You can invoke agentry with a direct prompt:

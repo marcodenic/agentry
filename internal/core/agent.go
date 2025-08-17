@@ -4,15 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/memory"
+	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
@@ -69,6 +67,11 @@ var (
 		Help:    "Latency of tool execution in seconds",
 		Buckets: prometheus.DefBuckets,
 	}, []string{"agent", "tool"})
+	modelLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "agentry_model_latency_seconds",
+		Help:    "Latency of model completion calls in seconds",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"agent", "model"})
 )
 
 // min returns the minimum of two integers
@@ -97,32 +100,9 @@ func (a *Agent) toolNames() []string {
 	return a.cachedToolNames
 }
 
-// getenvInt returns integer value of environment variable or default
-func getenvInt(key string, def int) int {
-	if v := os.Getenv(key); v != "" {
-		if i, err := strconv.Atoi(v); err == nil {
-			return i
-		}
-	}
-	return def
-}
-
-// getenvBool interprets typical truthy values
-func getenvBool(key string, def bool) bool {
-	if v := os.Getenv(key); v != "" {
-		switch strings.ToLower(v) {
-		case "1", "true", "yes", "y", "on":
-			return true
-		case "0", "false", "no", "n", "off":
-			return false
-		}
-	}
-	return def
-}
-
 func New(client model.Client, modelName string, reg tool.Registry, mem memory.Store, vec memory.VectorStore, tr trace.Writer) *Agent {
-	budgetTokens := getenvInt("AGENTRY_BUDGET_TOKENS", 0)
-	budgetDollars := getenvFloat("AGENTRY_BUDGET_DOLLARS", 0)
+	budgetTokens := env.Int("AGENTRY_BUDGET_TOKENS", 0)
+	budgetDollars := env.Float("AGENTRY_BUDGET_DOLLARS", 0)
 	return &Agent{
 		ID:            uuid.New(),
 		Tools:         reg,
@@ -206,17 +186,68 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	consecutiveErrors := 0
 
 	// optional iteration cap via env var (safety) "AGENTRY_MAX_ITER"
-	maxIter := 0
-	if v := getenvInt("AGENTRY_MAX_ITER", 0); v > 0 {
-		maxIter = v
-	}
+	maxIter := env.Int("AGENTRY_MAX_ITER", 0)
 	for i := 0; ; i++ {
 		if maxIter > 0 && i >= maxIter {
 			return "", fmt.Errorf("iteration cap reached (%d)", maxIter)
 		}
+		// cancellation check early in loop
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+		}
 		// Note: No iteration cap; agent runs until it produces a final answer.
 		debug.Printf("Agent.Run: Starting iteration %d", i)
+		startModel := time.Now()
+		// If client supports streaming, prefer that path for first token latency
+		if sc, ok := a.Client.(model.StreamingClient); ok {
+			streamCh, sErr := sc.Stream(ctx, msgs, specs)
+			if sErr == nil && streamCh != nil {
+				var assembled string
+				var finalToolCalls []model.ToolCall
+				for chunk := range streamCh {
+					if chunk.Err != nil {
+						return "", chunk.Err
+					}
+					if chunk.ContentDelta != "" {
+						assembled += chunk.ContentDelta
+						a.Trace(ctx, trace.EventToken, chunk.ContentDelta)
+					}
+					if chunk.Done {
+						finalToolCalls = chunk.ToolCalls
+					}
+				}
+				modelLatency.WithLabelValues(a.ID.String(), a.ModelName).Observe(time.Since(startModel).Seconds())
+				// After streaming, treat result as a single completion
+				res := model.Completion{Content: assembled, ToolCalls: finalToolCalls}
+				debug.Printf("Agent.Run: Streaming completed with %d tool calls", len(res.ToolCalls))
+				a.Trace(ctx, trace.EventStepStart, res)
+				// Append assistant message
+				msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
+				step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
+				if len(res.ToolCalls) == 0 {
+					a.Mem.AddStep(step)
+					_ = a.Checkpoint(ctx)
+					a.Trace(ctx, trace.EventFinal, res.Content)
+					return res.Content, nil
+				}
+				// Execute tools then continue loop with new messages
+				toolMsgs, hadErrors, execErr := a.executeToolCalls(ctx, res.ToolCalls, step)
+				if execErr != nil { return "", execErr }
+				msgs = append(msgs, toolMsgs...)
+				a.Mem.AddStep(step)
+				_ = a.Checkpoint(ctx)
+				if hadErrors { consecutiveErrors++ } else { consecutiveErrors = 0 }
+				if consecutiveErrors > a.ErrorHandling.MaxErrorRetries {
+					return "", fmt.Errorf("too many consecutive errors (%d), stopping execution", consecutiveErrors)
+				}
+				// Continue outer for-loop for next iteration
+				continue
+			}
+		}
 		res, err := a.Client.Complete(ctx, msgs, specs)
+		modelLatency.WithLabelValues(a.ID.String(), a.ModelName).Observe(time.Since(startModel).Seconds())
 		debug.Printf("Agent.Run: Model call completed for iteration %d, err=%v", i, err)
 		if err != nil {
 			debug.Printf("Agent.Run: Model call failed: %v", err)
@@ -241,7 +272,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 				debug.Printf("Agent.Run: Updated cost manager, total tokens now: %d", a.Cost.TotalTokens())
 				if a.Cost.OverBudget() {
 					debug.Printf("budget exceeded")
-					if getenvBool("AGENTRY_STOP_ON_BUDGET", false) {
+					if env.Bool("AGENTRY_STOP_ON_BUDGET", false) {
 						return "", fmt.Errorf("cost or token budget exceeded (tokens=%d cost=$%.4f)", a.Cost.TotalTokens(), a.Cost.TotalCost())
 					}
 				}
@@ -276,70 +307,13 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		// Track if any tools in this step had errors
 		stepHadErrors := false
 
-		for _, tc := range res.ToolCalls {
-			t, ok := a.Tools.Use(tc.Name)
-			if !ok {
-				errorMsg := fmt.Sprintf("Error: Unknown tool '%s'. Available tools: %v", tc.Name, getToolNames(a.Tools))
-				if a.ErrorHandling.TreatErrorsAsResults {
-					step.ToolResults[tc.ID] = errorMsg
-					msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: errorMsg})
-					stepHadErrors = true
-					continue
-				} else {
-					return "", fmt.Errorf("unknown tool: %s", tc.Name)
-				}
-			}
-			var args map[string]any
-			if err := json.Unmarshal(tc.Arguments, &args); err != nil {
-				errorMsg := fmt.Sprintf("Error: Invalid tool arguments for '%s': %v", tc.Name, err)
-
-				if a.ErrorHandling.TreatErrorsAsResults {
-					step.ToolResults[tc.ID] = errorMsg
-					msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: errorMsg})
-					stepHadErrors = true
-					continue
-				} else {
-					return "", err
-				}
-			}
-			applyVarsMap(args, a.Vars)
-
-			// Debug: Log tool execution details for coder agent
-			debug.Printf("Agent '%s' executing tool '%s' with args: %v", a.ID, tc.Name, args)
-
-			a.Trace(ctx, trace.EventToolStart, map[string]any{"name": tc.Name, "args": args})
-			start := time.Now()
-			r, err := t.Execute(ctx, args)
-			toolLatency.WithLabelValues(a.ID.String(), tc.Name).Observe(time.Since(start).Seconds())
-			if err != nil {
-				debug.Printf("Agent '%s' tool '%s' failed: %v", a.ID, tc.Name, err)
-
-				// Format error message with context if enabled
-				var errorMsg string
-				if a.ErrorHandling.IncludeErrorContext {
-					errorMsg = fmt.Sprintf("Error executing tool '%s': %v\n\nContext:\n- Tool: %s\n- Arguments: %v\n- Suggestion: Please try a different approach or check the tool usage.",
-						tc.Name, err, tc.Name, args)
-				} else {
-					errorMsg = fmt.Sprintf("Error executing tool '%s': %v", tc.Name, err)
-				}
-
-				if a.ErrorHandling.TreatErrorsAsResults {
-					step.ToolResults[tc.ID] = errorMsg
-					msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: errorMsg})
-					stepHadErrors = true
-					continue
-				} else {
-					return "", err
-				}
-			}
-
-			debug.Printf("Agent '%s' tool '%s' succeeded, result length: %d", a.ID, tc.Name, len(r))
-
-			// Tool output tokens are accounted for in subsequent model calls; avoid double-counting here
-			a.Trace(ctx, trace.EventToolEnd, map[string]any{"name": tc.Name, "result": r})
-			step.ToolResults[tc.ID] = r
-			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})
+		// Execute tool calls (extracted helper)
+		toolMsgs, hadErrors, execErr := a.executeToolCalls(ctx, res.ToolCalls, step)
+		stepHadErrors = hadErrors
+		if execErr != nil {
+			return "", execErr
 		}
+		msgs = append(msgs, toolMsgs...)
 
 		// Handle error recovery logic
 		if stepHadErrors {
@@ -357,12 +331,64 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	}
 }
 
-// helper to read float env
-func getenvFloat(key string, def float64) float64 {
-	if v := os.Getenv(key); v != "" {
-		if f, err := strconv.ParseFloat(v, 64); err == nil {
-			return f
+// executeToolCalls runs model-requested tool calls with cancellation & error handling.
+func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, step memory.Step) ([]model.ChatMessage, bool, error) {
+	var msgs []model.ChatMessage
+	hadErrors := false
+	for _, tc := range calls {
+		select { // cancellation between tools
+		case <-ctx.Done():
+			return msgs, hadErrors, ctx.Err()
+		default:
 		}
+		t, ok := a.Tools.Use(tc.Name)
+		if !ok {
+			errorMsg := fmt.Sprintf("Error: Unknown tool '%s'. Available tools: %v", tc.Name, getToolNames(a.Tools))
+			if a.ErrorHandling.TreatErrorsAsResults {
+				step.ToolResults[tc.ID] = errorMsg
+				msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: errorMsg})
+				hadErrors = true
+				continue
+			}
+			return msgs, hadErrors, fmt.Errorf("unknown tool: %s", tc.Name)
+		}
+		var args map[string]any
+		if err := json.Unmarshal(tc.Arguments, &args); err != nil {
+			errorMsg := fmt.Sprintf("Error: Invalid tool arguments for '%s': %v", tc.Name, err)
+			if a.ErrorHandling.TreatErrorsAsResults {
+				step.ToolResults[tc.ID] = errorMsg
+				msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: errorMsg})
+				hadErrors = true
+				continue
+			}
+			return msgs, hadErrors, err
+		}
+		applyVarsMap(args, a.Vars)
+		debug.Printf("Agent '%s' executing tool '%s' with args: %v", a.ID, tc.Name, args)
+		a.Trace(ctx, trace.EventToolStart, map[string]any{"name": tc.Name, "args": args})
+		start := time.Now()
+		r, err := t.Execute(ctx, args)
+		toolLatency.WithLabelValues(a.ID.String(), tc.Name).Observe(time.Since(start).Seconds())
+		if err != nil {
+			debug.Printf("Agent '%s' tool '%s' failed: %v", a.ID, tc.Name, err)
+			var errorMsg string
+			if a.ErrorHandling.IncludeErrorContext {
+				errorMsg = fmt.Sprintf("Error executing tool '%s': %v\n\nContext:\n- Tool: %s\n- Arguments: %v\n- Suggestion: Please try a different approach or check the tool usage.", tc.Name, err, tc.Name, args)
+			} else {
+				errorMsg = fmt.Sprintf("Error executing tool '%s': %v", tc.Name, err)
+			}
+			if a.ErrorHandling.TreatErrorsAsResults {
+				step.ToolResults[tc.ID] = errorMsg
+				msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: errorMsg})
+				hadErrors = true
+				continue
+			}
+			return msgs, hadErrors, err
+		}
+		debug.Printf("Agent '%s' tool '%s' succeeded, result length: %d", a.ID, tc.Name, len(r))
+		a.Trace(ctx, trace.EventToolEnd, map[string]any{"name": tc.Name, "result": r})
+		step.ToolResults[tc.ID] = r
+		msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})
 	}
-	return def
+	return msgs, hadErrors, nil
 }

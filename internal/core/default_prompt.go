@@ -3,7 +3,6 @@ package core
 import (
 	"os"
 	"path/filepath"
-
 	"github.com/marcodenic/agentry/internal/debug"
 	"gopkg.in/yaml.v3"
 )
@@ -56,8 +55,9 @@ func GetDefaultPrompt() string {
 		}
 	}
 	if b == nil {
-		debug.Printf("Default prompt file not found in any search path; set AGENTRY_DEFAULT_PROMPT or install templates.")
-		return "" // Signal missing prompt
+		debug.Printf("Default prompt file not found in any search path; using minimal embedded fallback.")
+		// Provide a minimal safe fallback so agent remains functional.
+		return "You are Agentry, a helpful, tool-using assistant. Always be concise, truthful, and cite any tool usage when relevant."
 	}
 
 	var role roleConfig
@@ -68,8 +68,6 @@ func GetDefaultPrompt() string {
 	return role.Prompt
 }
 
-func defaultPrompt() string {
-	return GetDefaultPrompt()
-}
+func defaultPrompt() string { return GetDefaultPrompt() }
 
 // No code-embedded prompt beyond a minimal fallback above; prefer user-editable files.
