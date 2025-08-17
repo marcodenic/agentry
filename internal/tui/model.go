@@ -229,7 +229,7 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	}
 	// Remove the default prompt (which renders a vertical bar) and any padding
 	ti.Prompt = ""
-	ti.Placeholder = "Type your message... (Press Enter to send)"
+	ti.Placeholder = "Type your message... (Press Enter to send, Up for previous)"
 	// Prevent left padding from shifting the first row
 	if styler, ok := interface{}(&ti).(interface{ SetBaseStyle(lipgloss.Style) }); ok {
 		styler.SetBaseStyle(lipgloss.NewStyle().Padding(0))
@@ -272,12 +272,17 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	// Apply beautiful gradient coloring to the logo
 	logoContent := applyGradientToLogo(rawLogoContent)
 
+	// Configure spinner with dot style and proper coloring
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(th.AIBarColor))
+
 	info := &AgentInfo{
 		Agent:               ag,
 		Status:              StatusIdle,
 		LastContentType:     ContentTypeLogo, // Start with logo content
 		PendingStatusUpdate: "",              // No pending status update initially
-		Spinner:             spinner.New(),
+		Spinner:             sp,
 		TokenProgress:       createTokenProgressBar(),
 		Role:                "System",
 		History:             logoContent,

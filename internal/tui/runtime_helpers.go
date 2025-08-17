@@ -224,9 +224,19 @@ func waitComplete(id uuid.UUID, ch <-chan string) tea.Cmd {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+	var cmds []tea.Cmd
+	
+	// Start activity tick
+	cmds = append(cmds, tea.Tick(time.Second, func(t time.Time) tea.Msg {
 		return activityTickMsg{}
-	})
+	}))
+	
+	// Start spinner ticks for all agents
+	for _, info := range m.infos {
+		cmds = append(cmds, info.Spinner.Tick)
+	}
+	
+	return tea.Batch(cmds...)
 }
 
 func startThinkingAnimation(id uuid.UUID) tea.Cmd {

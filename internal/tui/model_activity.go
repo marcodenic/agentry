@@ -16,13 +16,11 @@ import (
 func (m Model) handleSpinnerTick(msg spinner.TickMsg) (Model, []tea.Cmd) {
 	var cmds []tea.Cmd
 	for id, ag := range m.infos {
-		// Only update spinner for agents that are actually running and not finished streaming
-		if ag.Status == StatusRunning && !ag.TokensStarted {
-			var c tea.Cmd
-			ag.Spinner, c = ag.Spinner.Update(msg)
-			cmds = append(cmds, c)
-			m.infos[id] = ag
-		}
+		// Always update all spinners to keep them animating (we only show them when needed)
+		var c tea.Cmd
+		ag.Spinner, c = ag.Spinner.Update(msg)
+		cmds = append(cmds, c)
+		m.infos[id] = ag
 	}
 	return m, cmds
 }
@@ -104,6 +102,9 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 
 				m.infos[teamAgent.Agent.ID] = info
 				m.order = append(m.order, teamAgent.Agent.ID)
+
+				// Start spinner tick for the new agent
+				newAgentCmds = append(newAgentCmds, info.Spinner.Tick)
 
 				// Emit start message for better UI feedback
 				newAgentCmds = append(newAgentCmds, func() tea.Msg {

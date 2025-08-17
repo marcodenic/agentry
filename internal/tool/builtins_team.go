@@ -209,10 +209,10 @@ func getTeamBuiltins() map[string]builtinSpec {
 
 				available := t.AvailableRoleNames()
 				spawned := t.SpawnedAgentNames()
-				
+
 				var b strings.Builder
 				b.WriteString("🎭 Available Agent Roles:\n\n")
-				
+
 				if len(available) == 0 {
 					b.WriteString("❌ No roles configured. Check your .agentry.yaml include paths.\n")
 				} else {
@@ -234,10 +234,10 @@ func getTeamBuiltins() map[string]builtinSpec {
 						b.WriteString("\n")
 					}
 				}
-				
+
 				b.WriteString("\n💡 Use the 'agent' tool to delegate tasks to any of these roles.\n")
 				b.WriteString("Example: {\"agent\": \"coder\", \"input\": \"create a hello world program\"}\n")
-				
+
 				return b.String(), nil
 			},
 		},
