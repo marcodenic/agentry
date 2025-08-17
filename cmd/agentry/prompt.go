@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/marcodenic/agentry/internal/config"
+	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/trace"
 )
@@ -67,6 +68,13 @@ func runPrompt(cmd string, args []string) {
 			fmt.Printf("🔧 Agent 0 loaded proper role configuration from %s (prompt length: %d chars)\n", agent0RolePath, len(role.Prompt))
 		} else {
 			fmt.Printf("⚠️  Failed to load Agent 0 role from %s: %v\n", agent0RolePath, err)
+		}
+
+		// CRITICAL: Enhance Agent0 prompt with available roles information
+		if ag.Prompt != "" {
+			availableRoles := teamCtx.AvailableRoleNames()
+			ag.Prompt = core.InjectAvailableRoles(ag.Prompt, availableRoles)
+			fmt.Printf("🔧 Agent 0 enhanced with %d available roles: %v\n", len(availableRoles), availableRoles)
 		}
 
 		// Register the agent delegation tool to replace the placeholder

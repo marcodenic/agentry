@@ -62,6 +62,19 @@ func (t *Team) ListRoles() []*RoleConfig {
 	return roles
 }
 
+// ListRoleNames returns all available role names
+func (t *Team) ListRoleNames() []string {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	names := make([]string, 0, len(t.roles))
+	for name := range t.roles {
+		names = append(names, name)
+	}
+
+	return names
+}
+
 // SetMaxTurns sets the maximum number of turns for conversations
 func (t *Team) SetMaxTurns(maxTurns int) {
 	t.mutex.Lock()

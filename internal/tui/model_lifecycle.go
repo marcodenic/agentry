@@ -7,7 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// handleAgentComplete processes agent completion messages
 func (m Model) handleAgentComplete(msg agentCompleteMsg) (Model, tea.Cmd) {
 	// finalMsg already handled completion - this is just cleanup
 	info := m.infos[msg.id]
@@ -18,7 +17,6 @@ func (m Model) handleAgentComplete(msg agentCompleteMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// handleAgentStart processes agent start messages for better UI feedback
 func (m Model) handleAgentStart(msg agentStartMsg) (Model, tea.Cmd) {
 	info := m.infos[msg.id]
 	if info != nil {

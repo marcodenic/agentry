@@ -6,35 +6,21 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/marcodenic/agentry/internal/contracts"
 )
 
 // TeamContextKey is used to store a team implementation in context for builtins.
-// The concrete value should implement the teamAPI interface below.
+// The concrete value should implement the contracts.TeamService interface.
 var TeamContextKey = struct{ key string }{"agentry.team"}
 
 // AgentNameContextKey provides the current agent's logical name (e.g., "agent_0" or role name)
 // when running within a Team. Team sets this value before invoking the agent.
 var AgentNameContextKey = struct{ key string }{"agentry.agent-name"}
 
-// teamAPI defines the minimal surface the team builtins depend on.
-type teamAPI interface {
-	// messaging
-	SendMessageToAgent(ctx context.Context, fromAgentID, toAgentID, message string) error
-	// shared memory
-	GetSharedData(key string) (interface{}, bool)
-	SetSharedData(key string, value interface{})
-	GetAllSharedData() map[string]interface{}
-	// coordination
-	GetCoordinationSummary() string
-	CoordinationHistoryStrings(limit int) []string
-	// inbox
-	GetAgentInbox(agentID string) []map[string]interface{}
-	MarkMessagesAsRead(agentID string)
-	// help
-	RequestHelp(ctx context.Context, agentID, helpDescription string, preferredHelper string) error
-	// discovery
-	Names() []string
-}
+// teamAPI is deprecated - use contracts.TeamService instead
+// Kept for backward compatibility during transition
+type teamAPI = contracts.TeamService
 
 // getTeamBuiltins returns team coordination builtin tools
 func getTeamBuiltins() map[string]builtinSpec {
@@ -44,7 +30,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 			Schema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"n": map[string]any{"type": "integer", "description": "Number of helpers"},
+					"n":     map[string]any{"type": "integer", "description": "Number of helpers"},
 					"topic": map[string]any{"type": "string", "description": "Topic to coordinate on"},
 				},
 				"required": []string{},
@@ -52,7 +38,9 @@ func getTeamBuiltins() map[string]builtinSpec {
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
 				n, _ := getIntArg(args, "n", 1)
 				topic, _ := args["topic"].(string)
-				if n < 1 { n = 1 }
+				if n < 1 {
+					n = 1
+				}
 				var b strings.Builder
 				b.WriteString("Team plan:\n")
 				for i := 1; i <= n; i++ {
@@ -100,14 +88,14 @@ func getTeamBuiltins() map[string]builtinSpec {
 					return "", fmt.Errorf("no team in context")
 				}
 
-				names := t.Names()
+				spawned := t.SpawnedAgentNames()
 				var b strings.Builder
 				b.WriteString(fmt.Sprintf("Team Status - %s\n", time.Now().Format("2006-01-02 15:04:05")))
-				if len(names) == 0 {
-					b.WriteString("No agents registered.\n")
+				if len(spawned) == 0 {
+					b.WriteString("No agents currently running.\n")
 				} else {
-					b.WriteString("Agents:\n")
-					for _, n := range names {
+					b.WriteString("Running Agents:\n")
+					for _, n := range spawned {
 						b.WriteString("- ")
 						b.WriteString(n)
 						b.WriteString("\n")
@@ -115,7 +103,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 				}
 				// Append a short coordination summary
 				b.WriteString("\nRecent Coordination:\n")
-				lines := t.CoordinationHistoryStrings(5)
+				lines := t.GetCoordinationHistory(5)
 				if len(lines) == 0 {
 					b.WriteString("- none\n")
 				} else {
@@ -169,7 +157,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 						from = s
 					}
 				}
-				if err := t.SendMessageToAgent(ctx, from, to, message); err != nil {
+				if err := t.SendMessage(ctx, from, to, message); err != nil {
 					return "", err
 				}
 				return fmt.Sprintf("✅ Message sent from %s to %s [%s]: %s", from, to, msgType, message), nil
@@ -196,13 +184,61 @@ func getTeamBuiltins() map[string]builtinSpec {
 				if t == nil {
 					return "", fmt.Errorf("no team in context")
 				}
-				names := t.Names()
-				for _, n := range names {
+				spawned := t.SpawnedAgentNames()
+				for _, n := range spawned {
 					if n == agentName {
 						return fmt.Sprintf("✅ Agent '%s' is available", agentName), nil
 					}
 				}
-				return fmt.Sprintf("❌ Agent '%s' is not available. Available agents: %s", agentName, strings.Join(names, ", ")), nil
+				return fmt.Sprintf("❌ Agent '%s' is not available. Available agents: %s", agentName, strings.Join(spawned, ", ")), nil
+			},
+		},
+		"available_roles": {
+			Desc: "List all available agent roles from configuration",
+			Schema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+				"required":   []string{},
+			},
+			Exec: func(ctx context.Context, args map[string]any) (string, error) {
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
+				}
+
+				available := t.AvailableRoleNames()
+				spawned := t.SpawnedAgentNames()
+				
+				var b strings.Builder
+				b.WriteString("🎭 Available Agent Roles:\n\n")
+				
+				if len(available) == 0 {
+					b.WriteString("❌ No roles configured. Check your .agentry.yaml include paths.\n")
+				} else {
+					b.WriteString("📋 Configured Roles:\n")
+					for _, role := range available {
+						b.WriteString("- ")
+						b.WriteString(role)
+						// Check if this role has a spawned agent
+						isSpawned := false
+						for _, agent := range spawned {
+							if agent == role {
+								isSpawned = true
+								break
+							}
+						}
+						if isSpawned {
+							b.WriteString(" (currently running)")
+						}
+						b.WriteString("\n")
+					}
+				}
+				
+				b.WriteString("\n💡 Use the 'agent' tool to delegate tasks to any of these roles.\n")
+				b.WriteString("Example: {\"agent\": \"coder\", \"input\": \"create a hello world program\"}\n")
+				
+				return b.String(), nil
 			},
 		},
 		"shared_memory": {
@@ -297,7 +333,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 				case "summary":
 					return t.GetCoordinationSummary(), nil
 				case "full":
-					lines := t.CoordinationHistoryStrings(0)
+					lines := t.GetCoordinationHistory(0)
 					if len(lines) == 0 {
 						return "📋 No coordination events.", nil
 					}
@@ -310,7 +346,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 					}
 					return b.String(), nil
 				case "recent":
-					lines := t.CoordinationHistoryStrings(10)
+					lines := t.GetCoordinationHistory(10)
 					if len(lines) == 0 {
 						return "🕐 No recent coordination events.", nil
 					}
@@ -384,7 +420,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 					markRead = mr
 				}
 
-				msgs := t.GetAgentInbox(agent)
+				msgs := t.GetInbox(agent)
 				// Filter unread
 				unread := make([]map[string]interface{}, 0, len(msgs))
 				for _, m := range msgs {
@@ -399,7 +435,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 					return "📭 Inbox empty", nil
 				}
 				if markRead {
-					t.MarkMessagesAsRead(agent)
+					t.MarkInboxRead(agent)
 				}
 				var b strings.Builder
 				b.WriteString(fmt.Sprintf("📬 Inbox for %s (%d unread):\n", agent, len(unread)))
@@ -530,10 +566,20 @@ func getTeamBuiltins() map[string]builtinSpec {
 					typ, _ := ev["type"].(string)
 					desc, _ := ev["description"].(string)
 					b.WriteString("- ")
-					if ts != "" { b.WriteString("["); b.WriteString(ts); b.WriteString("] ") }
-					if agentID != "" { b.WriteString(agentID); b.WriteString(" | ") }
+					if ts != "" {
+						b.WriteString("[")
+						b.WriteString(ts)
+						b.WriteString("] ")
+					}
+					if agentID != "" {
+						b.WriteString(agentID)
+						b.WriteString(" | ")
+					}
 					b.WriteString(typ)
-					if desc != "" { b.WriteString(": "); b.WriteString(desc) }
+					if desc != "" {
+						b.WriteString(": ")
+						b.WriteString(desc)
+					}
 					b.WriteString("\n")
 				}
 				return b.String(), nil
@@ -579,7 +625,9 @@ func getTeamBuiltins() map[string]builtinSpec {
 					return "", err
 				}
 				target := helper
-				if target == "" { target = "all agents" }
+				if target == "" {
+					target = "all agents"
+				}
 				return fmt.Sprintf("🆘 Help requested from %s: %s", target, desc), nil
 			},
 		},

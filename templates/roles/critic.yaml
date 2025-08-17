@@ -1,4 +1,4 @@
-name: reviewer
+name: critic
 model:
   provider: openai
   options:

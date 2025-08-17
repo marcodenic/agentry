@@ -13,12 +13,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/marcodenic/agentry/internal/contracts"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/memstore"
 	"github.com/marcodenic/agentry/internal/tokens"
 	"github.com/marcodenic/agentry/internal/tool"
 )
+
+// Compile-time check to ensure Team implements contracts.TeamService
+var _ contracts.TeamService = (*Team)(nil)
 
 // Timer utility for performance debugging
 type Timer struct {
@@ -591,6 +595,38 @@ func (t *Team) Names() []string {
 	return t.GetAgents()
 }
 
+// ===== contracts.TeamService Implementation =====
+
+// SpawnedAgentNames returns currently running agent instances
+func (t *Team) SpawnedAgentNames() []string {
+	return t.GetAgents()
+}
+
+// AvailableRoleNames returns role names from configuration files  
+func (t *Team) AvailableRoleNames() []string {
+	return t.ListRoleNames()
+}
+
+// DelegateTask delegates a task to a role (spawning if needed)
+func (t *Team) DelegateTask(ctx context.Context, role, task string) (string, error) {
+	return t.Call(ctx, role, task)
+}
+
+// GetInbox returns an agent's inbox messages
+func (t *Team) GetInbox(agentID string) []map[string]interface{} {
+	return t.GetAgentInbox(agentID)
+}
+
+// MarkInboxRead marks an agent's messages as read
+func (t *Team) MarkInboxRead(agentID string) {
+	t.MarkMessagesAsRead(agentID)
+}
+
+// GetCoordinationHistory returns coordination event history
+func (t *Team) GetCoordinationHistory(limit int) []string {
+	return t.CoordinationHistoryStrings(limit)
+}
+
 // GetTeamAgents returns a list of all team agents with role information.
 func (t *Team) GetTeamAgents() []*Agent {
 	t.mutex.RLock()
@@ -748,15 +784,6 @@ func (t *Team) LogCoordinationEvent(eventType, from, to, content string, metadat
 	// Enhanced console logging
 	debugPrintf("📝 COORDINATION EVENT: %s -> %s | %s: %s\n", from, to, eventType, content)
 	logToFile(fmt.Sprintf("COORDINATION: %s -> %s | %s: %s", from, to, eventType, content))
-}
-
-// GetCoordinationHistory returns the coordination event history
-func (t *Team) GetCoordinationHistory() []CoordinationEvent {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-	result := make([]CoordinationEvent, len(t.coordination))
-	copy(result, t.coordination)
-	return result
 }
 
 // loadCoordinationFromStore loads persisted coordination events at startup.

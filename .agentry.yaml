@@ -137,3 +137,4 @@ include:
   - templates/roles/writer.yaml
   - templates/roles/researcher.yaml
   - templates/roles/team_planner.yaml
+  - templates/roles/critic.yaml

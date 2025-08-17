@@ -23,7 +23,7 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	info.TokensStarted = false  // Reset tokens started flag
 	info.StreamingResponse = "" // Reset streaming response
 	info.Spinner = spinner.New()
-	info.Spinner.Spinner = spinner.Line
+	info.Spinner.Spinner = spinner.Dot
 	info.Spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
 
 	// Clear initial logo on first user input

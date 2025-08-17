@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -105,13 +107,25 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 					// Status Message → AI Response: Add spacing during streaming
 					spacing = "\n\n"
 				default:
-					spacing = "\n"
 				}
 
 				displayHistory += spacing + formattedStreamingResponse
 			}
+
+			// Only autoscroll if we were at the bottom prior to this update.
+			// If the bubbles version lacks AtBottom(), fall back to always autoscroll.
+			wasAtBottom := false
+			type atBottomCap interface{ AtBottom() bool }
+			if ab, ok := interface{}(m.vp).(atBottomCap); ok {
+				wasAtBottom = ab.AtBottom()
+			} else {
+				// Fallback behavior: assume at bottom (maintains previous behavior)
+				wasAtBottom = true
+			}
 			m.vp.SetContent(displayHistory)
-			m.vp.GotoBottom()
+			if wasAtBottom {
+				m.vp.GotoBottom()
+			}
 		}
 	}
 
@@ -183,15 +197,40 @@ func (m Model) handleFinalMessage(msg finalMsg) (Model, tea.Cmd) {
 	}
 	info.StreamingResponse = "" // Clear streaming response
 
-	// Limit history length to prevent unbounded memory growth (keep last ~100KB)
-	const maxHistoryLength = 100000
-	if len(info.History) > maxHistoryLength {
-		// Keep last 75% of history to maintain context
-		keepLength := maxHistoryLength * 3 / 4
-		info.History = "...[earlier messages truncated]...\n" + info.History[len(info.History)-keepLength:]
-		// After truncation, we don't know the last content type, so reset it
-		info.LastContentType = ContentTypeEmpty
+	// Optional: limit history length via env var AGENTRY_HISTORY_LIMIT (bytes)
+	if limStr := os.Getenv("AGENTRY_HISTORY_LIMIT"); limStr != "" {
+		if maxLen, err := strconv.Atoi(limStr); err == nil && maxLen > 0 {
+			if len(info.History) > maxLen {
+				// Keep last 75% of history to maintain context
+				keepLength := (maxLen * 3) / 4
+				if keepLength < 0 {
+					keepLength = 0
+				}
+				if keepLength > len(info.History) {
+					keepLength = len(info.History)
+				}
+				info.History = "...[earlier messages truncated]...\n" + info.History[len(info.History)-keepLength:]
+				// After truncation, we don't know the last content type, so reset it
+				info.LastContentType = ContentTypeEmpty
+			}
+		}
 	}
+
+	// Set status to idle, clear spinner and elapsed timer
+	info.Status = StatusIdle
+	info.TokensStarted = false
+
+	// Reconcile streaming token count with final API response
+	if info.Agent != nil && info.Agent.Cost != nil {
+		info.StreamingTokenCount = info.Agent.Cost.TotalTokens()
+	}
+
+	if msg.id == m.active {
+		m.vp.SetContent(info.History)
+		m.vp.GotoBottom()
+	}
+	m.infos[msg.id] = info
+	return m, nil
 
 	// Set status to idle, clear spinner
 	info.Status = StatusIdle

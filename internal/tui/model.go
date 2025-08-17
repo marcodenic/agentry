@@ -279,7 +279,6 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		PendingStatusUpdate: "",              // No pending status update initially
 		Spinner:             spinner.New(),
 		TokenProgress:       createTokenProgressBar(),
-		Name:                "Agent 0",
 		Role:                "System",
 		History:             logoContent,
 		ActivityData:        make([]float64, 0),
@@ -329,9 +328,19 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		panic(fmt.Sprintf("failed to initialize team: %v", err))
 	}
 
+	// Load base prompt from templates
 	ag.Prompt = core.GetDefaultPrompt()
 	if strings.TrimSpace(ag.Prompt) == "" {
 		debug.Printf("Warning: No default prompt found. Set AGENTRY_DEFAULT_PROMPT or install templates (see docs). Proceeding without a system prompt.")
+	}
+
+	// Enhance Agent0 prompt with available roles information
+	if ag.Prompt != "" {
+		availableRoles := tm.AvailableRoleNames()
+		ag.Prompt = core.InjectAvailableRoles(ag.Prompt, availableRoles)
+		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			debug.Printf("🔧 Agent0 enhanced with %d available roles: %v", len(availableRoles), availableRoles)
+		}
 	}
 
 	tm.RegisterAgentTool(ag.Tools)

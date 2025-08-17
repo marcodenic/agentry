@@ -205,3 +205,28 @@ func InjectPlatformContextLegacy(prompt string) string {
 		[]string{},
 	)
 }
+
+// InjectAvailableRoles adds available agent role information to the prompt
+func InjectAvailableRoles(prompt string, availableRoles []string) string {
+	// If prompt already contains role info, don't duplicate
+	if strings.Contains(prompt, "AVAILABLE AGENTS:") {
+		return prompt
+	}
+
+	if len(availableRoles) == 0 {
+		return prompt
+	}
+
+	var roleInfo strings.Builder
+	roleInfo.WriteString("\n\nAVAILABLE AGENTS: You can delegate tasks to these specialized agents using the 'agent' tool:\n")
+	for _, role := range availableRoles {
+		if role != "agent_0" { // Don't list ourselves
+			roleInfo.WriteString("- ")
+			roleInfo.WriteString(role)
+			roleInfo.WriteString("\n")
+		}
+	}
+	roleInfo.WriteString("\nExample delegation: {\"agent\": \"coder\", \"input\": \"create a hello world program\"}")
+
+	return prompt + roleInfo.String()
+}

@@ -190,10 +190,10 @@ func runInvokeCmd(args []string) {
 		fmt.Println("Usage: agentry invoke <prompt>")
 		return
 	}
-	
+
 	// Join all args as the prompt
 	prompt := strings.Join(args, " ")
-	
+
 	// For now, just delegate to the prompt runner
 	runPrompt(prompt, []string{})
 }
