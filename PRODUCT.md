@@ -16,7 +16,7 @@ This runs the prompt through Agent 0 and returns the result. Useful for:
 
 Example:
 ```bash
-./agentry "spawn a coder to review PRODUCT.md and report back"
+./agentry "Review PRODUCT.md and give a concise bullet summary (delegate only if needed)"
 ```
 
 ### Available Commands
@@ -265,8 +265,39 @@ score = 0.45 * semanticSim(task, fileEmb)
 ---
 
 ## Next Steps
-- Implement the TODO tool for all agents
-- **CRITICAL**: Refactor context injection to prevent rate limit violations
-- Replace hardcoded context with dynamic, token-budgeted providers
-- Test context window management across model providers
-- Add LSP integration for richer code context
+### Current Status Snapshot
+Core:
+- Minimal context builder in place; heavy hardcoded context removed (now using sentinel + cached project summaries).
+- Delegation safety: worker agents stripped of `agent` tool to avoid recursive cascades.
+- Token & cost tracking integrated with live progress display in TUI.
+
+TUI UX:
+- Input history (Up/Down) implemented.
+- Conditional autoscroll prevents fighting the stream when scrolled up.
+- Basic spinner still legacy (| / - \) – modernization pending.
+
+Planned (High Priority)
+1. Context pipeline (Provider → Budget → Assembler) with relevance + token budgeting.
+2. Agent TODO list tool (persistent in memstore) with add/list/update/delete/get APIs.
+3. Delegated agent call deduplication (single `agent` tool execution per iteration) to reduce redundant spawns.
+4. Elapsed time counter per active agent in sidebar.
+5. Startup diagnostics banner (prompt file + API key presence) beneath logo.
+
+Planned (Medium)
+- Modern mini-dots spinner + unified streaming tail indicator.
+- Code syntax highlighting in TUI.
+- Shift+Left/Right (or alternative) for agent cycling; reserve Left/Right for cursor.
+- Nerd Font glyph optional support with graceful fallback.
+
+Deferred / Exploratory
+- Rich context pack weighting heuristics & adaptive pruning.
+- Inline diff preview before patch apply.
+
+### Immediate Next Steps
+1. Implement context provider registry & budgeting harness.
+2. Ship TODO tool (schema already sketched) storing under `todo:project:<path>`.
+3. Add single-iteration agent tool deduper (light filter in `Agent.Run`).
+4. Introduce elapsed timer + refactor spinner frames.
+5. Backfill tests covering: context truncation, TODO CRUD, delegation dedupe.
+
+Track progress in `FEATURES.md` (now separated into Completed / Planned sections).

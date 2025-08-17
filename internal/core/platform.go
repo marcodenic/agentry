@@ -189,13 +189,12 @@ func contains(slice []string, item string) bool {
 // InjectPlatformContext adds OS-specific guidance to agent prompts with filtered commands
 func InjectPlatformContext(prompt string, allowedCommands []string, allowedBuiltins []string) string {
 	platformInfo := GetPlatformContext(allowedCommands, allowedBuiltins)
-
-	// If prompt already contains platform info, don't duplicate
-	if strings.Contains(prompt, "PLATFORM:") {
+	const start = "<!-- PLATFORM_CONTEXT_START -->"
+	const end = "<!-- PLATFORM_CONTEXT_END -->"
+	if strings.Contains(prompt, start) { // already injected
 		return prompt
 	}
-
-	return prompt + "\n" + platformInfo
+	return prompt + "\n" + start + "\n" + platformInfo + end
 }
 
 // InjectPlatformContextLegacy provides backward compatibility
