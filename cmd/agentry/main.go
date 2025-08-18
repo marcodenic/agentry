@@ -93,10 +93,6 @@ func main() {
 		runTui(args)
 	case "invoke":
 		runInvokeCmd(args)
-	case "team":
-		runTeamCmd(args)
-	case "memory":
-		runMemoryCmd(args)
 	case "cost":
 		runCostCmd(args)
 	case "pprof":
