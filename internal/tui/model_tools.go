@@ -48,6 +48,19 @@ func (m Model) handleToolUseMessage(msg toolUseMsg) (Model, tea.Cmd) {
 func (m Model) handleActionMessage(msg actionMsg) (Model, tea.Cmd) {
 	info := m.infos[msg.id]
 
+	// If we have a streamed assistant response that hasn't been finalized yet (because
+	// the model produced tool calls), commit it to the permanent history BEFORE we
+	// append the tool action status line. Previously the plan/response was only kept
+	// in StreamingResponse (ephemeral) and cleared from the viewport once we rendered
+	// the first tool action, giving the illusion that the assistant "thought" text
+	// disappeared. Persisting it here preserves the initial plan exactly as shown.
+	if info.StreamingResponse != "" {
+		formatted := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
+		info.addContentWithSpacing(formatted, ContentTypeAIResponse)
+		info.StreamingResponse = "" // mark as committed
+		info.TokensStarted = false   // reset so future streaming cycles behave normally
+	}
+
 	// Start progressive status update with orange bar
 	info.startProgressiveStatusUpdate(msg.text, m)
 

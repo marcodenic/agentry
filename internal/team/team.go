@@ -303,8 +303,15 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 				ts = tv.Format("15:04:05")
 			}
 			sb.WriteString("- ")
-			if ts != "" { sb.WriteString("["); sb.WriteString(ts); sb.WriteString("] ") }
-			if from != "" { sb.WriteString(from); sb.WriteString(": ") }
+			if ts != "" {
+				sb.WriteString("[")
+				sb.WriteString(ts)
+				sb.WriteString("] ")
+			}
+			if from != "" {
+				sb.WriteString(from)
+				sb.WriteString(": ")
+			}
 			sb.WriteString(msg)
 			sb.WriteString("\n")
 		}
@@ -356,7 +363,9 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	}
 
 	// Mark inbox messages as read after processing
-	if len(unread) > 0 { t.MarkMessagesAsRead(agentID) }
+	if len(unread) > 0 {
+		t.MarkMessagesAsRead(agentID)
+	}
 	timer.Checkpoint("cleanup completed")
 
 	// Update agent status and handle errors gracefully
