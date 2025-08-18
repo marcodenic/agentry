@@ -49,7 +49,8 @@ func (m Model) handleThinkingAnimation(msg thinkingAnimationMsg) (Model, tea.Cmd
 	}
 
 	// Dots spinner frames (replacing slash spinner)
-	frames := []string{"   ", "•  ", "•• ", "•••"}
+	// Use fixed width of 4 spaces so alignment matches user input (which uses 4 spaces after the bar)
+	frames := []string{"    ", "•   ", "••  ", "••• "}
 	currentSpinner := frames[msg.frame%len(frames)]
 
 	// Build display content WITHOUT modifying history
@@ -57,16 +58,15 @@ func (m Model) handleThinkingAnimation(msg thinkingAnimationMsg) (Model, tea.Cmd
 
 	// Check if we should append spinner to last status message or show on new line
 	if info.LastContentType == ContentTypeStatusMessage {
-		// Append spinner to the end of the last status message
-		displayHistory += " " + currentSpinner
+		// Append spinner to the end of the last status message, align with 4-space content indent
+		displayHistory += "    " + currentSpinner
 	} else {
 		// For user input or other content types, show spinner on new line with AI bar
+		// Use four spaces after the bar to match user input indentation (and give a bit more offset)
 		if len(displayHistory) > 0 && !strings.HasSuffix(displayHistory, "\n") {
-			// Add AI bar and spinner for display only
-			displayHistory += "\n" + m.aiBar() + " " + currentSpinner
+			displayHistory += "\n" + m.aiBar() + "    " + currentSpinner
 		} else {
-			// Add AI bar and spinner for display only
-			displayHistory += m.aiBar() + " " + currentSpinner
+			displayHistory += m.aiBar() + "    " + currentSpinner
 		}
 	}
 

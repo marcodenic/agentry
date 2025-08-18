@@ -3,15 +3,15 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"strconv"
 	"strings"
-	"sort"
 
+	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/memstore"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/trace"
-	"github.com/marcodenic/agentry/internal/env"
 )
 
 func stateKey(id string, a *Agent) string {
@@ -154,7 +154,9 @@ func compactHistory(hist []memory.Step, keepNewest int) ([]memory.Step, string) 
 		b.WriteString("none")
 	} else {
 		for i, t := range tops {
-			if i > 0 { b.WriteString(", ") }
+			if i > 0 {
+				b.WriteString(", ")
+			}
 			b.WriteString(t.name + "x" + strconv.Itoa(t.n))
 		}
 	}

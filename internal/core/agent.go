@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/debug"
-	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/env"
+	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
@@ -213,7 +213,9 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 				var finalToolCalls []model.ToolCall
 				firstTokenRecorded := false
 				for chunk := range streamCh {
-					if chunk.Err != nil { return "", chunk.Err }
+					if chunk.Err != nil {
+						return "", chunk.Err
+					}
 					if chunk.ContentDelta != "" {
 						assembled += chunk.ContentDelta
 						if !firstTokenRecorded {
@@ -223,7 +225,9 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 						// Emit raw delta for TUI-side smoothing
 						a.Trace(ctx, trace.EventToken, chunk.ContentDelta)
 					}
-					if chunk.Done { finalToolCalls = chunk.ToolCalls }
+					if chunk.Done {
+						finalToolCalls = chunk.ToolCalls
+					}
 				}
 				modelLatency.WithLabelValues(a.ID.String(), a.ModelName).Observe(time.Since(startModel).Seconds())
 				// After streaming, treat result as a single completion
@@ -241,11 +245,17 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 				}
 				// Execute tools then continue loop with new messages
 				toolMsgs, hadErrors, execErr := a.executeToolCalls(ctx, res.ToolCalls, step)
-				if execErr != nil { return "", execErr }
+				if execErr != nil {
+					return "", execErr
+				}
 				msgs = append(msgs, toolMsgs...)
 				a.Mem.AddStep(step)
 				_ = a.Checkpoint(ctx)
-				if hadErrors { consecutiveErrors++ } else { consecutiveErrors = 0 }
+				if hadErrors {
+					consecutiveErrors++
+				} else {
+					consecutiveErrors = 0
+				}
 				if consecutiveErrors > a.ErrorHandling.MaxErrorRetries {
 					return "", fmt.Errorf("too many consecutive errors (%d), stopping execution", consecutiveErrors)
 				}

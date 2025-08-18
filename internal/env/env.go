@@ -74,4 +74,3 @@ func Float(key string, def float64) float64 {
 	}
 	return def
 }
-

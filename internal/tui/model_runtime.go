@@ -3,6 +3,7 @@ package tui
 import (
 	"encoding/json"
 	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/trace"
@@ -105,7 +106,9 @@ func (m *Model) readEvent(id uuid.UUID) tea.Msg {
 		case trace.EventToken:
 			if s, ok := ev.Data.(string); ok {
 				info := m.infos[id]
-				if info == nil { return nil }
+				if info == nil {
+					return nil
+				}
 				info.StreamAggBuf += s
 				flush := false
 				// flush on first chunk or punctuation/size threshold
