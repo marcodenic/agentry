@@ -105,13 +105,11 @@ func (m Model) agentPanel(panelWidth int) string {
 			}
 		}
 
-		tokenPct := float64(actualTokens) / float64(maxTokens) * 100
 		tokenLine := fmt.Sprintf("  tokens: %d/%d", actualTokens, maxTokens)
 		lines = append(lines, tokenLine)
 
-		// The progress bar percentage will be set in renderTokenBar
-		// to avoid double-setting which might cause color issues
-		bar := m.renderTokenBar(ag, tokenPct, panelWidth)
+		// The progress bar percentage is computed inside renderTokenBar
+		bar := m.renderTokenBar(ag, panelWidth)
 		lines = append(lines, "  "+bar)
 		activityChart := m.renderActivityChart(ag.ActivityData, panelWidth)
 		if activityChart != "" {

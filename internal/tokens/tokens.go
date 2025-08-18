@@ -2,6 +2,7 @@ package tokens
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/pkoukk/tiktoken-go"
@@ -49,21 +50,9 @@ func getEncoder(modelName string) (*tiktoken.Tiktoken, error) {
 	return encoder, nil
 }
 
-// contains is a helper function for case-insensitive substring matching
+// contains is a helper function for substring matching (case-insensitive) using stdlib
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) &&
-		(s == substr ||
-			(len(s) > len(substr) &&
-				stringContains(s, substr)))
-}
-
-func stringContains(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
 
 // Count returns the number of tokens in the given text for the specified model

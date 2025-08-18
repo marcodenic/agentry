@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/marcodenic/agentry/internal/contracts"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
@@ -412,74 +414,64 @@ func (t *Team) CallParallel(ctx context.Context, tasks []interface{}) (string, e
 		return "", errors.New("no tasks provided")
 	}
 
-	type taskResult struct {
-		index  int
-		result string
-		err    error
-	}
+	// Derive a group that cancels remaining tasks on first error / context cancel
+	eg, ctxGroup := errgroup.WithContext(ctx)
+	results := make([]string, len(tasks))
+	var mu sync.Mutex // protect writes to results slice
 
-	results := make(chan taskResult, len(tasks))
-
-	// Start all tasks in parallel
 	for i, taskInterface := range tasks {
-		go func(index int, taskInterface interface{}) {
-			task, ok := taskInterface.(map[string]interface{})
-			if !ok {
-				results <- taskResult{index: index, err: fmt.Errorf("task %d: invalid task format", index)}
-				return
+		idx := i
+		taskValue := taskInterface
+		eg.Go(func() error {
+			// Fast path: check context first
+			if ctxGroup.Err() != nil {
+				return ctxGroup.Err()
 			}
-
+			task, ok := taskValue.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("task %d: invalid task format", idx)
+			}
 			agentName, ok := task["agent"].(string)
-			if !ok {
-				results <- taskResult{index: index, err: fmt.Errorf("task %d: agent name is required", index)}
-				return
+			if !ok || agentName == "" {
+				return fmt.Errorf("task %d: agent name is required", idx)
 			}
-
 			input, ok := task["input"].(string)
-			if !ok {
-				results <- taskResult{index: index, err: fmt.Errorf("task %d: input is required", index)}
-				return
+			if !ok || input == "" {
+				return fmt.Errorf("task %d: input is required", idx)
 			}
-
-			debugPrintf("🚀 Starting parallel task %d: %s -> %s", index, agentName, input[:min(50, len(input))])
-			result, err := t.Call(ctx, agentName, input)
-			results <- taskResult{index: index, result: result, err: err}
-		}(i, taskInterface)
+			trimmed := input
+			if len(trimmed) > 50 {
+				trimmed = trimmed[:50]
+			}
+			debugPrintf("🚀 Starting parallel task %d: %s -> %s", idx, agentName, trimmed)
+			res, err := t.Call(ctxGroup, agentName, input)
+			if err != nil {
+				return fmt.Errorf("task %d (%s) failed: %w", idx, agentName, err)
+			}
+			mu.Lock()
+			results[idx] = res
+			mu.Unlock()
+			return nil
+		})
 	}
 
-	// Collect results
-	taskResults := make([]string, len(tasks))
-	var errs []error
-
-	for i := 0; i < len(tasks); i++ {
-		result := <-results
-		if result.err != nil {
-			errs = append(errs, result.err)
-		} else {
-			taskResults[result.index] = result.result
-		}
-	}
-
-	if len(errs) > 0 {
-		return "", fmt.Errorf("parallel execution errors: %v", errs)
+	if err := eg.Wait(); err != nil {
+		return "", err
 	}
 
 	// Combine results from all agents
 	var combinedResult strings.Builder
 	combinedResult.WriteString("📋 **Parallel Agent Execution Results:**\n\n")
-
-	for i, result := range taskResults {
+	for i, result := range results {
 		taskInterface := tasks[i]
 		task := taskInterface.(map[string]interface{})
 		agentName := task["agent"].(string)
-
 		combinedResult.WriteString(fmt.Sprintf("**Agent %d (%s):**\n", i+1, agentName))
 		combinedResult.WriteString(result)
-		if i < len(taskResults)-1 {
+		if i < len(results)-1 {
 			combinedResult.WriteString("\n\n---\n\n")
 		}
 	}
-
 	debugPrintf("✅ Parallel execution completed successfully with %d agents", len(tasks))
 	return combinedResult.String(), nil
 }

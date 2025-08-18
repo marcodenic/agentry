@@ -25,12 +25,10 @@ func (m Model) renderMarkdown(content string, width int) (string, error) {
 	}
 
 	// Create glamour renderer with appropriate settings
-	// Use standard style with dark/light theme detection for proper formatting
-	background := "dark"
+	// Simplified dark/light detection (feedback: previous logic redundant)
+	background := "light"
 	if lipgloss.HasDarkBackground() {
 		background = "dark"
-	} else {
-		background = "light"
 	}
 
 	renderer, err := glamour.NewTermRenderer(
@@ -63,12 +61,8 @@ func normalizeMarkdownSyntax(content string) string {
 	lines := strings.Split(content, "\n")
 	var normalized []string
 
-	for _, line := range lines {
-		// Keep bullet point symbols as-is since they're already markdown-ish
-		// Don't convert • to - to avoid double conversion
-		// Just pass through the content
-		normalized = append(normalized, line)
-	}
+	// Pass through lines unchanged; keep potential bullet glyphs intact
+	normalized = append(normalized, lines...)
 
 	return strings.Join(normalized, "\n")
 }

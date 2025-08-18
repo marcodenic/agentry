@@ -37,10 +37,6 @@ type toolUseMsg struct {
 	args map[string]any
 }
 
-type thinkingMsg struct {
-	id   uuid.UUID
-	text string
-}
 
 type thinkingAnimationMsg struct {
 	id    uuid.UUID
@@ -83,11 +79,16 @@ type finalMsg struct {
 var spinnerFrames = []string{"|", "/", "-", "\\"}
 
 func (m *Model) readEvent(id uuid.UUID) tea.Msg {
-	info := m.infos[id]
-	if info == nil || info.Scanner == nil {
-		return nil
+	info, ok := m.infos[id]
+	if !ok || info == nil || info.Scanner == nil {
+		return nil // Agent info no longer present; safe no-op
 	}
 	for {
+		// Re-check info each iteration in case it was removed mid-stream
+		info, ok = m.infos[id]
+		if !ok || info == nil {
+			return nil
+		}
 		if !info.Scanner.Scan() {
 			if err := info.Scanner.Err(); err != nil {
 				return errMsg{err}
@@ -104,9 +105,10 @@ func (m *Model) readEvent(id uuid.UUID) tea.Msg {
 
 		switch ev.Type {
 		case trace.EventToken:
-			if s, ok := ev.Data.(string); ok {
-				info := m.infos[id]
-				if info == nil {
+			if s, ok2 := ev.Data.(string); ok2 {
+				// Safe guard again in case info was deleted
+				info, ok = m.infos[id]
+				if !ok || info == nil {
 					return nil
 				}
 				info.StreamAggBuf += s

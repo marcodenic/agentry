@@ -27,7 +27,8 @@ func (m Model) getAdvancedStatusDot(status AgentStatus) string {
 }
 
 // renderTokenBar draws an animated progress bar for token usage with green-to-red gradient.
-func (m Model) renderTokenBar(info *AgentInfo, tokenPct float64, panelWidth int) string {
+// renderTokenBar now computes tokenPct internally to avoid duplicated logic at call sites.
+func (m Model) renderTokenBar(info *AgentInfo, panelWidth int) string {
 	// Calculate width using the EXACT same method as renderActivityChart
 	// to ensure perfect alignment
 	chartWidth := panelWidth - 8 // Same calculation as activity chart
@@ -43,14 +44,31 @@ func (m Model) renderTokenBar(info *AgentInfo, tokenPct float64, panelWidth int)
 
 	// Get the base progress bar (without percentage)
 	barStr := info.TokenProgress.View()
-	
+
+	// Re-compute percentage here to remove duplication in caller
+	maxTokens := 8000
+	if info.ModelName != "" {
+		maxTokens = m.pricing.GetContextLimit(info.ModelName)
+	}
+	actualTokens := 0
+	if info.Agent != nil && info.Agent.Cost != nil {
+		if info.TokensStarted && info.StreamingResponse != "" {
+			actualTokens = info.StreamingTokenCount
+		} else {
+			actualTokens = info.Agent.Cost.TotalTokens()
+		}
+	}
+	var tokenPct float64
+	if maxTokens > 0 {
+		tokenPct = float64(actualTokens) / float64(maxTokens) * 100
+	}
 	// Add our own styled percentage to match the activity chart
 	pctText := fmt.Sprintf(" %2.0f%%", tokenPct)
 	pctStyled := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#6B7280")).
 		Faint(true).
 		Render(pctText)
-	
+
 	return barStr + pctStyled
 }
 
@@ -69,8 +87,8 @@ func (m Model) renderActivityChart(activityData []float64, panelWidth int) strin
 	if chartWidth > 50 {
 		chartWidth = 50 // Maximum chart width for readability
 	}
-	
-	// Since token bar no longer includes percentage automatically, 
+
+	// Since token bar no longer includes percentage automatically,
 	// both bars now use the same width for their main content
 	// Sparkline always adds a trailing space, so use width+1 then remove the space
 	availableWidth := chartWidth + 1
