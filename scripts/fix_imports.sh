@@ -3,16 +3,13 @@
 # Script to fix converse imports across the project
 
 files_with_converse=(
-    "./debug/test_tui_simulation.go"
-    "./debug/test_coder_fix.go"
-    "./debug/test_coder_file_access.go"
     "./examples/test-programs/test-programs/test_delegation_debug.go"
     "./examples/test-programs/test-programs/test_final_verification.go"
     "./examples/test-programs/test_final_verification.go"
     "./examples/test-programs/test_full_workflow.go"
     "./examples/test_delegation_scenario.go"
     "./tests/builtin_cross_test.go"
-    "./tests/user_prompt_debug_test.go"
+    # cleaned: removed obsolete user_prompt_debug_test, debug helpers
     "./tests/agent_tool_context_test.go"
     "./tests/cross_platform_agent_workflow_test.go"
     "./tests/converse_team_integration_test.go"

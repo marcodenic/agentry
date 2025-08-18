@@ -753,18 +753,19 @@ func (t *Team) GetTeamAgents() []*Agent {
 
 // logToFile logs the message to a file (only if not in TUI mode)
 func logToFile(message string) {
+	// Only log if explicitly enabled (reduces repo noise & accidental commits)
+	if os.Getenv("AGENTRY_COMM_LOG") != "1" {
+		return
+	}
 	if os.Getenv("AGENTRY_TUI_MODE") == "1" {
 		return
 	}
-
 	file, err := os.OpenFile("agent_communication.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return
 	}
 	defer file.Close()
-
-	logger := log.New(file, "", log.LstdFlags)
-	logger.Println(message)
+	log.New(file, "", log.LstdFlags).Println(message)
 }
 
 // debugPrintf prints debug information only when not in TUI mode

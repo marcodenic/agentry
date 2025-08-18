@@ -85,13 +85,15 @@ The Agentry cost system has been completely overhauled to provide accurate, mode
 ```
 
 ### Check Model Pricing
+Inspect cached pricing or run a focused test:
 ```bash
-go run debug/pricing_sync.go check
+grep -i gpt-4 internal/cost/data/models_pricing.json | head
 ```
 
 ### Test Cost System
+Use the automated tests instead of ad-hoc scripts:
 ```bash
-go run debug/test_cost_system.go
+go test ./tests -run Cost
 ```
 
 ### Analyze Trace Costs
@@ -152,9 +154,7 @@ The system now extracts real token usage from:
 - `internal/cost/data/` - **New** directory for cached pricing data
 - `internal/cost/data/models_pricing.json` - **New** cached API data (77KB, 326+ models)
 - `cmd/agentry/refresh_models.go` - **New** refresh command implementation
-- `debug/test_cost_system.go` - Cost system testing
-- `debug/test_model_pricing.go` - Pricing verification
-- `debug/pricing_sync.go` - Price update utility
+<!-- Removed legacy debug pricing helper scripts (test_cost_system.go, test_model_pricing.go, pricing_sync.go) during repository cleanup. -->
 <!-- Removed debug/test_trace.jsonl sample during cleanup; use a fresh trace generated via AGENTRY_TRACE_FILE for analysis examples. -->
 
 ## Production Ready
