@@ -187,6 +187,7 @@ tools:
     type: builtin
   - name: agent # 🤖 delegate tasks to another agent
     type: builtin
+    # Runs a sub-agent with the provided `query` and returns its final answer
   - name: mcp # 🎮 connect to MCP servers
     type: builtin
   - name: lsp_diagnostics # 🩺 run language diagnostics (Go:gopls, TS:tsc, Py:pyright, Rust:cargo, JS:eslint)

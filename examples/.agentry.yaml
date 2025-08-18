@@ -47,7 +47,7 @@ tools:
     description: Run language diagnostics (gopls/tsc)
   - name: agent
     type: builtin
-    description: Delegate tasks to another agent
+    description: Delegate tasks to another agent or launch a search agent
   - name: mcp
     type: builtin
     description: Connect to an MCP server
