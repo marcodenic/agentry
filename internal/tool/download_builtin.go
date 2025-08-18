@@ -67,6 +67,8 @@ func downloadFileExec(ctx context.Context, args map[string]any) (string, error) 
 	maxSizeMB := 100.0
 	if ms, ok := args["max_size"].(float64); ok {
 		maxSizeMB = ms
+	} else if mi, ok := args["max_size"].(int); ok {
+		maxSizeMB = float64(mi)
 	}
 
 	path = absPath(path)

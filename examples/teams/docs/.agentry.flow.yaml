@@ -1,7 +1,0 @@
-presets:
-  - docs_team.yaml
-
-agents:
-  writer:
-    vars:
-      personality: friendly

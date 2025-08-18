@@ -15,8 +15,8 @@ func TestAnalyzeEvents(t *testing.T) {
 		{Type: trace.EventFinal, Data: "bye"},
 	}
 	sum := trace.Analyze("input tokens", events)
-	if sum.Tokens != 7 { // input(2) + hello world(2) + foo bar(2) + bye(1)
-		t.Fatalf("expected 7 tokens got %d", sum.Tokens)
+	if sum.TotalTokens != 7 { // input(2) + hello world(2) + foo bar(2) + bye(1)
+		t.Fatalf("expected 7 tokens got %d", sum.TotalTokens)
 	}
 }
 
@@ -31,7 +31,7 @@ func TestParseLog(t *testing.T) {
 		t.Fatalf("want 2 events got %d", len(evs))
 	}
 	sum := trace.Analyze("hello", evs)
-	if sum.Tokens != 4 { // hello(1) + hi there(2) + ok(1)
-		t.Fatalf("expected 4 tokens got %d", sum.Tokens)
+	if sum.TotalTokens != 4 { // hello(1) + hi there(2) + ok(1)
+		t.Fatalf("expected 4 tokens got %d", sum.TotalTokens)
 	}
 }

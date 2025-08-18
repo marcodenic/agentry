@@ -27,7 +27,7 @@ func TestAnalyzeFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sum.Tokens != 2 {
-		t.Fatalf("expected 2 tokens got %d", sum.Tokens)
+	if sum.TotalTokens != 2 {
+		t.Fatalf("expected 2 tokens got %d", sum.TotalTokens)
 	}
 }

@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/marcodenic/agentry/internal/glyphs"
@@ -29,7 +28,10 @@ func (m Model) agentPanel(panelWidth int) string {
 	totalTokens := 0
 	runningCount := 0
 	for _, ag := range m.infos {
-		totalTokens += ag.TokenCount
+		// Get token count from agent's cost manager for accuracy
+		if ag.Agent != nil && ag.Agent.Cost != nil {
+			totalTokens += ag.Agent.Cost.TotalTokens()
+		}
 		if ag.Status == StatusRunning {
 			runningCount++
 		}
@@ -88,13 +90,28 @@ func (m Model) agentPanel(panelWidth int) string {
 		}
 
 		maxTokens := 8000
-		if ag.ModelName != "" && strings.Contains(strings.ToLower(ag.ModelName), "gpt-4") {
-			maxTokens = 128000
+		if ag.ModelName != "" {
+			// Use pricing data to get the actual context limit
+			maxTokens = m.pricing.GetContextLimit(ag.ModelName)
 		}
-		tokenPct := float64(ag.TokenCount) / float64(maxTokens) * 100
-		tokenLine := fmt.Sprintf("  tokens: %d (%.1f%%)", ag.TokenCount, tokenPct)
+
+		// Get token count - use streaming count during active streaming, real count otherwise
+		actualTokens := 0
+		if ag.Agent != nil && ag.Agent.Cost != nil {
+			if ag.TokensStarted && ag.StreamingResponse != "" {
+				actualTokens = ag.StreamingTokenCount
+			} else {
+				actualTokens = ag.Agent.Cost.TotalTokens()
+			}
+		}
+
+		tokenPct := float64(actualTokens) / float64(maxTokens) * 100
+		tokenLine := fmt.Sprintf("  tokens: %d/%d", actualTokens, maxTokens)
 		lines = append(lines, tokenLine)
-		bar := m.renderTokenBar(ag, panelWidth)
+
+		// The progress bar percentage will be set in renderTokenBar
+		// to avoid double-setting which might cause color issues
+		bar := m.renderTokenBar(ag, tokenPct, panelWidth)
 		lines = append(lines, "  "+bar)
 		activityChart := m.renderActivityChart(ag.ActivityData, panelWidth)
 		if activityChart != "" {
@@ -106,13 +123,12 @@ func (m Model) agentPanel(panelWidth int) string {
 			lines = append(lines, "  "+activityChart)
 		}
 
-		if ag.Agent.Cost != nil {
-			// Show individual agent cost based on their token count
-			// Use the same cost per token as the cost manager
-			const CostPerToken = 0.000002 // Same as in cost package
-			individualCost := float64(ag.TokenCount) * CostPerToken
+		if ag.Agent != nil && ag.Agent.Cost != nil {
+			// Simply get the current cost directly from the agent's cost manager
+			individualCost := ag.Agent.Cost.TotalCost()
+
 			if individualCost > 0 {
-				costLine := fmt.Sprintf("  cost: $%.4f", individualCost)
+				costLine := fmt.Sprintf("  cost: $%.6f", individualCost)
 				costLine = lipgloss.NewStyle().
 					Foreground(lipgloss.Color(m.theme.AIBarColor)).
 					Render(costLine)
@@ -120,6 +136,48 @@ func (m Model) agentPanel(panelWidth int) string {
 			}
 		}
 
+		lines = append(lines, "")
+	}
+
+	// Diagnostics summary block
+	if len(m.diags) > 0 || m.diagRunning {
+		title := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(m.theme.PanelTitleColor)).
+			Bold(true).
+			Render("🩺 DIAGNOSTICS")
+		lines = append(lines, title)
+		if m.diagRunning {
+			lines = append(lines, "  running...")
+		}
+		if len(m.diags) > 0 {
+			// Aggregate counts
+			errs := 0
+			warns := 0
+			perFile := map[string]int{}
+			for _, d := range m.diags {
+				if d.Severity == "warning" {
+					warns++
+				} else {
+					errs++
+				}
+				perFile[d.File]++
+			}
+			lines = append(lines, fmt.Sprintf("  errors: %d  warnings: %d", errs, warns))
+			// Show top 3 files
+			shown := 0
+			for f, c := range perFile {
+				lines = append(lines, fmt.Sprintf("  • %s (%d)", f, c))
+				shown++
+				if shown >= 3 {
+					break
+				}
+			}
+			// Show first diagnostic preview
+			d := m.diags[0]
+			preview := fmt.Sprintf("  %s %s:%d:%d %s", severityGlyph(d.Severity), d.File, d.Line, d.Col, d.Message)
+			lines = append(lines, lipgloss.NewStyle().Faint(true).Render(preview))
+		}
+		lines = append(lines, lipgloss.NewStyle().Faint(true).Render("  press "+m.keys.Diagnostics+" to run"))
 		lines = append(lines, "")
 	}
 
@@ -139,4 +197,15 @@ func (m Model) agentPanel(panelWidth int) string {
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
+func severityGlyph(sev string) string {
+	switch sev {
+	case "warning":
+		return "⚠️"
+	case "info":
+		return "ℹ️"
+	default:
+		return "❌"
+	}
 }

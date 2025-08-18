@@ -3,6 +3,7 @@ package tui
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -11,27 +12,19 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/cost"
+	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/glyphs"
-	"github.com/marcodenic/agentry/internal/model"
+	"github.com/marcodenic/agentry/internal/statusbar"
 	"github.com/marcodenic/agentry/internal/team"
 )
-
-// createTokenProgressBar creates a progress bar with green-to-red gradient
-func createTokenProgressBar() progress.Model {
-	// Create a custom gradient from green to red using safer color codes
-	greenToRedGradient := progress.WithGradient("#22C55E", "#EF4444")
-	withoutPercentage := progress.WithoutPercentage()
-	prog := progress.New(greenToRedGradient, withoutPercentage)
-	prog.Width = 20 // Set a default width to prevent crashes
-	return prog
-}
 
 // applyGradientToLogo applies a beautiful gradient effect to the ASCII logo
 func applyGradientToLogo(logo string) string {
@@ -89,7 +82,7 @@ type Model struct {
 
 	vp      viewport.Model
 	debugVp viewport.Model // Separate viewport for debug/memory view
-	input   textinput.Model
+	input   textarea.Model
 	tools   list.Model
 
 	cwd string
@@ -105,10 +98,24 @@ type Model struct {
 	// Robot companion for Agent 0
 	robot *RobotFace
 
+	// Status bar
+	statusBarModel statusbar.Model
+
+	pricing *cost.PricingTable
+
 	err error
 
 	theme Theme
 	keys  Keybinds
+
+	// Diagnostics
+	diags       []Diag
+	diagRunning bool
+
+	// Dynamic input sizing and history
+	inputHeight  int
+	inputHistory []string
+	historyIndex int // -1 when not navigating history
 }
 
 type AgentStatus int
@@ -139,33 +146,50 @@ type DebugTraceEvent struct {
 	Details   string
 }
 
+// Diag is a structured diagnostic entry for rendering
+type Diag struct {
+	File     string
+	Line     int
+	Col      int
+	Code     string
+	Severity string
+	Message  string
+}
+
 type AgentInfo struct {
-	Agent                  *core.Agent
-	History                string
-	Status                 AgentStatus
-	LastContentType        ContentType // Track what type of content was last added
-	PendingStatusUpdate    string      // Track ongoing status update for progressive completion
-	CurrentTool            string
-	TokenCount             int
-	TokenHistory           []int
-	ActivityData           []float64   // Activity level per second (0.0 to 1.0)
-	ActivityTimes          []time.Time // Timestamp for each activity data point
-	LastToken              time.Time
-	LastActivity           time.Time
-	CurrentActivity        int // Tokens processed in current second
-	ModelName              string
-	Scanner                *bufio.Scanner
-	Cancel                 context.CancelFunc
-	Spinner                spinner.Model
-	TokenProgress          progress.Model // Animated progress bar for token usage
-	Name                   string
-	Role                   string            // Agent role for display (e.g., "System", "Research", "DevOps")
-	TokensStarted          bool              // Flag to stop thinking animation when tokens start
-	StreamingResponse      string            // Current AI response being streamed (unformatted)
-	DebugTrace             []DebugTraceEvent // Detailed trace history for debug view
-	CurrentStep            int               // Current step number for trace events
-	DebugStreamingResponse string            // Separate streaming response for debug view
-	tracePipeWriter        io.WriteCloser    // Pipe writer for trace events (spawned agents)
+	Agent               *core.Agent
+	History             string
+	Status              AgentStatus
+	LastContentType     ContentType // Track what type of content was last added
+	PendingStatusUpdate string      // Track ongoing status update for progressive completion
+	CurrentTool         string
+	// TokenCount removed - use Agent.Cost.TotalTokens() for accurate token counts
+	TokenHistory        []int
+	ActivityData        []float64   // Activity level per second (0.0 to 1.0)
+	ActivityTimes       []time.Time // Timestamp for each activity data point
+	LastToken           time.Time
+	LastActivity        time.Time
+	CurrentActivity     int // Tokens processed in current second
+	ModelName           string
+	Scanner             *bufio.Scanner
+	Cancel              context.CancelFunc
+	Spinner             spinner.Model
+	TokenProgress       progress.Model // Animated progress bar for token usage
+	Name                string
+	Role                string // Agent role for display (e.g., "System", "Research", "DevOps")
+	TokensStarted       bool   // Flag to stop thinking animation when tokens start
+	StreamingResponse   string // Current AI response being streamed (unformatted)
+	StreamingTokenCount int    // Live token count during streaming (reconciled on completion)
+
+	// Debug and trace fields
+	DebugTrace             []DebugTraceEvent // Debug trace events
+	CurrentStep            int               // Current step number
+	DebugStreamingResponse string            // Debug streaming response
+	tracePipeWriter        io.WriteCloser
+
+	// Streaming aggregation (UI smoothing)
+	StreamAggBuf     string    // buffered delta
+	StreamAggStarted time.Time // timestamp of first char in buffer
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -198,54 +222,72 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	l.KeyMap.AcceptWhileFiltering = NoNavKeyMap.AcceptWhileFiltering
 	l.KeyMap.ShowFullHelp = NoNavKeyMap.ShowFullHelp
 	l.KeyMap.CloseFullHelp = NoNavKeyMap.CloseFullHelp
-	l.KeyMap.Quit = NoNavKeyMap.Quit
-	l.KeyMap.ForceQuit = NoNavKeyMap.ForceQuit
-	ti := textinput.New()
-	ti.Placeholder = "Type your message... (Press Enter to send)"
-	ti.CharLimit = 2000 // Allow longer messages
+	ti := textarea.New()
+	// Hide the default line number gutter (avoids the leading "1 │")
+	// Newer bubbles exposes SetShowLineNumbers; fall back to field if needed.
+	// Use both patterns to be safe across versions.
+	if setter, ok := interface{}(&ti).(interface{ SetShowLineNumbers(bool) }); ok {
+		setter.SetShowLineNumbers(false)
+	} else {
+		ti.ShowLineNumbers = false
+	}
+	// Remove the default prompt (which renders a vertical bar) and any padding
+	ti.Prompt = ""
+	ti.Placeholder = "Type your message... (Press Enter to send, Up for previous)"
+	// Prevent left padding from shifting the first row
+	if styler, ok := interface{}(&ti).(interface{ SetBaseStyle(lipgloss.Style) }); ok {
+		styler.SetBaseStyle(lipgloss.NewStyle().Padding(0))
+	}
 	ti.Focus()
-
-	vp := viewport.New(0, 0)
-	debugVp := viewport.New(0, 0)
+	// Initialize viewport with reasonable default dimensions
+	// This prevents text wrapping issues before the first window resize event
+	defaultWidth := 90  // 75% of assumed 120 char window width
+	defaultHeight := 20 // Reasonable default height
+	vp := viewport.New(defaultWidth, defaultHeight)
+	debugVp := viewport.New(defaultWidth, defaultHeight)
 	cwd, _ := os.Getwd()
 
 	// Initialize with ASCII logo as welcome content
 	rawLogoContent := `
-                                                             
-                                                             
-    ████▒               ▒████                  
-      ▒▓███▓▒       ▒▓███▓▒                    
-        ▒█▒████▓▒▓████▓█▒                      
-        ▒█   ▓█████▓▒  █▒                      
-        ▒█▓███▓▓█▓▓███▓█▒                      
-     ▒▓███▓▒   ▒▓▒   ▒▓███▓▒                   
-   ▒███▓▓█     ▒▓▒     █▓▓▓██▒                 
-        ▒█     ▒▓▒     █▒                      
-        ▒█     ▒▓▒     █▒                      
-        ▒█     ▒▓▒     █▒                      
-        ▒█     ▒▓▒     █▒                      
-        ▒█     ▒▓▒     █▒                      
-        ▒█     ▒▓▒     █▒                      
-               ▒▓▒                             
-                                    
-                         v0.2.0                 
-   █▀█ █▀▀ █▀▀ █▀█ ▀█▀ █▀▄ █ █                 
-   █▀█ █ █ █▀▀ █ █  █  █▀▄  █                  
-   ▀ ▀ ▀▀▀ ▀▀▀ ▀ ▀  ▀  ▀ ▀  ▀                  
- AGENT  ORCHESTRATION  FRAMEWORK               
-                                                             `
+                                 
+                                 
+    ████▒               ▒████    
+      ▒▓███▓▒       ▒▓███▓▒      
+        ▒█▒████▓▒▓████▓█▒        
+        ▒█   ▓█████▓▒  █▒        
+        ▒█▓███▓▓█▓▓███▓█▒        
+     ▒▓███▓▒   ▒▓▒   ▒▓███▓▒     
+   ▒███▓▓█     ▒▓▒     █▓▓▓██▒   
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+               ▒▓▒               
+                                 
+                         v0.2.0  
+   █▀█ █▀▀ █▀▀ █▀█ ▀█▀ █▀▄ █ █   
+   █▀█ █ █ █▀▀ █ █  █  █▀▄  █    
+   ▀ ▀ ▀▀▀ ▀▀▀ ▀ ▀  ▀  ▀ ▀  ▀    
+ AGENT  ORCHESTRATION  FRAMEWORK 
+                                `
 
 	// Apply beautiful gradient coloring to the logo
 	logoContent := applyGradientToLogo(rawLogoContent)
+
+	// Configure spinner with dot style and proper coloring
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(th.AIBarColor))
 
 	info := &AgentInfo{
 		Agent:               ag,
 		Status:              StatusIdle,
 		LastContentType:     ContentTypeLogo, // Start with logo content
 		PendingStatusUpdate: "",              // No pending status update initially
-		Spinner:             spinner.New(),
+		Spinner:             sp,
 		TokenProgress:       createTokenProgressBar(),
-		Name:                "Agent 0",
 		Role:                "System",
 		History:             logoContent,
 		ActivityData:        make([]float64, 0),
@@ -256,22 +298,31 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		TokenHistory:           []int{},
 		TokensStarted:          false,
 		StreamingResponse:      "",
+		StreamingTokenCount:    0,                          // Initialize live token count
 		DebugTrace:             make([]DebugTraceEvent, 0), // Initialize debug trace
 		CurrentStep:            0,
 		DebugStreamingResponse: "", // Initialize debug streaming response
 	}
 
-	// Get the model name from Agent 0's router
-	if ag.Route != nil {
-		client, ruleName := ag.Route.Select("hello")
-		if openaiClient, ok := client.(*model.OpenAI); ok {
-			// Use the ModelName() method to get the actual model name
-			info.ModelName = openaiClient.ModelName()
-		} else {
-			// For non-OpenAI clients, use the rule name as fallback
-			info.ModelName = ruleName
-		}
+	// Get the model name from Agent 0
+	info.ModelName = ag.ModelName
+	if info.ModelName == "" {
+		info.ModelName = "unknown"
 	}
+
+	// Set initial progress bar width (will be updated on first window resize event)
+	// Assume a reasonable default window width of 120 characters
+	defaultWindowWidth := 120
+	panelWidth := int(float64(defaultWindowWidth) * 0.25)
+	barWidth := panelWidth - 8
+	if barWidth < 10 {
+		barWidth = 10
+	}
+	if barWidth > 50 {
+		barWidth = 50
+	}
+	info.TokenProgress.Width = barWidth
+
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
 	// Create team context with role loading support
@@ -283,8 +334,46 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		tm, err = team.NewTeam(ag, 10, "")
 	}
 	if err != nil {
-		panic(err) // For now, panic on error - TODO: handle gracefully
+		panic(fmt.Sprintf("failed to initialize team: %v", err))
 	}
+
+	// Load base prompt from templates
+	ag.Prompt = core.GetDefaultPrompt()
+	if strings.TrimSpace(ag.Prompt) == "" {
+		debug.Printf("Warning: No default prompt found. Set AGENTRY_DEFAULT_PROMPT or install templates (see docs). Proceeding without a system prompt.")
+	}
+
+	// Enhance Agent0 prompt with available roles information
+	if ag.Prompt != "" {
+		availableRoles := tm.AvailableRoleNames()
+		ag.Prompt = core.InjectAvailableRoles(ag.Prompt, availableRoles)
+		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			debug.Printf("🔧 Agent0 enhanced with %d available roles: %v", len(availableRoles), availableRoles)
+		}
+	}
+
+	tm.RegisterAgentTool(ag.Tools)
+
+	// Initialize status bar with gradient colors from the agentry logo
+	// Using the beautiful purple to teal gradient for a modern, cohesive look
+	agentsColors := statusbar.ColorConfig{
+		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#8B5FBF", Dark: "#8B5FBF"}, // Soft purple
+	}
+	cwdColors := statusbar.ColorConfig{
+		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#5B82D7", Dark: "#5B82D7"}, // Medium blue
+	}
+	tokensColors := statusbar.ColorConfig{
+		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#2BA6EF", Dark: "#2BA6EF"}, // Bright blue
+	}
+	costColors := statusbar.ColorConfig{
+		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#00D6EF", Dark: "#00D6EF"}, // Soft teal
+	}
+	// Put agents first, CWD in the expandable middle, then tokens and cost
+	statusBarModel := statusbar.New(agentsColors, cwdColors, tokensColors, costColors)
 
 	m := Model{
 		agents:          []*core.Agent{ag},
@@ -301,6 +390,8 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		keys:            th.Keybinds,
 		showInitialLogo: true,
 		robot:           NewRobotFace(),
+		statusBarModel:  statusBarModel,
+		pricing:         cost.NewPricingTable(),
 	}
 	return m
 }
@@ -392,8 +483,16 @@ func (info *AgentInfo) addContentWithSpacing(content string, contentType Content
 
 // startProgressiveStatusUpdate begins a status update that can be completed later
 func (info *AgentInfo) startProgressiveStatusUpdate(content string, m Model) {
-	// Format with orange status bar
-	statusFormatted := m.statusBar() + " " + content
+	// Check if content already contains glyphs (starts with styled characters)
+	// If it does, don't add statusBar prefix, just add proper spacing
+	var statusFormatted string
+	if strings.Contains(content, "✦") || strings.Contains(content, "▶") || strings.Contains(content, "●") {
+		// Content already has glyphs, just add proper spacing alignment
+		statusFormatted = "  " + content // Use 4 spaces to align with user input
+	} else {
+		// Content doesn't have glyphs, use status bar
+		statusFormatted = m.statusBar() + "  " + content // Use 4 spaces to align with user input
+	}
 	info.addContentWithSpacing(statusFormatted, ContentTypeStatusMessage)
 	info.PendingStatusUpdate = content // Track the pending update
 }

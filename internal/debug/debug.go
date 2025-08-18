@@ -16,7 +16,7 @@ var (
 func init() {
 	// Check environment variable for debug mode
 	DebugEnabled = os.Getenv("AGENTRY_DEBUG") == "1" || os.Getenv("AGENTRY_DEBUG") == "true"
-	
+
 	if DebugEnabled {
 		// In debug mode, output to stderr
 		DebugLogger = log.New(os.Stderr, "[DEBUG] ", log.LstdFlags)

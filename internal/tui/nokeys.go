@@ -8,12 +8,12 @@ import (
 // Enhanced key bindings for cycling agents in the unified TUI model.
 var (
 	PrevAgentKey = key.NewBinding(
-		key.WithKeys("up", "left", "ctrl+p"),
-		key.WithHelp(glyphs.ArrowUp+"/"+glyphs.ArrowLeft+"/ctrl+p", "prev agent"),
+		key.WithKeys("shift+left", "ctrl+p"),
+		key.WithHelp("shift+"+glyphs.ArrowLeft+"/ctrl+p", "prev agent"),
 	)
 	NextAgentKey = key.NewBinding(
-		key.WithKeys("down", "right", "ctrl+n"),
-		key.WithHelp(glyphs.ArrowDown+"/"+glyphs.ArrowRight+"/ctrl+n", "next agent"),
+		key.WithKeys("shift+right", "ctrl+n"),
+		key.WithHelp("shift+"+glyphs.ArrowRight+"/ctrl+n", "next agent"),
 	)
 
 	// Additional navigation keys for better UX

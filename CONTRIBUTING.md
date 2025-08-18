@@ -107,7 +107,7 @@ git status
 
 When adding new built-in tools:
 
-1. Add the tool to `internal/tool/manifest.go`
+1. Register the tool in an `init()` (see existing builtins files)
 2. Add comprehensive tests in `tests/`
 3. Update documentation in `docs/api.md` and `docs/usage.md`
 4. Add examples to configuration files if appropriate

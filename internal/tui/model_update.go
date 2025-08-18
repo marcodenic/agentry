@@ -24,6 +24,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tokenMsg:
 		return m.handleTokenMessages(msg)
+	case tokenFlushMsg:
+		// Convert aggregated data into a single tokenMsg for existing handler
+		return m.handleTokenMessages(tokenMsg{id: msg.id, token: msg.data})
 	case startTokenStream:
 		return m.handleTokenStream(msg)
 	case tokenStreamTick:
@@ -61,6 +64,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleErrorMessage(msg)
 	case agentCompleteMsg:
 		return m.handleAgentComplete(msg)
+	case agentStartMsg:
+		return m.handleAgentStart(msg)
 	case thinkingAnimationMsg:
 		return m.handleThinkingAnimation(msg)
 	case tea.WindowSizeMsg:
@@ -70,14 +75,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle viewport scrolling based on active tab
 	if m.activeTab == 0 {
 		m.vp, _ = m.vp.Update(msg)
-		m.vp.GotoBottom() // Ensure we stay at the bottom
+		// Only auto-scroll to bottom when new content is being added, not on every update
+		// This allows users to scroll through chat history without being forced to bottom
 	} else {
 		m.debugVp, _ = m.debugVp.Update(msg)
-		m.debugVp.GotoBottom() // Ensure we stay at the bottom
+		// Only auto-scroll to bottom when new content is being added, not on every update
+		// This allows users to scroll through debug history without being forced to bottom
 	}
 
 	m.input, _ = m.input.Update(msg)
 	m.tools, _ = m.tools.Update(msg)
+	m.statusBarModel, _ = m.statusBarModel.Update(msg)
 
 	return m, tea.Batch(cmds...)
 }

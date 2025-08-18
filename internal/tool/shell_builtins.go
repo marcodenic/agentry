@@ -7,7 +7,7 @@ import (
 	"runtime"
 
 	"github.com/marcodenic/agentry/internal/patch"
-	"github.com/marcodenic/agentry/pkg/sbox"
+	"github.com/marcodenic/agentry/internal/sbox"
 )
 
 func init() {

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -24,27 +25,174 @@ func (m *Model) formatToolAction(toolName string, args map[string]any) string {
 		}
 		return glyphs.GreenCheckmark() + " Writing file"
 	case "edit", "patch":
-		if path, ok := args["path"].(string); ok {
+		// If we have a direct path (for edit_* tools), show it
+		if path, ok := args["path"].(string); ok && path != "" {
 			return fmt.Sprintf("%s Editing %s", glyphs.YellowStar(), path)
 		}
+		// For the patch tool, extract filenames from the unified diff
+		if toolName == "patch" {
+			if pstr, ok := args["patch"].(string); ok && pstr != "" {
+				files := extractPatchFiles(pstr)
+				if len(files) == 1 {
+					return fmt.Sprintf("%s Patching %s", glyphs.YellowStar(), files[0])
+				}
+				if len(files) > 1 {
+					// Limit to first few files for brevity
+					display := files
+					if len(display) > 3 {
+						display = append(display[:3], "…")
+					}
+					return fmt.Sprintf("%s Patching %s", glyphs.YellowStar(), strings.Join(display, ", "))
+				}
+			}
+		}
 		return glyphs.YellowStar() + " Editing file"
+	case "edit_range":
+		path, _ := args["path"].(string)
+		start := 0
+		if v, ok := args["start_line"].(int); ok {
+			start = v
+		} else if v, ok := args["start_line"].(float64); ok {
+			start = int(v)
+		}
+		end := 0
+		if v, ok := args["end_line"].(int); ok {
+			end = v
+		} else if v, ok := args["end_line"].(float64); ok {
+			end = int(v)
+		}
+		if path != "" && start > 0 && end > 0 {
+			return fmt.Sprintf("%s Editing %s lines %d-%d", glyphs.YellowStar(), path, start, end)
+		}
+		if path != "" {
+			return fmt.Sprintf("%s Editing %s (range)", glyphs.YellowStar(), path)
+		}
+		return glyphs.YellowStar() + " Editing range"
+	case "insert_at":
+		path, _ := args["path"].(string)
+		lineNum := -1
+		if v, ok := args["line"].(int); ok {
+			lineNum = v
+		} else if v, ok := args["line"].(float64); ok {
+			lineNum = int(v)
+		}
+		if path != "" {
+			if lineNum >= 0 {
+				return fmt.Sprintf("%s Inserting into %s at line %d", glyphs.YellowStar(), path, lineNum)
+			}
+			return fmt.Sprintf("%s Inserting into %s", glyphs.YellowStar(), path)
+		}
+		return glyphs.YellowStar() + " Inserting into file"
+	case "search_replace":
+		path, _ := args["path"].(string)
+		search, _ := args["search"].(string)
+		replace, _ := args["replace"].(string)
+		regex := false
+		if v, ok := args["regex"].(bool); ok {
+			regex = v
+		}
+		sr := truncateString(search, 60)
+		rp := truncateString(replace, 60)
+		if path != "" && search != "" {
+			if regex {
+				return fmt.Sprintf("%s Replacing /%s/ -> %q in %s", glyphs.YellowStar(), sr, rp, path)
+			}
+			return fmt.Sprintf("%s Replacing %q -> %q in %s", glyphs.YellowStar(), sr, rp, path)
+		}
+		return glyphs.YellowStar() + " Search/replace in file"
+	case "create":
+		if path, ok := args["path"].(string); ok && path != "" {
+			return fmt.Sprintf("%s Creating %s", glyphs.GreenCheckmark(), path)
+		}
+		return glyphs.GreenCheckmark() + " Creating file"
 	case "ls", "list":
-		if path, ok := args["path"].(string); ok {
+		if path, ok := args["path"].(string); ok && path != "" {
 			return fmt.Sprintf("%s Listing %s", glyphs.BlueCircle(), path)
 		}
 		return glyphs.BlueCircle() + " Listing directory"
 	case "bash", "powershell", "cmd":
+		if cmd, ok := args["command"].(string); ok && cmd != "" {
+			return fmt.Sprintf("%s Running: %s", glyphs.OrangeTriangle(), truncateString(cmd, 80))
+		}
 		return glyphs.OrangeTriangle() + " Running command"
 	case "agent":
 		if agent, ok := args["agent"].(string); ok {
+			if input, ok := args["input"].(string); ok && input != "" {
+				return fmt.Sprintf("%s Delegating to %s: %s", glyphs.OrangeLightning(), agent, truncateString(input, 80))
+			}
 			return fmt.Sprintf("%s Delegating to %s agent", glyphs.OrangeLightning(), agent)
 		}
 		return glyphs.OrangeLightning() + " Delegating task"
-	case "grep", "search":
-		if query, ok := args["query"].(string); ok {
-			return fmt.Sprintf("%s Searching for '%s'", glyphs.YellowStar(), query)
+	case "grep":
+		pattern, _ := args["pattern"].(string)
+		path := "."
+		if p, ok := args["path"].(string); ok && p != "" {
+			path = p
+		}
+		if pattern != "" {
+			return fmt.Sprintf("%s Grep %q in %s", glyphs.YellowStar(), truncateString(pattern, 60), path)
 		}
 		return glyphs.YellowStar() + " Searching"
+	case "find":
+		name, _ := args["name"].(string)
+		base := "."
+		if p, ok := args["path"].(string); ok && p != "" {
+			base = p
+		}
+		if name != "" {
+			return fmt.Sprintf("%s Finding %q under %s", glyphs.BlueCircle(), name, base)
+		}
+		return glyphs.BlueCircle() + " Finding files"
+	case "glob":
+		pattern, _ := args["pattern"].(string)
+		base := "."
+		if p, ok := args["path"].(string); ok && p != "" {
+			base = p
+		}
+		if pattern != "" {
+			return fmt.Sprintf("%s Glob %q under %s", glyphs.BlueCircle(), pattern, base)
+		}
+		return glyphs.BlueCircle() + " Glob search"
+	case "web_search":
+		query, _ := args["query"].(string)
+		provider := "duckduckgo"
+		if v, ok := args["provider"].(string); ok && v != "" {
+			provider = v
+		}
+		if query != "" {
+			return fmt.Sprintf("%s Web search (%s): %s", glyphs.YellowStar(), provider, truncateString(query, 80))
+		}
+		return glyphs.YellowStar() + " Web search"
+	case "lsp_diagnostics":
+		// Show brief info about scope
+		if paths, ok := args["paths"].([]any); ok && len(paths) > 0 {
+			return fmt.Sprintf("%s Diagnostics on %d path(s)", glyphs.BlueCircle(), len(paths))
+		}
+		return glyphs.BlueCircle() + " Diagnostics: scanning workspace"
+	case "project_tree":
+		// Provide details about what path/depth/files are requested
+		path := "."
+		if p, ok := args["path"].(string); ok && p != "" {
+			path = p
+		}
+		depth := 0
+		if v, ok := args["depth"].(int); ok {
+			depth = v
+		} else if v, ok := args["depth"].(float64); ok {
+			depth = int(v)
+		}
+		showFiles := true
+		if v, ok := args["show_files"].(bool); ok {
+			showFiles = v
+		}
+		desc := fmt.Sprintf("%s Using project_tree on %s", glyphs.YellowStar(), path)
+		if depth > 0 {
+			desc += fmt.Sprintf(" (depth=%d)", depth)
+		}
+		if !showFiles {
+			desc += " (dirs only)"
+		}
+		return desc
 	case "fetch":
 		if url, ok := args["url"].(string); ok {
 			return fmt.Sprintf("%s Fetching %s", glyphs.BlueCircle(), url)
@@ -76,9 +224,19 @@ func waitComplete(id uuid.UUID, ch <-chan string) tea.Cmd {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+	var cmds []tea.Cmd
+	
+	// Start activity tick
+	cmds = append(cmds, tea.Tick(time.Second, func(t time.Time) tea.Msg {
 		return activityTickMsg{}
-	})
+	}))
+	
+	// Start spinner ticks for all agents
+	for _, info := range m.infos {
+		cmds = append(cmds, info.Spinner.Tick)
+	}
+	
+	return tea.Batch(cmds...)
 }
 
 func startThinkingAnimation(id uuid.UUID) tea.Cmd {
@@ -93,6 +251,22 @@ func truncateString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// extractPatchFiles returns a list of file paths mentioned in a unified diff.
+// It mirrors the logic used in tool.parsePatchFiles but is duplicated here to avoid import cycles.
+func extractPatchFiles(patchStr string) []string {
+	var files []string
+	for _, line := range strings.Split(patchStr, "\n") {
+		if strings.HasPrefix(line, "+++ ") {
+			f := strings.TrimPrefix(line, "+++ ")
+			f = strings.TrimPrefix(f, "b/")
+			if f != "/dev/null" && f != "" {
+				files = append(files, f)
+			}
+		}
+	}
+	return files
 }
 
 func (m *Model) addDebugTraceEvent(id uuid.UUID, ev trace.Event) {
@@ -185,7 +359,7 @@ func (m *Model) addDebugTraceEvent(id uuid.UUID, ev trace.Event) {
 			}
 		}
 	case trace.EventYield:
-		details = "Agent yielded (iteration limit reached)"
+		details = "Agent yielded"
 	case trace.EventSummary:
 		details = "Summary with token and cost statistics"
 	default:

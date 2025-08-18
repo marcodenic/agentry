@@ -29,7 +29,8 @@ tools:
   - name: edit
     type: builtin
   - name: patch
-    type: builtin  - name: sourcegraph
+    type: builtin
+  - name: sourcegraph
     type: builtin
   - name: agent
     type: builtin
@@ -41,21 +42,20 @@ The example configuration already lists these tools so they appear in the TUI's 
 
 ### Environment Configuration
 
-Copy `.env.example` to `.env.local` and fill in `OPENAI_KEY` to enable real OpenAI calls. The file is loaded automatically on startup and during tests.
+Copy `.env.example` to `.env.local` and fill in `OPENAI_API_KEY` to enable real OpenAI calls. The file is loaded automatically on startup and during tests.
 
 To run evaluation with the real model:
 
 ```bash
-OPENAI_KEY=your-key agentry eval --config my.agentry.yaml
+OPENAI_API_KEY=your-key agentry eval --config my.agentry.yaml
 ```
 
 If no key is present, the built-in mock model is used.
 
-## HTTP Endpoints
+## CLI Surface (JSON-first)
 
-When running `agentry serve`, the following JSON endpoints are available:
+Prefer the CLI for automation. All commands return machine-readable output:
 
-- **POST `/spawn`** – create a new agent from the `default` template. Returns
-  `{ "agent_id": "<uuid>" }`.
-- **POST `/kill`** – persist the agent's state and remove it from memory.
-- **POST `/invoke`** – queue a message for an agent to process.
+- `agentry invoke` – run a one-shot task (optionally `--agent`)
+- `agentry team` – manage agents: `roles`, `list`, `spawn`, `call`, `stop`
+- `agentry memory` – `export` and `import` memory snapshots

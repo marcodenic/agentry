@@ -5,12 +5,18 @@ nav:
   - Home: index.md
   - Install: install.md
   - Usage: usage.md
+  - Configuration: CONFIG_GUIDE.md
   - API: api.md
-  - VS Code Extension: vscode-extension.md
-  - Registry: registry/index.html
-  - Testing & Validation:
-      - Test Checklist: TEST.md
-      - Testing Guide: docs/testing.md
+  - Testing: testing.md
+  - Development:
+      - Overview: dev/README.md
+      - Agents: dev/AGENTS.md
+      - Cost System: dev/COST_SYSTEM_OVERHAUL.md
+      - TUI Features: dev/TUI_MARKDOWN_SUPPORT.md
+  - Project:
+      - Roadmap: project/ROADMAP.md
+      - Plan: project/PLAN.md
+      - Issues: project/ISSUES.md
 theme:
   name: material
 plugins:

@@ -99,29 +99,6 @@ func (t *Team) SendMessage(ctx context.Context, from, to, content string) error 
 	return nil
 }
 
-// BroadcastMessageOld sends a message to all agents (legacy method)
-func (t *Team) BroadcastMessageOld(ctx context.Context, from, content string) error {
-	fromAgent := t.GetAgent(from)
-	if fromAgent == nil {
-		return fmt.Errorf("sender agent %s not found", from)
-	}
-
-	message := Message{
-		ID:        uuid.New().String(),
-		From:      from,
-		To:        "*",
-		Content:   content,
-		Type:      "broadcast",
-		Timestamp: time.Now(),
-	}
-
-	t.mutex.Lock()
-	t.messages = append(t.messages, message)
-	t.mutex.Unlock()
-
-	return nil
-}
-
 // GetMessages returns messages with optional filtering
 func (t *Team) GetMessages(agentID string) []Message {
 	t.mutex.RLock()

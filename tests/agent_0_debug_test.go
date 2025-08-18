@@ -7,26 +7,36 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
 // Mock AI client that returns a tool call for "agent" tool with "coder" agent
-type mockAgent0Client struct{}
+type mockAgent0Client struct {
+	callCount int
+}
 
-func (m mockAgent0Client) Complete(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (model.Completion, error) {
-	// Return a completion that tries to call the "agent" tool with "coder" agent
-	return model.Completion{
-		Content: "I'll spawn a coder agent to help you with this task.",
-		ToolCalls: []model.ToolCall{
-			{
-				ID:        "call_123",
-				Name:      "agent",
-				Arguments: []byte(`{"agent": "coder", "input": "help with Python project"}`),
+func (m *mockAgent0Client) Complete(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (model.Completion, error) {
+	m.callCount++
+
+	if m.callCount == 1 {
+		// First call - return a tool call to spawn a coder agent
+		return model.Completion{
+			Content: "I'll spawn a coder agent to help you with this task.",
+			ToolCalls: []model.ToolCall{
+				{
+					ID:        "call_123",
+					Name:      "agent",
+					Arguments: []byte(`{"agent": "coder", "input": "help with Python project"}`),
+				},
 			},
-		},
-	}, nil
+		}, nil
+	} else {
+		// After tool call, return final response
+		return model.Completion{
+			Content: "I've successfully delegated the Python project task to a coder agent. The coder agent will help you with your Python development needs.",
+		}, nil
+	}
 }
 
 func TestAgent0DebugOutput(t *testing.T) {
@@ -68,8 +78,10 @@ func TestAgent0DebugOutput(t *testing.T) {
   - **Be efficient** – Use parallel execution for independent tasks.
 
   Remember: users expect you to manage the entire system efficiently. Do not over‑explain your decisions – execute the optimal strategy.`
-	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: mockAgent0Client{}}}
-	ag := core.New(route, tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+
+	// Create agent with mock client
+	mockClient := &mockAgent0Client{}
+	ag := core.New(mockClient, "mock", tool.DefaultRegistry(), memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 	ag.Prompt = agent0Prompt
 
 	// Create a team context so the agent tool can work
@@ -77,6 +89,10 @@ func TestAgent0DebugOutput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create team: %v", err)
 	}
+
+	// Register the agent tool to enable delegation
+	tm.RegisterAgentTool(ag.Tools)
+
 	ctx := team.WithContext(context.Background(), tm)
 
 	// Test request that should trigger Agent 0 to spawn a coder

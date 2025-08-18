@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/marcodenic/agentry/pkg/sbox"
+	"github.com/marcodenic/agentry/internal/sbox"
 )
 
 // getNetworkBuiltins returns network-related builtin tools
@@ -28,12 +28,12 @@ func getNetworkBuiltins() map[string]builtinSpec {
 				if url == "" {
 					return "", errors.New("missing url")
 				}
-				
+
 				// Validate that this is actually a URL and not a file path
 				if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 					return "", fmt.Errorf("fetch tool requires HTTP/HTTPS URLs, got '%s'. Use 'view' tool for local files", url)
 				}
-				
+
 				// Cross-platform URL fetching
 				if runtime.GOOS == "windows" {
 					// Use PowerShell Invoke-WebRequest
@@ -64,9 +64,9 @@ func getNetworkBuiltins() map[string]builtinSpec {
 			},
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
 				host, _ := args["host"].(string)
-				port, _ := args["port"].(float64)
+				p, _ := getIntArg(args, "port", 0)
 				cmd, _ := args["command"].(string)
-				addr := net.JoinHostPort(host, fmt.Sprintf("%d", int(port)))
+				addr := net.JoinHostPort(host, fmt.Sprintf("%d", p))
 				conn, err := net.DialTimeout("tcp", addr, 3*time.Second)
 				if err != nil {
 					return "", err
@@ -75,7 +75,7 @@ func getNetworkBuiltins() map[string]builtinSpec {
 				_, _ = conn.Write([]byte(cmd + "\n"))
 				buf := make([]byte, 1024)
 				n, _ := conn.Read(buf)
-				return string(buf[:n]), nil
+				return strings.TrimRight(string(buf[:n]), "\r\n"), nil
 			},
 		},
 	}

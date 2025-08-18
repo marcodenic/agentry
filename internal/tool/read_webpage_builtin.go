@@ -57,10 +57,7 @@ func readWebpageExec(ctx context.Context, args map[string]any) (string, error) {
 		extract = e
 	}
 
-	maxLength := 10000
-	if ml, ok := args["max_length"].(float64); ok {
-		maxLength = int(ml)
-	}
+	maxLength, _ := getIntArg(args, "max_length", 10000)
 
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {

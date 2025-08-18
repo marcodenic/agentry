@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -9,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/marcodenic/agentry/internal/config"
-	"github.com/marcodenic/agentry/internal/core"
 )
 
 type commonOpts struct {
@@ -22,7 +22,7 @@ type commonOpts struct {
 	resumeID     string
 	ckptID       string
 	port         string
-	maxIter      int
+	debug        bool
 }
 
 func parseCommon(name string, args []string) (*commonOpts, []string) {
@@ -37,9 +37,12 @@ func parseCommon(name string, args []string) (*commonOpts, []string) {
 	fs.StringVar(&opts.resumeID, "resume-id", "", "load conversation state from this ID")
 	fs.StringVar(&opts.ckptID, "checkpoint-id", "", "checkpoint session id")
 	fs.StringVar(&opts.port, "port", "", "HTTP server port")
-	fs.IntVar(&opts.maxIter, "max-iter", 0, "max iterations per run")
+	fs.BoolVar(&opts.debug, "debug", false, "enable debug output")
+	// max-iter removed: agents run until completion
 	_ = fs.Parse(args)
-	if opts.configPath == "" {
+
+	// Only set config path from first non-flag argument for commands that expect a config file
+	if opts.configPath == "" && name == "tui" {
 		if fs.NArg() > 0 {
 			opts.configPath = fs.Arg(0)
 		} else {
@@ -62,11 +65,36 @@ func parseCommon(name string, args []string) (*commonOpts, []string) {
 				}
 			}
 		}
+	} else if opts.configPath == "" {
+		// For non-TUI commands, use default config resolution without assuming first arg is config
+		// Look for .agentry.yaml in current directory first
+		if _, err := os.Stat(".agentry.yaml"); err == nil {
+			opts.configPath = ".agentry.yaml"
+		} else {
+			// Fall back to config next to executable
+			if exe, err := os.Executable(); err == nil {
+				if exeDir := filepath.Dir(exe); exeDir != "" {
+					executableConfig := filepath.Join(exeDir, ".agentry.yaml")
+					if _, err := os.Stat(executableConfig); err == nil {
+						opts.configPath = executableConfig
+					} else {
+						opts.configPath = ".agentry.yaml" // Default fallback
+					}
+				}
+			} else {
+				opts.configPath = ".agentry.yaml" // Default fallback
+			}
+		}
 	}
 	return opts, fs.Args()
 }
 
 func applyOverrides(cfg *config.File, o *commonOpts) {
+	// Handle debug flag by setting environment variable
+	if o.debug {
+		os.Setenv("AGENTRY_DEBUG", "1")
+	}
+
 	if o.theme != "" {
 		if cfg.Themes == nil {
 			cfg.Themes = map[string]string{}
@@ -98,53 +126,15 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 	}
 }
 
-// injectAgentStatus dynamically injects current agent status into Agent 0's prompt
-func injectAgentStatus(agent *core.Agent, teamCaller interface{}) {
-	// Get available agents - we know these exist based on our configuration
-	availableAgents := []string{
-		"coder", "tester", "writer", "devops", "designer",
-		"deployer", "editor", "reviewer", "researcher", "team_planner",
+// emitJSON outputs a JSON response to stdout
+func emitJSON(data any) {
+	b, err := json.Marshal(data)
+	if err != nil {
+		fmt.Printf(`{"ok": false, "error": "json marshal failed: %v"}`, err)
+		return
 	}
-
-	// Build a concise agent status section for the prompt
-	statusSection := "\n\n## 🤖 CURRENT AGENT STATUS\n\n"
-	statusSection += "**Available Agents:** "
-	for i, agentName := range availableAgents {
-		if i > 0 {
-			statusSection += ", "
-		}
-		statusSection += agentName
-	}
-	statusSection += "\n\n**All agents are ready for immediate delegation via the `agent` tool.**\n\n"
-
-	// Inject the status into the prompt if it doesn't already contain it
-	if !strings.Contains(agent.Prompt, "CURRENT AGENT STATUS") {
-		agent.Prompt = agent.Prompt + statusSection
-	}
+	fmt.Println(string(b))
 }
 
-// findRoleTemplatesDir searches for the templates/roles directory
-func findRoleTemplatesDir() string {
-	// Try current directory first
-	if _, err := os.Stat("templates/roles"); err == nil {
-		return "templates/roles"
-	}
-
-	// Try walking up the directory tree
-	cwd, _ := os.Getwd()
-	dir := cwd
-	for {
-		templatePath := filepath.Join(dir, "templates", "roles")
-		if _, err := os.Stat(templatePath); err == nil {
-			return templatePath
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break // reached root
-		}
-		dir = parent
-	}
-
-	return ""
-}
+// osBackgroundContext provides a cancellable background context.
+func osBackgroundContext() context.Context { return context.Background() }

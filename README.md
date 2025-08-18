@@ -1,10 +1,35 @@
-# 🤖 Agentry — Minimal, Performant AI-Agent Framework (Go core + TS SDK)
+```
+                                 
+                                 
+    ████▒               ▒████    
+      ▒▓███▓▒       ▒▓███▓▒      
+        ▒█▒████▓▒▓████▓█▒        
+        ▒█   ▓█████▓▒  █▒        
+        ▒█▓███▓▓█▓▓███▓█▒        
+     ▒▓███▓▒   ▒▓▒   ▒▓███▓▒     
+   ▒███▓▓█     ▒▓▒     █▓▓▓██▒   
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+               ▒▓▒               
+                                 
+                         v0.2.0  
+   █▀█ █▀▀ █▀▀ █▀█ ▀█▀ █▀▄ █ █   
+   █▀█ █ █ █▀▀ █ █  █  █▀▄  █    
+   ▀ ▀ ▀▀▀ ▀▀▀ ▀ ▀  ▀  ▀ ▀  ▀    
+ AGENT  ORCHESTRATION  FRAMEWORK 
+```
+
+# Agentry – Minimal, Performant Go AI-Agent Runtime
 
 **⚠️ CRITICAL: READ [CRITICAL_INSTRUCTIONS.md](./CRITICAL_INSTRUCTIONS.md) FIRST ⚠️**
 
 ![Demo](agentry.gif)
 
-Agentry is a production-ready **agent runtime** written in Go with an optional TypeScript client.
+Agentry is a production-ready **agent runtime** written in Go. Earlier experimental TypeScript/JS client code has been removed – the focus is now a lean, fast, embeddable Go runtime and CLI.
 
 For the upcoming cloud deployment model, see [README-cloud.md](./README-cloud.md).
 
@@ -12,17 +37,13 @@ For the upcoming cloud deployment model, see [README-cloud.md](./README-cloud.md
 
 | 🚩 **Pillar**        | ✨ **v1.0 Features**                                     |
 | -------------------- | -------------------------------------------------------- |
-| 🦴 **Minimal core**  | ~200 LOC run loop, zero heavy deps                       |
-| 🔌 **Plugins**       | JSON/YAML tool manifests; Go or external processes       |
-| 🤹‍♂️ **Sub-agents**    | `Spawn()` + `RunParallel()` helper                       |
-| 🧭 **Model routing** | Rule-based selector, multi-LLM support                   |
-| 🧠 **Memory**        | Conversation + VectorStore interface (RAG-ready)         |
-| 🕵️‍♂️ **Tracing**       | Structured events, JSONL dump, SSE stream                |
-| ⚙️ **Config**        | `.agentry.yaml` bootstraps agent, models, tools          |
-| 🧪 **Evaluation**    | YAML test suites, CLI `agentry eval`                     |
-| 🛠️ **SDK**           | JS/TS client (`@marcodenic/agentry`), supports streaming |
-| 📦 **Registry**      | [Plugin Registry](docs/registry/)                        |
-
+| 🧰 **Tool System**   | 40+ built-in tools (file ops, delegation, network, LSP) |
+| 🤹‍♂️ **Sub-agents**    | Team / delegation tools (`agent`, `team_status`, etc.)  |
+| 🧠 **Memory**        | Conversation + pluggable vector store (qdrant/faiss)    |
+| 🕵️‍♂️ **Tracing**       | Structured events, JSONL dump                          |
+| ⚙️ **Config**        | `.agentry.yaml` declarative models + tools               |
+| 🧪 **Evaluation**    | CLI `agentry eval` + mock vs real model switching        |
+| � **Costs**         | Live token & cost accounting                            |
 ---
 
 ## 📦 Installation
@@ -69,62 +90,39 @@ go install ./cmd/agentry
 ## 🚀 Quick Start
 
 ```bash
-# 🖥️ CLI dev REPL with tracing
 go install github.com/marcodenic/agentry/cmd/agentry@latest
-agentry dev
 
-# 🌐 HTTP server + JS client
-agentry serve --config examples/.agentry.yaml
-npm i @marcodenic/agentry
+# Terminal UI (default)
+agentry                 # launches TUI
+agentry tui --config examples/.agentry.yaml
+
+# JSON-first automation
+agentry invoke "summarize README"
+agentry invoke --agent coder "add a Makefile target"
+agentry team roles
+agentry team spawn --name coder --role coder
+agentry team call --agent coder --input "print hello in bash"
+agentry memory export --out mem.json
 ```
 
 The `examples/.agentry.yaml` file contains a ready-to-use configuration for these commands.
 
-You can now use subcommands instead of the --mode flag:
+Core subcommands (run `agentry help` for full help):
 
-- `agentry dev` (REPL)
-- `agentry serve` (HTTP server)
-- `agentry tui` (TUI interface)
-- `agentry eval` (evaluation)
-- `agentry flow` (run `.agentry.flow.yaml`)
-- `agentry analyze trace.log` (token/cost summary)
-- `agentry pprof profile.out` (launch pprof web UI)
-- `agentry version` (show version)
+- `tui` (interactive; default when no command provided)
+- `invoke` (one-shot; optional `--agent` and `--trace`)
+- `team` (roles, list, spawn, call, stop)
+- `memory` (export, import)
+- `cost`, `eval`, `analyze`, `pprof`, `version`
 
-Server port can be overridden with `--port` or `AGENTRY_PORT`. Adjust the agent
-iteration limit using `--max-iter` or `max_iterations` in the config file.
+Agents run until completion; there is no fixed iteration cap.
 
-Example:
-
-```bash
-agentry flow .
-```
-
-Run the sample scenarios in `examples/flows`:
-
-```bash
-agentry flow examples/flows/research_task
-agentry flow examples/flows/etl_pipeline
-agentry flow examples/flows/multi_agent_chat
-```
-
-After running a flow with `AGENTRY_TRACE_FILE` set, generate a token usage summary:
-
-```bash
-agentry analyze path/to/trace.jsonl
-```
-
-More advanced scenarios are available in the [agentry-demos](./agentry-demos) repository:
-
-```bash
-agentry flow agentry-demos/devops-automation
-agentry flow agentry-demos/research-assistant
 ```
 
 Pass `--resume-id name` to load a saved session and `--save-id name` to persist after each run.
 Use `--checkpoint-id name` to continuously snapshot the run loop and resume after a crash.
 
-The new `tui` command launches a split-screen interface:
+The `tui` command launches a split-screen interface:
 
 ```
 +-------+-----------------------------+
@@ -191,11 +189,17 @@ tools:
     type: builtin
   - name: mcp # 🎮 connect to MCP servers
     type: builtin
+  - name: lsp_diagnostics # 🩺 run language diagnostics (Go:gopls, TS:tsc, Py:pyright, Rust:cargo, JS:eslint)
+    type: builtin
 ```
+
+### 🩺 Diagnostics (LSP)
+
+Use `lsp_diagnostics` to surface issues across common languages (Go, TypeScript/JS, Python, Rust). Output is JSON (file, line, col, code, severity, message). Missing language tools are skipped gracefully.
 
 ### 🎯 Advanced File Operations
 
-Agentry includes VS Code-level file editing capabilities with atomic, line-precise operations:
+Agentry includes line‑precise, atomic file editing tools (no shell redirection needed):
 
 ```yaml
 tools:
@@ -260,26 +264,14 @@ tools:
 
 ### File Operation Strategy
 
-Modern file operations use Agentry's advanced built-in tools rather than shell commands:
+Preferred (safe) tools:
+- View/read: `view`, `read_lines`
+- Edit/insert: `edit_range`, `insert_at`, `search_replace`, `edit`
+- Create: `create`, `write`
+- Inspect: `fileinfo`
+- Discover: `find`, `glob`, `grep`, `ls`, `project_tree`
 
-- **Read files**: Use `view` or `read_lines` for precise, efficient access
-- **Edit files**: Use `edit_range` and `insert_at` for atomic, line-precise edits
-- **Create files**: Use `create` with built-in overwrite protection
-- **Analyze files**: Use `fileinfo` for size, lines, encoding, and type detection
-- **Search/replace**: Use `search_replace` with regex support for complex transformations
-
-These tools provide cross-platform compatibility, atomic operations, and line-precise editing that rivals VS Code's capabilities.
-
-The shell tools are **OS-specific**: on Windows you get `powershell` and `cmd`, on Unix systems you get `bash` and `sh`. This provides maximum power and flexibility - agents can execute any command the underlying shell supports.
-
-**Legacy shell-based file operations** (still supported but discouraged):
-
-- **List files**: `powershell {"command": "Get-ChildItem *.go"}` or `bash {"command": "ls -la *.go"}`
-- **Read files**: `powershell {"command": "Get-Content README.md"}` or `bash {"command": "cat README.md"}`
-- **Write files**: `powershell {"command": "Set-Content -Path file.txt -Value 'content'"}` or `bash {"command": "echo 'content' > file.txt"}`
-- **Find text**: `powershell {"command": "Select-String -Pattern 'TODO' -Path *.go"}` or `bash {"command": "grep 'TODO' *.go"}`
-
-The example configuration already lists these tools so they appear in the TUI's "Tools" panel. The agent decides when to use them based on model output and the platform context automatically provided.
+Shell tools (`bash`, `sh`, `powershell`, `cmd`) remain available for everything else.
 
 Use the `mcp` tool to connect to Multi-User Connection Protocol servers. Set its
 address in your YAML config and the agent can send MCP commands and read the
@@ -287,20 +279,15 @@ responses.
 
 ### 📋 Agent Delegation
 
-Planners can forward work to specialised agents using the `agent` tool.
-Include it in your `.agentry.yaml` and call it with the target agent name and
-task description:
+Use `agent` to delegate work to another role (e.g. `coder`, `researcher`). Add the tool, spawn or reference the role, then:
 
 ```bash
-agent --agent coder --task "write unit tests"
+agentry invoke --agent coder "write unit tests"
 ```
 
 ### OpenAPI & MCP Specs
 
-Agentry can generate tools from an OpenAPI document or a simple MCP schema. Use
-`tool.FromOpenAPI` or `tool.FromMCP` to load a spec and obtain a registry of
-HTTP-backed tools. Example specs are provided in `examples/echo-openapi.yaml` and
-`examples/ping-mcp.json`.
+Generate tool specs at runtime from OpenAPI or simple MCP schemas (see `examples/echo-openapi.yaml`, `examples/ping-mcp.json`).
 
 > **🪟 Windows users:** Agentry works out-of-the-box on Windows 10+ with PowerShell installed.
 
@@ -309,68 +296,24 @@ HTTP-backed tools. Example specs are provided in `examples/echo-openapi.yaml` an
 ## 🧑‍💻 Try it Live
 
 ```bash
-# 🏃‍♂️ One-off REPL (OpenAI key picked up from .env.local)
-agentry dev               # type messages, see responses
-
-# 🌐 HTTP + TS SDK
-agentry serve --config examples/.agentry.yaml &
-
-# In a new terminal, run the following from the ts-sdk directory:
-cd ts-sdk
-npm install  # (if you get dependency errors, use: npm install --legacy-peer-deps)
-npm run build
-npm test
-
-# Make sure the agentry server is running, then:
-node -e "const {invoke}=require('./dist/index.js');invoke('hi',{stream:false}).then(console.log)"
+agentry tui --config examples/.agentry.yaml
+agentry invoke "say hi"
 ```
 
 ---
 
-## 🦾 Full End-to-End Example (Two Terminals)
+## 🦾 End-to-End Example (CLI)
 
-> **You must use two terminals for this demo.**
->
-> - **Terminal 1:** Start the Agentry server from the project root.
-> - **Terminal 2:** Run the TypeScript SDK example from the `ts-sdk` directory.
-
-### 🖥️ Terminal 1: Start the Agentry server
-
-**From the project root directory (`agentry`):**
+You can test the core functionality using the CLI modes:
 
 ```bash
-agentry serve --config examples/.agentry.yaml
+agentry tui --config examples/.agentry.yaml
+agentry invoke --agent coder "create hello.go"
 ```
-
-- This will start the server and take over the terminal. Leave it running.
-
-### 🖥️ Terminal 2: Use the TypeScript SDK
-
-**From the `ts-sdk` directory:**
-
-If you are not already in the `ts-sdk` directory, run:
-
-```bash
-cd ts-sdk
-```
-
-Then, from inside `ts-sdk`, run each command one at a time:
-
-```bash
-npm install  # (if you get dependency errors, use: npm install --legacy-peer-deps)
-npm run build
-npm test
-node -e "const {invoke}=require('./dist/index.js');invoke('hi',{stream:false,agentId:'default'}).then(console.log).catch(e=>console.error(e.message))"
-```
-
-- **Do not run `cd ts-sdk` if you are already in the `ts-sdk` directory.**
-- All npm commands and the Node.js example must be run from inside `ts-sdk`.
-- Make sure the server in Terminal 1 is running before running the Node.js command above.
-- If you see a connection error, check that Terminal 1 is still running and listening on port 8080.
 
 ---
 
-## 🛠️ Dev REPL Tricks
+## 🛠️ Dev / REPL Tricks
 
 ### 🤖 Multi-agent conversations
 
@@ -387,8 +330,6 @@ Inside the TUI, you can create additional agents on the fly:
 ```bash
 /spawn researcher "gather background info"
 ```
-
-Agents spawned in this way can run tasks locally or on remote nodes connected to your Agentry cluster.
 
 ### 💾 Saving & Resuming
 
@@ -413,12 +354,10 @@ session_gc_interval: 1h
 ```
 
 Run the CLI with `--resume-id myrun` to load a snapshot before running and `--save-id myrun` to save state after each run. `--checkpoint-id myrun` continuously saves intermediate steps so sessions can be resumed.
-Expired sessions are pruned automatically by the server based on `session_ttl`.
-Cleanup runs on `session_gc_interval` for any configured store backend.
 
 ### 📚 Vector Store
 
-Configure a vector backend for document retrieval:
+Example config:
 
 ```yaml
 vector_store:
@@ -427,7 +366,7 @@ vector_store:
   collection: agentry
 ```
 
-Supported types are `qdrant`, `faiss`, and the default in-memory store.
+Supported: `qdrant`, `faiss`, in‑memory.
 
 ### ♻️ Reusing Roles
 
@@ -443,36 +382,18 @@ tools:
   - patch
 ```
 
-Reference templates from a flow using the `include` key:
-
-```yaml
-include:
-  - templates/roles/coder.yaml
-
-agents:
-  coder:
-    model: gpt-4o
-
-tasks:
-  - agent: coder
-    input: build a CLI
-```
-
-The template's prompt and tools merge with the agent definition. Paths are
-resolved relative to the flow file.
-
 The default system prompt for solo mode lives in `templates/roles/agent_0.yaml`.
 
 ---
 
 ## ⚙️ Environment Configuration
 
-Copy `.env.example` to `.env.local` and fill in `OPENAI_KEY` to enable real OpenAI calls. The file is loaded automatically on startup and during tests.
+Copy `.env.example` to `.env.local` and fill in `OPENAI_API_KEY` to enable real OpenAI calls. The file is loaded automatically on startup and during tests.
 
 To run evaluation with the real model:
 
 ```bash
-OPENAI_KEY=your-key agentry eval --config my.agentry.yaml
+OPENAI_API_KEY=your-key agentry eval --config my.agentry.yaml
 ```
 
 When the real model is active, the CLI uses `tests/openai_eval_suite.json` so the assertions match ChatGPT's typical response.
@@ -492,7 +413,7 @@ Agentry uses YAML configuration files to define models, tools, and behavior. The
 - **`examples/.agentry.yaml`**: Reference configuration for users
 
 ### Configuration Documentation
-- **[CONFIG_GUIDE.md](CONFIG_GUIDE.md)**: Complete guide to all configuration files
+- **[CONFIG_GUIDE.md](docs/CONFIG_GUIDE.md)**: Complete guide to all configuration files
 - **[CONFIG_CLEANUP_SUMMARY.md](CONFIG_CLEANUP_SUMMARY.md)**: Recent improvements and standards
 
 ### Validation
@@ -502,10 +423,36 @@ Agentry uses YAML configuration files to define models, tools, and behavior. The
 ```
 
 ### Key Principles
-- **Agent 0**: Uses ultra cost-effective models (gpt-4.1-nano) for coordination
+- **Agent 0**: Uses gpt-5 for system/orchestrator duties
 - **Specialist Agents**: Use appropriate models defined in role templates
 - **No Complex Routing**: Simple model-per-agent approach
 - **Always Include**: The `agent` tool for delegation capabilities
+
+### 🚀 Extended Capabilities (Roadmap)
+
+Agentry supports additional specialized agent types and tools for complex workflows:
+
+#### 🤝 User Interaction
+- **`ask_user` tool**: Pause execution to collect user confirmation, feedback, or guidance
+- **Interactive Workflows**: Long-running tasks that benefit from human oversight and decision-making
+- **Confirmation Dialogs**: Critical actions that require explicit user approval
+
+#### 🎨 Image & Design Generation
+- **Designer Agent**: Specialized role for visual creation and UI/UX design
+- **Image Generation**: Integration with DALL-E, Stable Diffusion, and other generative AI models
+- **Visual Tools**: Create diagrams, mockups, and visual assets programmatically
+
+#### 🔍 Fact-Checking & Citation
+- **Verification Agent**: Dedicated fact-checking with source attribution
+- **Citation Tracking**: Automatic source referencing and credibility assessment
+- **Information Validation**: Cross-reference claims across multiple reliable sources
+
+#### 🧠 Enhanced Memory
+- **Semantic Search**: Vector-based memory retrieval across sessions and projects
+- **Long-term Knowledge**: Persistent knowledge base that agents can reference and update
+- **Context Preservation**: Maintain relevant information across extended agent workflows
+
+These capabilities build on Agentry's solid foundation of team coordination, shared memory, and tool orchestration.
 
 ---
 
@@ -518,32 +465,22 @@ Agentry uses YAML configuration files to define models, tools, and behavior. The
 
 ## 🧪 Testing & Development
 
-Run all tests and start a REPL with one command:
-
-```bash
-make dev
-```
-
-This target executes Go and TypeScript tests, builds the CLI, and launches `agentry serve` using the example config. You can also run the steps manually:
+Run all Go tests:
 
 ```bash
 go test ./...
-cd ts-sdk && npm install && npm test
-go install ./cmd/agentry
-agentry dev
 ```
 
-## 🪟 Windows Setup & NATS Server
+Build & run TUI:
 
-To run tests or use Agentry features that require NATS on Windows:
+```bash
+go install ./cmd/agentry
+agentry tui --config examples/.agentry.yaml
+```
 
-1. Download and extract the latest NATS server zip from the [official releases](https://github.com/nats-io/nats-server/releases).
-2. Start the server in PowerShell (adjust path as needed):
-   ```powershell
-   & "C:\Users\marco\Downloads\nats-server-v2.11.4-windows-amd64\nats-server-v2.11.4-windows-amd64\nats-server.exe" -p 4222
-   ```
+## 🪟 Windows Setup
 
-**Run Go tests (excluding integration):**
+**Run Go tests:**
 
 ```powershell
 go test ./... -v -short
@@ -555,55 +492,16 @@ go test ./... -v -short
 go test ./... -v -tags=integration
 ```
 
----
+## ️ Tool Scaffolding
 
-## 🧩 VS Code Extension
+To create a new builtin tool:
 
-The `extensions/vscode-agentry` folder contains a small helper extension that streams output from a running server.
+1. Copy a small existing example (e.g. one of the simple tools in `internal/tool/`).
+2. Implement your logic (keep it fast, deterministic, side‑effect aware).
+3. Expose a `Spec()` describing name, description, input schema.
+4. Register in an `init()` so it auto-adds to the builtin registry.
 
-```bash
-cd extensions/vscode-agentry
-npm install
-npm run build
-```
-
-Start the Agentry server with `agentry serve --config examples/.agentry.yaml` then run **Agentry: Open Panel** from VS Code to connect. Use **Agentry: Stop Stream** to end the session.
-
-## 🔌 Plugin Registry
-
-The project publishes a small registry at `docs/registry/plugins.json`. Each
-entry lists a plugin repository URL and description. Fetch a plugin and install
-it with:
-
-```bash
-agentry plugin fetch docs/registry/plugins.json agentry-shell
-agentry plugin install https://github.com/marcodenic/agentry-shell
-```
-
-To contribute a plugin, update `docs/registry/plugins.json` and open a pull
-request.
-
-## 🛠️ Tool Scaffolding
-
-Create boilerplate for a new built-in tool:
-
-```bash
-agentry tool init mytool
-```
-
-This generates a folder with a Go source file and YAML manifest.
-
-## 🔗 Wrapping OpenAPI or MCP Specs
-
-Specs can be converted to tool definitions at the command line:
-
-```bash
-agentry tool openapi examples/echo-openapi.yaml > tools.yaml
-agentry tool mcp examples/ping-mcp.json > tools.yaml
-```
-
-Each command prints YAML `ToolSpec` entries that can be inspected or embedded in
-config files.
+Keeping this manual (vs a generator) ensures each addition is reviewed for security and auditability. A future helper may scaffold boilerplate, but clarity beats magic for now.
 
 ## 🔒 Security & Auditing
 
@@ -639,12 +537,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deve
 - Code style guidelines
 - How to submit pull requests
 
-> **🚨 IMPORTANT: Repository Hygiene**
->
-> **NEVER create test files, debug scripts, or temporary files in the root directory.**
-> The root must remain clean and contain only essential project files.
-> Place test files in `tests/`, debug scripts in `debug/`, and examples in `examples/`.
-> See [AGENTS.md](AGENTS.md) for detailed guidelines.
+> **Repository Hygiene**: keep the root clean (see `docs/dev/AGENTS.md`).
 
 For questions or discussions, please open an issue on GitHub.
 

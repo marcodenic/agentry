@@ -1,18 +1,36 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// handleAgentComplete processes agent completion messages
 func (m Model) handleAgentComplete(msg agentCompleteMsg) (Model, tea.Cmd) {
 	// finalMsg already handled completion - this is just cleanup
 	info := m.infos[msg.id]
 	if info.Status != StatusIdle {
 		info.Status = StatusIdle
 		m.infos[msg.id] = info
+	}
+	return m, nil
+}
+
+func (m Model) handleAgentStart(msg agentStartMsg) (Model, tea.Cmd) {
+	info := m.infos[msg.id]
+	if info != nil {
+		info.Status = StatusRunning
+		// Add a status message to the conversation
+		statusMsg := fmt.Sprintf("\n\n✨ **%s** (%s) is starting to work...\n", msg.name, msg.role)
+		info.History += statusMsg
+		m.infos[msg.id] = info
+
+		// If this is the active agent, update the viewport
+		if msg.id == m.active {
+			m.vp.SetContent(info.History)
+			m.vp.GotoBottom()
+		}
 	}
 	return m, nil
 }
@@ -30,25 +48,25 @@ func (m Model) handleThinkingAnimation(msg thinkingAnimationMsg) (Model, tea.Cmd
 		return m, nil
 	}
 
-	// ASCII spinner frames
-	frames := []string{"|", "/", "-", "\\"}
-	currentSpinner := frames[msg.frame]
+	// Dots spinner frames (replacing slash spinner)
+	// Use fixed width of 4 spaces so alignment matches user input (which uses 4 spaces after the bar)
+	frames := []string{"    ", "•   ", "••  ", "••• "}
+	currentSpinner := frames[msg.frame%len(frames)]
 
 	// Build display content WITHOUT modifying history
 	displayHistory := info.History
 
 	// Check if we should append spinner to last status message or show on new line
 	if info.LastContentType == ContentTypeStatusMessage {
-		// Append spinner to the end of the last status message
-		displayHistory += " " + currentSpinner
+		// Append spinner to the end of the last status message, align with 4-space content indent
+		displayHistory += "    " + currentSpinner
 	} else {
 		// For user input or other content types, show spinner on new line with AI bar
+		// Use four spaces after the bar to match user input indentation (and give a bit more offset)
 		if len(displayHistory) > 0 && !strings.HasSuffix(displayHistory, "\n") {
-			// Add AI bar and spinner for display only
-			displayHistory += "\n" + m.aiBar() + " " + currentSpinner
+			displayHistory += "\n" + m.aiBar() + "    " + currentSpinner
 		} else {
-			// Add AI bar and spinner for display only
-			displayHistory += m.aiBar() + " " + currentSpinner
+			displayHistory += m.aiBar() + "    " + currentSpinner
 		}
 	}
 

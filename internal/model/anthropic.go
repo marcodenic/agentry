@@ -56,6 +56,10 @@ func (a *Anthropic) Complete(ctx context.Context, msgs []ChatMessage, tools []To
 			systemPrompt = m.Content
 			continue
 		}
+		// Skip messages with empty content (Anthropic requires non-empty content)
+		if strings.TrimSpace(m.Content) == "" {
+			continue
+		}
 		// Anthropic only supports user and assistant roles
 		role := m.Role
 		if role != "user" && role != "assistant" {
@@ -106,12 +110,20 @@ func (a *Anthropic) Complete(ctx context.Context, msgs []ChatMessage, tools []To
 			Input json.RawMessage `json:"input,omitempty"`
 		} `json:"content"`
 		StopReason string `json:"stop_reason"`
+		Usage      struct {
+			InputTokens  int `json:"input_tokens"`
+			OutputTokens int `json:"output_tokens"`
+		} `json:"usage"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return Completion{}, err
 	}
 
-	comp := Completion{}
+	comp := Completion{
+		InputTokens:  res.Usage.InputTokens,
+		OutputTokens: res.Usage.OutputTokens,
+		ModelName:    "anthropic/" + a.model, // Store as provider/model format
+	}
 	var content strings.Builder
 	for _, c := range res.Content {
 		switch c.Type {

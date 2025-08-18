@@ -8,18 +8,18 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/marcodenic/agentry/internal/audit"
 	"github.com/marcodenic/agentry/internal/config"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/cost"
+	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
-	"github.com/marcodenic/agentry/pkg/memstore"
 )
 
 // buildAgent constructs an Agent from configuration.
@@ -31,7 +31,7 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		tl, err := tool.FromManifest(m)
 		if err != nil {
 			if errors.Is(err, tool.ErrUnknownBuiltin) {
-				fmt.Printf("skipping builtin %s: not available\n", m.Name)
+				debug.Printf("skipping builtin %s: not available", m.Name)
 				continue
 			}
 			return nil, err
@@ -57,7 +57,7 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 			input, _ := args["input"].(string)
 			t, ok := team.FromContext(ctx)
 			if !ok || t == nil {
-				fmt.Printf("❌ Agent tool: no team found in context\n")
+				debug.Printf("Agent tool: no team found in context")
 				return "", fmt.Errorf("team not found in context")
 			}
 			return t.Call(ctx, name, input)
@@ -80,39 +80,29 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		clients[m.Name] = c
 	}
 
-	// Simplified routing: Use the first configured model for Agent 0
-	// No complex keyword matching - Agent 0 decides delegation through intelligence
-	var rules router.Rules
+	// Use the first configured model, or mock if none configured
+	var client model.Client
+	var modelName string
+
 	if len(cfg.Models) > 0 {
 		primaryModel := cfg.Models[0]
+
 		c, ok := clients[primaryModel.Name]
 		if !ok {
 			return nil, fmt.Errorf("primary model %s not found", primaryModel.Name)
 		}
-		rules = router.Rules{{
-			Name:       primaryModel.Name,
-			IfContains: []string{""}, // Matches everything - simple and predictable
-			Client:     c,
-		}}
+		client = c
+
+		// Construct the model name: provider/model (e.g., "openai/gpt-4.1-nano")
+		if primaryModel.Options != nil && primaryModel.Options["model"] != "" {
+			modelName = fmt.Sprintf("%s/%s", primaryModel.Provider, primaryModel.Options["model"])
+		} else {
+			modelName = primaryModel.Name // fallback to name if no model option
+		}
 	} else {
 		// Fallback to mock if no models configured
-		rules = router.Rules{{Name: "mock", IfContains: []string{""}, Client: model.NewMock()}}
-	}
-
-	var store memstore.KV
-	memURI := cfg.Memory
-	if memURI == "" {
-		memURI = cfg.Store
-	}
-	if memURI == "" {
-		memURI = "mem"
-	}
-	if memURI != "" {
-		s, err := memstore.StoreFactory(memURI)
-		if err != nil {
-			return nil, err
-		}
-		store = s
+		client = model.NewMock()
+		modelName = "mock"
 	}
 
 	var vec memory.VectorStore
@@ -125,22 +115,28 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		vec = memory.NewInMemoryVector()
 	}
 
-	ag := core.New(rules, reg, memory.NewInMemory(), store, vec, nil)
+	ag := core.New(client, modelName, reg, memory.NewInMemory(), vec, nil)
+
+	// Configure error handling for resilience
+	ag.ErrorHandling.TreatErrorsAsResults = true
+	ag.ErrorHandling.MaxErrorRetries = 3
+	ag.ErrorHandling.IncludeErrorContext = true
 
 	// Debug: check what tools the agent actually gets (only in non-TUI mode)
 	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-		fmt.Printf("🔧 buildAgent: registry has %d tools, agent has %d tools\n", len(reg), len(ag.Tools))
+		debug.Printf("buildAgent: registry has %d tools, agent has %d tools", len(reg), len(ag.Tools))
 	}
 
 	if logWriter != nil {
 		ag.Tracer = trace.NewJSONL(logWriter)
 	}
-	if cfg.MaxIterations > 0 {
-		ag.MaxIterations = cfg.MaxIterations
-	}
+	// No iteration cap
 
-	// Use default prompt for main agent - team.go will load role configs when spawning
-	ag.Prompt = "You are Agent 0, the system orchestrator. You can delegate to specialized agents using the agent tool."
+	// Resolve default prompt from user-editable files; fail if missing
+	ag.Prompt = core.GetDefaultPrompt()
+	if strings.TrimSpace(ag.Prompt) == "" {
+		return nil, fmt.Errorf("no default prompt found: place agent_0.yaml under one of: $AGENTRY_DEFAULT_PROMPT, $AGENTRY_CONFIG_HOME/roles/, ~/.config/agentry/roles/, <exedir>/templates/roles/, ./templates/roles/")
+	}
 
 	// Initialize cost manager for token/cost tracking
 	ag.Cost = cost.New(0, 0.0) // No budget limits, just tracking
@@ -148,9 +144,7 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	return ag, nil
 }
 
-func runCostCmd(args []string)  { fmt.Println("Cost command not available (build with --tools flag)") }
-func runPProfCmd(args []string) { fmt.Println("PProf command not available (build with --tools flag)") }
-func runPluginCmd(args []string) {
-	fmt.Println("Plugin command not available (build with --tools flag)")
+// Stub functions for commands that are only available with tools build tag
+func runPProfCmd(_ []string) {
+	fmt.Println("PProf command not available (build with --tools flag)")
 }
-func runToolCmd(args []string) { fmt.Println("Tool command not available (build with --tools flag)") }

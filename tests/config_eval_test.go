@@ -9,7 +9,6 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
@@ -42,8 +41,7 @@ func TestConfigBootAndEval(t *testing.T) {
 	// Mock model
 	mock := &cyclingMock{}
 
-	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: mock}}
-	agent := core.New(route, tools, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	agent := core.New(mock, "mock", tools, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 
 	out, err := agent.Run(context.Background(), "hello")
 	if err != nil {

@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"strings"
-
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -13,6 +11,30 @@ func (m Model) handleToolUseMessage(msg toolUseMsg) (Model, tea.Cmd) {
 
 	// Complete the progressive status update (add green tick and change bar color)
 	info.completeProgressiveStatusUpdate(m)
+
+	// Special handling for diagnostics tool to store structured results
+	if msg.name == "lsp_diagnostics" {
+		if r, ok := msg.args["result"].(map[string]any); ok {
+			// reset list
+			m.diags = nil
+			if arr, ok := r["diagnostics"].([]any); ok {
+				for _, it := range arr {
+					if m2, ok := it.(map[string]any); ok {
+						d := Diag{
+							File:     strVal(m2["file"]),
+							Line:     intVal(m2["line"]),
+							Col:      intVal(m2["col"]),
+							Code:     strVal(m2["code"]),
+							Severity: strVal(m2["severity"]),
+							Message:  strVal(m2["message"]),
+						}
+						m.diags = append(m.diags, d)
+					}
+				}
+			}
+		}
+		m.diagRunning = false
+	}
 
 	if msg.id == m.active {
 		m.vp.SetContent(info.History)
@@ -41,8 +63,8 @@ func (m Model) handleActionMessage(msg actionMsg) (Model, tea.Cmd) {
 func (m Model) handleModelMessage(msg modelMsg) (Model, tea.Cmd) {
 	info := m.infos[msg.id]
 
-	// Determine if the new model name is more specific than the current one
-	if shouldUpdateModelName(info.ModelName, msg.name) {
+	// Simply update the model name if we have a new one
+	if msg.name != "" {
 		info.ModelName = msg.name
 	}
 
@@ -50,62 +72,22 @@ func (m Model) handleModelMessage(msg modelMsg) (Model, tea.Cmd) {
 	return m, m.readCmd(msg.id)
 }
 
-// shouldUpdateModelName determines if the new model name is more specific than the current one
-func shouldUpdateModelName(currentName, newName string) bool {
-	// If no current name, accept any new name
-	if currentName == "" {
-		return true
+// Helpers to decode numbers/strings from any
+func strVal(v any) string {
+	if s, ok := v.(string); ok {
+		return s
 	}
-
-	// Calculate specificity scores for both names
-	currentScore := getModelNameSpecificity(currentName)
-	newScore := getModelNameSpecificity(newName)
-
-	// Only update if the new name is more specific
-	return newScore > currentScore
+	return ""
 }
-
-// getModelNameSpecificity returns a score indicating how specific a model name is
-// Higher scores are more specific (actual model names vs rule names)
-func getModelNameSpecificity(name string) int {
-	if name == "" {
+func intVal(v any) int {
+	switch t := v.(type) {
+	case float64:
+		return int(t)
+	case int:
+		return t
+	case int64:
+		return int(t)
+	default:
 		return 0
 	}
-
-	// Common router rule names get low scores
-	commonRuleNames := map[string]int{
-		"openai":    1,
-		"anthropic": 1,
-		"mock":      1,
-		"ollama":    1,
-		"gemini":    1,
-	}
-
-	if score, exists := commonRuleNames[name]; exists {
-		return score
-	}
-
-	// Specific model identifiers get higher scores
-	specificity := 2 // Base score for non-rule names
-
-	// Increase score for model names with version numbers
-	if strings.Contains(name, "-") {
-		specificity += 2 // e.g., "gpt-4", "claude-3"
-	}
-
-	// Increase score for model names with detailed versions
-	if strings.Contains(name, "mini") || strings.Contains(name, "max") ||
-		strings.Contains(name, "ultra") || strings.Contains(name, "plus") {
-		specificity += 1 // e.g., "gpt-4o-mini"
-	}
-
-	// Increase score for model names with specific version numbers
-	for _, char := range name {
-		if char >= '0' && char <= '9' {
-			specificity += 1
-			break // Only count once for containing numbers
-		}
-	}
-
-	return specificity
 }

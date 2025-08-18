@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/marcodenic/agentry/internal/config"
 	"os"
+
+	"github.com/marcodenic/agentry/internal/config"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/eval"
@@ -18,7 +19,7 @@ func runEval(args []string) {
 		os.Exit(1)
 	}
 	applyOverrides(cfg, opts)
-	key := os.Getenv("OPENAI_KEY")
+	key := os.Getenv("OPENAI_API_KEY")
 	if key != "" {
 		for i, m := range cfg.Models {
 			if m.Name == "openai" {
@@ -33,9 +34,7 @@ func runEval(args []string) {
 	if err != nil {
 		panic(err)
 	}
-	if opts.maxIter > 0 {
-		ag.MaxIterations = opts.maxIter
-	}
+	// No iteration cap
 	if opts.ckptID != "" {
 		ag.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(opts.ckptID))
 		_ = ag.Resume(context.Background())

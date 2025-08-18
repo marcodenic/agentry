@@ -3,13 +3,52 @@ package tool
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/marcodenic/agentry/internal/contracts"
 )
+
+// TeamContextKey is used to store a team implementation in context for builtins.
+// The concrete value should implement the contracts.TeamService interface.
+var TeamContextKey = struct{ key string }{"agentry.team"}
+
+// AgentNameContextKey provides the current agent's logical name (e.g., "agent_0" or role name)
+// when running within a Team. Team sets this value before invoking the agent.
+var AgentNameContextKey = struct{ key string }{"agentry.agent-name"}
+
+// teamAPI is deprecated - use contracts.TeamService instead
+// Kept for backward compatibility during transition
+type teamAPI = contracts.TeamService
 
 // getTeamBuiltins returns team coordination builtin tools
 func getTeamBuiltins() map[string]builtinSpec {
 	return map[string]builtinSpec{
+		"team": {
+			Desc: "Coordinate a simple ad-hoc team for a topic (demo)",
+			Schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"n":     map[string]any{"type": "integer", "description": "Number of helpers"},
+					"topic": map[string]any{"type": "string", "description": "Topic to coordinate on"},
+				},
+				"required": []string{},
+			},
+			Exec: func(ctx context.Context, args map[string]any) (string, error) {
+				n, _ := getIntArg(args, "n", 1)
+				topic, _ := args["topic"].(string)
+				if n < 1 {
+					n = 1
+				}
+				var b strings.Builder
+				b.WriteString("Team plan:\n")
+				for i := 1; i <= n; i++ {
+					b.WriteString(fmt.Sprintf("- agent_%d handles %s\n", i, topic))
+				}
+				return b.String(), nil
+			},
+		},
 		"agent": {
 			Desc: "Delegate to another agent",
 			Schema: map[string]any{
@@ -31,8 +70,8 @@ func getTeamBuiltins() map[string]builtinSpec {
 				},
 			},
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				// Placeholder implementation - will be replaced with proper team implementation
-				return "", fmt.Errorf("agent tool placeholder - should be replaced with proper implementation")
+				// This is a placeholder that will be replaced by the team's RegisterAgentTool
+				return "", fmt.Errorf("agent tool placeholder - should be replaced by team registration")
 			},
 		},
 		"team_status": {
@@ -43,8 +82,38 @@ func getTeamBuiltins() map[string]builtinSpec {
 				"required":   []string{},
 			},
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				// Basic team status - will be enhanced with actual team data
-				return fmt.Sprintf("Team Status Report - %s\n\nAvailable Agents:\n- coder: Ready for programming tasks\n- tester: Ready for testing tasks\n- writer: Ready for documentation tasks\n- devops: Ready for deployment tasks\n- researcher: Ready for research tasks\n- designer: Ready for design tasks\n- reviewer: Ready for review tasks\n- editor: Ready for editing tasks\n- deployer: Ready for deployment tasks\n- team_planner: Ready for planning tasks\n\nTeam is ready for coordination.", time.Now().Format("2006-01-02 15:04:05")), nil
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
+				}
+
+				spawned := t.SpawnedAgentNames()
+				var b strings.Builder
+				b.WriteString(fmt.Sprintf("Team Status - %s\n", time.Now().Format("2006-01-02 15:04:05")))
+				if len(spawned) == 0 {
+					b.WriteString("No agents currently running.\n")
+				} else {
+					b.WriteString("Running Agents:\n")
+					for _, n := range spawned {
+						b.WriteString("- ")
+						b.WriteString(n)
+						b.WriteString("\n")
+					}
+				}
+				// Append a short coordination summary
+				b.WriteString("\nRecent Coordination:\n")
+				lines := t.GetCoordinationHistory(5)
+				if len(lines) == 0 {
+					b.WriteString("- none\n")
+				} else {
+					for _, ln := range lines {
+						b.WriteString("- ")
+						b.WriteString(ln)
+						b.WriteString("\n")
+					}
+				}
+				return b.String(), nil
 			},
 		},
 		"send_message": {
@@ -75,8 +144,23 @@ func getTeamBuiltins() map[string]builtinSpec {
 				if msgType == "" {
 					msgType = "info"
 				}
-
-				return fmt.Sprintf("✅ Message sent to %s [%s]: %s", to, msgType, message), nil
+				// Resolve team from context without importing the team package
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
+				}
+				// Use current agent as sender if available; fallback to Agent 0
+				from := "agent_0"
+				if v := ctx.Value(AgentNameContextKey); v != nil {
+					if s, ok := v.(string); ok && s != "" {
+						from = s
+					}
+				}
+				if err := t.SendMessage(ctx, from, to, message); err != nil {
+					return "", err
+				}
+				return fmt.Sprintf("✅ Message sent from %s to %s [%s]: %s", from, to, msgType, message), nil
 			},
 		},
 
@@ -95,19 +179,66 @@ func getTeamBuiltins() map[string]builtinSpec {
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
 				agentName, _ := args["agent"].(string)
 
-				// List of available agents - these match the agent_0.yaml configuration
-				availableAgents := []string{
-					"coder", "tester", "writer", "devops", "designer",
-					"deployer", "editor", "reviewer", "researcher", "team_planner",
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
+				}
+				spawned := t.SpawnedAgentNames()
+				for _, n := range spawned {
+					if n == agentName {
+						return fmt.Sprintf("✅ Agent '%s' is available", agentName), nil
+					}
+				}
+				return fmt.Sprintf("❌ Agent '%s' is not available. Available agents: %s", agentName, strings.Join(spawned, ", ")), nil
+			},
+		},
+		"available_roles": {
+			Desc: "List all available agent roles from configuration",
+			Schema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+				"required":   []string{},
+			},
+			Exec: func(ctx context.Context, args map[string]any) (string, error) {
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
 				}
 
-				for _, available := range availableAgents {
-					if available == agentName {
-						return fmt.Sprintf("✅ Agent '%s' is available and ready", agentName), nil
+				available := t.AvailableRoleNames()
+				spawned := t.SpawnedAgentNames()
+
+				var b strings.Builder
+				b.WriteString("🎭 Available Agent Roles:\n\n")
+
+				if len(available) == 0 {
+					b.WriteString("❌ No roles configured. Check your .agentry.yaml include paths.\n")
+				} else {
+					b.WriteString("📋 Configured Roles:\n")
+					for _, role := range available {
+						b.WriteString("- ")
+						b.WriteString(role)
+						// Check if this role has a spawned agent
+						isSpawned := false
+						for _, agent := range spawned {
+							if agent == role {
+								isSpawned = true
+								break
+							}
+						}
+						if isSpawned {
+							b.WriteString(" (currently running)")
+						}
+						b.WriteString("\n")
 					}
 				}
 
-				return fmt.Sprintf("❌ Agent '%s' is not available. Available agents: %s", agentName, strings.Join(availableAgents, ", ")), nil
+				b.WriteString("\n💡 Use the 'agent' tool to delegate tasks to any of these roles.\n")
+				b.WriteString("Example: {\"agent\": \"coder\", \"input\": \"create a hello world program\"}\n")
+
+				return b.String(), nil
 			},
 		},
 		"shared_memory": {
@@ -135,21 +266,39 @@ func getTeamBuiltins() map[string]builtinSpec {
 				action, _ := args["action"].(string)
 				key, _ := args["key"].(string)
 				value, _ := args["value"].(string)
-
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
+				}
 				switch action {
 				case "get":
 					if key == "" {
 						return "❌ Key required for get operation", nil
 					}
-					// This is a placeholder - in real implementation, we'd access team shared memory
-					return fmt.Sprintf("📊 Shared data '%s': (placeholder - would retrieve from team)", key), nil
+					if v, ok := t.GetSharedData(key); ok {
+						return fmt.Sprintf("📊 %s = %v", key, v), nil
+					}
+					return fmt.Sprintf("📊 %s not set", key), nil
 				case "set":
 					if key == "" || value == "" {
 						return "❌ Key and value required for set operation", nil
 					}
+					t.SetSharedData(key, value)
 					return fmt.Sprintf("✅ Stored '%s' in shared memory", key), nil
 				case "list":
-					return "📋 Shared memory contents: (placeholder - would list all keys)", nil
+					data := t.GetAllSharedData()
+					if len(data) == 0 {
+						return "📋 Shared memory is empty", nil
+					}
+					var b strings.Builder
+					b.WriteString("📋 Shared memory keys:\n")
+					for k := range data {
+						b.WriteString("- ")
+						b.WriteString(k)
+						b.WriteString("\n")
+					}
+					return b.String(), nil
 				default:
 					return "❌ Invalid action. Use: get, set, or list", nil
 				}
@@ -175,181 +324,311 @@ func getTeamBuiltins() map[string]builtinSpec {
 				if detail == "" {
 					detail = "summary"
 				}
-
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
+				}
 				switch detail {
 				case "summary":
-					return "📊 Coordination Summary: Recent agent interactions and shared memory status", nil
+					return t.GetCoordinationSummary(), nil
 				case "full":
-					return "📋 Full Coordination Log: Complete history of agent communications and events", nil
+					lines := t.GetCoordinationHistory(0)
+					if len(lines) == 0 {
+						return "📋 No coordination events.", nil
+					}
+					var b strings.Builder
+					b.WriteString("📋 Coordination Events (full):\n")
+					for _, ln := range lines {
+						b.WriteString("- ")
+						b.WriteString(ln)
+						b.WriteString("\n")
+					}
+					return b.String(), nil
 				case "recent":
-					return "🕐 Recent Events: Last 10 coordination events and current agent status", nil
+					lines := t.GetCoordinationHistory(10)
+					if len(lines) == 0 {
+						return "🕐 No recent coordination events.", nil
+					}
+					var b strings.Builder
+					b.WriteString("🕐 Recent Events:\n")
+					for _, ln := range lines {
+						b.WriteString("- ")
+						b.WriteString(ln)
+						b.WriteString("\n")
+					}
+					return b.String(), nil
 				default:
 					return "❌ Invalid detail level. Use: summary, full, or recent", nil
 				}
 			},
 		},
-		"collaborate": {
-			Desc: "Request collaboration or send messages to other agents",
+
+		// inbox_read: fetch unread messages for self or a specified agent; optionally mark as read
+		"inbox_read": {
+			Desc: "Read inbox messages for an agent (defaults to self)",
 			Schema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"action": map[string]any{
+					"agent": map[string]any{
 						"type":        "string",
-						"description": "Type of collaboration action",
-						"enum":        []string{"send_message", "request_help", "update_status", "get_team_status", "coordinate_workflow"},
+						"description": "Agent name (defaults to current agent)",
 					},
-					"to": map[string]any{
-						"type":        "string",
-						"description": "Target agent ID (for direct messages)",
+					"mark_read": map[string]any{
+						"type":        "boolean",
+						"description": "Mark returned messages as read",
+						"default":     true,
 					},
-					"message": map[string]any{
-						"type":        "string",
-						"description": "Message content or request description",
-					},
-					"message_type": map[string]any{
-						"type":        "string",
-						"description": "Type of message",
-						"enum":        []string{"direct", "request", "status", "notification", "collaboration"},
-					},
-					"priority": map[string]any{
-						"type":        "string",
-						"description": "Message priority",
-						"enum":        []string{"high", "normal", "low"},
-						"default":     "normal",
-					},
-					"status": map[string]any{
-						"type":        "string",
-						"description": "Agent status for status updates",
-						"enum":        []string{"working", "idle", "waiting", "blocked", "collaborating", "completed"},
-					},
-					"current_task": map[string]any{
-						"type":        "string",
-						"description": "Description of current task (for status updates)",
-					},
-					"progress": map[string]any{
-						"type":        "number",
-						"description": "Task progress (0.0 to 1.0)",
-						"minimum":     0.0,
-						"maximum":     1.0,
+					"limit": map[string]any{
+						"type":        "integer",
+						"description": "Optional max number of messages to return",
+						"default":     0,
 					},
 				},
-				"required": []string{"action"},
-				"examples": []map[string]any{
-					{
-						"action":       "send_message",
-						"to":           "tester",
-						"message":      "I've completed the calculator module. Please test the add(), subtract(), multiply(), and divide() functions.",
-						"message_type": "request",
-						"priority":     "normal",
-					},
-					{
-						"action":       "request_help",
-						"to":           "writer",
-						"message":      "Can you help me write documentation for the calculator API?",
-						"message_type": "collaboration",
-						"priority":     "normal",
-					},
-					{
-						"action":       "update_status",
-						"status":       "working",
-						"current_task": "Implementing calculator multiply function",
-						"progress":     0.7,
-					},
-					{
-						"action": "get_team_status",
-					},
-				},
+				"required": []string{},
 			},
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				action, ok := args["action"].(string)
-				if !ok {
-					return "", fmt.Errorf("action is required")
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
+				}
+				agent, _ := args["agent"].(string)
+				if agent == "" {
+					if v := ctx.Value(AgentNameContextKey); v != nil {
+						if s, ok := v.(string); ok && s != "" {
+							agent = s
+						}
+					}
+				}
+				if agent == "" {
+					agent = "agent_0"
+				}
+				limit := 0
+				switch vv := args["limit"].(type) {
+				case float64:
+					limit = int(vv)
+				case int:
+					limit = vv
+				case string:
+					if n, err := strconv.Atoi(vv); err == nil {
+						limit = n
+					}
+				}
+				markRead := true
+				if mr, ok := args["mark_read"].(bool); ok {
+					markRead = mr
 				}
 
-				switch action {
-				case "send_message":
-					to, _ := args["to"].(string)
-					message, _ := args["message"].(string)
-					messageType, _ := args["message_type"].(string)
-					priority, _ := args["priority"].(string)
-
-					if to == "" || message == "" {
-						return "", fmt.Errorf("to and message are required for send_message")
+				msgs := t.GetInbox(agent)
+				// Filter unread
+				unread := make([]map[string]interface{}, 0, len(msgs))
+				for _, m := range msgs {
+					if read, ok := m["read"].(bool); !ok || !read {
+						unread = append(unread, m)
 					}
-
-					if priority == "" {
-						priority = "normal"
+				}
+				if limit > 0 && len(unread) > limit {
+					unread = unread[len(unread)-limit:]
+				}
+				if len(unread) == 0 {
+					return "📭 Inbox empty", nil
+				}
+				if markRead {
+					t.MarkInboxRead(agent)
+				}
+				var b strings.Builder
+				b.WriteString(fmt.Sprintf("📬 Inbox for %s (%d unread):\n", agent, len(unread)))
+				for _, m := range unread {
+					from, _ := m["from"].(string)
+					msg, _ := m["message"].(string)
+					ts := ""
+					if tv, ok := m["timestamp"].(time.Time); ok {
+						ts = tv.Format("15:04:05")
 					}
-					if messageType == "" {
-						messageType = "direct"
+					b.WriteString("- ")
+					if ts != "" {
+						b.WriteString("[")
+						b.WriteString(ts)
+						b.WriteString("] ")
 					}
+					b.WriteString(from)
+					b.WriteString(": ")
+					b.WriteString(msg)
+					b.WriteString("\n")
+				}
+				return b.String(), nil
+			},
+		},
 
-					// Log the collaboration event
-					timestamp := time.Now().Format("2006-01-02 15:04:05")
-					result := fmt.Sprintf("✅ Message sent to %s\n\nType: %s\nPriority: %s\nMessage: %s\nTimestamp: %s\n\n📋 This communication has been logged for team coordination.",
-						to, messageType, priority, message, timestamp)
-					return result, nil
-
-				case "request_help":
-					to, _ := args["to"].(string)
-					message, _ := args["message"].(string)
-
-					if to == "" || message == "" {
-						return "", fmt.Errorf("to and message are required for request_help")
+		// inbox_clear: clear all messages from an agent's inbox
+		"inbox_clear": {
+			Desc: "Clear all inbox messages for an agent (defaults to self)",
+			Schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"agent": map[string]any{
+						"type":        "string",
+						"description": "Agent name (defaults to current agent)",
+					},
+				},
+				"required": []string{},
+			},
+			Exec: func(ctx context.Context, args map[string]any) (string, error) {
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
+				}
+				agent, _ := args["agent"].(string)
+				if agent == "" {
+					if v := ctx.Value(AgentNameContextKey); v != nil {
+						if s, ok := v.(string); ok && s != "" {
+							agent = s
+						}
 					}
+				}
+				if agent == "" {
+					agent = "agent_0"
+				}
+				// Clear inbox by setting an empty slice
+				inboxKey := fmt.Sprintf("inbox_%s", agent)
+				t.SetSharedData(inboxKey, []map[string]interface{}{})
+				return fmt.Sprintf("🧹 Cleared inbox for %s", agent), nil
+			},
+		},
 
-					timestamp := time.Now().Format("2006-01-02 15:04:05")
-					result := fmt.Sprintf("🤝 Help request sent to %s\n\nRequest: %s\nTimestamp: %s\nStatus: Pending response\n\n📋 The %s agent will be notified of your help request.",
-						to, message, timestamp, to)
-					return result, nil
-
-				case "update_status":
-					status, _ := args["status"].(string)
-					currentTask, _ := args["current_task"].(string)
-					progress, _ := args["progress"].(float64)
-
-					if status == "" {
-						return "", fmt.Errorf("status is required for update_status")
+		// workspace_events: show recent workspace events
+		"workspace_events": {
+			Desc: "List recent workspace events",
+			Schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"limit": map[string]any{
+						"type":        "integer",
+						"description": "Max events to show (0 = all)",
+						"default":     10,
+					},
+				},
+				"required": []string{},
+			},
+			Exec: func(ctx context.Context, args map[string]any) (string, error) {
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
+				}
+				limit := 10
+				switch vv := args["limit"].(type) {
+				case float64:
+					limit = int(vv)
+				case int:
+					limit = vv
+				case string:
+					if n, err := strconv.Atoi(vv); err == nil {
+						limit = n
 					}
-
-					timestamp := time.Now().Format("2006-01-02 15:04:05")
-					result := fmt.Sprintf("📊 Status updated\n\nStatus: %s\nCurrent Task: %s\nProgress: %.1f%%\nTimestamp: %s\n\n✅ Team has been notified of your status update.",
-						status, currentTask, progress*100, timestamp)
-					return result, nil
-
-				case "get_team_status":
-					timestamp := time.Now().Format("2006-01-02 15:04:05")
-					result := fmt.Sprintf("👥 TEAM STATUS REPORT - %s\n\n", timestamp)
-					result += "🎯 ACTIVE AGENTS:\n"
-					result += "├── coder: Working on calculator implementation (Progress: 70%%)\n"
-					result += "├── tester: Idle, waiting for code to test\n"
-					result += "├── writer: Working on documentation (Progress: 40%%)\n"
-					result += "├── devops: Idle, ready for deployment tasks\n"
-					result += "└── researcher: Idle, ready for research tasks\n\n"
-					result += "💬 RECENT COMMUNICATIONS:\n"
-					result += "├── coder → tester: \"Ready for testing\"\n"
-					result += "├── writer → coder: \"Need API specification\"\n"
-					result += "└── System: Workflow coordination active\n\n"
-					result += "📈 OVERALL PROGRESS: 55%% complete\n"
-					result += "🚦 SYSTEM STATUS: Collaborative workflows active"
-					return result, nil
-
-				case "coordinate_workflow":
-					timestamp := time.Now().Format("2006-01-02 15:04:05")
-					result := fmt.Sprintf("🔄 Workflow coordination initiated - %s\n\n", timestamp)
-					result += "📋 WORKFLOW: Multi-agent collaboration activated\n\n"
-					result += "🎯 COORDINATION STEPS:\n"
-					result += "1. Coder implements functionality\n"
-					result += "2. Tester validates implementation\n"
-					result += "3. Writer creates documentation\n"
-					result += "4. Reviewer provides feedback\n"
-					result += "5. DevOps handles deployment\n\n"
-					result += "✅ All agents have been notified of the workflow coordination."
-					return result, nil
-
+				}
+				// Read raw events slice from shared memory; tolerate type differences
+				raw, _ := t.GetSharedData("workspace_events")
+				// Attempt to normalize to []map[string]interface{}
+				var events []map[string]interface{}
+				switch ev := raw.(type) {
+				case []map[string]interface{}:
+					events = ev
+				case []interface{}:
+					for _, it := range ev {
+						if m, ok := it.(map[string]interface{}); ok {
+							events = append(events, m)
+						}
+					}
 				default:
-					return "", fmt.Errorf("unknown collaboration action: %s", action)
+					events = nil
 				}
+				if len(events) == 0 {
+					return "📭 No workspace events", nil
+				}
+				var b strings.Builder
+				b.WriteString("📡 Workspace Events:\n")
+				// If limit > 0, take last limit
+				start := 0
+				if limit > 0 && len(events) > limit {
+					start = len(events) - limit
+				}
+				for _, ev := range events[start:] {
+					ts := ""
+					if tsv, ok := ev["timestamp"].(time.Time); ok {
+						ts = tsv.Format("15:04:05")
+					} else if s, ok := ev["timestamp"].(string); ok {
+						ts = s
+					}
+					agentID, _ := ev["agent_id"].(string)
+					typ, _ := ev["type"].(string)
+					desc, _ := ev["description"].(string)
+					b.WriteString("- ")
+					if ts != "" {
+						b.WriteString("[")
+						b.WriteString(ts)
+						b.WriteString("] ")
+					}
+					if agentID != "" {
+						b.WriteString(agentID)
+						b.WriteString(" | ")
+					}
+					b.WriteString(typ)
+					if desc != "" {
+						b.WriteString(": ")
+						b.WriteString(desc)
+					}
+					b.WriteString("\n")
+				}
+				return b.String(), nil
+			},
+		},
+
+		// request_help: ask other agents for assistance via Team.RequestHelp
+		"request_help": {
+			Desc: "Request help from another agent (or broadcast)",
+			Schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"description": map[string]any{
+						"type":        "string",
+						"description": "What do you need help with?",
+					},
+					"preferred_helper": map[string]any{
+						"type":        "string",
+						"description": "Specific agent to ask (optional)",
+						"default":     "",
+					},
+				},
+				"required": []string{"description"},
+			},
+			Exec: func(ctx context.Context, args map[string]any) (string, error) {
+				tv := ctx.Value(TeamContextKey)
+				t, _ := tv.(teamAPI)
+				if t == nil {
+					return "", fmt.Errorf("no team in context")
+				}
+				desc, _ := args["description"].(string)
+				helper, _ := args["preferred_helper"].(string)
+				if desc == "" {
+					return "", fmt.Errorf("description is required")
+				}
+				agent := "agent_0"
+				if v := ctx.Value(AgentNameContextKey); v != nil {
+					if s, ok := v.(string); ok && s != "" {
+						agent = s
+					}
+				}
+				if err := t.RequestHelp(ctx, agent, desc, helper); err != nil {
+					return "", err
+				}
+				target := helper
+				if target == "" {
+					target = "all agents"
+				}
+				return fmt.Sprintf("🆘 Help requested from %s: %s", target, desc), nil
 			},
 		},
 	}

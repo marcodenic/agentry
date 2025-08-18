@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/marcodenic/agentry/internal/config"
+	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/trace"
 )
@@ -22,14 +23,17 @@ func runAnalyzeCmd(args []string) {
 		fmt.Println("analyze error:", err)
 		os.Exit(1)
 	}
-	fmt.Printf("tokens: %d cost: $%.4f\n", sum.Tokens, sum.Cost)
+	fmt.Printf("input tokens: %d, output tokens: %d, total tokens: %d, cost: $%.6f\n",
+		sum.InputTokens, sum.OutputTokens, sum.TotalTokens, sum.Cost)
 }
 
 func runPrompt(cmd string, args []string) {
-	opts, _ := parseCommon(cmd, args)
+	// Use "agentry" as the flag set name for runPrompt, not the prompt text
+	opts, remainingArgs := parseCommon("agentry", args)
+	// The actual prompt is the cmd + any remaining args after flag parsing
 	prompt := cmd
-	if len(args) > 0 {
-		prompt = cmd + " " + strings.Join(args, " ")
+	if len(remainingArgs) > 0 {
+		prompt = cmd + " " + strings.Join(remainingArgs, " ")
 	}
 	cfg, err := config.Load(opts.configPath)
 	if err != nil {
@@ -44,30 +48,43 @@ func runPrompt(cmd string, args []string) {
 
 	// Apply agent_0 role configuration to restrict tools
 	fmt.Printf("🔧 Before agent_0 config: agent has %d tools\n", len(ag.Tools))
-	if err := applyAgent0RoleConfig(ag); err != nil {
-		fmt.Printf("Warning: Failed to apply agent_0 role configuration: %v\n", err)
-	}
-	fmt.Printf("🔧 After agent_0 config: agent has %d tools\n", len(ag.Tools))
 
 	// FIX: Create team context for coordination capabilities (unified architecture)
-	// Load role configurations from include paths
+	// Load role configurations from include paths FIRST so Agent 0 can get proper config
 	configDir := ""
 	if opts.configPath != "" {
 		configDir = filepath.Dir(opts.configPath)
 	}
-	teamCtx, err := team.NewTeamWithRoles(ag, 10, "", cfg.Include, configDir)
+	teamCtx, err := team.NewTeamWithRoles(ag, 0, "", cfg.Include, configDir)
 	if err != nil {
 		fmt.Printf("Warning: Failed to create team context: %v\n", err)
 	} else {
 		fmt.Printf("🔧 Team context created: Agent 0 now has coordination capabilities\n")
+
+		// Load Agent 0's proper role configuration directly
+		agent0RolePath := "templates/roles/agent_0.yaml"
+		if role, err := team.LoadRoleFromFile(agent0RolePath); err == nil {
+			ag.Prompt = role.Prompt
+			fmt.Printf("🔧 Agent 0 loaded proper role configuration from %s (prompt length: %d chars)\n", agent0RolePath, len(role.Prompt))
+		} else {
+			fmt.Printf("⚠️  Failed to load Agent 0 role from %s: %v\n", agent0RolePath, err)
+		}
+
+		// CRITICAL: Enhance Agent0 prompt with available roles information
+		if ag.Prompt != "" {
+			availableRoles := teamCtx.AvailableRoleNames()
+			ag.Prompt = core.InjectAvailableRoles(ag.Prompt, availableRoles)
+			fmt.Printf("🔧 Agent 0 enhanced with %d available roles: %v\n", len(availableRoles), availableRoles)
+		}
+
 		// Register the agent delegation tool to replace the placeholder
 		teamCtx.RegisterAgentTool(ag.Tools)
 		fmt.Printf("🔧 Agent delegation tool registered with team\n")
 	}
 
-	if opts.maxIter > 0 {
-		ag.MaxIterations = opts.maxIter
-	}
+	fmt.Printf("🔧 After agent_0 config: agent has %d tools\n", len(ag.Tools))
+
+	// No iteration cap
 	if opts.resumeID != "" {
 		_ = ag.LoadState(context.Background(), opts.resumeID)
 	}
@@ -81,6 +98,7 @@ func runPrompt(cmd string, args []string) {
 		fmt.Printf("🔧 Team context attached to execution context\n")
 	}
 
+	fmt.Printf("🔧 Running Agent 0 with prompt: %q\n", prompt)
 	out, err := ag.Run(ctx, prompt)
 	if err != nil {
 		fmt.Printf("ERR: %v\n", err)
@@ -88,7 +106,8 @@ func runPrompt(cmd string, args []string) {
 	}
 	sum := trace.Analyze(prompt, col.Events())
 	fmt.Println(out)
-	fmt.Printf("tokens: %d cost: $%.4f\n", sum.Tokens, sum.Cost)
+	fmt.Printf("input tokens: %d, output tokens: %d, total tokens: %d, cost: $%.6f\n",
+		sum.InputTokens, sum.OutputTokens, sum.TotalTokens, sum.Cost)
 	if opts.saveID != "" {
 		_ = ag.SaveState(context.Background(), opts.saveID)
 	}

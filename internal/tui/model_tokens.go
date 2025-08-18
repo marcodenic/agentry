@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,26 +23,46 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 	if !info.TokensStarted {
 		info.TokensStarted = true
 		info.StreamingResponse = "" // Initialize streaming response
+		// Initialize live token count based on agent's current count
+		if info.Agent != nil && info.Agent.Cost != nil {
+			info.StreamingTokenCount = info.Agent.Cost.TotalTokens()
+		} else {
+			info.StreamingTokenCount = 0
+		}
 		// No need to clean up spinners since they were never added to history!
 	}
 
 	// Add token to streaming response
 	info.StreamingResponse += msg.token
-	info.TokenCount++
+	// Count tokens live during streaming for responsive UI
+	info.StreamingTokenCount++
 	info.CurrentActivity++ // Just increment counter, let activityTickMsg handle data points
 
-	// Save updated info back to map before calling SetPercent
+	// Save updated info back to map
 	m.infos[msg.id] = info
 
-	// Update progress bar percentage when token count changes (throttled to every 5 tokens)
+	// Update progress bar to match the percentage that will be shown on tokens line
 	var progressCmd tea.Cmd
-	if info.TokenCount%5 == 0 { // Only update progress every 5 tokens to reduce command frequency
+	if info.StreamingTokenCount%5 == 0 { // Update every 5 tokens for performance
+		// Use SAME calculation that agent_panel.go uses for the tokens line
 		maxTokens := 8000
-		if info.ModelName != "" && strings.Contains(strings.ToLower(info.ModelName), "gpt-4") {
-			maxTokens = 128000
+		if info.ModelName != "" {
+			// Use pricing data to get the actual context limit
+			maxTokens = m.pricing.GetContextLimit(info.ModelName)
 		}
-		pct := float64(info.TokenCount) / float64(maxTokens)
-		// Ensure percentage is within valid bounds [0.0, 1.0]
+
+		actualTokens := 0
+		if info.Agent != nil && info.Agent.Cost != nil {
+			if info.TokensStarted && info.StreamingResponse != "" {
+				actualTokens = info.StreamingTokenCount
+			} else {
+				actualTokens = info.Agent.Cost.TotalTokens()
+			}
+		}
+
+		// Same exact calculation as agent_panel.go
+		tokenPct := float64(actualTokens) / float64(maxTokens) * 100
+		pct := tokenPct / 100.0
 		if pct < 0 {
 			pct = 0
 		}
@@ -48,10 +70,14 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 			pct = 1
 		}
 
-		// Only update progress if we have a valid percentage
-		if pct >= 0 && pct <= 1 {
-			progressCmd = info.TokenProgress.SetPercent(pct)
+		// Don't show any filled area until we reach 5% to avoid showing wrong colors
+		// The bubbles/progress library shows yellow/orange at very low percentages
+		// instead of the expected green, so better to show empty until 5%
+		if pct < 0.05 {
+			pct = 0
 		}
+
+		progressCmd = info.TokenProgress.SetPercent(pct)
 	}
 
 	// Update viewport with streaming content - OPTIMIZED for performance
@@ -81,13 +107,25 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 					// Status Message → AI Response: Add spacing during streaming
 					spacing = "\n\n"
 				default:
-					spacing = "\n"
 				}
 
 				displayHistory += spacing + formattedStreamingResponse
 			}
+
+			// Only autoscroll if we were at the bottom prior to this update.
+			// If the bubbles version lacks AtBottom(), fall back to always autoscroll.
+			wasAtBottom := false
+			type atBottomCap interface{ AtBottom() bool }
+			if ab, ok := interface{}(m.vp).(atBottomCap); ok {
+				wasAtBottom = ab.AtBottom()
+			} else {
+				// Fallback behavior: assume at bottom (maintains previous behavior)
+				wasAtBottom = true
+			}
 			m.vp.SetContent(displayHistory)
-			m.vp.GotoBottom()
+			if wasAtBottom {
+				m.vp.GotoBottom()
+			}
 		}
 	}
 
@@ -103,6 +141,10 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 		info.TokenHistory[len(info.TokenHistory)-1]++
 	}
 	info.LastToken = now
+
+	// Cost is now handled directly by the agent's cost manager
+	// No TUI-side cost tracking needed
+
 	m.infos[msg.id] = info // Save the updated info back to the map after token history update
 
 	// Continue reading trace stream for more events (including EventFinal)
@@ -155,19 +197,54 @@ func (m Model) handleFinalMessage(msg finalMsg) (Model, tea.Cmd) {
 	}
 	info.StreamingResponse = "" // Clear streaming response
 
-	// Limit history length to prevent unbounded memory growth (keep last ~100KB)
-	const maxHistoryLength = 100000
-	if len(info.History) > maxHistoryLength {
-		// Keep last 75% of history to maintain context
-		keepLength := maxHistoryLength * 3 / 4
-		info.History = "...[earlier messages truncated]...\n" + info.History[len(info.History)-keepLength:]
-		// After truncation, we don't know the last content type, so reset it
-		info.LastContentType = ContentTypeEmpty
+	// Optional: limit history length via env var AGENTRY_HISTORY_LIMIT (bytes)
+	if limStr := os.Getenv("AGENTRY_HISTORY_LIMIT"); limStr != "" {
+		if maxLen, err := strconv.Atoi(limStr); err == nil && maxLen > 0 {
+			if len(info.History) > maxLen {
+				// Keep last 75% of history to maintain context
+				keepLength := (maxLen * 3) / 4
+				if keepLength < 0 {
+					keepLength = 0
+				}
+				if keepLength > len(info.History) {
+					keepLength = len(info.History)
+				}
+				info.History = "...[earlier messages truncated]...\n" + info.History[len(info.History)-keepLength:]
+				// After truncation, we don't know the last content type, so reset it
+				info.LastContentType = ContentTypeEmpty
+			}
+		}
 	}
+
+	// Set status to idle, clear spinner and elapsed timer
+	info.Status = StatusIdle
+	info.TokensStarted = false
+
+	// Reconcile streaming token count with final API response
+	if info.Agent != nil && info.Agent.Cost != nil {
+		info.StreamingTokenCount = info.Agent.Cost.TotalTokens()
+	}
+
+	if msg.id == m.active {
+		m.vp.SetContent(info.History)
+		m.vp.GotoBottom()
+	}
+	m.infos[msg.id] = info
+	return m, nil
 
 	// Set status to idle, clear spinner
 	info.Status = StatusIdle
 	info.TokensStarted = false // Reset streaming state
+
+	// Reconcile streaming token count with final API response
+	if info.Agent != nil && info.Agent.Cost != nil {
+		// The agent's cost manager has now been updated with real API tokens
+		// Reset streaming count to match real count for consistency
+		info.StreamingTokenCount = info.Agent.Cost.TotalTokens()
+	}
+
+	// Cost is now handled directly by the agent's cost manager
+	// No TUI-side cost tracking needed
 
 	if msg.id == m.active {
 		m.vp.SetContent(info.History)

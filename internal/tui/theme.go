@@ -8,12 +8,13 @@ import (
 
 // Keybinds define keyboard shortcuts for the TUI actions.
 type Keybinds struct {
-	Quit      string `json:"quit"`
-	ToggleTab string `json:"toggleTab"`
-	Submit    string `json:"submit"`
-	NextPane  string `json:"nextPane"`
-	PrevPane  string `json:"prevPane"`
-	Pause     string `json:"pause"`
+	Quit        string `json:"quit"`
+	ToggleTab   string `json:"toggleTab"`
+	Submit      string `json:"submit"`
+	NextPane    string `json:"nextPane"`
+	PrevPane    string `json:"prevPane"`
+	Pause       string `json:"pause"`
+	Diagnostics string `json:"diagnostics"`
 }
 
 // Theme holds colour settings and keybinds.
@@ -35,10 +36,10 @@ type Theme struct {
 	RunningColor string `json:"runningColor"`
 	ErrorColor   string `json:"errorColor"`
 	StoppedColor string `json:"stoppedColor"`
-	
+
 	// Advanced agent panel colors
-	RoleColor    string `json:"roleColor"`
-	ToolColor    string `json:"toolColor"`
+	RoleColor       string `json:"roleColor"`
+	ToolColor       string `json:"toolColor"`
 	PanelTitleColor string `json:"panelTitleColor"`
 
 	Keybinds Keybinds `json:"keybinds"`
@@ -53,24 +54,25 @@ var (
 // DefaultTheme returns built‑in colours and keybindings.
 func DefaultTheme() Theme {
 	return Theme{
-		Mode:         "dark",
-		Palette:      DarkPalette,
-		UserBarColor: "#8B5CF6",
-		AIBarColor:   "#9CA3AF",
-		IdleColor:    "#22C55E",
-		RunningColor: "#FBBF24",
-		ErrorColor:   "#EF4444",
-		StoppedColor: "#6B7280",
-		RoleColor:    "#10B981",  // Green for agent roles
-		ToolColor:    "#8B5CF6",  // Purple for current tools
+		Mode:            "dark",
+		Palette:         DarkPalette,
+		UserBarColor:    "#8B5CF6",
+		AIBarColor:      "#9CA3AF",
+		IdleColor:       "#22C55E",
+		RunningColor:    "#FBBF24",
+		ErrorColor:      "#EF4444",
+		StoppedColor:    "#6B7280",
+		RoleColor:       "#10B981", // Green for agent roles
+		ToolColor:       "#8B5CF6", // Purple for current tools
 		PanelTitleColor: "#9CA3AF", // Gray for panel titles
 		Keybinds: Keybinds{
-			Quit:      "ctrl+c",
-			ToggleTab: "tab",
-			Submit:    "enter",
-			NextPane:  "ctrl+n",
-			PrevPane:  "ctrl+p",
-			Pause:     "ctrl+s",
+			Quit:        "ctrl+c",
+			ToggleTab:   "tab",
+			Submit:      "enter",
+			NextPane:    "ctrl+n",
+			PrevPane:    "ctrl+p",
+			Pause:       "ctrl+s",
+			Diagnostics: "ctrl+d",
 		},
 	}
 }

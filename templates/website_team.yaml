@@ -6,19 +6,19 @@ include:
 
 agents:
   coder:
-    model: gpt-4
+    model: gpt-5
     vars:
       personality: efficient
   designer:
-    model: gpt-4
+    model: gpt-5
     vars:
       personality: creative
   tester:
-    model: gpt-4
+    model: gpt-5
     vars:
       personality: skeptical
   deployer:
-    model: gpt-4
+    model: gpt-5
     vars:
       personality: cautious
 

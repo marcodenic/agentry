@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/NimbleMarkets/ntcharts/sparkline"
@@ -26,19 +27,31 @@ func (m Model) getAdvancedStatusDot(status AgentStatus) string {
 }
 
 // renderTokenBar draws an animated progress bar for token usage with green-to-red gradient.
-// Only sets the width and returns the view.
-func (m Model) renderTokenBar(info *AgentInfo, width int) string {
-	// Set the width of the progress bar to fit the sidebar (minus padding)
-	barWidth := width - 6 // Account for "  " prefix and some padding
-	if barWidth < 10 {
-		barWidth = 10 // Minimum width
+func (m Model) renderTokenBar(info *AgentInfo, tokenPct float64, panelWidth int) string {
+	// Calculate width using the EXACT same method as renderActivityChart
+	// to ensure perfect alignment
+	chartWidth := panelWidth - 8 // Same calculation as activity chart
+	if chartWidth < 10 {
+		chartWidth = 10 // Same minimum as activity chart
 	}
-	if barWidth > 50 {
-		barWidth = 50 // Maximum reasonable width
+	if chartWidth > 50 {
+		chartWidth = 50 // Same maximum as activity chart
 	}
-	info.TokenProgress.Width = barWidth
 
-	return info.TokenProgress.View()
+	// Set the width to match activity chart exactly
+	info.TokenProgress.Width = chartWidth
+
+	// Get the base progress bar (without percentage)
+	barStr := info.TokenProgress.View()
+	
+	// Add our own styled percentage to match the activity chart
+	pctText := fmt.Sprintf(" %2.0f%%", tokenPct)
+	pctStyled := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#6B7280")).
+		Faint(true).
+		Render(pctText)
+	
+	return barStr + pctStyled
 }
 
 // renderActivityChart shows recent activity levels as a scrolling chart using ntcharts sparkline.
@@ -49,13 +62,18 @@ func (m Model) renderActivityChart(activityData []float64, panelWidth int) strin
 
 	// Calculate available width for the chart:
 	// panelWidth - "  " prefix (2 chars) - " XX%" suffix (4 chars) - padding (2 chars) = available width
-	availableWidth := panelWidth - 8
-	if availableWidth < 10 {
-		availableWidth = 10 // Minimum chart width
+	chartWidth := panelWidth - 8
+	if chartWidth < 10 {
+		chartWidth = 10 // Minimum chart width
 	}
-	if availableWidth > 50 {
-		availableWidth = 50 // Maximum chart width for readability
+	if chartWidth > 50 {
+		chartWidth = 50 // Maximum chart width for readability
 	}
+	
+	// Since token bar no longer includes percentage automatically, 
+	// both bars now use the same width for their main content
+	// Sparkline always adds a trailing space, so use width+1 then remove the space
+	availableWidth := chartWidth + 1
 
 	// Create sparkline chart with height 1 for a single row
 	chart := sparkline.New(availableWidth, 1,
@@ -82,8 +100,11 @@ func (m Model) renderActivityChart(activityData []float64, panelWidth int) strin
 	// Draw the Braille sparkline (for smooth, high-resolution appearance)
 	chart.DrawBraille()
 
-	// Get the rendered sparkline
+	// Get the rendered sparkline and remove the trailing space that sparkline always adds
 	sparklineStr := chart.View()
+	// Remove the pattern: space followed by ANSI reset code at the end
+	spacePattern := regexp.MustCompile(` \x1b\[0m$`)
+	sparklineStr = spacePattern.ReplaceAllString(sparklineStr, "\x1b[0m")
 
 	// Add percentage indicator
 	var result strings.Builder
@@ -91,7 +112,7 @@ func (m Model) renderActivityChart(activityData []float64, panelWidth int) strin
 
 	if len(activityData) > 0 {
 		currentActivity := activityData[len(activityData)-1]
-		pctText := fmt.Sprintf(" %2.0f%%", currentActivity*100)
+		pctText := fmt.Sprintf(" %2.0f%%", currentActivity*100) // Removed extra spaces to match token bar
 		pctStyled := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#6B7280")).
 			Faint(true).
@@ -101,7 +122,7 @@ func (m Model) renderActivityChart(activityData []float64, panelWidth int) strin
 		pctStyled := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#6B7280")).
 			Faint(true).
-			Render("  0%")
+			Render("  0%") // Removed extra spaces to match token bar
 		result.WriteString(pctStyled)
 	}
 

@@ -59,10 +59,7 @@ func searchReplaceExec(ctx context.Context, args map[string]any) (string, error)
 	search, _ := args["search"].(string)
 	replace, _ := args["replace"].(string)
 	isRegex, _ := args["regex"].(bool)
-	maxReplacements := -1
-	if mr, ok := args["max_replacements"].(float64); ok {
-		maxReplacements = int(mr)
-	}
+	maxReplacements, _ := getIntArg(args, "max_replacements", -1)
 
 	path = absPath(path)
 	if err := checkForOverwrite(path); err != nil {
@@ -130,6 +127,9 @@ func searchReplaceExec(ctx context.Context, args map[string]any) (string, error)
 		os.Remove(tempPath)
 		return "", fmt.Errorf("failed to move temp file: %w", err)
 	}
+
+	// Update viewed timestamp after modification so subsequent edits are allowed
+	_ = recordView(path)
 
 	resultInfo := map[string]any{
 		"path":          path,

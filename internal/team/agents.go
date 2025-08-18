@@ -10,7 +10,6 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
@@ -38,8 +37,13 @@ func (t *Team) AddExistingAgent(name string, agent *core.Agent) error {
 
 // SpawnAgent creates a new agent with the given configuration
 func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error) {
+	timer := StartTimer(fmt.Sprintf("SpawnAgent(%s, %s)", name, role))
+	defer timer.Stop()
+
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+
+	timer.Checkpoint("mutex acquired")
 
 	// Get role configuration
 	roleConfig := t.roles[role]
@@ -54,6 +58,8 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 		}
 	}
 
+	timer.Checkpoint("role config resolved")
+
 	// Create the core agent
 	registry := tool.DefaultRegistry()
 
@@ -64,38 +70,32 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 	if roleConfig.Model != nil {
 		// Use role-specific model configuration
 		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-			fmt.Printf("🔧 SpawnAgent: Attempting to create model client for role %s with provider %s\n", role, roleConfig.Model.Provider)
+			fmt.Fprintf(os.Stderr, "🔧 SpawnAgent: Attempting to create model client for role %s with provider %s\n", role, roleConfig.Model.Provider)
 		}
 		c, err := model.FromManifest(*roleConfig.Model)
 		if err != nil {
 			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-				fmt.Printf("❌ SpawnAgent: failed to create model client for role %s: %v, falling back to mock\n", role, err)
+				fmt.Fprintf(os.Stderr, "❌ SpawnAgent: failed to create model client for role %s: %v, falling back to mock\n", role, err)
 			}
 			client = model.NewMock()
 			modelName = "mock"
 		} else {
 			client = c
-			modelName = fmt.Sprintf("%s-%s", roleConfig.Model.Provider, roleConfig.Model.Options["model"])
+			modelName = fmt.Sprintf("%s/%s", roleConfig.Model.Provider, roleConfig.Model.Options["model"])
 			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-				fmt.Printf("✅ SpawnAgent: Successfully created %s model client for role %s\n", modelName, role)
+				fmt.Fprintf(os.Stderr, "✅ SpawnAgent: Successfully created %s model client for role %s\n", modelName, role)
 			}
 		}
 	} else {
-		// Fallback to mock model
-		client = model.NewMock()
-		modelName = "mock"
+		// Fallback to parent's client when no role config is found
+		client = t.parent.Client
+		modelName = t.parent.ModelName
 		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-			fmt.Printf("⚠️  SpawnAgent: No model config for role %s, using mock\n", role)
+			fmt.Fprintf(os.Stderr, "⚠️  SpawnAgent: No model config for role %s, using parent's client (%s)\n", role, modelName)
 		}
 	}
 
-	routes := router.Rules{{
-		Name:       modelName,
-		IfContains: []string{""},
-		Client:     client,
-	}}
-
-	agent := core.New(routes, registry, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	agent := core.New(client, modelName, registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 	agent.Prompt = roleConfig.Prompt
 
 	// Find available port

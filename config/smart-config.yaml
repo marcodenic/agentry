@@ -3,7 +3,7 @@ models:
   - name: openai
     provider: openai
     options:
-      model: gpt-4.1-nano
+      model: gpt-5
       temperature: 0.1
   - name: anthropic
     provider: anthropic
@@ -57,6 +57,9 @@ tools:
   - name: grep
     type: builtin
     description: Search file contents - ESSENTIAL for smart discovery
+  - name: lsp_diagnostics
+    type: builtin
+    description: Run language diagnostics (gopls/tsc)
 
   # Enhanced exploration tools
   - name: ls
@@ -102,6 +105,11 @@ tools:
     type: builtin
     description: Delete all local Git branches except the current one
 
-# Include smart agent configurations
+# Include role configurations
 include:
-  - templates/smart_dev_team.yaml
+  - ../templates/roles/agent_0.yaml
+  - ../templates/roles/coder.yaml
+  - ../templates/roles/tester.yaml
+  - ../templates/roles/writer.yaml
+  - ../templates/roles/researcher.yaml
+  - ../templates/roles/team_planner.yaml

@@ -47,7 +47,7 @@ func insertAtExec(ctx context.Context, args map[string]any) (string, error) {
 		return "", errors.New("missing path")
 	}
 
-	line, _ := args["line"].(float64)
+	line, _ := getIntArg(args, "line", 0)
 	content, _ := args["content"].(string)
 
 	if line < 0 {
@@ -114,6 +114,9 @@ func insertAtExec(ctx context.Context, args map[string]any) (string, error) {
 		os.Remove(tempPath)
 		return "", fmt.Errorf("failed to move temp file: %w", err)
 	}
+
+	// Update viewed timestamp after modification
+	_ = recordView(path)
 
 	resultInfo := map[string]any{
 		"path":           path,

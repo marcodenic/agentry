@@ -18,7 +18,7 @@
 /home/marco/Documents/GitHub/agentry/.env.local
 ```
 **NEVER assume API keys are missing**
-- The `.env.local` file contains `OPENAI_KEY`
+- The `.env.local` file contains `OPENAI_API_KEY`
 - Copy `.env.local` to sandbox for testing
 - Source the environment file: `source .env.local`
 
@@ -38,7 +38,7 @@ cp -r /home/marco/Documents/GitHub/agentry/templates .
 source .env.local
 
 # 4. Verify setup
-echo "API Key set: ${OPENAI_KEY:0:10}..."
+echo "API Key set: ${OPENAI_API_KEY:0:10}..."
 ls -la
 
 # 5. Run tests safely

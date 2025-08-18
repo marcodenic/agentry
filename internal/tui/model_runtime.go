@@ -2,6 +2,7 @@ package tui
 
 import (
 	"encoding/json"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
@@ -11,6 +12,12 @@ import (
 type tokenMsg struct {
 	id    uuid.UUID
 	token string
+}
+
+// internal aggregated token flush message
+type tokenFlushMsg struct {
+	id   uuid.UUID
+	data string
 }
 
 type startTokenStream struct {
@@ -61,6 +68,12 @@ type agentCompleteMsg struct {
 	result string
 }
 
+type agentStartMsg struct {
+	id   uuid.UUID
+	name string
+	role string
+}
+
 type finalMsg struct {
 	id   uuid.UUID
 	text string
@@ -92,7 +105,24 @@ func (m *Model) readEvent(id uuid.UUID) tea.Msg {
 		switch ev.Type {
 		case trace.EventToken:
 			if s, ok := ev.Data.(string); ok {
-				return tokenMsg{id: id, token: s}
+				info := m.infos[id]
+				if info == nil {
+					return nil
+				}
+				info.StreamAggBuf += s
+				flush := false
+				// flush on first chunk or punctuation/size threshold
+				if len(info.StreamAggBuf) == len(s) || len(info.StreamAggBuf) >= 120 || strings.HasSuffix(info.StreamAggBuf, ".") || strings.HasSuffix(info.StreamAggBuf, "\n") || strings.HasSuffix(info.StreamAggBuf, "?") || strings.HasSuffix(info.StreamAggBuf, "!") {
+					flush = true
+				}
+				if flush {
+					buf := info.StreamAggBuf
+					info.StreamAggBuf = ""
+					m.infos[id] = info
+					return tokenFlushMsg{id: id, data: buf}
+				}
+				m.infos[id] = info
+				continue
 			}
 		case trace.EventFinal:
 			if s, ok := ev.Data.(string); ok {
@@ -125,3 +155,6 @@ func (m *Model) readEvent(id uuid.UUID) tea.Msg {
 		}
 	}
 }
+
+// scheduleStreamFlush returns a command that triggers after a short interval to force a flush.
+// scheduleStreamFlush removed (timed flush no longer used)

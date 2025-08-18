@@ -9,7 +9,6 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
@@ -23,8 +22,7 @@ func (p promptCheckClient) Complete(ctx context.Context, msgs []model.ChatMessag
 }
 
 func TestPromptVarSubstitution(t *testing.T) {
-	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: promptCheckClient{t}}}
-	ag := core.New(route, tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	ag := core.New(promptCheckClient{t}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 	ag.Prompt = "You are a {{tone}} bot"
 	ag.Vars = map[string]string{"tone": "cheerful"}
 	if _, err := ag.Run(context.Background(), "hi"); err != nil {
@@ -44,8 +42,7 @@ func (a *argSubClient) Complete(ctx context.Context, msgs []model.ChatMessage, t
 }
 
 func TestToolArgVarSubstitution(t *testing.T) {
-	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: &argSubClient{}}}
-	ag := core.New(route, tool.DefaultRegistry(), memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	ag := core.New(&argSubClient{}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 	ag.Vars = map[string]string{"greet": "hello"}
 	out, err := ag.Run(context.Background(), "start")
 	if err != nil {

@@ -14,9 +14,9 @@ import (
 
 // Manager handles isolated workspace creation and management for teams
 type Manager struct {
-	baseDir   string
+	baseDir    string
 	workspaces map[string]*Workspace
-	mutex     sync.RWMutex
+	mutex      sync.RWMutex
 }
 
 // Workspace represents an isolated work environment for a team
@@ -34,10 +34,10 @@ func NewManager(baseDir string) *Manager {
 	if baseDir == "" {
 		baseDir = filepath.Join(os.TempDir(), "agentry_workspaces")
 	}
-	
+
 	// Ensure base directory exists
 	os.MkdirAll(baseDir, 0755)
-	
+
 	return &Manager{
 		baseDir:    baseDir,
 		workspaces: make(map[string]*Workspace),
@@ -48,15 +48,15 @@ func NewManager(baseDir string) *Manager {
 func (m *Manager) CreateWorkspace(ctx context.Context, teamID, description string) (*Workspace, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	
+
 	id := uuid.New().String()
 	workspacePath := filepath.Join(m.baseDir, id)
-	
+
 	// Create workspace directory structure
 	if err := os.MkdirAll(workspacePath, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create workspace directory: %w", err)
 	}
-	
+
 	// Create common subdirectories
 	subdirs := []string{"src", "docs", "tests", "output", "temp"}
 	for _, subdir := range subdirs {
@@ -64,7 +64,7 @@ func (m *Manager) CreateWorkspace(ctx context.Context, teamID, description strin
 			return nil, fmt.Errorf("failed to create subdir %s: %w", subdir, err)
 		}
 	}
-	
+
 	// Create workspace info file
 	infoPath := filepath.Join(workspacePath, ".agentry_workspace")
 	infoContent := fmt.Sprintf("workspace_id: %s\nteam_id: %s\ndescription: %s\ncreated_at: %s\n",
@@ -72,7 +72,7 @@ func (m *Manager) CreateWorkspace(ctx context.Context, teamID, description strin
 	if err := os.WriteFile(infoPath, []byte(infoContent), 0644); err != nil {
 		return nil, fmt.Errorf("failed to create workspace info: %w", err)
 	}
-	
+
 	workspace := &Workspace{
 		ID:          id,
 		Path:        workspacePath,
@@ -80,10 +80,10 @@ func (m *Manager) CreateWorkspace(ctx context.Context, teamID, description strin
 		CreatedAt:   time.Now(),
 		Description: description,
 	}
-	
+
 	m.workspaces[id] = workspace
 	debug.Printf("Created workspace %s at %s for team %s", id, workspacePath, teamID)
-	
+
 	return workspace, nil
 }
 
@@ -91,7 +91,7 @@ func (m *Manager) CreateWorkspace(ctx context.Context, teamID, description strin
 func (m *Manager) GetWorkspace(id string) (*Workspace, bool) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-	
+
 	workspace, exists := m.workspaces[id]
 	return workspace, exists
 }
@@ -100,7 +100,7 @@ func (m *Manager) GetWorkspace(id string) (*Workspace, bool) {
 func (m *Manager) ListWorkspaces() []*Workspace {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-	
+
 	workspaces := make([]*Workspace, 0, len(m.workspaces))
 	for _, workspace := range m.workspaces {
 		workspaces = append(workspaces, workspace)
@@ -112,20 +112,20 @@ func (m *Manager) ListWorkspaces() []*Workspace {
 func (m *Manager) CleanupWorkspace(id string) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	
+
 	workspace, exists := m.workspaces[id]
 	if !exists {
 		return fmt.Errorf("workspace %s not found", id)
 	}
-	
+
 	// Remove the workspace directory
 	if err := os.RemoveAll(workspace.Path); err != nil {
 		return fmt.Errorf("failed to remove workspace directory: %w", err)
 	}
-	
+
 	delete(m.workspaces, id)
 	debug.Printf("Cleaned up workspace %s", id)
-	
+
 	return nil
 }
 
@@ -138,14 +138,14 @@ func (w *Workspace) GetWorkingDirectory() string {
 func (w *Workspace) CreateFile(relativePath, content string) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	
+
 	fullPath := filepath.Join(w.Path, relativePath)
-	
+
 	// Ensure parent directory exists
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
 		return fmt.Errorf("failed to create parent directory: %w", err)
 	}
-	
+
 	return os.WriteFile(fullPath, []byte(content), 0644)
 }
 
@@ -153,7 +153,7 @@ func (w *Workspace) CreateFile(relativePath, content string) error {
 func (w *Workspace) ReadFile(relativePath string) (string, error) {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
-	
+
 	fullPath := filepath.Join(w.Path, relativePath)
 	content, err := os.ReadFile(fullPath)
 	if err != nil {
@@ -166,7 +166,7 @@ func (w *Workspace) ReadFile(relativePath string) (string, error) {
 func (w *Workspace) ListFiles() ([]string, error) {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
-	
+
 	var files []string
 	err := filepath.Walk(w.Path, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -181,7 +181,7 @@ func (w *Workspace) ListFiles() ([]string, error) {
 		}
 		return nil
 	})
-	
+
 	return files, err
 }
 
@@ -189,7 +189,7 @@ func (w *Workspace) ListFiles() ([]string, error) {
 func (w *Workspace) GetStats() map[string]interface{} {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
-	
+
 	stats := map[string]interface{}{
 		"id":          w.ID,
 		"team_id":     w.TeamID,
@@ -197,11 +197,11 @@ func (w *Workspace) GetStats() map[string]interface{} {
 		"created_at":  w.CreatedAt,
 		"description": w.Description,
 	}
-	
+
 	// Count files
 	files, _ := w.ListFiles()
 	stats["file_count"] = len(files)
-	
+
 	// Calculate total size
 	var totalSize int64
 	filepath.Walk(w.Path, func(path string, info os.FileInfo, err error) error {
@@ -211,6 +211,6 @@ func (w *Workspace) GetStats() map[string]interface{} {
 		return nil
 	})
 	stats["total_size"] = totalSize
-	
+
 	return stats
 }

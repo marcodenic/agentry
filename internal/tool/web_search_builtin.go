@@ -81,6 +81,10 @@ func webSearchExec(ctx context.Context, args map[string]any) (string, error) {
 		return "", fmt.Errorf("search failed: %w", err)
 	}
 
+	// Ensure results is a JSON array even if provider returned nil
+	if results == nil {
+		results = []map[string]any{}
+	}
 	response := map[string]any{
 		"query":     query,
 		"provider":  provider,

@@ -20,6 +20,37 @@ func (m Model) handleKeyMessages(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.jumpToAgent(len(m.order) - 1), nil
 	}
 
+	// Input history navigation when input is focused
+	if m.input.Focused() {
+		switch msg.String() {
+		case "up":
+			if len(m.inputHistory) > 0 {
+				if m.historyIndex == -1 {
+					m.historyIndex = len(m.inputHistory) - 1
+				} else if m.historyIndex > 0 {
+					m.historyIndex--
+				}
+				if m.historyIndex >= 0 && m.historyIndex < len(m.inputHistory) {
+					m.input.SetValue(m.inputHistory[m.historyIndex])
+					m.input.CursorEnd()
+				}
+				return m, nil
+			}
+		case "down":
+			if m.historyIndex >= 0 {
+				if m.historyIndex < len(m.inputHistory)-1 {
+					m.historyIndex++
+					m.input.SetValue(m.inputHistory[m.historyIndex])
+				} else {
+					m.historyIndex = -1
+					m.input.SetValue("")
+				}
+				m.input.CursorEnd()
+				return m, nil
+			}
+		}
+	}
+
 	switch msg.String() {
 	case m.keys.Quit:
 		return m.handleQuit()
@@ -27,6 +58,8 @@ func (m Model) handleKeyMessages(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handleToggleTab()
 	case m.keys.Pause:
 		return m.handlePause()
+	case m.keys.Diagnostics:
+		return m.handleDiagnostics()
 	case m.keys.Submit:
 		return m.handleSubmit()
 	}
@@ -79,9 +112,9 @@ func (m Model) handlePause() (Model, tea.Cmd) {
 			info.StreamingResponse = ""
 		}
 
-		info.Status = StatusIdle   // Set to idle so new messages can be sent
-		info.TokensStarted = false // Reset streaming state
-		stopMessage := m.statusBar() + " Agent stopped by user"
+		info.Status = StatusIdle                                   // Set to idle so new messages can be sent
+		info.TokensStarted = false                                 // Reset streaming state
+		stopMessage := m.statusBar() + "    Agent stopped by user" // Use 4 spaces for alignment
 		info.addContentWithSpacing(stopMessage, ContentTypeStatusMessage)
 		m.infos[m.active] = info
 
@@ -102,12 +135,17 @@ func (m Model) handleSubmit() (Model, tea.Cmd) {
 		}
 
 		txt := m.input.Value()
-		m.input.SetValue("")
-		if strings.HasPrefix(txt, "/") {
-			var cmd tea.Cmd
-			m, cmd = m.handleCommand(txt)
-			return m, cmd
+		// Store in input history for up/down navigation
+		if strings.TrimSpace(txt) != "" {
+			m.inputHistory = append(m.inputHistory, txt)
+			m.historyIndex = -1
 		}
+		m.input.SetValue("")
+		// Reset input height after submission
+		m.inputHeight = 1
+		m.input.SetHeight(1)
+		// ALL input goes through Agent 0's natural language processing
+		// No slash commands - everything is handled by delegation
 		return m.startAgent(m.active, txt)
 	}
 	return m, nil

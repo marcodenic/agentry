@@ -2,17 +2,64 @@ package team
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/marcodenic/agentry/internal/contracts"
 	"github.com/marcodenic/agentry/internal/core"
-	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/memory"
+	"github.com/marcodenic/agentry/internal/memstore"
+	"github.com/marcodenic/agentry/internal/tokens"
 	"github.com/marcodenic/agentry/internal/tool"
 )
+
+// Compile-time check to ensure Team implements contracts.TeamService
+var _ contracts.TeamService = (*Team)(nil)
+
+// Timer utility for performance debugging
+type Timer struct {
+	start time.Time
+	name  string
+}
+
+func StartTimer(name string) *Timer {
+	timer := &Timer{
+		start: time.Now(),
+		name:  name,
+	}
+	if os.Getenv("AGENTRY_DEBUG") == "1" {
+		fmt.Fprintf(os.Stderr, "⏱️  [TIMER] Started: %s\n", name)
+	}
+	return timer
+}
+
+func (t *Timer) Elapsed() time.Duration {
+	return time.Since(t.start)
+}
+
+func (t *Timer) Stop() time.Duration {
+	elapsed := time.Since(t.start)
+	if os.Getenv("AGENTRY_DEBUG") == "1" {
+		fmt.Fprintf(os.Stderr, "⏱️  [TIMER] %s: %v\n", t.name, elapsed)
+	}
+	return elapsed
+}
+
+func (t *Timer) Checkpoint(checkpoint string) time.Duration {
+	elapsed := time.Since(t.start)
+	if os.Getenv("AGENTRY_DEBUG") == "1" {
+		fmt.Fprintf(os.Stderr, "⏱️  [TIMER] %s [%s]: %v\n", t.name, checkpoint, elapsed)
+	}
+	return elapsed
+}
 
 // Team manages a multi-agent conversation step by step.
 // This is a simplified version that consolidates the functionality
@@ -27,17 +74,12 @@ type Team struct {
 	roles        map[string]*RoleConfig
 	portRange    PortRange
 	name         string
-	msg          string
-	turn         int
 	maxTurns     int
 	mutex        sync.RWMutex
 	// ENHANCED: Shared memory and communication tracking
 	sharedMemory map[string]interface{} // Shared data between agents
+	store        memstore.SharedStore   // Durable-backed store (in-memory by default)
 	coordination []CoordinationEvent    // Log of coordination events
-	// COLLABORATIVE WORKFLOW: Multi-agent workflow management
-	workflows     map[string]*CollaborativeWorkflow
-	communication *AgentCommunication
-	statusTracker *StatusTracker
 }
 
 // NewTeam creates a new team with the given parent agent.
@@ -53,12 +95,15 @@ func NewTeam(parent *core.Agent, maxTurns int, name string) (*Team, error) {
 		roles:        make(map[string]*RoleConfig),
 		portRange:    PortRange{Start: 9000, End: 9099}, // ENHANCED: Initialize shared memory and coordination tracking
 		sharedMemory: make(map[string]interface{}),
+		store:        memstore.Get(),
 		coordination: make([]CoordinationEvent, 0),
-		// COLLABORATIVE: Initialize collaboration features
-		workflows:     make(map[string]*CollaborativeWorkflow),
-		communication: nil, // Will be initialized on first use
-		statusTracker: nil, // Will be initialized on first use
 	}
+
+	// Kick off default GC for the store (once-per-process)
+	memstore.StartDefaultGC(60 * time.Second)
+
+	// Best-effort: load persisted coordination events for this team
+	team.loadCoordinationFromStore()
 
 	return team, nil
 }
@@ -82,12 +127,23 @@ func NewTeamWithRoles(parent *core.Agent, maxTurns int, name string, includePath
 		for name, role := range roles {
 			team.roles[name] = role
 			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-				fmt.Printf("📋 Team role loaded: %s\n", name)
+				fmt.Fprintf(os.Stderr, "📋 Team role loaded: %s\n", name)
 			}
 		}
 	}
 
 	return team, nil
+}
+
+// GetRoles returns the loaded role configurations by name.
+func (t *Team) GetRoles() map[string]*RoleConfig {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	out := make(map[string]*RoleConfig, len(t.roles))
+	for k, v := range t.roles {
+		out[k] = v
+	}
+	return out
 }
 
 // Add registers ag under name so it can be addressed via Call.
@@ -130,21 +186,24 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	// FIXED: Create agent with FULL tool registry instead of inheriting restricted parent tools
 	// This prevents the tool inheritance bug where spawned agents get Agent 0's restricted tools
 	registry := tool.DefaultRegistry() // Get all available tools
-	routes := t.parent.Route           // Use same routing as parent
 
 	// Create new agent with full capabilities, not inherited restrictions
-	coreAgent := core.New(routes, registry, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	// Pass parent's tracer to enable proper trace events for spawned agents
+	coreAgent := core.New(t.parent.Client, t.parent.ModelName, registry, memory.NewInMemory(), memory.NewInMemoryVector(), t.parent.Tracer)
 
 	// Set role-appropriate prompt
 	coreAgent.Prompt = fmt.Sprintf("You are a %s agent specialized in %s tasks. You have access to all necessary tools to complete your assignments.", name, name)
+
+	// Configure error handling for resilience
+	coreAgent.ErrorHandling.TreatErrorsAsResults = true
+	coreAgent.ErrorHandling.MaxErrorRetries = 3
+	coreAgent.ErrorHandling.IncludeErrorContext = true
 
 	// Remove ONLY the "agent" tool to prevent delegation cascading
 	// Keep all other tools (create, write, edit_range, etc.) so agents can actually work
 	delete(coreAgent.Tools, "agent")
 
-	// Initialize cost manager for spawned agents (same as Agent 0)
-	// This enables cost tracking and display in the TUI panel
-	coreAgent.Cost = cost.New(0, 0.0) // No budget limits, just tracking
+	// Note: Cost manager is already initialized in core.New()
 
 	// Create wrapper
 	agent := &Agent{
@@ -170,6 +229,9 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 // Call implements the Caller interface for compatibility with existing code.
 // It delegates work to the named agent with enhanced communication logging.
 func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) {
+	timer := StartTimer(fmt.Sprintf("Call(%s)", agentID))
+	defer timer.Stop()
+
 	// ENHANCED: Log explicit agent-to-agent communication
 	debugPrintf("\n🔄 AGENT DELEGATION: Agent 0 -> %s\n", agentID)
 	debugPrintf("📝 Task: %s\n", input)
@@ -180,10 +242,12 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 		"task_length": len(input),
 		"agent_type":  agentID,
 	})
+	timer.Checkpoint("coordination logged")
 
 	t.mutex.RLock()
 	agent, exists := t.agentsByName[agentID]
 	t.mutex.RUnlock()
+	timer.Checkpoint("agent lookup completed")
 
 	if !exists {
 		debugPrintf("🆕 Creating new agent: %s\n", agentID)
@@ -194,8 +258,10 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 			return "", fmt.Errorf("failed to spawn agent %s: %w", agentID, err)
 		}
 		agent = spawnedAgent
+		timer.Checkpoint("new agent spawned")
 		debugPrintf("✅ Agent %s created and ready\n", agentID)
 	} else {
+		timer.Checkpoint("existing agent found")
 		debugPrintf("♻️  Using existing agent: %s (Status: %s)\n", agentID, agent.Status)
 	}
 
@@ -208,11 +274,94 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	// Log the communication to file as well
 	logMessage := fmt.Sprintf("DELEGATION: Agent 0 -> %s | Task: %s", agentID, input)
 	logToFile(logMessage)
+	timer.Checkpoint("logging completed")
 
-	// Execute the input on the core agent using the same pattern as converse.runAgent
-	result, err := runAgent(ctx, agent.Agent, input, agentID, t.names)
+	// Inject inbox into prompt for this turn (lightweight option)
+	originalPrompt := agent.Agent.Prompt
+	// Collect unread inbox messages
+	inbox := t.GetAgentInbox(agentID)
+	unread := make([]map[string]interface{}, 0, len(inbox))
+	for _, m := range inbox {
+		if read, ok := m["read"].(bool); !ok || !read {
+			unread = append(unread, m)
+		}
+	}
+	if len(unread) > 0 {
+		// Build an INBOX section appended to the system prompt
+		var sb strings.Builder
+		sb.WriteString(originalPrompt)
+		sb.WriteString("\n\nINBOX: You have ")
+		sb.WriteString(fmt.Sprintf("%d unread message(s). Read and consider them before continuing.\n", len(unread)))
+		for _, m := range unread {
+			from, _ := m["from"].(string)
+			msg, _ := m["message"].(string)
+			ts := ""
+			if tv, ok := m["timestamp"].(time.Time); ok {
+				ts = tv.Format("15:04:05")
+			}
+			sb.WriteString("- ")
+			if ts != "" {
+				sb.WriteString("[")
+				sb.WriteString(ts)
+				sb.WriteString("] ")
+			}
+			if from != "" {
+				sb.WriteString(from)
+				sb.WriteString(": ")
+			}
+			sb.WriteString(msg)
+			sb.WriteString("\n")
+		}
+		agent.Agent.Prompt = sb.String()
+	}
+	timer.Checkpoint("inbox processing completed")
 
-	// Update agent status and log completion
+	// Execute the input on the core agent with a bounded timeout to avoid indefinite hangs
+	timeout := 120 * time.Second
+	if v := os.Getenv("AGENTRY_DELEGATION_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			timeout = d
+		}
+	}
+	debugPrintf("🔧 Call: Creating context with timeout %s for agent %s", timeout, agentID)
+	dctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Skip workspace event publishing in TUI mode to prevent console interference
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		t.PublishWorkspaceEvent("agent_0", "delegation_started", fmt.Sprintf("Delegated to %s", agentID), map[string]interface{}{"agent": agentID, "timeout": timeout.String()})
+	}
+	timer.Checkpoint("context and events prepared")
+
+	debugPrintf("🔧 Call: About to call runAgent for %s", agentID)
+	startTime := time.Now()
+	result, err := runAgent(dctx, agent.Agent, input, agentID, t.names)
+	duration := time.Since(startTime)
+	timer.Checkpoint("runAgent completed")
+	debugPrintf("🔧 Call: runAgent completed for %s in %s", agentID, duration)
+
+	if err != nil {
+		debugPrintf("❌ Call: runAgent failed for %s: %v", agentID, err)
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			// Explicit timeout handling
+			msg := fmt.Sprintf("⏳ Delegation to '%s' timed out after %s. Consider simplifying the task, choosing a different agent, or increasing AGENTRY_DELEGATION_TIMEOUT.", agentID, timeout)
+			t.LogCoordinationEvent("delegation_timeout", agentID, "agent_0", msg, map[string]interface{}{"timeout": timeout.String()})
+			// Skip workspace event publishing in TUI mode
+			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+				t.PublishWorkspaceEvent("agent_0", "delegation_timeout", msg, map[string]interface{}{"agent": agentID})
+			}
+			return msg, nil
+		}
+	}
+
+	// Restore original prompt and mark inbox messages as read after processing
+	agent.Agent.Prompt = originalPrompt
+	if len(unread) > 0 {
+		t.MarkMessagesAsRead(agentID)
+	}
+	timer.Checkpoint("cleanup completed")
+
+	// Update agent status and handle errors gracefully
 	if err != nil {
 		agent.SetStatus("error")
 		debugPrintf("❌ Agent %s failed: %v\n", agentID, err)
@@ -220,10 +369,23 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 		t.LogCoordinationEvent("delegation_failed", agentID, "agent_0", err.Error(), map[string]interface{}{
 			"error": err.Error(),
 		})
+
+		// Instead of returning the error directly, format it as feedback for the parent agent
+		errorFeedback := fmt.Sprintf("❌ Agent '%s' encountered an error: %v\n\nSuggestions:\n- Try a different approach\n- Simplify the request\n- Use alternative tools\n- Break the task into smaller steps",
+			agentID, err)
+
+		// Return the error as feedback instead of propagating it
+		return errorFeedback, nil
 	} else {
 		agent.SetStatus("ready")
 		debugPrintf("✅ Agent %s completed successfully\n", agentID)
 		debugPrintf("📤 Result length: %d characters\n", len(result))
+		debugPrintf("🧮 Agent %s final token count: %d\n", agentID, func() int {
+			if agent.Agent.Cost != nil {
+				return agent.Agent.Cost.TotalTokens()
+			}
+			return 0
+		}())
 		if len(result) > 100 {
 			debugPrintf("📄 Result preview: %.100s...\n", result)
 		} else {
@@ -241,15 +403,301 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	}
 	debugPrintf("🏁 Delegation complete: Agent 0 <- %s\n\n", agentID)
 
-	return result, err
+	return result, nil
+}
+
+// CallParallel executes multiple agent tasks in parallel for improved efficiency
+func (t *Team) CallParallel(ctx context.Context, tasks []interface{}) (string, error) {
+	if len(tasks) == 0 {
+		return "", errors.New("no tasks provided")
+	}
+
+	type taskResult struct {
+		index  int
+		result string
+		err    error
+	}
+
+	results := make(chan taskResult, len(tasks))
+
+	// Start all tasks in parallel
+	for i, taskInterface := range tasks {
+		go func(index int, taskInterface interface{}) {
+			task, ok := taskInterface.(map[string]interface{})
+			if !ok {
+				results <- taskResult{index: index, err: fmt.Errorf("task %d: invalid task format", index)}
+				return
+			}
+
+			agentName, ok := task["agent"].(string)
+			if !ok {
+				results <- taskResult{index: index, err: fmt.Errorf("task %d: agent name is required", index)}
+				return
+			}
+
+			input, ok := task["input"].(string)
+			if !ok {
+				results <- taskResult{index: index, err: fmt.Errorf("task %d: input is required", index)}
+				return
+			}
+
+			debugPrintf("🚀 Starting parallel task %d: %s -> %s", index, agentName, input[:min(50, len(input))])
+			result, err := t.Call(ctx, agentName, input)
+			results <- taskResult{index: index, result: result, err: err}
+		}(i, taskInterface)
+	}
+
+	// Collect results
+	taskResults := make([]string, len(tasks))
+	var errs []error
+
+	for i := 0; i < len(tasks); i++ {
+		result := <-results
+		if result.err != nil {
+			errs = append(errs, result.err)
+		} else {
+			taskResults[result.index] = result.result
+		}
+	}
+
+	if len(errs) > 0 {
+		return "", fmt.Errorf("parallel execution errors: %v", errs)
+	}
+
+	// Combine results from all agents
+	var combinedResult strings.Builder
+	combinedResult.WriteString("📋 **Parallel Agent Execution Results:**\n\n")
+
+	for i, result := range taskResults {
+		taskInterface := tasks[i]
+		task := taskInterface.(map[string]interface{})
+		agentName := task["agent"].(string)
+
+		combinedResult.WriteString(fmt.Sprintf("**Agent %d (%s):**\n", i+1, agentName))
+		combinedResult.WriteString(result)
+		if i < len(taskResults)-1 {
+			combinedResult.WriteString("\n\n---\n\n")
+		}
+	}
+
+	debugPrintf("✅ Parallel execution completed successfully with %d agents", len(tasks))
+	return combinedResult.String(), nil
 }
 
 // runAgent executes an agent with the given input, similar to converse.runAgent
 func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []string) (string, error) {
-	// Use the standard agent.Run() method instead of custom logic
-	// This ensures that all tracing, token counting, and other instrumentation works correctly
-	return ag.Run(ctx, input)
+	timer := StartTimer(fmt.Sprintf("runAgent(%s)", name))
+	defer timer.Stop()
+
+	// Attach agent name into context for builtins to use sensible defaults
+	ctx = context.WithValue(ctx, tool.AgentNameContextKey, name)
+	timer.Checkpoint("context prepared")
+
+	// Minimal bounded context wrapper (idempotent via sentinel)
+	contextualInput := buildContextMinimal(ctx, input, name)
+	timer.Checkpoint("contextual input built")
+	result, err := ag.Run(ctx, contextualInput)
+	timer.Checkpoint("agent.Run completed")
+
+	debugPrintf("🏁 runAgent: ag.Run completed for agent %s", name)
+	debugPrintf("🏁 runAgent: Result length: %d", len(result))
+	debugPrintf("🏁 runAgent: Error: %v", err)
+	debugPrintf("🏁 runAgent: Agent %s tokens after: %d", name, func() int {
+		if ag.Cost != nil {
+			return ag.Cost.TotalTokens()
+		}
+		return 0
+	}())
+	debugPrintf("🏁 runAgent: Agent %s context final state: %v", name, ctx.Err())
+
+	return result, err
 }
+
+// ---------------- Minimal Context Builder ----------------
+const (
+	ctxSentinel     = "<!--AGENTRY_CTX_V1-->\n"
+	agent0CapTokens = 1200
+	workerCapTokens = 600
+	projectCacheTTL = 10 * time.Second
+)
+
+var (
+	projectSummaryCache     string
+	projectSummaryCacheLite string
+	projectSummaryExpiry    time.Time
+)
+
+func buildContextMinimal(ctx context.Context, task, agentName string) string {
+	if strings.HasPrefix(task, ctxSentinel) || os.Getenv("AGENTRY_DISABLE_CONTEXT") == "1" {
+		return task
+	}
+	tier := 1
+	if agentName == "0" {
+		tier = 0
+	}
+	full, lite := projectSummaries()
+	snapshot := lite
+	if tier == 0 {
+		snapshot = full
+	}
+	var lines []string
+	lines = append(lines, strings.TrimRight(ctxSentinel, "\n"))
+	lines = append(lines, snapshot)
+	if tier == 1 {
+		if refs := extractReferencedFiles(task); len(refs) > 0 {
+			lines = append(lines, "Files: "+strings.Join(refs, " "))
+		}
+	}
+	lines = append(lines, "", "TASK:", task)
+	assembled := strings.Join(lines, "\n")
+	capTokens := workerCapTokens
+	if tier == 0 {
+		capTokens = agent0CapTokens
+	}
+	if capEnv := os.Getenv("AGENTRY_CTX_CAP_AGENT0"); tier == 0 && capEnv != "" {
+		if v, err := strconv.Atoi(capEnv); err == nil && v > 100 {
+			capTokens = v
+		}
+	}
+	if capEnv := os.Getenv("AGENTRY_CTX_CAP_WORKER"); tier == 1 && capEnv != "" {
+		if v, err := strconv.Atoi(capEnv); err == nil && v > 100 {
+			capTokens = v
+		}
+	}
+	total := tokens.Count(assembled, "gpt-4o-mini")
+	if total <= capTokens {
+		debugPrintf("CTX agent=%s tier=%d tokens=%d truncated=false\n", agentName, tier, total)
+		return assembled
+	}
+	parts := strings.Split(assembled, "\n")
+	idx := 0
+	for i, l := range parts {
+		if l == "TASK:" {
+			idx = i
+			break
+		}
+	}
+	firstSnapLine := ""
+	for i := 1; i < len(parts) && i < 4; i++ {
+		if strings.TrimSpace(parts[i]) != "" {
+			firstSnapLine = parts[i]
+			break
+		}
+	}
+	header := []string{parts[0]}
+	if firstSnapLine != "" {
+		header = append(header, firstSnapLine)
+	}
+	header = append(header, "", "TASK:")
+	remaining := strings.Join(parts[idx+1:], "\n")
+	allowed := capTokens - tokens.Count(strings.Join(header, "\n"), "gpt-4o-mini") - 10
+	if allowed < 50 {
+		allowed = 50
+	}
+	truncated := tokens.Truncate(remaining, allowed, "gpt-4o-mini")
+	if tokens.Count(truncated, "gpt-4o-mini") >= allowed && !strings.Contains(truncated, "[truncated]") {
+		truncated += "\n...[truncated]"
+	}
+	final := strings.Join(append(header, truncated), "\n")
+	debugPrintf("CTX agent=%s tier=%d tokens=%d truncated=true cap=%d\n", agentName, tier, tokens.Count(final, "gpt-4o-mini"), capTokens)
+	return final
+}
+
+func projectSummaries() (string, string) {
+	if time.Now().Before(projectSummaryExpiry) && projectSummaryCache != "" {
+		return projectSummaryCache, projectSummaryCacheLite
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return "Project: Unknown", "Project: Unknown"
+	}
+	entries, err := os.ReadDir(wd)
+	if err != nil {
+		return "Project: Unknown", "Project: Unknown"
+	}
+	var dirs, configs []string
+	projectType := "Unknown"
+	for _, e := range entries {
+		name := e.Name()
+		if strings.HasPrefix(name, ".") && name != ".gitignore" {
+			continue
+		}
+		if e.IsDir() {
+			dirs = append(dirs, name+"/")
+			continue
+		}
+		switch name {
+		case "go.mod":
+			projectType = "Go"
+			configs = append(configs, name)
+		case "package.json":
+			if projectType == "Unknown" {
+				projectType = "Node"
+			}
+			configs = append(configs, name)
+		case "pyproject.toml", "requirements.txt":
+			if projectType == "Unknown" {
+				projectType = "Python"
+			}
+			configs = append(configs, name)
+		case "Cargo.toml":
+			if projectType == "Unknown" {
+				projectType = "Rust"
+			}
+			configs = append(configs, name)
+		case "docker-compose.yml", "Dockerfile", "Makefile":
+			configs = append(configs, name)
+		}
+	}
+	if len(dirs) > 5 {
+		dirs = dirs[:5]
+	}
+	if len(configs) > 4 {
+		configs = configs[:4]
+	}
+	full := fmt.Sprintf("Project: %s; Dirs: %s; Config: %s", projectType, strings.Join(dirs, " "), strings.Join(configs, " "))
+	lite := fmt.Sprintf("Project: %s; Dirs: %s", projectType, strings.Join(dirs, " "))
+	projectSummaryCache, projectSummaryCacheLite = full, lite
+	projectSummaryExpiry = time.Now().Add(projectCacheTTL)
+	return full, lite
+}
+
+var allowedFileExt = map[string]struct{}{".go": {}, ".md": {}, ".txt": {}, ".json": {}, ".yaml": {}, ".yml": {}, ".ts": {}, ".js": {}, ".py": {}}
+
+func extractReferencedFiles(task string) []string {
+	words := strings.Fields(task)
+	seen := make(map[string]struct{})
+	var out []string
+	for _, w := range words {
+		if len(out) >= 5 {
+			break
+		}
+		if !strings.Contains(w, ".") {
+			continue
+		}
+		w = strings.Trim(w, "`'\"()[]{}<>,")
+		if len(w) > 80 {
+			continue
+		}
+		ext := filepath.Ext(w)
+		if _, ok := allowedFileExt[ext]; !ok {
+			continue
+		}
+		if strings.Count(w, "/") > 2 {
+			continue
+		}
+		if _, ok := seen[w]; ok {
+			continue
+		}
+		if _, err := os.Stat(w); err == nil {
+			seen[w] = struct{}{}
+			out = append(out, w)
+		}
+	}
+	return out
+}
+
+// --------------- End Minimal Context Builder ---------------
 
 // GetAgents returns a list of all agent names in the team.
 func (t *Team) GetAgents() []string {
@@ -258,34 +706,63 @@ func (t *Team) GetAgents() []string {
 	return append([]string(nil), t.names...)
 }
 
-// Agents returns a list of all core agents in the team.
-func (t *Team) Agents() []*core.Agent {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-
-	agents := make([]*core.Agent, 0, len(t.agents))
-	for _, agent := range t.agents {
-		agents = append(agents, agent.Agent)
-	}
-	return agents
-}
-
 // Names returns a list of all agent names in the team.
 func (t *Team) Names() []string {
 	return t.GetAgents()
 }
 
+// ===== contracts.TeamService Implementation =====
+
+// SpawnedAgentNames returns currently running agent instances
+func (t *Team) SpawnedAgentNames() []string {
+	return t.GetAgents()
+}
+
+// AvailableRoleNames returns role names from configuration files
+func (t *Team) AvailableRoleNames() []string {
+	return t.ListRoleNames()
+}
+
+// DelegateTask delegates a task to a role (spawning if needed)
+func (t *Team) DelegateTask(ctx context.Context, role, task string) (string, error) {
+	return t.Call(ctx, role, task)
+}
+
+// GetInbox returns an agent's inbox messages
+func (t *Team) GetInbox(agentID string) []map[string]interface{} {
+	return t.GetAgentInbox(agentID)
+}
+
+// MarkInboxRead marks an agent's messages as read
+func (t *Team) MarkInboxRead(agentID string) {
+	t.MarkMessagesAsRead(agentID)
+}
+
+// GetCoordinationHistory returns coordination event history
+func (t *Team) GetCoordinationHistory(limit int) []string {
+	return t.CoordinationHistoryStrings(limit)
+}
+
+// GetTeamAgents returns a list of all team agents with role information.
+func (t *Team) GetTeamAgents() []*Agent {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	agents := make([]*Agent, 0, len(t.agents))
+	for _, agent := range t.agents {
+		agents = append(agents, agent)
+	}
+	return agents
+}
+
 // logToFile logs the message to a file (only if not in TUI mode)
 func logToFile(message string) {
-	// Check if we're in TUI mode by looking for the TUI environment
-	// In TUI mode, we should avoid any stdout/stderr output that could interfere
 	if os.Getenv("AGENTRY_TUI_MODE") == "1" {
-		return // Skip logging in TUI mode to avoid interfering with display
+		return
 	}
 
 	file, err := os.OpenFile("agent_communication.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		// Don't use log.Println as it may interfere with TUI
 		return
 	}
 	defer file.Close()
@@ -297,7 +774,7 @@ func logToFile(message string) {
 // debugPrintf prints debug information only when not in TUI mode
 func debugPrintf(format string, v ...interface{}) {
 	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-		fmt.Printf(format, v...)
+		fmt.Fprintf(os.Stderr, format, v...)
 	}
 }
 
@@ -306,8 +783,18 @@ func debugPrintf(format string, v ...interface{}) {
 // SetSharedData stores data in shared memory accessible to all agents
 func (t *Team) SetSharedData(key string, value interface{}) {
 	t.mutex.Lock()
-	defer t.mutex.Unlock()
 	t.sharedMemory[key] = value
+	t.mutex.Unlock()
+
+	// Persist a JSON representation to the shared store (best-effort)
+	if t.store != nil {
+		if b, err := json.Marshal(value); err == nil {
+			_ = t.store.Set(t.name, key, b, 0)
+		} else {
+			// Fallback to string formatting to avoid losing data entirely
+			_ = t.store.Set(t.name, key, []byte(fmt.Sprintf("%v", value)), 0)
+		}
+	}
 
 	// Log the shared memory update
 	event := CoordinationEvent{
@@ -319,16 +806,61 @@ func (t *Team) SetSharedData(key string, value interface{}) {
 		Timestamp: time.Now(),
 		Metadata:  map[string]interface{}{"key": key, "value_type": fmt.Sprintf("%T", value)},
 	}
+	t.mutex.Lock()
 	t.coordination = append(t.coordination, event)
+	t.mutex.Unlock()
 	debugPrintf("📊 Shared memory updated: %s\n", key)
 }
 
 // GetSharedData retrieves data from shared memory
 func (t *Team) GetSharedData(key string) (interface{}, bool) {
 	t.mutex.RLock()
-	defer t.mutex.RUnlock()
 	value, exists := t.sharedMemory[key]
-	return value, exists
+	t.mutex.RUnlock()
+	if exists {
+		return value, true
+	}
+
+	// Try backing store if not present in in-memory map
+	if t.store != nil {
+		if b, ok, err := t.store.Get(t.name, key); err == nil && ok {
+			var out interface{}
+			if err := json.Unmarshal(b, &out); err != nil {
+				// treat as plain string
+				out = string(b)
+			}
+			// normalize common JSON generic types into typed Go forms used by callers
+			out = normalizeShared(out)
+			// cache in memory for quick typed access in-session
+			t.mutex.Lock()
+			t.sharedMemory[key] = out
+			t.mutex.Unlock()
+			return out, true
+		}
+	}
+
+	return nil, false
+}
+
+// normalizeShared converts generic []any of map[string]any into []map[string]any
+// to satisfy existing callers that assert concrete types.
+func normalizeShared(v interface{}) interface{} {
+	switch vv := v.(type) {
+	case []interface{}:
+		// Check if it's a slice of maps; convert to []map[string]interface{}
+		converted := make([]map[string]interface{}, 0, len(vv))
+		for _, it := range vv {
+			if m, ok := it.(map[string]interface{}); ok {
+				converted = append(converted, m)
+			} else {
+				// Not homogeneous; return original
+				return v
+			}
+		}
+		return converted
+	default:
+		return v
+	}
 }
 
 // GetAllSharedData returns all shared memory data
@@ -348,7 +880,7 @@ func (t *Team) LogCoordinationEvent(eventType, from, to, content string, metadat
 	defer t.mutex.Unlock()
 
 	event := CoordinationEvent{
-		ID:        fmt.Sprintf("%s_%d", eventType, time.Now().Unix()),
+		ID:        fmt.Sprintf("%s_%d", eventType, time.Now().UnixNano()),
 		Type:      eventType,
 		From:      from,
 		To:        to,
@@ -358,18 +890,47 @@ func (t *Team) LogCoordinationEvent(eventType, from, to, content string, metadat
 	}
 	t.coordination = append(t.coordination, event)
 
+	// Persist the event (best-effort)
+	if t.store != nil {
+		if b, err := json.Marshal(event); err == nil {
+			_ = t.store.Set(t.name, "coord-"+event.ID, b, 0)
+		}
+	}
+
 	// Enhanced console logging
 	debugPrintf("📝 COORDINATION EVENT: %s -> %s | %s: %s\n", from, to, eventType, content)
 	logToFile(fmt.Sprintf("COORDINATION: %s -> %s | %s: %s", from, to, eventType, content))
 }
 
-// GetCoordinationHistory returns the coordination event history
-func (t *Team) GetCoordinationHistory() []CoordinationEvent {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-	result := make([]CoordinationEvent, len(t.coordination))
-	copy(result, t.coordination)
-	return result
+// loadCoordinationFromStore loads persisted coordination events at startup.
+func (t *Team) loadCoordinationFromStore() {
+	if t.store == nil {
+		return
+	}
+	keys, err := t.store.Keys(t.name)
+	if err != nil || len(keys) == 0 {
+		return
+	}
+	// Collect coord-* keys
+	events := make([]CoordinationEvent, 0)
+	for _, k := range keys {
+		if len(k) < 6 || k[:6] != "coord-" {
+			continue
+		}
+		if b, ok, err := t.store.Get(t.name, k); err == nil && ok {
+			var ev CoordinationEvent
+			if err := json.Unmarshal(b, &ev); err == nil {
+				events = append(events, ev)
+			}
+		}
+	}
+	if len(events) == 0 {
+		return
+	}
+	// Append to in-memory log, keep order by timestamp
+	t.mutex.Lock()
+	t.coordination = append(t.coordination, events...)
+	t.mutex.Unlock()
 }
 
 // GetCoordinationSummary returns a summary of recent coordination events
@@ -398,6 +959,25 @@ func (t *Team) GetCoordinationSummary() string {
 	return summary
 }
 
+// CoordinationHistoryStrings returns formatted lines of coordination events.
+// If limit <= 0, returns all events; otherwise returns the last 'limit' events.
+func (t *Team) CoordinationHistoryStrings(limit int) []string {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	if len(t.coordination) == 0 {
+		return nil
+	}
+	start := 0
+	if limit > 0 && len(t.coordination) > limit {
+		start = len(t.coordination) - limit
+	}
+	res := make([]string, 0, len(t.coordination)-start)
+	for _, e := range t.coordination[start:] {
+		res = append(res, fmt.Sprintf("%s %s -> %s | %s", e.Timestamp.Format("15:04:05"), e.From, e.To, e.Content))
+	}
+	return res
+}
+
 // ENHANCED: Direct agent-to-agent communication methods
 
 // SendMessageToAgent enables direct communication between agents
@@ -415,8 +995,8 @@ func (t *Team) SendMessageToAgent(ctx context.Context, fromAgentID, toAgentID, m
 	}
 
 	// Log the direct communication
-	fmt.Printf("💬 DIRECT MESSAGE: %s → %s\n", fromAgentID, toAgentID)
-	fmt.Printf("📝 Message: %s\n", message)
+	fmt.Fprintf(os.Stderr, "💬 DIRECT MESSAGE: %s → %s\n", fromAgentID, toAgentID)
+	fmt.Fprintf(os.Stderr, "📝 Message: %s\n", message)
 
 	// Store in coordination events
 	t.LogCoordinationEvent("direct_message", fromAgentID, toAgentID, message, map[string]interface{}{
@@ -445,7 +1025,7 @@ func (t *Team) SendMessageToAgent(ctx context.Context, fromAgentID, toAgentID, m
 	messages = append(messages, newMessage)
 
 	t.SetSharedData(inboxKey, messages)
-	fmt.Printf("📬 Message delivered to %s's inbox\n", toAgentID)
+	fmt.Fprintf(os.Stderr, "📬 Message delivered to %s's inbox\n", toAgentID)
 
 	return nil
 }
@@ -456,13 +1036,13 @@ func (t *Team) BroadcastToAllAgents(ctx context.Context, fromAgentID, message st
 	agentNames := append([]string(nil), t.names...)
 	t.mutex.RUnlock()
 
-	fmt.Printf("📢 BROADCAST from %s: %s\n", fromAgentID, message)
+	fmt.Fprintf(os.Stderr, "📢 BROADCAST from %s: %s\n", fromAgentID, message)
 
 	for _, agentName := range agentNames {
 		if agentName != fromAgentID { // Don't send to self
 			err := t.SendMessageToAgent(ctx, fromAgentID, agentName, message)
 			if err != nil {
-				fmt.Printf("❌ Failed to broadcast to %s: %v\n", agentName, err)
+				fmt.Fprintf(os.Stderr, "❌ Failed to broadcast to %s: %v\n", agentName, err)
 			}
 		}
 	}
@@ -544,7 +1124,10 @@ func (t *Team) PublishWorkspaceEvent(agentID, eventType, description string, dat
 
 	t.SetSharedData(eventsKey, eventList)
 
-	fmt.Printf("📡 WORKSPACE EVENT: %s | %s: %s\n", agentID, eventType, description)
+	// Only log to stderr in non-TUI mode to avoid console interference
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		fmt.Fprintf(os.Stderr, "📡 WORKSPACE EVENT: %s | %s: %s\n", agentID, eventType, description)
+	}
 
 	// Log coordination event
 	t.LogCoordinationEvent("workspace_event", agentID, "*", fmt.Sprintf("%s: %s", eventType, description), map[string]interface{}{
@@ -574,13 +1157,18 @@ func (t *Team) GetWorkspaceEvents(limit int) []WorkspaceEvent {
 
 // RequestHelp allows an agent to request help from other agents
 func (t *Team) RequestHelp(ctx context.Context, agentID, helpDescription string, preferredHelper string) error {
-	fmt.Printf("🆘 HELP REQUEST from %s: %s\n", agentID, helpDescription)
+	// Only log to stderr in non-TUI mode to avoid console interference
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		fmt.Fprintf(os.Stderr, "🆘 HELP REQUEST from %s: %s\n", agentID, helpDescription)
+	}
 
-	// Publish workspace event
-	t.PublishWorkspaceEvent(agentID, "help_request", helpDescription, map[string]interface{}{
-		"preferred_helper": preferredHelper,
-		"urgency":          "normal",
-	})
+	// Skip workspace event publishing in TUI mode to prevent console interference
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		t.PublishWorkspaceEvent(agentID, "help_request", helpDescription, map[string]interface{}{
+			"preferred_helper": preferredHelper,
+			"urgency":          "normal",
+		})
+	}
 
 	// If preferred helper specified, send direct message
 	if preferredHelper != "" && preferredHelper != "*" {
@@ -595,8 +1183,8 @@ func (t *Team) RequestHelp(ctx context.Context, agentID, helpDescription string,
 
 // ProposeCollaboration allows agents to propose working together
 func (t *Team) ProposeCollaboration(ctx context.Context, proposerID, targetAgentID, proposal string) error {
-	fmt.Printf("🤝 COLLABORATION PROPOSAL: %s → %s\n", proposerID, targetAgentID)
-	fmt.Printf("📝 Proposal: %s\n", proposal)
+	fmt.Fprintf(os.Stderr, "🤝 COLLABORATION PROPOSAL: %s → %s\n", proposerID, targetAgentID)
+	fmt.Fprintf(os.Stderr, "📝 Proposal: %s\n", proposal)
 
 	// Store proposal in shared memory
 	proposalKey := fmt.Sprintf("proposal_%s_to_%s_%d", proposerID, targetAgentID, time.Now().Unix())
@@ -610,11 +1198,13 @@ func (t *Team) ProposeCollaboration(ctx context.Context, proposerID, targetAgent
 
 	t.SetSharedData(proposalKey, proposalData)
 
-	// Publish workspace event
-	t.PublishWorkspaceEvent(proposerID, "collaboration_proposal", fmt.Sprintf("Proposed collaboration with %s", targetAgentID), map[string]interface{}{
-		"target_agent": targetAgentID,
-		"proposal":     proposal,
-	})
+	// Skip workspace event publishing in TUI mode to prevent console interference
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		t.PublishWorkspaceEvent(proposerID, "collaboration_proposal", fmt.Sprintf("Proposed collaboration with %s", targetAgentID), map[string]interface{}{
+			"target_agent": targetAgentID,
+			"proposal":     proposal,
+		})
+	}
 
 	// Send direct message
 	message := fmt.Sprintf("Collaboration proposal: %s. Please respond with your thoughts.", proposal)

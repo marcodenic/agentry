@@ -7,13 +7,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
-	"github.com/marcodenic/agentry/internal/router"
+	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
 // newTestAgent creates a minimal agent for TUI tests.
 func newTestAgent() *core.Agent {
-	return core.New(router.Rules{{IfContains: []string{""}, Client: nil}}, tool.Registry{}, memory.NewInMemory(), nil, memory.NewInMemoryVector(), nil)
+	return core.New(model.NewMock(), "mock", tool.Registry{}, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 }
 
 func TestThemeRenderingSnapshots(t *testing.T) {
