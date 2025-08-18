@@ -1,0 +1,140 @@
+theme: dark
+
+# Model configuration - OpenAI gpt-5 as primary, Anthropic Claude as backup
+models:
+  - name: openai
+    provider: openai
+    options:
+  # API key will be read from $OPENAI_API_KEY environment variable
+      model: gpt-5
+      temperature: "0.1"
+  - name: anthropic
+    provider: anthropic
+    options:
+      model: claude-instant
+
+# Comprehensive tool set for all agent capabilities
+tools:
+  # Core built-in tools
+  - name: echo
+    type: builtin
+    description: Repeat a string
+  - name: ping
+    type: builtin
+    description: Ping a host
+  - name: agent
+    type: builtin
+    description: Delegate tasks to another agent
+  - name: fetch
+    type: builtin
+    description: Download content from HTTP/HTTPS URLs
+  - name: patch
+    type: builtin
+    description: Apply a unified diff patch
+  - name: sysinfo
+    type: builtin
+    description: Get system information and hardware specs
+
+  # File operation tools - Critical for intelligent agents
+  - name: read_lines
+    type: builtin
+    description: Read specific lines from a file
+  - name: edit_range
+    type: builtin
+    description: Replace a range of lines in a file
+  - name: insert_at
+    type: builtin
+    description: Insert lines at a specific position
+  - name: search_replace
+    type: builtin
+    description: Advanced search/replace with regex
+  - name: fileinfo
+    type: builtin
+    description: Get comprehensive file information - CRITICAL for discovery
+  - name: view
+    type: builtin
+    description: Enhanced file viewing with line numbers
+  - name: create
+    type: builtin
+    description: Create a new file with content
+  - name: grep
+    type: builtin
+    description: Search file contents - ESSENTIAL for smart discovery
+  - name: lsp_diagnostics
+    type: builtin
+    description: Run language diagnostics (gopls/tsc)
+
+  # Enhanced exploration tools
+  - name: ls
+    type: builtin
+    description: List directory contents - USE FIRST for exploration
+  - name: find
+    type: builtin
+    description: Find files by pattern - CRITICAL for file discovery
+  - name: glob
+    type: builtin
+    description: Find files by glob pattern
+
+  # Web tools
+  - name: web_search
+    type: builtin
+    description: Search the web for information
+  - name: read_webpage
+    type: builtin
+    description: Extract content from web pages
+  - name: api
+    type: builtin
+    description: Make HTTP/REST API calls
+  - name: download
+    type: builtin
+    description: Download files from URLs
+
+  # Shell tools for all platforms
+  - name: powershell
+    type: builtin
+    description: Execute PowerShell commands
+  - name: cmd
+    type: builtin
+    description: Execute cmd.exe commands
+  - name: bash
+    type: builtin
+    description: Execute bash commands
+  - name: sh
+    type: builtin
+    description: Execute shell commands
+
+  # Git tools
+  - name: branch-tidy
+    type: builtin
+    description: Delete all local Git branches except the current one
+
+  # Team coordination tools
+  - name: project_tree
+    type: builtin
+    description: Get intelligent project structure with smart filtering
+  - name: team_status
+    type: builtin
+    description: Get current status of all team agents
+  - name: send_message
+    type: builtin
+    description: Send messages to other agents for coordination
+  - name: assign_task
+    type: builtin
+    description: Formally assign tasks with priority levels
+  - name: check_agent
+    type: builtin
+    description: Check if a specific agent is available
+
+# Disable sandbox to avoid cri-shim dependencies for now
+sandbox:
+  engine: disabled
+
+# Include all agent role definitions
+include:
+  - templates/roles/agent_0.yaml
+  - templates/roles/coder.yaml
+  - templates/roles/tester.yaml
+  - templates/roles/writer.yaml
+  - templates/roles/researcher.yaml
+  - templates/roles/team_planner.yaml
+  - templates/roles/critic.yaml

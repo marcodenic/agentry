@@ -8,17 +8,42 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Ensure LICENSE exists
+        shell: bash
+        run: test -f LICENSE
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: "1.23"
 
+      - name: Check gofmt
+        run: |
+          diff=$(gofmt -l $(git ls-files '*.go'))
+          if [ -n "$diff" ]; then echo "gofmt needed:" && echo "$diff" && exit 1; fi
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Install and run golangci-lint
+        shell: bash
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          $(go env GOPATH)/bin/golangci-lint run
+
       - name: Run Go tests
+        shell: bash
         run: go test ./...
+
+      - name: OTLP export integration test
+        run: go test ./tests -run TestOTLPExport -count=1
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -27,6 +52,35 @@ jobs:
 
       - name: Install and test TS SDK
         working-directory: ts-sdk
+        shell: bash
         run: |
           npm ci
           npm test
+
+      - name: Run agentry eval
+        shell: bash
+        run: go run ./cmd/agentry eval examples/.agentry.yaml
+
+  e2e:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check changed paths
+        id: changed
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            core/**
+            engine/**
+
+      - name: Set up Go
+        if: steps.changed.outputs.any_changed == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Run e2e tests
+        if: steps.changed.outputs.any_changed == 'true'
+        run: go test ./pkg/e2e/...

@@ -17,6 +17,7 @@ type Step struct {
 type Store interface {
 	AddStep(step Step)
 	History() []Step
+	SetHistory([]Step)
 }
 
 // InMemory is a thread-safe implementation.
@@ -39,4 +40,12 @@ func (m *InMemory) History() []Step {
 	cp := make([]Step, len(m.steps))
 	copy(cp, m.steps)
 	return cp
+}
+
+func (m *InMemory) SetHistory(hist []Step) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cp := make([]Step, len(hist))
+	copy(cp, hist)
+	m.steps = cp
 }

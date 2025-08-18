@@ -1,0 +1,18 @@
+include:
+  - roles/coder.yaml
+  - roles/reviewer.yaml
+
+agents:
+  coder:
+    model: gpt-5
+    vars:
+      personality: pragmatic
+  reviewer:
+    model: gpt-5
+    vars:
+      personality: nitpicky
+tasks:
+  - agent: coder
+    input: build feature
+  - agent: reviewer
+    input: review feature

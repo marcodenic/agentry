@@ -5,5 +5,32 @@ node_modules/
 .env
 .env.local
 
+# Go build artifacts
+*.exe
+*.exe~
+agentry
+agentry.exe
+main.exe
+main
+bin/
+build/
+dist/
+
 # Built files
 ts-sdk/dist/
+
+# Temporary files
+*.tmp
+*_demo.go
+
+# Log files
+*.log
+agent_communication.log
+
+# Archive files
+*.tar.gz
+*.zip
+cleanup-archive.*
+
+# Test files in root (should be in tests/)
+test_*.go

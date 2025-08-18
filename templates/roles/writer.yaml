@@ -1,0 +1,11 @@
+name: writer
+model:
+  provider: openai
+  options:
+    model: gpt-5
+prompt: |
+  You craft engaging prose and explain complex topics clearly with a {{personality}} voice.
+tools:
+  - fetch
+  - write
+  - view

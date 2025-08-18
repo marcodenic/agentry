@@ -1,16 +1,14 @@
+theme: dark
 models:
-  - name: mock
-    provider: mock
   - name: openai
     provider: openai
     options:
-      # API key; defaults to $OPENAI_KEY if omitted
+    # API key; read from $OPENAI_API_KEY if omitted
       key: ""
-      # Model name; defaults to gpt-4o if omitted
-      model: gpt-4o
-routes:
-  - if_contains: [""]
-    model: openai
+  # Model name
+  model: gpt-5
+  - name: mock
+    provider: mock
 tools:
   # Built-in tools available in Agentry. Add or remove as needed.
   - name: echo
@@ -19,40 +17,37 @@ tools:
   - name: ping
     type: builtin
     description: Ping a host
-  - name: bash
+  # OS-specific shell tools (only register tools available on your OS)
+  # On Windows: powershell, cmd
+  # On Unix/Linux/macOS: bash, sh
+  - name: powershell
     type: builtin
-    description: Execute a bash command
+    description: Execute PowerShell commands (Windows only)
+  - name: cmd
+    type: builtin
+    description: Execute cmd.exe commands (Windows only)
+  # Uncomment these on Unix/Linux/macOS:
+  # - name: bash
+  #   type: builtin
+  #   description: Execute bash commands (Unix/Linux/macOS only)
+  # - name: sh
+  #   type: builtin
+  #   description: Execute shell commands (Unix/Linux/macOS only)
+  - name: branch-tidy
+    type: builtin
+    description: Delete all local Git branches except the current one
   - name: fetch
     type: builtin
     description: Download content from a URL
-  - name: glob
-    type: builtin
-    description: Find files by pattern
-  - name: grep
-    type: builtin
-    description: Search file contents
-  - name: ls
-    type: builtin
-    description: List directory contents
-  - name: view
-    type: builtin
-    description: View file contents
-  - name: write
-    type: builtin
-    description: Create or overwrite a file
-  - name: edit
-    type: builtin
-    description: Update an existing file
   - name: patch
     type: builtin
     description: Apply a unified diff patch
-  - name: sourcegraph
+  - name: lsp_diagnostics
     type: builtin
-    description: Search public repositories via Sourcegraph
+    description: Run language diagnostics (gopls/tsc)
   - name: agent
     type: builtin
-    description: Launch a search agent
-    # pass a `query` argument when invoking
+    description: Delegate tasks to another agent or launch a search agent
   - name: mcp
     type: builtin
     description: Connect to an MCP server
@@ -60,3 +55,19 @@ tools:
   - name: local_shell
     command: echo hello
     description: Uses shell (optional, advanced)
+    engine: cri
+metrics: true
+# default sandbox engine for unprivileged tools
+sandbox:
+  engine: disabled
+# send spans to an OTLP collector
+# collector: localhost:4318
+# path to SQLite DB for conversation history
+# store: path/to/db.sqlite
+# delete sessions older than this duration (e.g. 168h = 7 days)
+session_ttl: 168h
+# cleanup check interval
+session_gc_interval: 1h
+# Add default team planner role for team mode
+include:
+  - templates/roles/team_planner.yaml

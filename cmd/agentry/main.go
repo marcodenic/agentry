@@ -1,230 +1,195 @@
 package main
 
 import (
-	"bufio"
-	"context"
-	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/marcodenic/agentry/internal/config"
-	"github.com/marcodenic/agentry/internal/converse"
-	"github.com/marcodenic/agentry/internal/core"
+	agentry "github.com/marcodenic/agentry/internal"
+	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/env"
-	"github.com/marcodenic/agentry/internal/eval"
-	"github.com/marcodenic/agentry/internal/server"
-	"github.com/marcodenic/agentry/internal/tui"
 )
 
 func main() {
 	env.Load()
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: agentry [dev|serve|tui|eval] [--config path/to/config.yaml]")
-		os.Exit(1)
+		runTui([]string{})
+		return
 	}
-
 	cmd := os.Args[1]
 	args := os.Args[2:]
-	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
-	conf := fs.String("config", "", "path to .agentry.yaml")
-	theme := fs.String("theme", "", "theme name override")
-	keybinds := fs.String("keybinds", "", "path to keybinds json")
-	credsPath := fs.String("creds", "", "path to credentials json")
-	mcpFlag := fs.String("mcp", "", "comma-separated MCP servers")
-	_ = fs.Parse(args)
-	var configPath string
-	if *conf != "" {
-		configPath = *conf
-	} else if fs.NArg() > 0 {
-		configPath = fs.Arg(0)
-	} else {
-		configPath = "examples/.agentry.yaml"
+
+	// Handle version flags first
+	if cmd == "--version" || cmd == "-v" {
+		fmt.Printf("agentry %s\n", agentry.Version)
+		return
+	}
+
+	// If cmd starts with "-", treat it as flags for the default action
+	// Look for the actual command or prompt after the flags
+	if strings.HasPrefix(cmd, "-") {
+		// Parse all arguments to find the actual command or prompt
+		allArgs := os.Args[1:]
+		actualCmd := ""
+		actualArgs := []string{}
+
+		// Find the first non-flag argument
+		for i := 0; i < len(allArgs); i++ {
+			arg := allArgs[i]
+			if strings.HasPrefix(arg, "-") {
+				// Handle boolean flags that don't take values
+				if arg == "--debug" || arg == "-debug" {
+					// Boolean flag, no value to skip
+					continue
+				}
+				// Skip flag and its value for non-boolean flags
+				if i+1 < len(allArgs) && !strings.HasPrefix(allArgs[i+1], "-") {
+					i++ // Skip the flag value
+				}
+			} else {
+				// This is the actual command or prompt
+				actualCmd = arg
+				actualArgs = allArgs[:i]                          // All flags before this
+				actualArgs = append(actualArgs, allArgs[i+1:]...) // Plus any remaining args
+				break
+			}
+		}
+
+		// If no command found after flags, default to TUI
+		if actualCmd == "" {
+			runTui(allArgs)
+			return
+		}
+
+		// Check if it's a known command
+		switch actualCmd {
+		case "tui":
+			runTui(actualArgs)
+			return
+		case "eval", "test":
+			runEval(actualArgs)
+			return
+		// Add other commands as needed
+		default:
+			// It's a prompt, run it
+			runPrompt(actualCmd, actualArgs)
+			return
+		}
 	}
 
 	switch cmd {
+	case "chat":
+		// Deprecated: chat mode is now an alias for the default TUI.
+		fmt.Println("[deprecation] 'agentry chat' is deprecated. Use 'agentry' to launch the TUI.")
+		runTui(args)
 	case "dev":
-		cfg, err := config.Load("examples/.agentry.yaml")
-		if err != nil {
-			panic(err)
-		}
-		ag, err := buildAgent(cfg)
-		if err != nil {
-			panic(err)
-		}
+		// Deprecated: dev mode is now an alias for the default TUI (use flags for debugging).
+		fmt.Println("[deprecation] 'agentry dev' is deprecated. Use 'agentry' (TUI) with appropriate flags.")
+		runTui(args)
+	case "eval", "test":
+		runEval(args)
 
-		// tiny REPL
-		sc := bufio.NewScanner(os.Stdin)
-		fmt.Println("Agentry REPL – Ctrl-D to quit")
-		for {
-			fmt.Print("> ")
-			if !sc.Scan() {
-				break
-			}
-			line := sc.Text()
-			if strings.HasPrefix(line, "converse") {
-				rest := strings.TrimSpace(strings.TrimPrefix(line, "converse"))
-				n := 2
-				topic := ""
-				if rest != "" {
-					fields := strings.Fields(rest)
-					if len(fields) > 0 {
-						if v, err := strconv.Atoi(fields[0]); err == nil && v > 0 {
-							n = v
-							rest = strings.TrimSpace(rest[len(fields[0]):])
-						}
-					}
-					topic = strings.TrimSpace(rest)
-				}
-				if topic == "" {
-					topic = "Hello agents, let's chat!"
-				} else if (strings.HasPrefix(topic, "\"") && strings.HasSuffix(topic, "\"")) ||
-					(strings.HasPrefix(topic, "'") && strings.HasSuffix(topic, "'")) {
-					topic = strings.Trim(topic, "'\"")
-				}
-				converse.Repl(ag, n, topic)
-				continue
-			}
-			out, err := ag.Run(context.Background(), line)
-			if err != nil {
-				fmt.Println("ERR:", err)
-				continue
-			}
-			fmt.Println(out)
-		}
-	case "serve":
-		cfg, err := config.Load(configPath)
-		if err != nil {
-			fmt.Printf("failed to load config: %v\n", err)
-			os.Exit(1)
-		}
-		if *theme != "" {
-			if cfg.Themes == nil {
-				cfg.Themes = map[string]string{}
-			}
-			cfg.Themes["active"] = *theme
-		}
-		if *keybinds != "" {
-			if b, err := os.ReadFile(*keybinds); err == nil {
-				_ = json.Unmarshal(b, &cfg.Keybinds)
-			}
-		}
-		if *credsPath != "" {
-			if b, err := os.ReadFile(*credsPath); err == nil {
-				_ = json.Unmarshal(b, &cfg.Credentials)
-			}
-		}
-		if *mcpFlag != "" {
-			if cfg.MCPServers == nil {
-				cfg.MCPServers = map[string]string{}
-			}
-			parts := strings.Split(*mcpFlag, ",")
-			for i, p := range parts {
-				cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = strings.TrimSpace(p)
-			}
-		}
-		ag, err := buildAgent(cfg)
-		if err != nil {
-			panic(err)
-		}
-		agents := map[string]*core.Agent{"default": ag}
-		fmt.Println("Serving HTTP on :8080")
-		server.Serve(agents)
-	case "eval":
-		cfg, err := config.Load(configPath)
-		if err != nil {
-			fmt.Printf("failed to load config: %v\n", err)
-			os.Exit(1)
-		}
-		if *theme != "" {
-			if cfg.Themes == nil {
-				cfg.Themes = map[string]string{}
-			}
-			cfg.Themes["active"] = *theme
-		}
-		if *keybinds != "" {
-			if b, err := os.ReadFile(*keybinds); err == nil {
-				_ = json.Unmarshal(b, &cfg.Keybinds)
-			}
-		}
-		if *credsPath != "" {
-			if b, err := os.ReadFile(*credsPath); err == nil {
-				_ = json.Unmarshal(b, &cfg.Credentials)
-			}
-		}
-		if *mcpFlag != "" {
-			if cfg.MCPServers == nil {
-				cfg.MCPServers = map[string]string{}
-			}
-			parts := strings.Split(*mcpFlag, ",")
-			for i, p := range parts {
-				cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = strings.TrimSpace(p)
-			}
-		}
-		key := os.Getenv("OPENAI_KEY")
-		if key != "" {
-			for i, m := range cfg.Models {
-				if m.Name == "openai" {
-					if m.Options == nil {
-						m.Options = map[string]string{}
-					}
-					cfg.Models[i].Options["key"] = key
-				}
-			}
-		}
-		ag, err := buildAgent(cfg)
-		if err != nil {
-			panic(err)
-		}
-		suite := "tests/eval_suite.json"
-		if key != "" {
-			suite = "tests/openai_eval_suite.json"
-		}
-		eval.Run(nil, ag, suite)
 	case "tui":
-		cfg, err := config.Load(configPath)
-		if err != nil {
-			fmt.Printf("failed to load config: %v\n", err)
-			os.Exit(1)
-		}
-		if *theme != "" {
-			if cfg.Themes == nil {
-				cfg.Themes = map[string]string{}
-			}
-			cfg.Themes["active"] = *theme
-		}
-		if *keybinds != "" {
-			if b, err := os.ReadFile(*keybinds); err == nil {
-				_ = json.Unmarshal(b, &cfg.Keybinds)
-			}
-		}
-		if *credsPath != "" {
-			if b, err := os.ReadFile(*credsPath); err == nil {
-				_ = json.Unmarshal(b, &cfg.Credentials)
-			}
-		}
-		if *mcpFlag != "" {
-			if cfg.MCPServers == nil {
-				cfg.MCPServers = map[string]string{}
-			}
-			parts := strings.Split(*mcpFlag, ",")
-			for i, p := range parts {
-				cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = strings.TrimSpace(p)
-			}
-		}
-		ag, err := buildAgent(cfg)
-		if err != nil {
-			panic(err)
-		}
-		p := tea.NewProgram(tui.New(ag))
-		if err := p.Start(); err != nil {
-			panic(err)
-		}
+		runTui(args)
+	case "invoke":
+		runInvokeCmd(args)
+	case "cost":
+		runCostCmd(args)
+	case "pprof":
+		runPProfCmd(args)
+	case "tool":
+		runToolCmd(args)
+	case "analyze":
+		runAnalyzeCmd(args)
+	case "refresh-models":
+		runRefreshModelsCmd(args)
+	case "version":
+		fmt.Printf("agentry %s\n", agentry.Version)
+	case "help", "-h", "--help":
+		showHelp()
 	default:
-		fmt.Println("unknown command. Usage: agentry [dev|serve|tui|eval] [--config path/to/config.yaml]")
+		runPrompt(cmd, args)
+	}
+}
+
+func showHelp() {
+	fmt.Printf(`agentry - AI Agent Coordination Platform
+
+Usage:
+	agentry [command] [options]
+	agentry "prompt text"
+
+Commands:
+	tui               Terminal UI mode (default when no command provided)
+	eval, test        Run evaluations/tests
+	cost              Analyze cost from trace logs
+	pprof             Profiling utilities
+	tool              Tool management
+	analyze           Analyze trace files
+	refresh-models    Download and cache latest model pricing from models.dev
+	version           Show version
+	help              Show this help
+
+Direct Prompt:
+	agentry "create a hello world"      # Execute prompt directly
+	agentry "spawn coder to fix bug"    # Delegate to specialized agent
+
+TUI Options:
+	--config PATH     Path to config file (.agentry.yaml)
+	--theme NAME      Theme override (dark, light, etc.)
+	--save-id ID      Save conversation state to this ID
+	--resume-id ID    Load conversation state from this ID
+	--port PORT       HTTP server port
+
+Debug Mode:
+	AGENTRY_DEBUG=1 ./agentry "prompt"  # Enable debug output
+	AGENTRY_DEBUG=1 ./agentry           # Debug TUI (logs to file)
+
+Examples:
+	agentry                              # Start TUI (default)
+	agentry "write a README file"        # Direct prompt
+	agentry tui --theme dark             # TUI with dark theme
+	AGENTRY_DEBUG=1 agentry "test"       # Debug mode
+	agentry refresh-models               # Update model pricing
+
+Deprecated Commands (use alternatives):
+	chat              → Use 'agentry' (TUI mode)
+	dev               → Use 'AGENTRY_DEBUG=1 agentry'
+
+Notes:
+	- In TUI mode, debug output is redirected to avoid interface conflicts
+	- Direct prompts run through Agent 0 and can delegate to other agents
+	- Config files support model selection, tool configuration, and themes
+`)
+}
+
+func runToolCmd(_ []string) {
+	fmt.Println("Tool command not implemented")
+}
+
+// Stub implementation for optional command if not present in this build.
+func runRefreshModelsCmd(_ []string) {
+	fmt.Println("Fetching latest model pricing/specs from models.dev ...")
+	pt := cost.NewPricingTable()
+	if err := pt.RefreshFromAPI(); err != nil {
+		fmt.Printf("Failed to refresh: %v\n", err)
 		os.Exit(1)
 	}
+	// Give a small summary
+	models := pt.ListModels()
+	fmt.Printf("Refreshed %d models and cached to your user cache dir (agentry/models_pricing.json)\n", len(models))
+}
+
+func runInvokeCmd(args []string) {
+	// Simple invoke command implementation
+	if len(args) == 0 {
+		fmt.Println("Usage: agentry invoke <prompt>")
+		return
+	}
+
+	// Join all args as the prompt
+	prompt := strings.Join(args, " ")
+
+	// For now, just delegate to the prompt runner
+	runPrompt(prompt, []string{})
 }

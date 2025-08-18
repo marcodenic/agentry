@@ -1,0 +1,18 @@
+include:
+  - roles/writer.yaml
+  - roles/editor.yaml
+
+agents:
+  writer:
+    model: gpt-5
+    vars:
+      personality: helpful
+  editor:
+    model: gpt-5
+    vars:
+      personality: precise
+tasks:
+  - agent: writer
+    input: draft docs
+  - agent: editor
+    input: proofread

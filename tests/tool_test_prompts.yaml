@@ -1,0 +1,228 @@
+# Comprehensive test prompts for all built-in tools
+# These prompts test each tool's functionality and edge cases
+
+test_prompts:
+  # Core built-in tools
+  echo_test:
+    description: "Test echo tool functionality"
+    prompts:
+      - "Use the echo tool to repeat the text 'Hello, World!'"
+      - "Echo a multi-line string with special characters: 'Line 1\nLine 2\nSpecial chars: @#$%'"
+      - "Echo an empty string"
+      - "Echo a very long string (500+ characters)"
+
+  ping_test:
+    description: "Test ping tool functionality"
+    prompts:
+      - "Use the ping tool to check connectivity to google.com"
+      - "Ping localhost to verify local connectivity"
+      - "Try to ping an invalid host like 'nonexistent.example.com' and handle the error gracefully"
+
+  agent_test:
+    description: "Test agent delegation functionality"
+    prompts:
+      - "Use the agent tool to delegate a simple task to another agent: 'Calculate 2+2'"
+      - "Delegate a file operation task to another agent: 'Create a test file with some content'"
+
+  fetch_test:
+    description: "Test HTTP/HTTPS fetching functionality"
+    prompts:
+      - "Use the fetch tool to download content from https://httpbin.org/get"
+      - "Fetch a JSON response from https://httpbin.org/json"
+      - "Try to fetch from an invalid URL and handle the error"
+
+  patch_test:
+    description: "Test unified diff patch application"
+    prompts:
+      - "Create a test file, then use the patch tool to apply a simple diff that adds a line"
+      - "Test patch with a more complex diff that modifies multiple lines"
+
+  sysinfo_test:
+    description: "Test system information retrieval"
+    prompts:
+      - "Use the sysinfo tool to get comprehensive system information"
+      - "Extract specific information like OS type, architecture, and available memory"
+
+  # File operation tools
+  read_lines_test:
+    description: "Test reading specific lines from files"
+    prompts:
+      - "Create a test file with 10 lines, then use read_lines to read lines 3-7"
+      - "Read the first 5 lines of an existing file"
+      - "Try to read lines beyond the file length and handle gracefully"
+
+  edit_range_test:
+    description: "Test replacing ranges of lines in files"
+    prompts:
+      - "Create a test file with multiple lines, then use edit_range to replace lines 2-4 with new content"
+      - "Replace a single line using edit_range"
+      - "Test edit_range with empty replacement content (deletion)"
+
+  insert_at_test:
+    description: "Test inserting lines at specific positions"
+    prompts:
+      - "Create a test file and use insert_at to add lines at the beginning"
+      - "Insert lines in the middle of a file"
+      - "Insert lines at the end of a file"
+
+  search_replace_test:
+    description: "Test advanced search and replace with regex"
+    prompts:
+      - "Create a test file with repeated patterns, then use search_replace to replace all occurrences"
+      - "Test regex replacement with capture groups"
+      - "Test case-insensitive search and replace"
+
+  fileinfo_test:
+    description: "Test comprehensive file information retrieval"
+    prompts:
+      - "Use fileinfo to get detailed information about a test file"
+      - "Get file info for a directory"
+      - "Try fileinfo on a non-existent file and handle the error"
+
+  view_test:
+    description: "Test enhanced file viewing with line numbers"
+    prompts:
+      - "Use view to display a file with line numbers"
+      - "View a large file and check line numbering"
+      - "View a binary file and see how it's handled"
+
+  create_test:
+    description: "Test file creation functionality"
+    prompts:
+      - "Use create to make a new text file with multiple lines"
+      - "Create a file with special characters and unicode"
+      - "Try to create a file in a non-existent directory"
+
+  grep_test:
+    description: "Test file content searching"
+    prompts:
+      - "Create test files with various content, then use grep to search for patterns"
+      - "Test grep with regex patterns"
+      - "Search for patterns across multiple files"
+
+  # Enhanced exploration tools
+  ls_test:
+    description: "Test directory listing functionality"
+    prompts:
+      - "Use ls to list contents of the current directory"
+      - "List contents of a subdirectory with detailed information"
+      - "Try ls on a non-existent directory"
+
+  find_test:
+    description: "Test file finding by pattern"
+    prompts:
+      - "Use find to locate all .go files in the project"
+      - "Find files modified in the last 24 hours"
+      - "Search for files with specific name patterns"
+
+  glob_test:
+    description: "Test glob pattern file matching"
+    prompts:
+      - "Use glob to find all *.yaml files"
+      - "Find files matching complex glob patterns like **/*.test.go"
+      - "Test glob with character classes and ranges"
+
+  # Web tools
+  web_search_test:
+    description: "Test web search functionality"
+    prompts:
+      - "Use web_search to find information about 'Go programming language'"
+      - "Search for recent news about a technology topic"
+
+  read_webpage_test:
+    description: "Test webpage content extraction"
+    prompts:
+      - "Use read_webpage to extract content from a news website"
+      - "Read content from a documentation page"
+      - "Try to read from an invalid URL"
+
+  api_test:
+    description: "Test HTTP/REST API calls"
+    prompts:
+      - "Use api to make a GET request to https://httpbin.org/get"
+      - "Make a POST request with JSON data to https://httpbin.org/post"
+      - "Test API with authentication headers"
+
+  download_test:
+    description: "Test file downloading from URLs"
+    prompts:
+      - "Use download to get a small file from the internet"
+      - "Download a JSON file and verify its contents"
+      - "Try to download from an invalid URL"
+
+  # Shell tools (platform-specific)
+  bash_test:
+    description: "Test bash command execution"
+    prompts:
+      - "Use bash to run 'ls -la' and show directory contents"
+      - "Execute a bash command that creates a temporary file"
+      - "Run a bash command with pipes and redirection"
+
+  sh_test:
+    description: "Test shell command execution"
+    prompts:
+      - "Use sh to run basic shell commands"
+      - "Execute shell commands with environment variables"
+      - "Test shell command error handling"
+
+  powershell_test:
+    description: "Test PowerShell command execution (Windows)"
+    prompts:
+      - "Use powershell to run Get-ChildItem (if on Windows)"
+      - "Execute PowerShell commands with objects"
+
+  cmd_test:
+    description: "Test cmd.exe command execution (Windows)"
+    prompts:
+      - "Use cmd to run 'dir' command (if on Windows)"
+      - "Execute cmd commands with environment variables"
+
+  # Git tools
+  branch_tidy_test:
+    description: "Test Git branch cleanup"
+    prompts:
+      - "Use branch-tidy to clean up local Git branches (in a test repository)"
+      - "Test branch-tidy behavior when there are no extra branches"
+
+# Integration test scenarios
+integration_tests:
+  file_workflow_test:
+    description: "Test complete file manipulation workflow"
+    prompt: |
+      Perform a complete file manipulation workflow:
+      1. Use ls to explore the current directory
+      2. Create a test file with create
+      3. Use view to display the file
+      4. Use fileinfo to get file details
+      5. Use edit_range to modify the file
+      6. Use grep to search for content
+      7. Use read_lines to read specific lines
+
+  exploration_workflow_test:
+    description: "Test file discovery and exploration workflow"
+    prompt: |
+      Perform a comprehensive exploration workflow:
+      1. Use ls to list directory contents
+      2. Use find to locate specific file types
+      3. Use glob to match file patterns
+      4. Use grep to search for content across files
+      5. Use fileinfo to get details about interesting files
+
+  web_workflow_test:
+    description: "Test web interaction workflow"
+    prompt: |
+      Perform a web interaction workflow:
+      1. Use web_search to find information
+      2. Use read_webpage to extract content
+      3. Use api to make API calls
+      4. Use fetch to download content
+      5. Use download to save files
+
+  system_info_workflow_test:
+    description: "Test system information gathering workflow"
+    prompt: |
+      Gather comprehensive system information:
+      1. Use sysinfo to get system details
+      2. Use bash/sh to run system commands
+      3. Use ls to explore system directories
+      4. Use find to locate system files

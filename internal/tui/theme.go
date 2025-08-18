@@ -8,27 +8,71 @@ import (
 
 // Keybinds define keyboard shortcuts for the TUI actions.
 type Keybinds struct {
-	Quit      string `json:"quit"`
-	ToggleTab string `json:"toggleTab"`
-	Submit    string `json:"submit"`
+	Quit        string `json:"quit"`
+	ToggleTab   string `json:"toggleTab"`
+	Submit      string `json:"submit"`
+	NextPane    string `json:"nextPane"`
+	PrevPane    string `json:"prevPane"`
+	Pause       string `json:"pause"`
+	Diagnostics string `json:"diagnostics"`
 }
 
 // Theme holds colour settings and keybinds.
-type Theme struct {
-	UserBarColor string   `json:"userBarColor"`
-	AIBarColor   string   `json:"aiBarColor"`
-	Keybinds     Keybinds `json:"keybinds"`
+// Palette defines a set of base colours for the UI panels.
+type Palette struct {
+	Background string `json:"background"`
+	Foreground string `json:"foreground"`
 }
+
+// Theme holds colour settings and keybinds.
+// Mode selects which built-in palette to use ("light" or "dark").
+type Theme struct {
+	Mode         string  `json:"mode"`
+	Palette      Palette `json:"palette"`
+	UserBarColor string  `json:"userBarColor"`
+	AIBarColor   string  `json:"aiBarColor"`
+
+	IdleColor    string `json:"idleColor"`
+	RunningColor string `json:"runningColor"`
+	ErrorColor   string `json:"errorColor"`
+	StoppedColor string `json:"stoppedColor"`
+
+	// Advanced agent panel colors
+	RoleColor       string `json:"roleColor"`
+	ToolColor       string `json:"toolColor"`
+	PanelTitleColor string `json:"panelTitleColor"`
+
+	Keybinds Keybinds `json:"keybinds"`
+}
+
+// Pre-defined palettes for light and dark modes.
+var (
+	LightPalette = Palette{Background: "#FFFFFF", Foreground: "#000000"}
+	DarkPalette  = Palette{Background: "#000000", Foreground: "#FFFFFF"}
+)
 
 // DefaultTheme returns built‑in colours and keybindings.
 func DefaultTheme() Theme {
 	return Theme{
-		UserBarColor: "#8B5CF6",
-		AIBarColor:   "#9CA3AF",
+		Mode:            "dark",
+		Palette:         DarkPalette,
+		UserBarColor:    "#8B5CF6",
+		AIBarColor:      "#9CA3AF",
+		IdleColor:       "#22C55E",
+		RunningColor:    "#FBBF24",
+		ErrorColor:      "#EF4444",
+		StoppedColor:    "#6B7280",
+		RoleColor:       "#10B981", // Green for agent roles
+		ToolColor:       "#8B5CF6", // Purple for current tools
+		PanelTitleColor: "#9CA3AF", // Gray for panel titles
 		Keybinds: Keybinds{
-			Quit:      "ctrl+c",
-			ToggleTab: "tab",
-			Submit:    "enter",
+			Quit:        "ctrl+c",
+			ToggleTab:   "tab",
+			Submit:      "enter",
+			NextPane:    "ctrl+n",
+			PrevPane:    "ctrl+p",
+			Pause:       "ctrl+s",
+			Diagnostics: "ctrl+d",
 		},
 	}
 }
@@ -58,6 +102,14 @@ func LoadTheme() Theme {
 			break
 		}
 		dir = parent
+	}
+	if mode := os.Getenv("AGENTRY_THEME"); mode != "" {
+		t.Mode = mode
+	}
+	if t.Mode == "light" {
+		t.Palette = LightPalette
+	} else {
+		t.Palette = DarkPalette
 	}
 	return t
 }

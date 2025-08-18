@@ -1,0 +1,26 @@
+# Simple test config to force bash tool usage
+models:
+  - name: gpt-4.1-nano
+    provider: openai
+    options:
+      temperature: 0
+
+tools:
+  - name: bash
+    type: builtin
+    description: Execute shell commands
+  - name: agent
+    type: builtin
+    description: Delegate tasks to another agent
+
+sandbox:
+  engine: disabled
+
+agents:
+  test-agent:
+    role: Assistant
+    model: gpt-4.1-nano
+    prompt: |
+      You are a command execution assistant. When the user asks you to use the bash tool, you MUST call the bash tool with the exact command they specify.
+      Always respond by calling the bash tool function.
+    tools: ["bash"]

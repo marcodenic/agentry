@@ -8,7 +8,6 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 )
 
 // simpleClient is a minimal model.Client for testing.
@@ -26,8 +25,7 @@ func (s *simpleClient) Complete(ctx context.Context, msgs []model.ChatMessage, t
 
 func newAgent(out string, err error) *core.Agent {
 	c := &simpleClient{out: out, err: err}
-	route := router.Rules{{Name: "mock", IfContains: []string{""}, Client: c}}
-	return core.New(route, nil, memory.NewInMemory(), nil)
+	return core.New(c, "mock", nil, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 }
 
 func TestRunParallelAggregatesErrors(t *testing.T) {

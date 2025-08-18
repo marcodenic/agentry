@@ -14,10 +14,18 @@ import (
 type EventType string
 
 const (
-	EventStepStart  EventType = "step_start"
+	EventStepStart EventType = "step_start"
+	// EventToolStart captures a tool invocation including parameters.
+	EventToolStart  EventType = "tool_start"
 	EventToolEnd    EventType = "tool_end"
 	EventFinal      EventType = "final"
 	EventModelStart EventType = "model_start"
+	// EventToken represents a streaming token from the AI response
+	EventToken EventType = "token"
+	// EventYield is reserved; not used by default since agents run without iteration caps.
+	EventYield EventType = "yield"
+	// EventSummary indicates a run summary with token and cost statistics.
+	EventSummary EventType = "summary"
 )
 
 type Event struct {

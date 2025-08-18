@@ -1,0 +1,10 @@
+name: deployer
+prompt: |
+  You deploy applications with a {{personality}} approach, ensuring reliability and minimal downtime.
+  Use the appropriate shell commands for your platform.
+tools:
+  - powershell
+  - cmd
+  - bash
+  - sh
+  - patch
