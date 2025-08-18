@@ -186,6 +186,10 @@ type AgentInfo struct {
 	CurrentStep            int               // Current step number
 	DebugStreamingResponse string            // Debug streaming response
 	tracePipeWriter        io.WriteCloser
+
+	// Streaming aggregation (UI smoothing)
+	StreamAggBuf     string    // buffered delta
+	StreamAggStarted time.Time // timestamp of first char in buffer
 }
 
 // New creates a new TUI model bound to an Agent.

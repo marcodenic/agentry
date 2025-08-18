@@ -72,6 +72,11 @@ var (
 		Help:    "Latency of model completion calls in seconds",
 		Buckets: prometheus.DefBuckets,
 	}, []string{"agent", "model"})
+	firstTokenLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "agentry_first_token_latency_seconds",
+		Help:    "Time from model invocation to first streamed token",
+		Buckets: prometheus.DefBuckets,
+	}, []string{"agent", "model"})
 )
 
 // min returns the minimum of two integers
@@ -206,17 +211,19 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			if sErr == nil && streamCh != nil {
 				var assembled string
 				var finalToolCalls []model.ToolCall
+				firstTokenRecorded := false
 				for chunk := range streamCh {
-					if chunk.Err != nil {
-						return "", chunk.Err
-					}
+					if chunk.Err != nil { return "", chunk.Err }
 					if chunk.ContentDelta != "" {
 						assembled += chunk.ContentDelta
+						if !firstTokenRecorded {
+							firstTokenLatency.WithLabelValues(a.ID.String(), a.ModelName).Observe(time.Since(startModel).Seconds())
+							firstTokenRecorded = true
+						}
+						// Emit raw delta for TUI-side smoothing
 						a.Trace(ctx, trace.EventToken, chunk.ContentDelta)
 					}
-					if chunk.Done {
-						finalToolCalls = chunk.ToolCalls
-					}
+					if chunk.Done { finalToolCalls = chunk.ToolCalls }
 				}
 				modelLatency.WithLabelValues(a.ID.String(), a.ModelName).Observe(time.Since(startModel).Seconds())
 				// After streaming, treat result as a single completion

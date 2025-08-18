@@ -24,6 +24,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tokenMsg:
 		return m.handleTokenMessages(msg)
+	case tokenFlushMsg:
+		// Convert aggregated data into a single tokenMsg for existing handler
+		return m.handleTokenMessages(tokenMsg{id: msg.id, token: msg.data})
 	case startTokenStream:
 		return m.handleTokenStream(msg)
 	case tokenStreamTick:

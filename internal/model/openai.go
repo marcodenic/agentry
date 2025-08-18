@@ -19,6 +19,9 @@ type OpenAI struct {
 	client      *http.Client
 }
 
+// TODO: Replace manual HTTP + SSE parsing with official github.com/openai/openai-go SDK
+// Benefits: robust streaming, unified token usage, reduced maintenance.
+
 func NewOpenAI(key, model string) *OpenAI {
 	return &OpenAI{key: key, model: model, client: http.DefaultClient}
 }
@@ -42,7 +45,7 @@ func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolS
 		oaTools[i].Type = "function"
 		oaTools[i].Function.Name = t.Name
 		oaTools[i].Function.Description = t.Description
-		if t.Parameters != nil && len(t.Parameters) > 0 {
+		if len(t.Parameters) > 0 {
 			oaTools[i].Function.Parameters = t.Parameters
 		} else {
 			oaTools[i].Function.Parameters = map[string]any{"type": "object", "properties": map[string]any{}}
@@ -182,7 +185,7 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 			oaTools[i].Type = "function"
 			oaTools[i].Function.Name = t.Name
 			oaTools[i].Function.Description = t.Description
-			if t.Parameters != nil && len(t.Parameters) > 0 {
+			if len(t.Parameters) > 0 {
 				oaTools[i].Function.Parameters = t.Parameters
 			} else {
 				oaTools[i].Function.Parameters = map[string]any{"type": "object", "properties": map[string]any{}}

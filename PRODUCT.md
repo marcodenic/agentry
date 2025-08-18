@@ -46,6 +46,8 @@ Code Quality
 - [ ] Normalize model name format (`provider/model`) with a helper.
 Observability
 - [x] Add model latency histogram; add tool error counter (low cardinality). (Histogram DONE; error counter TODO)
+- [x] Add first-token latency histogram (DONE)
+- [ ] Migrate OpenAI client to official github.com/openai/openai-go SDK (streaming & usage unification)
 - [ ] Stream trace chunks in larger groups (reduce per‑char overhead) while preserving UI responsiveness.
 Testing
 - [ ] Unit: tool execution error recovery (consecutive error cap), history compaction edges, spawn inheritance deep copy.
