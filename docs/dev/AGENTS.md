@@ -62,7 +62,7 @@ Follow Go project best practices and keep the repository organized:
 
 #### **Development Tools**
 - `ui/` - Web interface and frontend code
-- `ts-sdk/` - TypeScript SDK
+-- (legacy `ts-sdk/` removed)
 
 ### 🚫 **CRITICAL: What NEVER belongs in the root directory:**
 
@@ -117,7 +117,7 @@ Follow Go project best practices and keep the repository organized:
 
 ## Project Vision
 
-Agentry is a minimal, extensible agentic runtime written in Go, with a TypeScript SDK. The project aims to provide a robust platform for building, orchestrating, and scaling multi-agent AI systems. See [ROADMAP.md](./ROADMAP.md) for strategic direction and future plans.
+Agentry is a minimal, extensible agentic runtime written in Go. The focus is a lean core for building, orchestrating, and scaling multi-agent AI systems. See [ROADMAP.md](./ROADMAP.md) for strategic direction and future plans.
 
 ---
 
@@ -174,7 +174,7 @@ Agentry is a minimal, extensible agentic runtime written in Go, with a TypeScrip
 | Name           | Description               | Entrypoint                  | Example Usage                 |
 | -------------- | ------------------------- | --------------------------- | ----------------------------- |
 | agentry        | Main agent runtime        | cmd/agentry/main.go         | `go run cmd/agentry/main.go`  |
-| ts-sdk         | TypeScript SDK entrypoint | ts-sdk/src/index.ts         | `cd ts-sdk && npm run build`  |
+(legacy TS SDK removed)
 | trace analyzer | Token usage summary tool  | cmd/agentry/main.go analyze | `agentry analyze trace.jsonl` |
 | pprof viewer   | Profile inspection        | cmd/agentry/main.go pprof   | `agentry pprof cpu.out`       |
 
@@ -183,7 +183,7 @@ Agentry is a minimal, extensible agentic runtime written in Go, with a TypeScrip
 ## Languages
 
 - Go
-- TypeScript
+(legacy TypeScript SDK removed)
 
 ## Filetypes
 
@@ -199,7 +199,7 @@ Agentry is a minimal, extensible agentic runtime written in Go, with a TypeScrip
 To run all tests:
 
 - Go: `go test ./...`
-- TypeScript SDK: `cd ts-sdk && npm install && npm test`
+(legacy SDK removed)
 
 ---
 

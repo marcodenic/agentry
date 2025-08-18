@@ -1,6 +1,6 @@
 # Agentry
 
-Agentry is a minimal, extensible agent runtime written in Go with a TypeScript SDK.
+Agentry is a minimal, extensible agent runtime written in Go.
 
 | Pillar            | v1.0 Features                                            |
 | ----------------- | -------------------------------------------------------- |
@@ -12,8 +12,8 @@ Agentry is a minimal, extensible agent runtime written in Go with a TypeScript S
 | **Tracing**       | Structured events, JSONL dump, SSE stream                |
 | **Config**        | `.agentry.yaml` bootstraps agent, models, tools          |
 | **Evaluation**    | YAML test suites, CLI `agentry eval`                     |
-| **SDK**           | JS/TS client (`@marcodenic/agentry`), supports streaming |
-| **Registry**      | [Plugin Registry](registry/)                             |
+| **Costs**         | Live token & pricing accounting                          |
+| **Registry**      | (Pluggable tool loading)                                 |
 | **Delegation**    | `agent` tool lets planners assign tasks to agents        |
 
 For the upcoming cloud deployment model, see [README-cloud.md](../README-cloud.md).
