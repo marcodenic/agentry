@@ -37,7 +37,6 @@ type toolUseMsg struct {
 	args map[string]any
 }
 
-
 type thinkingAnimationMsg struct {
 	id    uuid.UUID
 	frame int

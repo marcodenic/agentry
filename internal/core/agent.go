@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"sort"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,6 +17,7 @@ import (
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/tool"
+	"github.com/marcodenic/agentry/internal/tokens"
 	"github.com/marcodenic/agentry/internal/trace"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -36,6 +41,7 @@ type Agent struct {
 
 	// cached tool names to reduce repeated map iteration/log noise
 	cachedToolNames []string
+	toolNamesMu     sync.RWMutex
 }
 
 // ErrorHandlingConfig defines how the agent handles errors
@@ -93,16 +99,53 @@ func getToolNames(reg tool.Registry) []string {
 	for name := range reg {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 	return names
 }
 
 // toolNames returns cached tool names for this agent (compute once)
 func (a *Agent) toolNames() []string {
-	if a.cachedToolNames != nil {
-		return a.cachedToolNames
+	a.toolNamesMu.RLock()
+	cached := a.cachedToolNames
+	a.toolNamesMu.RUnlock()
+	if cached != nil {
+		return cached
 	}
-	a.cachedToolNames = getToolNames(a.Tools)
-	return a.cachedToolNames
+	names := getToolNames(a.Tools)
+	a.toolNamesMu.Lock()
+	a.cachedToolNames = names
+	a.toolNamesMu.Unlock()
+	return names
+}
+
+// InvalidateToolCache clears the cached tool name slice (call after mutating Tools)
+func (a *Agent) InvalidateToolCache() { //lint:ignore U1000 exported for internal package use
+	a.toolNamesMu.Lock()
+	a.cachedToolNames = nil
+	a.toolNamesMu.Unlock()
+}
+
+var redactPatterns = []*regexp.Regexp{
+	// OpenAI style keys
+	regexp.MustCompile(`sk-[A-Za-z0-9]{16,}`),
+	// AWS access keys (approx)
+	regexp.MustCompile(`AKIA[0-9A-Z]{16}`),
+	// Generic bearer tokens (very naive shortening)
+	regexp.MustCompile(`(?i)bearer [A-Za-z0-9\-_.]{20,}`),
+}
+
+func sanitizeForLog(s string) string {
+	if s == "" {
+		return s
+	}
+	out := s
+	for _, re := range redactPatterns {
+		out = re.ReplaceAllString(out, "***redacted***")
+	}
+	if len(out) > 400 {
+		out = out[:400] + "…(truncated)"
+	}
+	return out
 }
 
 func New(client model.Client, modelName string, reg tool.Registry, mem memory.Store, vec memory.VectorStore, tr trace.Writer) *Agent {
@@ -155,7 +198,8 @@ func (a *Agent) Spawn() *Agent {
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	debug.Printf("Agent.Run: Agent ID=%s, Prompt length=%d chars", a.ID.String()[:8], len(a.Prompt))
 	debug.Printf("Agent.Run: Available tools: %v", a.toolNames())
-	debug.Printf("Agent.Run: Input: %s", input[:min(100, len(input))])
+	safeInputPreview := sanitizeForLog(input[:min(300, len(input))])
+	debug.Printf("Agent.Run: Input: %s", safeInputPreview)
 
 	a.Trace(ctx, trace.EventModelStart, a.ModelName)
 	msgs := BuildMessages(a.Prompt, a.Vars, a.Mem.History(), input)
@@ -166,8 +210,8 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 	// DEBUG: Print the full system prompt that will be sent to the API
 	if len(msgs) > 0 && msgs[0].Role == "system" {
-		debug.Printf("=== FULL SYSTEM PROMPT BEING SENT TO API ===")
-		debug.Printf("%s", msgs[0].Content)
+		debug.Printf("=== FULL SYSTEM PROMPT (sanitized) ===")
+		debug.Printf("%s", sanitizeForLog(msgs[0].Content))
 		debug.Printf("=== END SYSTEM PROMPT ===")
 	}
 
@@ -192,6 +236,9 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 	// optional iteration cap via env var (safety) "AGENTRY_MAX_ITER"
 	maxIter := env.Int("AGENTRY_MAX_ITER", 0)
+	if maxIter == 0 { // provide a safety default
+		maxIter = 12
+	}
 	for i := 0; ; i++ {
 		if maxIter > 0 && i >= maxIter {
 			return "", fmt.Errorf("iteration cap reached (%d)", maxIter)
@@ -212,12 +259,13 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 				var assembled string
 				var finalToolCalls []model.ToolCall
 				firstTokenRecorded := false
+				var sb strings.Builder
 				for chunk := range streamCh {
 					if chunk.Err != nil {
 						return "", chunk.Err
 					}
 					if chunk.ContentDelta != "" {
-						assembled += chunk.ContentDelta
+						sb.WriteString(chunk.ContentDelta)
 						if !firstTokenRecorded {
 							firstTokenLatency.WithLabelValues(a.ID.String(), a.ModelName).Observe(time.Since(startModel).Seconds())
 							firstTokenRecorded = true
@@ -229,11 +277,21 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 						finalToolCalls = chunk.ToolCalls
 					}
 				}
+				assembled = sb.String()
 				modelLatency.WithLabelValues(a.ID.String(), a.ModelName).Observe(time.Since(startModel).Seconds())
 				// After streaming, treat result as a single completion
 				res := model.Completion{Content: assembled, ToolCalls: finalToolCalls}
 				debug.Printf("Agent.Run: Streaming completed with %d tool calls", len(res.ToolCalls))
 				a.Trace(ctx, trace.EventStepStart, res)
+				// Approximate output tokens & update cost/metrics
+				outTok := tokens.Count(res.Content, a.ModelName)
+				tokenCounter.WithLabelValues(a.ID.String()).Add(float64(outTok))
+				if a.Cost != nil {
+					a.Cost.AddModelUsage(a.ModelName, 0, outTok)
+					if a.Cost.OverBudget() && env.Bool("AGENTRY_STOP_ON_BUDGET", false) {
+						return "", fmt.Errorf("cost or token budget exceeded (tokens=%d cost=$%.4f)", a.Cost.TotalTokens(), a.Cost.TotalCost())
+					}
+				}
 				// Append assistant message
 				msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
 				step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}

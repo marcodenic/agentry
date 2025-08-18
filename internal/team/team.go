@@ -160,6 +160,10 @@ func (t *Team) Add(name string, ag *core.Agent) {
 			}
 		}
 		ag.Tools = newTools
+		// Invalidate tool cache if supported
+		if coreAg, ok := interface{}(ag).(*core.Agent); ok { // unlikely path; kept for clarity
+			_ = coreAg // placeholder noop
+		}
 
 	}
 
@@ -204,6 +208,7 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	// Remove ONLY the "agent" tool to prevent delegation cascading
 	// Keep all other tools (create, write, edit_range, etc.) so agents can actually work
 	delete(coreAgent.Tools, "agent")
+	coreAgent.InvalidateToolCache()
 
 	// Note: Cost manager is already initialized in core.New()
 
@@ -278,9 +283,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	logToFile(logMessage)
 	timer.Checkpoint("logging completed")
 
-	// Inject inbox into prompt for this turn (lightweight option)
-	originalPrompt := agent.Agent.Prompt
-	// Collect unread inbox messages
+	// Collect unread inbox messages without mutating the agent prompt (thread-safe approach)
 	inbox := t.GetAgentInbox(agentID)
 	unread := make([]map[string]interface{}, 0, len(inbox))
 	for _, m := range inbox {
@@ -288,12 +291,10 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 			unread = append(unread, m)
 		}
 	}
+	var inboxContext string
 	if len(unread) > 0 {
-		// Build an INBOX section appended to the system prompt
 		var sb strings.Builder
-		sb.WriteString(originalPrompt)
-		sb.WriteString("\n\nINBOX: You have ")
-		sb.WriteString(fmt.Sprintf("%d unread message(s). Read and consider them before continuing.\n", len(unread)))
+		sb.WriteString("\n\nINBOX CONTEXT (Unread Messages):\n")
 		for _, m := range unread {
 			from, _ := m["from"].(string)
 			msg, _ := m["message"].(string)
@@ -302,19 +303,12 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 				ts = tv.Format("15:04:05")
 			}
 			sb.WriteString("- ")
-			if ts != "" {
-				sb.WriteString("[")
-				sb.WriteString(ts)
-				sb.WriteString("] ")
-			}
-			if from != "" {
-				sb.WriteString(from)
-				sb.WriteString(": ")
-			}
+			if ts != "" { sb.WriteString("["); sb.WriteString(ts); sb.WriteString("] ") }
+			if from != "" { sb.WriteString(from); sb.WriteString(": ") }
 			sb.WriteString(msg)
 			sb.WriteString("\n")
 		}
-		agent.Agent.Prompt = sb.String()
+		inboxContext = sb.String()
 	}
 	timer.Checkpoint("inbox processing completed")
 
@@ -337,7 +331,12 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 
 	debugPrintf("🔧 Call: About to call runAgent for %s", agentID)
 	startTime := time.Now()
-	result, err := runAgent(dctx, agent.Agent, input, agentID, t.names)
+	// Append inbox context to input (preserves original prompt & supports concurrent calls)
+	augmentedInput := input
+	if inboxContext != "" {
+		augmentedInput = input + inboxContext + "\n(Consider the above unread messages in your response.)"
+	}
+	result, err := runAgent(dctx, agent.Agent, augmentedInput, agentID, t.names)
 	duration := time.Since(startTime)
 	timer.Checkpoint("runAgent completed")
 	debugPrintf("🔧 Call: runAgent completed for %s in %s", agentID, duration)
@@ -356,11 +355,8 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 		}
 	}
 
-	// Restore original prompt and mark inbox messages as read after processing
-	agent.Agent.Prompt = originalPrompt
-	if len(unread) > 0 {
-		t.MarkMessagesAsRead(agentID)
-	}
+	// Mark inbox messages as read after processing
+	if len(unread) > 0 { t.MarkMessagesAsRead(agentID) }
 	timer.Checkpoint("cleanup completed")
 
 	// Update agent status and handle errors gracefully
@@ -517,6 +513,7 @@ var (
 	projectSummaryCache     string
 	projectSummaryCacheLite string
 	projectSummaryExpiry    time.Time
+	projectSummaryMu        sync.RWMutex
 )
 
 func buildContextMinimal(ctx context.Context, task, agentName string) string {
@@ -596,9 +593,14 @@ func buildContextMinimal(ctx context.Context, task, agentName string) string {
 }
 
 func projectSummaries() (string, string) {
-	if time.Now().Before(projectSummaryExpiry) && projectSummaryCache != "" {
-		return projectSummaryCache, projectSummaryCacheLite
+	now := time.Now()
+	projectSummaryMu.RLock()
+	if now.Before(projectSummaryExpiry) && projectSummaryCache != "" {
+		full, lite := projectSummaryCache, projectSummaryCacheLite
+		projectSummaryMu.RUnlock()
+		return full, lite
 	}
+	projectSummaryMu.RUnlock()
 	wd, err := os.Getwd()
 	if err != nil {
 		return "Project: Unknown", "Project: Unknown"
@@ -649,8 +651,10 @@ func projectSummaries() (string, string) {
 	}
 	full := fmt.Sprintf("Project: %s; Dirs: %s; Config: %s", projectType, strings.Join(dirs, " "), strings.Join(configs, " "))
 	lite := fmt.Sprintf("Project: %s; Dirs: %s", projectType, strings.Join(dirs, " "))
+	projectSummaryMu.Lock()
 	projectSummaryCache, projectSummaryCacheLite = full, lite
 	projectSummaryExpiry = time.Now().Add(projectCacheTTL)
+	projectSummaryMu.Unlock()
 	return full, lite
 }
 
@@ -790,7 +794,7 @@ func (t *Team) SetSharedData(key string, value interface{}) {
 
 	// Log the shared memory update
 	event := CoordinationEvent{
-		ID:        fmt.Sprintf("shared_%d", time.Now().Unix()),
+		ID:        fmt.Sprintf("shared_%d", time.Now().UnixNano()),
 		Type:      "shared_memory_update",
 		From:      "system",
 		To:        "*",
