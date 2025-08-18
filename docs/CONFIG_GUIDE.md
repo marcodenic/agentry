@@ -64,9 +64,7 @@ This document explains the purpose of each configuration file in the Agentry pro
 - **Other roles**: Various specialized agent roles
 
 ### Team Templates
-- **`dev_team.yaml`**: Development team configuration
-- **`docs_team.yaml`**: Documentation team configuration
-- **`website_team.yaml`**: Website team configuration
+<!-- Removed old team YAML examples (dev_team.yaml, docs_team.yaml, website_team.yaml) during cleanup; refer to role-based includes in smart-config instead. -->
 
 ## Configuration Standards
 

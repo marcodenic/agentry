@@ -155,7 +155,7 @@ The system now extracts real token usage from:
 - `debug/test_cost_system.go` - Cost system testing
 - `debug/test_model_pricing.go` - Pricing verification
 - `debug/pricing_sync.go` - Price update utility
-- `debug/test_trace.jsonl` - Test trace data
+<!-- Removed debug/test_trace.jsonl sample during cleanup; use a fresh trace generated via AGENTRY_TRACE_FILE for analysis examples. -->
 
 ## Production Ready
 The cost system overhaul is now **production-ready** with:
