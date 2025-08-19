@@ -2,6 +2,8 @@
 
 Single authoritative doc. Keep terse, actionable. Update after each merge/re-prioritization.
 
+FOR AGENTS, run: ./agentry <prompt>
+
 ## Vision (Condensed)
 
 Local-first, observable, resilient **multi-agent** development orchestrator. Open any repo, point Agent 0 at a planning doc or task list, and it **delegates → implements → tests → reviews → finalizes (PR/commit)** with clear traces and accurate cost accounting.
@@ -287,6 +289,12 @@ AGENTRY_DEBUG=1 agentry                  # TUI logs redirected to file
 8. **Tests**: context truncation, TODO CRUD, cost accounting, diag loop, AST operations.
 
 ---
+## BUGS
+
+- on resizing the window we get like: marlformed char codes or something.
+- no reasoning_effort support
+
+
 
 **Update Policy:** After material change, update this file + role templates + CLI help. Keep backlog clean (remove shipped; no stale dupes).
 

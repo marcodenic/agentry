@@ -42,8 +42,7 @@ For the upcoming cloud deployment model, see [README-cloud.md](./README-cloud.md
 | 🧠 **Memory**        | Conversation + pluggable vector store (qdrant/faiss)    |
 | 🕵️‍♂️ **Tracing**       | Structured events, JSONL dump                          |
 | ⚙️ **Config**        | `.agentry.yaml` declarative models + tools               |
-| 🧪 **Evaluation**    | CLI `agentry eval` + mock vs real model switching        |
-| � **Costs**         | Live token & cost accounting                            |
+| 💰 **Costs**         | Live token & cost accounting                            |
 ---
 
 ## 📦 Installation
@@ -94,50 +93,31 @@ go install github.com/marcodenic/agentry/cmd/agentry@latest
 
 # Terminal UI (default)
 agentry                 # launches TUI
-agentry tui --config examples/.agentry.yaml
+agentry --config examples/.agentry.yaml
 
-# JSON-first automation
-agentry invoke "summarize README"
-agentry invoke --agent coder "add a Makefile target"
-agentry team roles
-agentry team spawn --name coder --role coder
-agentry team call --agent coder --input "print hello in bash"
-agentry memory export --out mem.json
+# Direct prompt execution  
+agentry "create a hello world program"
+agentry "fix the bug in main.go and write tests"
+agentry "analyze this codebase and suggest improvements"
 ```
 
-The `examples/.agentry.yaml` file contains a ready-to-use configuration for these commands.
+The `examples/.agentry.yaml` file contains a ready-to-use configuration.
 
-Core subcommands (run `agentry help` for full help):
+Core functionality:
 
-- `tui` (interactive; default when no command provided)
-- `invoke` (one-shot; optional `--agent` and `--trace`)
-- `team` (roles, list, spawn, call, stop)
-- `memory` (export, import)
-- `cost`, `eval`, `analyze`, `pprof`, `version`
+- **Default**: TUI (Terminal UI) when no command provided
+- **Direct prompts**: `agentry "task description"`
+- **Agent delegation**: Agent 0 automatically delegates via the `agent` tool
+- **Utilities**: `refresh-models`, `version`, `help`
 
-Agents run until completion; there is no fixed iteration cap.
+Agents run until completion with no iteration caps.
 
 ```
 
 Pass `--resume-id name` to load a saved session and `--save-id name` to persist after each run.
 Use `--checkpoint-id name` to continuously snapshot the run loop and resume after a crash.
 
-The `tui` command launches a split-screen interface:
-
-```
-+-------+-----------------------------+
-| 🛠️ Tools | 💬 Chat / Memory           |
-+-------+-----------------------------+
-```
-
-Run `agentry tui --config examples/.agentry.yaml` to start the interface. There is no separate `--team` flag; simply type `/spawn <name>` to add a new agent pane. For example, `/spawn coder` starts an additional "coder" agent. All agents share the same chat window and can be dispatched to remote nodes in your Agentry cluster.
-
-Supported chat commands:
-
-- `/spawn <name>` – create a new agent pane
-- `/switch <prefix>` – focus an agent by ID prefix
-- `/stop <prefix>` – stop an agent while keeping history
-- `/converse <n> <topic>` – launch a side conversation between `n` agents
+The default TUI launches a clean interface focused on the conversation with Agent 0, which handles all coordination and delegation automatically.
 
 ---
 
@@ -280,11 +260,14 @@ responses.
 
 ### 📋 Agent Delegation
 
-Use `agent` to delegate work to another role (e.g. `coder`, `researcher`). Add the tool, spawn or reference the role, then:
+Agent 0 automatically delegates work using the built-in `agent` tool. No separate CLI commands needed:
 
 ```bash
-agentry invoke --agent coder "write unit tests"
+agentry "write unit tests for all Go files"
+agentry "analyze the codebase and create documentation"
 ```
+
+Agent 0 will automatically spawn specialist agents (coder, tester, reviewer) as needed.
 
 ### OpenAPI & MCP Specs
 
@@ -297,40 +280,34 @@ Generate tool specs at runtime from OpenAPI or simple MCP schemas (see `examples
 ## 🧑‍💻 Try it Live
 
 ```bash
-agentry tui --config examples/.agentry.yaml
-agentry invoke "say hi"
+agentry --config examples/.agentry.yaml
+agentry "create a hello world program in Go"
 ```
 
 ---
 
 ## 🦾 End-to-End Example (CLI)
 
-You can test the core functionality using the CLI modes:
+You can test the core functionality using direct prompts:
 
 ```bash
-agentry tui --config examples/.agentry.yaml
-agentry invoke --agent coder "create hello.go"
+agentry --config examples/.agentry.yaml
+agentry "analyze this Go project and suggest improvements"
 ```
 
 ---
 
-## 🛠️ Dev / REPL Tricks
+## 🛠️ Development & Testing
 
-### 🤖 Multi-agent conversations
+### 🤖 Agent Coordination
 
-The `converse` command spawns multiple sub-agents that riff off one another. This was originally REPL-only, but the TUI now supports these conversations without any special flags.
-
-```bash
-converse 3 Pick a favourite movie, just one, then discuss as a group.
-```
-
-The first number selects how many agents join the chat. Any remaining text becomes the opening message. If omitted, a generic greeting is used.
-
-Inside the TUI, you can create additional agents on the fly:
+Agent 0 handles all orchestration automatically through the `agent` tool. Simply describe your task:
 
 ```bash
-/spawn researcher "gather background info"
+agentry "implement feature X with tests and documentation"
 ```
+
+Agent 0 will coordinate with specialist agents as needed.
 
 ### 💾 Saving & Resuming
 
@@ -394,14 +371,12 @@ Copy `.env.example` to `.env.local` and fill in `OPENAI_API_KEY` to enable real 
 To run evaluation with the real model:
 
 ```bash
-OPENAI_API_KEY=your-key agentry eval --config my.agentry.yaml
+OPENAI_API_KEY=your-key agentry "test the agent system"
 ```
 
-When the real model is active, the CLI uses `tests/openai_eval_suite.json` so the assertions match ChatGPT's typical response.
+When the real model is active, the system uses live OpenAI/Anthropic models.
 
-Evaluation results are printed to the console when using this mode.
-
-If no key is present, the built-in mock model is used.
+If no key is present, the built-in mock model is used for development.
 
 ---
 
@@ -472,11 +447,11 @@ Run all Go tests:
 go test ./...
 ```
 
-Build & run TUI:
+Build & test:
 
 ```bash
 go install ./cmd/agentry
-agentry tui --config examples/.agentry.yaml
+agentry --config examples/.agentry.yaml
 ```
 
 ## 🪟 Windows Setup
@@ -516,17 +491,6 @@ permissions:
 ```
 
 Set `AGENTRY_CONFIRM=1` to require confirmation before overwriting files. If `AGENTRY_AUDIT_LOG` points to a path, tool executions are appended in JSONL format.
-
-## 📊 Observability
-
-Add `metrics: true` to expose Prometheus counters at `/metrics`. Specify a `collector:` address to forward spans via OTLP:
-
-```yaml
-metrics: true
-collector: localhost:4318
-```
-
-The web dashboard visualises these metrics and traces live.
 
 ## 🤝 Contributing
 

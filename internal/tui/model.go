@@ -288,7 +288,8 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		PendingStatusUpdate: "",              // No pending status update initially
 		Spinner:             sp,
 		TokenProgress:       createTokenProgressBar(),
-		Role:                "System",
+		Name:                "Agent 0",       // Agent 0 gets the base name
+		Role:                "System",        // Keep the original System role
 		History:             logoContent,
 		ActivityData:        make([]float64, 0),
 		ActivityTimes:       make([]time.Time, 0),

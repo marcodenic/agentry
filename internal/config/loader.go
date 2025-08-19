@@ -61,7 +61,6 @@ type File struct {
 	Keybinds          map[string]string            `yaml:"keybinds" json:"keybinds"`
 	Credentials       map[string]map[string]string `yaml:"credentials" json:"credentials"`
 	MCPServers        map[string]string            `yaml:"mcp_servers" json:"mcp_servers"`
-	Metrics           bool                         `yaml:"metrics" json:"metrics"`
 	Collector         string                       `yaml:"collector" json:"collector"`
 	Port              string                       `yaml:"port" json:"port"`
 	Sandbox           Sandbox                      `yaml:"sandbox" json:"sandbox"`
@@ -153,9 +152,6 @@ func merge(dst *File, src File) {
 	}
 	for k, v := range src.MCPServers {
 		dst.MCPServers[k] = v
-	}
-	if src.Metrics {
-		dst.Metrics = true
 	}
 	if src.Collector != "" {
 		dst.Collector = src.Collector

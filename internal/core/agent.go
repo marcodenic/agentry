@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/cost"
@@ -19,9 +18,6 @@ import (
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/tokens"
 	"github.com/marcodenic/agentry/internal/trace"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // Agent represents a conversational agent with LLM capabilities
@@ -62,28 +58,6 @@ func DefaultErrorHandling() ErrorHandlingConfig {
 		IncludeErrorContext:  true,
 	}
 }
-
-var (
-	tokenCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "agentry_tokens_total",
-		Help: "Total tokens processed by an agent",
-	}, []string{"agent"})
-	toolLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "agentry_tool_latency_seconds",
-		Help:    "Latency of tool execution in seconds",
-		Buckets: prometheus.DefBuckets,
-	}, []string{"agent", "tool"})
-	modelLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "agentry_model_latency_seconds",
-		Help:    "Latency of model completion calls in seconds",
-		Buckets: prometheus.DefBuckets,
-	}, []string{"agent", "model"})
-	firstTokenLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "agentry_first_token_latency_seconds",
-		Help:    "Time from model invocation to first streamed token",
-		Buckets: prometheus.DefBuckets,
-	}, []string{"agent", "model"})
-)
 
 // min returns the minimum of two integers
 func min(a, b int) int {
@@ -251,8 +225,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		}
 		// Note: No iteration cap; agent runs until it produces a final answer.
 		debug.Printf("Agent.Run: Starting iteration %d", i)
-		startModel := time.Now()
-		// If client supports streaming, prefer that path for first token latency
+		// If client supports streaming, prefer that path
 		if sc, ok := a.Client.(model.StreamingClient); ok {
 			streamCh, sErr := sc.Stream(ctx, msgs, specs)
 			if sErr == nil && streamCh != nil {
@@ -267,7 +240,6 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 					if chunk.ContentDelta != "" {
 						sb.WriteString(chunk.ContentDelta)
 						if !firstTokenRecorded {
-							firstTokenLatency.WithLabelValues(a.ID.String(), a.ModelName).Observe(time.Since(startModel).Seconds())
 							firstTokenRecorded = true
 						}
 						// Emit raw delta for TUI-side smoothing
@@ -278,14 +250,12 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 					}
 				}
 				assembled = sb.String()
-				modelLatency.WithLabelValues(a.ID.String(), a.ModelName).Observe(time.Since(startModel).Seconds())
 				// After streaming, treat result as a single completion
 				res := model.Completion{Content: assembled, ToolCalls: finalToolCalls}
 				debug.Printf("Agent.Run: Streaming completed with %d tool calls", len(res.ToolCalls))
 				a.Trace(ctx, trace.EventStepStart, res)
-				// Approximate output tokens & update cost/metrics
+				// Approximate output tokens & update cost
 				outTok := tokens.Count(res.Content, a.ModelName)
-				tokenCounter.WithLabelValues(a.ID.String()).Add(float64(outTok))
 				if a.Cost != nil {
 					a.Cost.AddModelUsage(a.ModelName, 0, outTok)
 					if a.Cost.OverBudget() && env.Bool("AGENTRY_STOP_ON_BUDGET", false) {
@@ -322,7 +292,6 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			}
 		}
 		res, err := a.Client.Complete(ctx, msgs, specs)
-		modelLatency.WithLabelValues(a.ID.String(), a.ModelName).Observe(time.Since(startModel).Seconds())
 		debug.Printf("Agent.Run: Model call completed for iteration %d, err=%v", i, err)
 		if err != nil {
 			debug.Printf("Agent.Run: Model call failed: %v", err)
@@ -337,9 +306,6 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		actualInputTokens := res.InputTokens
 		actualOutputTokens := res.OutputTokens
 		debug.Printf("Agent.Run: Iteration %d - Input tokens: %d, Output tokens: %d", i, actualInputTokens, actualOutputTokens)
-
-		// Update metrics with actual tokens (count input+output per step)
-		tokenCounter.WithLabelValues(a.ID.String()).Add(float64(actualInputTokens + actualOutputTokens))
 
 		// Update cost manager with actual token usage
 		if a.Cost != nil {
@@ -441,9 +407,7 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 		applyVarsMap(args, a.Vars)
 		debug.Printf("Agent '%s' executing tool '%s' with args: %v", a.ID, tc.Name, args)
 		a.Trace(ctx, trace.EventToolStart, map[string]any{"name": tc.Name, "args": args})
-		start := time.Now()
 		r, err := t.Execute(ctx, args)
-		toolLatency.WithLabelValues(a.ID.String(), tc.Name).Observe(time.Since(start).Seconds())
 		if err != nil {
 			debug.Printf("Agent '%s' tool '%s' failed: %v", a.ID, tc.Name, err)
 			var errorMsg string
