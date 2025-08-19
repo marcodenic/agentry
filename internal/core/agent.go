@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/cost"
@@ -15,8 +16,8 @@ import (
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/tokens"
+	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
@@ -179,7 +180,95 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	msgs := BuildMessages(a.Prompt, a.Vars, a.Mem.History(), input)
 	specs := tool.BuildSpecs(a.Tools)
 
-	debug.Printf("Agent.Run: Built %d messages, %d tool specs", len(msgs), len(specs))
+	// ---- Context Size Instrumentation & Trimming ----
+	// Calculate token usage of current messages (pre tool specs) and trim if needed.
+	startMeasure := time.Now()
+	maxContextTokens := env.Int("AGENTRY_CONTEXT_MAX_TOKENS", 0) // hard cap if set
+	if maxContextTokens == 0 {
+		// Derive from pricing table context window with safety margin
+		pt := cost.NewPricingTable()
+		limit := pt.GetContextLimit(a.ModelName)
+		if limit <= 0 { // fallback
+			limit = 120000
+		}
+		// Leave 15% headroom and min 2k for completion
+		headroom := int(float64(limit) * 0.85)
+		if headroom < 4000 {
+			headroom = limit - 2000
+		}
+		if headroom < 2000 {
+			headroom = limit - 1000
+		}
+		maxContextTokens = headroom
+	}
+	reserveForOutput := env.Int("AGENTRY_CONTEXT_RESERVE_OUTPUT", 1024)
+	if reserveForOutput < 256 {
+		reserveForOutput = 256
+	}
+	targetBudget := maxContextTokens - reserveForOutput
+	if targetBudget < 1000 { // sanity guard
+		targetBudget = maxContextTokens - 500
+	}
+
+	// Count tokens per message (approx) and trim oldest assistant/tool sections if over budget
+	totalTokens := 0
+	perMsgTokens := make([]int, len(msgs))
+	for i, m := range msgs {
+		tk := tokens.Count(m.Content, a.ModelName)
+		perMsgTokens[i] = tk
+		totalTokens += tk
+	}
+	if totalTokens > targetBudget {
+		debug.Printf("Context trimming: initial=%d budget=%d reserve=%d model=%s", totalTokens, targetBudget, reserveForOutput, a.ModelName)
+		// Keep system (index 0) & final user message (last). Remove/compact middle from oldest forward.
+		// We'll drop assistant/tool pairs oldest-first until within budget.
+		// We rebuild msgs slice rather than mutate in place for clarity.
+		systemMsg := msgs[0]
+		userMsg := msgs[len(msgs)-1]
+		// Collect conversation pairs excluding system/user final
+		mid := msgs[1 : len(msgs)-1]
+		// We will remove from the front.
+		idx := 0
+		for totalTokens > targetBudget && idx < len(mid) {
+			removed := tokens.Count(mid[idx].Content, a.ModelName)
+			totalTokens -= removed
+			mid[idx].Content = "" // mark
+			idx++
+		}
+		// Reassemble without emptied messages
+		newMid := make([]model.ChatMessage, 0, len(mid))
+		for _, m := range mid {
+			if strings.TrimSpace(m.Content) == "" && m.Role != "system" { // skip removed; system won't appear here
+				continue
+			}
+			newMid = append(newMid, m)
+		}
+		msgs = append([]model.ChatMessage{systemMsg}, append(newMid, userMsg)...)
+		debug.Printf("Context trimmed: finalTokens≈%d removedMessages=%d", totalTokens, idx)
+	}
+	if env.Bool("AGENTRY_DEBUG_CONTEXT", false) {
+		// Detailed breakdown (optional heavy)
+		var sb strings.Builder
+		sb.WriteString("[CONTEXT BREAKDOWN]\n")
+		for i, m := range msgs {
+			role := m.Role
+			if role == "system" && i == 0 {
+				role = "system(root)"
+			}
+			sb.WriteString(fmt.Sprintf("%02d %-8s tokens=%d len=%d\n", i, role, tokens.Count(m.Content, a.ModelName), len(m.Content)))
+		}
+		sb.WriteString(fmt.Sprintf("Total≈%d (budget=%d reserve=%d) buildTime=%s\n", func() int {
+			t := 0
+			for _, m := range msgs {
+				t += tokens.Count(m.Content, a.ModelName)
+			}
+			return t
+		}(), targetBudget, reserveForOutput, time.Since(startMeasure)))
+		debug.Printf(sb.String())
+	}
+	// ---- End Context Size Instrumentation & Trimming ----
+
+	debug.Printf("Agent.Run: Built %d messages (post-trim), %d tool specs", len(msgs), len(specs))
 	debug.Printf("Agent.Run: About to call model client with model %s", a.ModelName)
 
 	// DEBUG: Print the full system prompt that will be sent to the API
