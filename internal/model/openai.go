@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// OpenAI client uses OpenAI's chat completion API.
+// OpenAI client implemented against /v1/responses (legacy chat completions removed).
 type OpenAI struct {
 	key         string
 	model       string
@@ -20,281 +20,161 @@ type OpenAI struct {
 	client      *http.Client
 }
 
-// TODO: Replace manual implementation with official github.com/openai/openai-go SDK for
-// structured streaming, usage metadata, and reduced maintenance burden.
+func NewOpenAI(key, model string) *OpenAI { return &OpenAI{key: key, model: model, client: http.DefaultClient} }
 
-func NewOpenAI(key, model string) *OpenAI {
-	return &OpenAI{key: key, model: model, client: http.DefaultClient}
-}
+// Wire types for Responses API
+type oaInputItem struct { Role string `json:"role"`; Content []oaContentPart `json:"content"` }
+type oaContentPart struct { Type string `json:"type"`; Text string `json:"text"` }
 
-// Internal wire types reused for both non-stream and stream calls.
+// openAITool matches Responses API tool definition (flattened function schema)
 type openAITool struct {
-	Type     string `json:"type"`
-	Function struct {
-		Name        string         `json:"name"`
-		Description string         `json:"description,omitempty"`
-		Parameters  map[string]any `json:"parameters"`
-	} `json:"function"`
+	Type        string         `json:"type"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Parameters  map[string]any `json:"parameters"`
 }
+// oaToolCall matches streamed tool call events (flattened)
+type oaToolCall struct { ID, Type, Name, Arguments string; Index *int }
 
-type oaToolCall struct {
-	ID       string `json:"id"`
-	Type     string `json:"type"`
-	Function struct {
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"`
-	} `json:"function"`
-}
-
-type oaMessage struct {
-	Role       string       `json:"role"`
-	Content    string       `json:"content"`
-	Name       string       `json:"name,omitempty"`
-	ToolCallID string       `json:"tool_call_id,omitempty"`
-	ToolCalls  []oaToolCall `json:"tool_calls,omitempty"`
-}
+// partial represents an in-progress tool call assembly during streaming.
+type partial struct { ToolCall; index int }
 
 func buildOATools(tools []ToolSpec) []openAITool {
 	oa := make([]openAITool, len(tools))
 	for i, t := range tools {
 		oa[i].Type = "function"
-		oa[i].Function.Name = t.Name
-		oa[i].Function.Description = t.Description
-		if len(t.Parameters) > 0 {
-			oa[i].Function.Parameters = t.Parameters
-		} else {
-			oa[i].Function.Parameters = map[string]any{"type": "object", "properties": map[string]any{}}
-		}
+		oa[i].Name = t.Name
+		oa[i].Description = t.Description
+		if len(t.Parameters) > 0 { oa[i].Parameters = t.Parameters } else { oa[i].Parameters = map[string]any{"type":"object","properties":map[string]any{}} }
 	}
 	return oa
 }
-
-func buildOAMessages(msgs []ChatMessage) []oaMessage {
-	oa := make([]oaMessage, len(msgs))
-	for i, m := range msgs {
-		oa[i].Role = m.Role
-		oa[i].Content = m.Content
-		oa[i].Name = m.Name
-		oa[i].ToolCallID = m.ToolCallID
-		if len(m.ToolCalls) > 0 {
-			oa[i].ToolCalls = make([]oaToolCall, len(m.ToolCalls))
-			for j, tc := range m.ToolCalls {
-				oa[i].ToolCalls[j].ID = tc.ID
-				oa[i].ToolCalls[j].Type = "function"
-				oa[i].ToolCalls[j].Function.Name = tc.Name
-				oa[i].ToolCalls[j].Function.Arguments = string(tc.Arguments)
-			}
-		}
-	}
-	return oa
+func buildOAInput(msgs []ChatMessage) []oaInputItem {
+	out := make([]oaInputItem, len(msgs))
+	for i, m := range msgs { out[i].Role = m.Role; out[i].Content = []oaContentPart{{Type:"input_text", Text:m.Content}} }
+	return out
 }
 
 func (o *OpenAI) buildRequest(ctx context.Context, msgs []ChatMessage, tools []ToolSpec, stream bool) (*http.Request, error) {
-	body := map[string]any{
-		"model":       o.model,
-		"messages":    buildOAMessages(msgs),
-		"tools":       buildOATools(tools),
-		"tool_choice": "auto",
-	}
-	if stream {
-		body["stream"] = true
-	}
-	if o.Temperature != nil && supportsTemperature(o.model) {
-		body["temperature"] = *o.Temperature
-	}
+	if o.key == "" { return nil, errors.New("missing api key") }
+	body := map[string]any{"model": o.model, "input": buildOAInput(msgs)}
+	if len(tools) > 0 { body["tools"] = buildOATools(tools) }
+	if stream { body["stream"] = true }
+	if o.Temperature != nil && supportsTemperature(o.model) { body["temperature"] = *o.Temperature }
 	b, _ := json.Marshal(body)
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewReader(b))
-	if err != nil {
-		return nil, err
-	}
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/responses", bytes.NewReader(b))
+	if err != nil { return nil, err }
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+o.key)
 	return req, nil
 }
 
 func (o *OpenAI) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (Completion, error) {
-	if o.key == "" {
-		return Completion{}, errors.New("missing api key")
-	}
 	req, err := o.buildRequest(ctx, msgs, tools, false)
-	if err != nil {
-		return Completion{}, err
-	}
+	if err != nil { return Completion{}, err }
 	resp, err := o.client.Do(req)
-	if err != nil {
-		return Completion{}, err
-	}
+	if err != nil { return Completion{}, err }
 	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
-		return Completion{}, errors.New(string(body))
+	if resp.StatusCode >= 300 { body, _ := io.ReadAll(resp.Body); return Completion{}, errors.New(string(body)) }
+	// Read full body for flexible parsing
+	data, err := io.ReadAll(resp.Body); if err != nil { return Completion{}, err }
+	// Base struct (best effort)
+	var base struct {
+		Output []struct { Type, Text string } `json:"output"`
+		Usage struct { InputTokens int `json:"input_tokens"`; OutputTokens int `json:"output_tokens"` } `json:"usage"`
+		ToolCalls []oaToolCall `json:"tool_calls"`
 	}
-	var res struct {
-		Choices []struct {
-			Message struct {
-				Content   string       `json:"content"`
-				ToolCalls []oaToolCall `json:"tool_calls"`
-			} `json:"message"`
-		} `json:"choices"`
-		Usage struct {
-			PromptTokens     int `json:"prompt_tokens"`
-			CompletionTokens int `json:"completion_tokens"`
-			TotalTokens      int `json:"total_tokens"`
-		} `json:"usage"`
+	_ = json.Unmarshal(data, &base)
+	// Collect text
+	var texts []string
+	for _, o := range base.Output { if strings.Contains(o.Type, "output_text") && o.Text != "" { texts = append(texts, o.Text) } }
+	if len(texts) == 0 {
+		// Generic scan for any objects with type=output_text
+		var generic any
+		if err := json.Unmarshal(data, &generic); err == nil {
+			collectOutputText(generic, &texts)
+		}
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
-		return Completion{}, err
-	}
-	if len(res.Choices) == 0 {
-		return Completion{}, errors.New("no choices")
-	}
-	msg := res.Choices[0].Message
-	comp := Completion{Content: msg.Content, InputTokens: res.Usage.PromptTokens, OutputTokens: res.Usage.CompletionTokens, ModelName: "openai/" + o.model}
-	for _, tc := range msg.ToolCalls {
-		comp.ToolCalls = append(comp.ToolCalls, ToolCall{ID: tc.ID, Name: tc.Function.Name, Arguments: []byte(tc.Function.Arguments)})
+	var sb strings.Builder; for _, t := range texts { sb.WriteString(t) }
+	comp := Completion{Content: sb.String(), InputTokens: base.Usage.InputTokens, OutputTokens: base.Usage.OutputTokens, ModelName: "openai/"+o.model}
+	for _, tc := range base.ToolCalls { // support either flattened or nested
+		name := tc.Name
+		args := tc.Arguments
+		if name == "" && args == "" { // attempt nested fallback
+			// ignore for now; legacy path removed
+		}
+		comp.ToolCalls = append(comp.ToolCalls, ToolCall{ID: tc.ID, Name: name, Arguments: []byte(args)})
 	}
 	return comp, nil
 }
 
-// Stream implements incremental streaming for OpenAI Chat Completions API using SSE.
-// NOTE: This currently targets the older /v1/chat/completions streaming format.
 func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (<-chan StreamChunk, error) {
-	if o.key == "" {
-		return nil, errors.New("missing api key")
-	}
-	req, err := o.buildRequest(ctx, msgs, tools, true)
-	if err != nil {
-		return nil, err
-	}
+	req, err := o.buildRequest(ctx, msgs, tools, true); if err != nil { return nil, err }
 	out := make(chan StreamChunk, 32)
 	go func() {
 		defer close(out)
-		resp, err := o.client.Do(req)
-		if err != nil {
-			out <- StreamChunk{Err: err}
-			return
-		}
+		resp, err := o.client.Do(req); if err != nil { out <- StreamChunk{Err: err}; return }
 		defer resp.Body.Close()
-		if resp.StatusCode >= 300 {
-			body, _ := io.ReadAll(resp.Body)
-			out <- StreamChunk{Err: errors.New(string(body))}
-			return
-		}
-		scanner := bufio.NewScanner(resp.Body)
-		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-		// Accumulate tool call deltas by index; OpenAI streams partial name/argument pieces.
-		type partialToolCall struct {
-			ToolCall
-			index int
-		}
-		// index -> partial
-		partials := map[int]*partialToolCall{}
+		if resp.StatusCode >= 300 { body, _ := io.ReadAll(resp.Body); out <- StreamChunk{Err: errors.New(string(body))}; return }
+		scanner := bufio.NewScanner(resp.Body); scanner.Buffer(make([]byte,0,64*1024), 1024*1024)
+		partials := map[int]*partial{}
+		var inTok, outTok int
 		for scanner.Scan() {
-			select {
-			case <-ctx.Done():
-				out <- StreamChunk{Err: ctx.Err()}
-				return
-			default:
-			}
-			line := scanner.Text()
-			if !strings.HasPrefix(line, "data:") {
-				continue
-			}
+			if ctx.Err() != nil { out <- StreamChunk{Err: ctx.Err()}; return }
+			line := scanner.Text(); if !strings.HasPrefix(line, "data:") { continue }
 			payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-			if payload == "[DONE]" {
-				// Early termination: assemble partials collected so far.
-				if len(partials) > 0 {
-					idxs := make([]int, 0, len(partials))
-					for i := range partials { idxs = append(idxs, i) }
-					sort.Ints(idxs)
-					final := make([]ToolCall, 0, len(partials))
-					for _, i := range idxs { final = append(final, partials[i].ToolCall) }
-					out <- StreamChunk{Done: true, ToolCalls: final}
-				} else {
-					out <- StreamChunk{Done: true}
-				}
-				return
-			}
-			var evt struct {
-				Choices []struct {
-					Delta struct {
-						Content   string `json:"content"`
-						ToolCalls []struct {
-							Index int    `json:"index"`
-							ID    string `json:"id"`
-							Type  string `json:"type"`
-							Function struct {
-								Name      string `json:"name"`
-								Arguments string `json:"arguments"`
-							} `json:"function"`
-						} `json:"tool_calls"`
-					} `json:"delta"`
-				} `json:"choices"`
-			}
-			if err := json.Unmarshal([]byte(payload), &evt); err != nil {
-				continue
-			}
-			if len(evt.Choices) == 0 {
-				continue
-			}
-			d := evt.Choices[0].Delta
-			if len(d.ToolCalls) > 0 {
-				for _, tc := range d.ToolCalls {
-					// Retrieve or create partial by index.
-					p := partials[tc.Index]
-					if p == nil {
-						p = &partialToolCall{index: tc.Index}
-						partials[tc.Index] = p
+			if payload == "[DONE]" { finalizeOpenAI(partials, out, inTok, outTok); return }
+			if payload == "" { continue }
+			var env map[string]any; if err := json.Unmarshal([]byte(payload), &env); err != nil { continue }
+			t, _ := env["type"].(string)
+			switch {
+			case strings.HasSuffix(t, ".delta") && strings.Contains(t, "output_text"):
+				if d, ok := env["delta"].(string); ok && d != "" { out <- StreamChunk{ContentDelta: d} }
+			case strings.HasSuffix(t, ".delta") && strings.Contains(t, "tool_calls"):
+				if arr, ok := env["tool_calls"].([]any); ok { for _, v := range arr { if m, ok := v.(map[string]any); ok {
+					idx := 0; if iv, ok := m["index"].(float64); ok { idx = int(iv) }
+					p := partials[idx]; if p == nil { p = &partial{index: idx}; partials[idx] = p }
+					if id, _ := m["id"].(string); id != "" { p.ID = id }
+					// flattened fields
+					if name, _ := m["name"].(string); name != "" { p.Name = name }
+					if args, _ := m["arguments"].(string); args != "" { p.Arguments = append(p.Arguments, []byte(args)...) }
+					// nested legacy fallback
+					if fn, ok := m["function"].(map[string]any); ok {
+						if name, _ := fn["name"].(string); name != "" { p.Name = name }
+						if args, _ := fn["arguments"].(string); args != "" { p.Arguments = append(p.Arguments, []byte(args)...) }
 					}
-					if tc.ID != "" { // ID only appears once usually.
-						p.ID = tc.ID
-					}
-					if tc.Function.Name != "" { // Name appears on first delta.
-						p.Name = tc.Function.Name
-					}
-					if tc.Function.Arguments != "" { // Arguments stream piecewise.
-						p.Arguments = append(p.Arguments, []byte(tc.Function.Arguments)...)
-					}
-				}
-			}
-			if d.Content != "" {
-				out <- StreamChunk{ContentDelta: d.Content}
+				} } }
+			case t == "response.completed":
+				if u, ok := env["usage"].(map[string]any); ok { if iv, ok := u["input_tokens"].(float64); ok { inTok = int(iv) }; if ov, ok := u["output_tokens"].(float64); ok { outTok = int(ov) } }
+				finalizeOpenAI(partials, out, inTok, outTok); return
+			default: /* ignore */
 			}
 		}
-		if err := scanner.Err(); err != nil {
-			out <- StreamChunk{Err: err}
-		} else {
-			// Consolidate ordered tool calls with fully aggregated arguments.
-			if len(partials) > 0 {
-				idxs := make([]int, 0, len(partials))
-				for i := range partials { idxs = append(idxs, i) }
-				sort.Ints(idxs)
-				final := make([]ToolCall, 0, len(partials))
-				for _, i := range idxs {
-					p := partials[i]
-					final = append(final, p.ToolCall)
-				}
-				out <- StreamChunk{Done: true, ToolCalls: final}
-			} else {
-				out <- StreamChunk{Done: true}
-			}
-		}
+		if err := scanner.Err(); err != nil { out <- StreamChunk{Err: err} } else { finalizeOpenAI(partials, out, inTok, outTok) }
 	}()
 	return out, nil
 }
 
-// ModelName returns the model name used by this OpenAI client
-func (o *OpenAI) ModelName() string {
-	return o.model
+func finalizeOpenAI(partials map[int]*partial, out chan<- StreamChunk, inTok, outTok int) {
+	if len(partials) == 0 { out <- StreamChunk{Done: true, InputTokens: inTok, OutputTokens: outTok}; return }
+	idxs := make([]int,0,len(partials)); for i := range partials { idxs = append(idxs, i) }; sort.Ints(idxs)
+	final := make([]ToolCall,0,len(partials)); for _, i := range idxs { p := partials[i]; final = append(final, ToolCall{ID:p.ID, Name:p.Name, Arguments:p.Arguments}) }
+	out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok}
 }
 
-// supportsTemperature returns whether this model supports the temperature parameter.
-// Some reasoning-oriented models (e.g., gpt-5, o1 family) don’t accept temperature.
-func supportsTemperature(model string) bool {
-	m := strings.ToLower(model)
-	// Blocklist known families that reject temperature
-	if strings.HasPrefix(m, "gpt-5") || strings.HasPrefix(m, "o1") || strings.HasPrefix(m, "o3") || strings.HasPrefix(m, "o4") {
-		return false
+func (o *OpenAI) ModelName() string { return o.model }
+func supportsTemperature(model string) bool { m := strings.ToLower(model); if strings.HasPrefix(m, "gpt-5") || strings.HasPrefix(m, "o1") || strings.HasPrefix(m, "o3") || strings.HasPrefix(m, "o4") { return false }; return true }
+
+// collectOutputText walks arbitrary decoded JSON and extracts any objects
+// with type == "output_text" and a non-empty text field.
+func collectOutputText(node any, out *[]string) {
+	switch v := node.(type) {
+	case map[string]any:
+		if t, ok := v["type"].(string); ok && strings.Contains(t, "output_text") {
+			if txt, _ := v["text"].(string); txt != "" { *out = append(*out, txt) }
+		}
+		for _, vv := range v { collectOutputText(vv, out) }
+	case []any:
+		for _, itm := range v { collectOutputText(itm, out) }
 	}
-	return true
 }

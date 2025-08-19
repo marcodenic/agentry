@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
+	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
@@ -105,14 +106,15 @@ func (m *Model) readEvent(id uuid.UUID) tea.Msg {
 		switch ev.Type {
 		case trace.EventToken:
 			if s, ok2 := ev.Data.(string); ok2 {
-				// Safe guard again in case info was deleted
 				info, ok = m.infos[id]
-				if !ok || info == nil {
-					return nil
+				if !ok || info == nil { return nil }
+				// Immediate mode (default) flushes every delta for responsiveness.
+				if env.Bool("AGENTRY_STREAM_IMMEDIATE", true) {
+					return tokenFlushMsg{id: id, data: s}
 				}
+				// Legacy buffered mode (set AGENTRY_STREAM_IMMEDIATE=false)
 				info.StreamAggBuf += s
 				flush := false
-				// flush on first chunk or punctuation/size threshold
 				if len(info.StreamAggBuf) == len(s) || len(info.StreamAggBuf) >= 120 || strings.HasSuffix(info.StreamAggBuf, ".") || strings.HasSuffix(info.StreamAggBuf, "\n") || strings.HasSuffix(info.StreamAggBuf, "?") || strings.HasSuffix(info.StreamAggBuf, "!") {
 					flush = true
 				}
