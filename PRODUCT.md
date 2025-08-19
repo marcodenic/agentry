@@ -28,6 +28,13 @@ Local-first, observable, resilient **multi-agent** development orchestrator. Ope
 * Minimal context builder shipped; heavy hardcoded text removed.
 * Pricing cache path moved to user cache dir; `refresh-models` command available.
 * Iteration cap removed (agent runs to final) with optional budget stop.
+* **Sprint Complete: Major Cleanup & Simplification**
+  * Removed Prometheus/metrics system completely (code, deps, configs)
+  * Removed eval system entirely (internal/eval, commands, test files)
+  * Simplified CLI to core functionality: `./agentry [prompt]` + essential utilities
+  * Eliminated legacy commands: tui, invoke, team, memory, cost, analyze
+  * Agent 0 TUI display fixed (now shows "Agent 0" with "System" role)
+  * All tests passing; cleaner, lighter codebase ready for Context v2
 
 ---
 
@@ -52,15 +59,11 @@ Code Quality
 
 **Remove/Retire (this sprint)**
 
-* [ ] **Remove Prometheus/metrics** code & deps; delete metric labels/counters/histograms.
-* [ ] Remove legacy **eval** paths/flags/commands and dead modes.
-* [ ] Purge unused metrics env vars & docs.
+* [x] **Remove Prometheus/metrics** code & deps; delete metric labels/counters/histograms.
+* [x] Remove legacy **eval** paths/flags/commands and dead modes.
+* [x] **Remove legacy CLI commands** (tui, invoke, team, memory, cost, analyze) - simplified to direct prompts.
+* [x] Purge unused metrics env vars & docs.
 
-Security / Safety (low priority; Git rollback is sufficient)
-
-* [ ] Shell allowlist toggle remains; keep simple destructive-confirm gate behind config.
-* [ ] Network response size/content-type caps.
-* [ ] Redact obvious secrets in debug/traces.
 
 Testing
 
@@ -113,12 +116,13 @@ Docs
 
 ## Roadmap (Milestones)
 
-**M1 — Hardening & Cost**
+**M1 — Hardening & Cost** (In Progress)
 
-* Remove Prometheus/metrics + eval code.
-* Context v2 scaffolding + token counters.
-* Cost correctness (input/output/tool) + pricing loader + TUI totals/budgets.
-* OpenAI/Anthropic usage normalization (streaming + usage unify).
+* [x] Remove Prometheus/metrics + eval code.
+* [x] CLI simplification (direct prompts, removed legacy commands).
+* [ ] Context v2 scaffolding + token counters.
+* [ ] Cost correctness (input/output/tool) + pricing loader + TUI totals/budgets.
+* [ ] OpenAI/Anthropic usage normalization (streaming + usage unify).
 
 **M2 — Memory & Orchestration**
 
@@ -279,7 +283,7 @@ AGENTRY_DEBUG=1 agentry                  # TUI logs redirected to file
 
 ## Next Steps (Tight List)
 
-1. **Rip metrics & eval**: remove code/deps/flags/docs.
+1. [x] **Rip metrics & eval**: remove code/deps/flags/docs.
 2. **Context v2 harness** + token counters + provider stubs (TaskSpec, PlanningDoc, History, ActiveFile, RelatedFiles, LSPDefs, GitDiff, TestFailures, RunOutput, Memory).
 3. **TODO tool** + PlanningDoc ingestion + persistence.
 4. **Cost pass**: accurate usage parsing, pricing loader, TUI totals + budgets.
