@@ -1,6 +1,6 @@
 theme: dark
 
-# Model configuration - OpenAI gpt-5 as primary, Anthropic Claude as backup
+# Model configuration - OpenAI gpt-5-mini as primary, Anthropic Claude as backup
 models:
   - name: openai
     provider: openai

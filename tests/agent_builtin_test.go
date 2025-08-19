@@ -7,14 +7,13 @@ import (
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/router"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
 func TestAgentBuiltin(t *testing.T) {
 	reg := tool.DefaultRegistry()
-	route := router.Rules{{IfContains: []string{""}, Client: model.NewMock()}}
-	parent := core.New(route, reg, memory.NewInMemory(), nil)
+	client := model.NewMock()
+	parent := core.New(client, "mock", reg, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 
 	agentTool, _ := reg.Use("agent")
 	spawn := func(ctx context.Context, q string) (string, error) {

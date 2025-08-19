@@ -2,7 +2,7 @@ name: agent_0
 model:
   provider: openai
   options:
-    model: gpt-5
+    model: gpt-5-mini
 prompt: |
   You are **Agent0**, the coordinator agent responsible for planning and overseeing tasks. 
   Your job is to understand the user's goal, break it into clear steps, and coordinate agents to execute each step. 
