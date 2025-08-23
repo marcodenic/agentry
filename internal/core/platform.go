@@ -197,14 +197,6 @@ func InjectPlatformContext(prompt string, allowedCommands []string, allowedBuilt
 	return prompt + "\n" + start + "\n" + platformInfo + end
 }
 
-// InjectPlatformContextLegacy provides backward compatibility
-func InjectPlatformContextLegacy(prompt string) string {
-	return InjectPlatformContext(prompt,
-		[]string{"list", "view", "write", "run", "search", "find", "cwd", "env"},
-		[]string{},
-	)
-}
-
 // InjectAvailableRoles adds available agent role information to the prompt
 func InjectAvailableRoles(prompt string, availableRoles []string) string {
 	// If prompt already contains role info, don't duplicate

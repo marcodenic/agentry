@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
+	agentctx "github.com/marcodenic/agentry/internal/context"
 	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/env"
@@ -158,33 +158,24 @@ func New(client model.Client, modelName string, reg tool.Registry, mem memory.St
 }
 
 func (a *Agent) Spawn() *Agent {
-	// clone vars map to prevent parent/child accidental shared mutation
-	var clonedVars map[string]string
-	if a.Vars != nil {
-		clonedVars = make(map[string]string, len(a.Vars))
-		for k, v := range a.Vars {
-			clonedVars[k] = v
-		}
-	}
+	// Create completely independent spawned agent with fresh memory
+	// Do NOT inherit parent context to prevent exponential growth
 	spawned := &Agent{
 		ID:              uuid.New(),
-		Prompt:          a.Prompt, // inherit prompt
-		Vars:            clonedVars,
-		Tools:           a.Tools,
-		Mem:             memory.NewInMemory(),
-		Vector:          a.Vector, // share vector store intentionally (semantic memory)
+		Prompt:          "", // Will be set by role configuration, not inherited
+		Vars:            nil, // Fresh vars, no inheritance 
+		Tools:           a.Tools, // Tool registry can be shared
+		Mem:             memory.NewInMemory(), // Fresh memory - no inheritance
+		Vector:          memory.NewInMemoryVector(), // Fresh vector store - no shared state
 		Client:          a.Client,
 		ModelName:       a.ModelName,
 		Tracer:          a.Tracer,
 		Cost:            cost.New(a.Cost.BudgetTokens, a.Cost.BudgetDollars),
 		ErrorHandling:   DefaultErrorHandling(),
-		cachedToolNames: a.cachedToolNames, // reuse already computed list if present
+		cachedToolNames: nil, // Will be recomputed based on role's tools
 	}
-	debug.Printf("Agent.Spawn: Parent ID=%s, Spawned ID=%s", a.ID.String()[:8], spawned.ID.String()[:8])
-	debug.Printf("Agent.Spawn: Inherited prompt length=%d chars", len(spawned.Prompt))
-	if l := len(spawned.Prompt); l > 0 {
-		debug.Printf("Agent.Spawn: Inherited prompt preview: %s", spawned.Prompt[:min(100, l)])
-	}
+	debug.Printf("Agent.Spawn: Parent ID=%s, Spawned ID=%s (INDEPENDENT)", a.ID.String()[:8], spawned.ID.String()[:8])
+	debug.Printf("Agent.Spawn: Spawned agent has fresh memory and no inherited context")
 	return spawned
 }
 
@@ -195,96 +186,22 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	debug.Printf("Agent.Run: Input: %s", safeInputPreview)
 
 	a.Trace(ctx, trace.EventModelStart, a.ModelName)
-	msgs := BuildMessages(a.Prompt, a.Vars, a.Mem.History(), input)
+
+	prompt := a.Prompt
+	if prompt == "" {
+		prompt = defaultPrompt()
+	}
+	prompt = InjectPlatformContext(prompt,
+		[]string{"list", "view", "write", "run", "search", "find", "cwd", "env"},
+		[]string{},
+	)
+	prompt = applyVars(prompt, a.Vars)
+
+	prov := agentctx.Provider{Prompt: prompt, History: a.Mem.History()}
+	budget := agentctx.Budget{ModelName: a.ModelName}
+	assembler := agentctx.Assembler{Provider: prov, Budget: budget}
+	msgs := assembler.Assemble(input)
 	specs := tool.BuildSpecs(a.Tools)
-
-	// ---- Context Size Instrumentation & Trimming ----
-	// Calculate token usage of current messages (pre tool specs) and trim if needed.
-	startMeasure := time.Now()
-	maxContextTokens := env.Int("AGENTRY_CONTEXT_MAX_TOKENS", 0) // hard cap if set
-	if maxContextTokens == 0 {
-		// Derive from pricing table context window with safety margin
-		pt := cost.NewPricingTable()
-		limit := pt.GetContextLimit(a.ModelName)
-		if limit <= 0 { // fallback
-			limit = 120000
-		}
-		// Leave 15% headroom and min 2k for completion
-		headroom := int(float64(limit) * 0.85)
-		if headroom < 4000 {
-			headroom = limit - 2000
-		}
-		if headroom < 2000 {
-			headroom = limit - 1000
-		}
-		maxContextTokens = headroom
-	}
-	reserveForOutput := env.Int("AGENTRY_CONTEXT_RESERVE_OUTPUT", 1024)
-	if reserveForOutput < 256 {
-		reserveForOutput = 256
-	}
-	targetBudget := maxContextTokens - reserveForOutput
-	if targetBudget < 1000 { // sanity guard
-		targetBudget = maxContextTokens - 500
-	}
-
-	// Count tokens per message (approx) and trim oldest assistant/tool sections if over budget
-	totalTokens := 0
-	perMsgTokens := make([]int, len(msgs))
-	for i, m := range msgs {
-		tk := tokens.Count(m.Content, a.ModelName)
-		perMsgTokens[i] = tk
-		totalTokens += tk
-	}
-	if totalTokens > targetBudget {
-		debug.Printf("Context trimming: initial=%d budget=%d reserve=%d model=%s", totalTokens, targetBudget, reserveForOutput, a.ModelName)
-		// Keep system (index 0) & final user message (last). Remove/compact middle from oldest forward.
-		// We'll drop assistant/tool pairs oldest-first until within budget.
-		// We rebuild msgs slice rather than mutate in place for clarity.
-		systemMsg := msgs[0]
-		userMsg := msgs[len(msgs)-1]
-		// Collect conversation pairs excluding system/user final
-		mid := msgs[1 : len(msgs)-1]
-		// We will remove from the front.
-		idx := 0
-		for totalTokens > targetBudget && idx < len(mid) {
-			removed := tokens.Count(mid[idx].Content, a.ModelName)
-			totalTokens -= removed
-			mid[idx].Content = "" // mark
-			idx++
-		}
-		// Reassemble without emptied messages
-		newMid := make([]model.ChatMessage, 0, len(mid))
-		for _, m := range mid {
-			if strings.TrimSpace(m.Content) == "" && m.Role != "system" { // skip removed; system won't appear here
-				continue
-			}
-			newMid = append(newMid, m)
-		}
-		msgs = append([]model.ChatMessage{systemMsg}, append(newMid, userMsg)...)
-		debug.Printf("Context trimmed: finalTokens≈%d removedMessages=%d", totalTokens, idx)
-	}
-	if env.Bool("AGENTRY_DEBUG_CONTEXT", false) {
-		// Detailed breakdown (optional heavy)
-		var sb strings.Builder
-		sb.WriteString("[CONTEXT BREAKDOWN]\n")
-		for i, m := range msgs {
-			role := m.Role
-			if role == "system" && i == 0 {
-				role = "system(root)"
-			}
-			sb.WriteString(fmt.Sprintf("%02d %-8s tokens=%d len=%d\n", i, role, tokens.Count(m.Content, a.ModelName), len(m.Content)))
-		}
-		sb.WriteString(fmt.Sprintf("Total≈%d (budget=%d reserve=%d) buildTime=%s\n", func() int {
-			t := 0
-			for _, m := range msgs {
-				t += tokens.Count(m.Content, a.ModelName)
-			}
-			return t
-		}(), targetBudget, reserveForOutput, time.Since(startMeasure)))
-		debug.Printf(sb.String())
-	}
-	// ---- End Context Size Instrumentation & Trimming ----
 
 	debug.Printf("Agent.Run: Built %d messages (post-trim), %d tool specs", len(msgs), len(specs))
 	debug.Printf("Agent.Run: About to call model client with model %s", a.ModelName)
@@ -332,6 +249,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		}
 		// Note: No iteration cap; agent runs until it produces a final answer.
 		debug.Printf("Agent.Run: Starting iteration %d", i)
+		msgs = budget.Apply(msgs)
 		debug.Printf("Agent.Run: Current message count: %d", len(msgs))
 		if i > 0 {
 			// Log recent messages to see what's causing continued iterations
