@@ -48,6 +48,10 @@ func (b Budget) Apply(msgs []model.ChatMessage) []model.ChatMessage {
 	totalTokens := 0
 	for _, m := range msgs {
 		totalTokens += tokens.Count(m.Content, b.ModelName)
+		for _, tc := range m.ToolCalls {
+			totalTokens += tokens.Count(tc.Name, b.ModelName)
+			totalTokens += tokens.Count(string(tc.Arguments), b.ModelName)
+		}
 	}
 	if totalTokens <= targetBudget {
 		return msgs
@@ -60,8 +64,13 @@ func (b Budget) Apply(msgs []model.ChatMessage) []model.ChatMessage {
 	idx := 0
 	for totalTokens > targetBudget && idx < len(mid) {
 		removed := tokens.Count(mid[idx].Content, b.ModelName)
+		for _, tc := range mid[idx].ToolCalls {
+			removed += tokens.Count(tc.Name, b.ModelName)
+			removed += tokens.Count(string(tc.Arguments), b.ModelName)
+		}
 		totalTokens -= removed
 		mid[idx].Content = ""
+		mid[idx].ToolCalls = nil
 		idx++
 	}
 	newMid := make([]model.ChatMessage, 0, len(mid))

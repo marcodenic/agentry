@@ -258,6 +258,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		}
 		// Note: No iteration cap; agent runs until it produces a final answer.
 		debug.Printf("Agent.Run: Starting iteration %d", i)
+		msgs = budget.Apply(msgs)
 		debug.Printf("Agent.Run: Current message count: %d", len(msgs))
 		if i > 0 {
 			// Log recent messages to see what's causing continued iterations
