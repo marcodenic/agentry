@@ -42,7 +42,7 @@ Local-first, observable, resilient **multi-agent** development orchestrator. Ope
 
 Architecture
 
-* [ ] **Context v2**: Provider → Budget → Assembler (replace implicit `BuildMessages` logic).
+* [x] **Context pipeline**: Provider → Budget → Assembler.
 * [ ] Introduce `AgentConfig` (budgets, error handling, model name) to reduce env sprawl.
 * [x] Extract tool execution from `Agent.Run` → `executeToolCalls` (smaller CC, testable).
 * [x] Cancellation checks pre/post model call & per tool.

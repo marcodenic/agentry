@@ -15,18 +15,15 @@ import (
 type promptCheckClient struct{ t *testing.T }
 
 func (p promptCheckClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
-	out := make(chan model.StreamChunk, 1)
+	ch := make(chan model.StreamChunk, 1)
 	go func() {
-		defer close(out)
+		defer close(ch)
 		if !strings.Contains(msgs[0].Content, "cheerful") {
 			p.t.Fatalf("prompt not substituted: %s", msgs[0].Content)
 		}
-		out <- model.StreamChunk{
-			ContentDelta: "done",
-			Done:         true,
-		}
+		ch <- model.StreamChunk{ContentDelta: "done", Done: true}
 	}()
-	return out, nil
+	return ch, nil
 }
 
 func TestPromptVarSubstitution(t *testing.T) {
@@ -41,24 +38,18 @@ func TestPromptVarSubstitution(t *testing.T) {
 type argSubClient struct{ call int }
 
 func (a *argSubClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
-	out := make(chan model.StreamChunk, 1)
+	ch := make(chan model.StreamChunk, 1)
 	go func() {
-		defer close(out)
+		defer close(ch)
 		a.call++
 		if a.call == 1 {
 			args, _ := json.Marshal(map[string]string{"text": "{{greet}} world"})
-			out <- model.StreamChunk{
-				ToolCalls: []model.ToolCall{{ID: "1", Name: "echo", Arguments: args}},
-				Done:      true,
-			}
-		} else {
-			out <- model.StreamChunk{
-				ContentDelta: "ok",
-				Done:         true,
-			}
+			ch <- model.StreamChunk{ToolCalls: []model.ToolCall{{ID: "1", Name: "echo", Arguments: args}}, Done: true}
+			return
 		}
+		ch <- model.StreamChunk{ContentDelta: "ok", Done: true}
 	}()
-	return out, nil
+	return ch, nil
 }
 
 func TestToolArgVarSubstitution(t *testing.T) {

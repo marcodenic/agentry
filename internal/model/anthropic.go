@@ -124,7 +124,7 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 		scanner := bufio.NewScanner(resp.Body)
 		var contentBuilder strings.Builder
 		var toolCalls []ToolCall
-		toolInputs := make(map[string]*strings.Builder) // Track partial tool inputs
+		var currentToolCall *ToolCall
 		inputTokens, outputTokens := 0, 0
 
 		for scanner.Scan() {
@@ -142,9 +142,9 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 				Type  string `json:"type"`
 				Index int    `json:"index,omitempty"`
 				Delta struct {
-					Type      string `json:"type"`
-					Text      string `json:"text,omitempty"`
-					PartialJSON string `json:"partial_json,omitempty"`
+					Type           string          `json:"type"`
+					Text           string          `json:"text"`
+					PartialJson    string          `json:"partial_json"`
 				} `json:"delta"`
 				ContentBlock struct {
 					Type  string          `json:"type"`
@@ -163,40 +163,26 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 			}
 
 			switch event.Type {
-			case "content_block_start":
-				if event.ContentBlock.Type == "tool_use" {
-					// Initialize tool call
-					toolCalls = append(toolCalls, ToolCall{
-						ID:   event.ContentBlock.ID,
-						Name: event.ContentBlock.Name,
-					})
-					toolInputs[event.ContentBlock.ID] = &strings.Builder{}
-				}
-
 			case "content_block_delta":
 				if event.Delta.Type == "text_delta" && event.Delta.Text != "" {
 					contentBuilder.WriteString(event.Delta.Text)
 					out <- StreamChunk{ContentDelta: event.Delta.Text}
-				} else if event.Delta.Type == "input_json_delta" && event.Delta.PartialJSON != "" {
-					// Accumulate tool input JSON
-					for i := range toolCalls {
-						if builder, exists := toolInputs[toolCalls[i].ID]; exists && toolCalls[i].Arguments == nil {
-							builder.WriteString(event.Delta.PartialJSON)
-							break
-						}
+				} else if event.Delta.Type == "input_json_delta" && currentToolCall != nil {
+					// Accumulate tool arguments from streaming deltas
+					currentToolCall.Arguments = append(currentToolCall.Arguments, []byte(event.Delta.PartialJson)...)
+				}
+			case "content_block_start":
+				if event.ContentBlock.Type == "tool_use" {
+					currentToolCall = &ToolCall{
+						ID:        event.ContentBlock.ID,
+						Name:      event.ContentBlock.Name,
+						Arguments: json.RawMessage{}, // Start empty, will be filled by deltas
 					}
 				}
-
 			case "content_block_stop":
-				// Finalize tool input if we have accumulated data
-				for i := range toolCalls {
-					if builder, exists := toolInputs[toolCalls[i].ID]; exists && toolCalls[i].Arguments == nil {
-						jsonStr := builder.String()
-						if jsonStr != "" {
-							toolCalls[i].Arguments = json.RawMessage(jsonStr)
-						}
-						break
-					}
+				if currentToolCall != nil {
+					toolCalls = append(toolCalls, *currentToolCall)
+					currentToolCall = nil
 				}
 
 			case "message_delta":

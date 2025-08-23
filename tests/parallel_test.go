@@ -17,22 +17,16 @@ type simpleClient struct {
 }
 
 func (s *simpleClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
-	out := make(chan model.StreamChunk, 1)
+	ch := make(chan model.StreamChunk, 1)
 	go func() {
-		defer close(out)
+		defer close(ch)
 		if s.err != nil {
-			out <- model.StreamChunk{
-				Err:  s.err,
-				Done: true,
-			}
-		} else {
-			out <- model.StreamChunk{
-				ContentDelta: s.out,
-				Done:         true,
-			}
+			ch <- model.StreamChunk{Err: s.err}
+			return
 		}
+		ch <- model.StreamChunk{ContentDelta: s.out, Done: true}
 	}()
-	return out, nil
+	return ch, nil
 }
 
 func newAgent(out string, err error) *core.Agent {

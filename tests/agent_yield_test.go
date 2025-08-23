@@ -15,24 +15,17 @@ import (
 type loopMock struct{}
 
 func (loopMock) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
-	out := make(chan model.StreamChunk, 1)
+	ch := make(chan model.StreamChunk, 1)
 	go func() {
-		defer close(out)
-		// After a tool result is present, return a final message to end the run.
+		defer close(ch)
 		if len(msgs) > 0 && msgs[len(msgs)-1].Role == "tool" {
-			out <- model.StreamChunk{
-				ContentDelta: "done",
-				Done:         true,
-			}
-		} else {
-			args, _ := json.Marshal(map[string]string{"text": "hi"})
-			out <- model.StreamChunk{
-				ToolCalls: []model.ToolCall{{ID: "1", Name: "echo", Arguments: args}},
-				Done:      true,
-			}
+			ch <- model.StreamChunk{ContentDelta: "done", Done: true}
+			return
 		}
+		args, _ := json.Marshal(map[string]string{"text": "hi"})
+		ch <- model.StreamChunk{ToolCalls: []model.ToolCall{{ID: "1", Name: "echo", Arguments: args}}, Done: true}
 	}()
-	return out, nil
+	return ch, nil
 }
 
 type captureWriter struct{ events []trace.Event }

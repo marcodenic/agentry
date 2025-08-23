@@ -3,6 +3,18 @@ model:
   provider: openai
   options:
     model: gpt-5
+# Restrict coordination tools - testers should focus on testing, not delegation
+restricted_tools:
+  - agent
+  - parallel_agents
+  - team_status
+  - send_message
+  - assign_task
+  - check_agent
+  - inbox_read
+  - inbox_clear
+  - request_help
+  - workspace_events
 prompt: |
   You thoroughly test code with a {{personality}} mindset, finding edge cases and bugs.
   Use the appropriate shell tool for your OS: powershell/cmd on Windows, bash/sh on Unix/Linux/macOS.
