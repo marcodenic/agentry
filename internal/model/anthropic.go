@@ -40,7 +40,7 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 	for i, t := range tools {
 		anTools[i].Name = t.Name
 		anTools[i].Description = t.Description
-		if t.Parameters != nil && len(t.Parameters) > 0 {
+		if len(t.Parameters) > 0 {
 			anTools[i].InputSchema = t.Parameters
 		} else {
 			anTools[i].InputSchema = map[string]any{"type": "object", "properties": map[string]any{}}
@@ -124,6 +124,7 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 		scanner := bufio.NewScanner(resp.Body)
 		var contentBuilder strings.Builder
 		var toolCalls []ToolCall
+		toolInputs := make(map[string]*strings.Builder) // Track partial tool inputs
 		inputTokens, outputTokens := 0, 0
 
 		for scanner.Scan() {
@@ -139,9 +140,11 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 
 			var event struct {
 				Type  string `json:"type"`
+				Index int    `json:"index,omitempty"`
 				Delta struct {
-					Type string `json:"type"`
-					Text string `json:"text"`
+					Type      string `json:"type"`
+					Text      string `json:"text,omitempty"`
+					PartialJSON string `json:"partial_json,omitempty"`
 				} `json:"delta"`
 				ContentBlock struct {
 					Type  string          `json:"type"`
@@ -160,19 +163,42 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 			}
 
 			switch event.Type {
+			case "content_block_start":
+				if event.ContentBlock.Type == "tool_use" {
+					// Initialize tool call
+					toolCalls = append(toolCalls, ToolCall{
+						ID:   event.ContentBlock.ID,
+						Name: event.ContentBlock.Name,
+					})
+					toolInputs[event.ContentBlock.ID] = &strings.Builder{}
+				}
+
 			case "content_block_delta":
 				if event.Delta.Type == "text_delta" && event.Delta.Text != "" {
 					contentBuilder.WriteString(event.Delta.Text)
 					out <- StreamChunk{ContentDelta: event.Delta.Text}
+				} else if event.Delta.Type == "input_json_delta" && event.Delta.PartialJSON != "" {
+					// Accumulate tool input JSON
+					for i := range toolCalls {
+						if builder, exists := toolInputs[toolCalls[i].ID]; exists && toolCalls[i].Arguments == nil {
+							builder.WriteString(event.Delta.PartialJSON)
+							break
+						}
+					}
 				}
-			case "content_block_start":
-				if event.ContentBlock.Type == "tool_use" {
-					toolCalls = append(toolCalls, ToolCall{
-						ID:        event.ContentBlock.ID,
-						Name:      event.ContentBlock.Name,
-						Arguments: event.ContentBlock.Input,
-					})
+
+			case "content_block_stop":
+				// Finalize tool input if we have accumulated data
+				for i := range toolCalls {
+					if builder, exists := toolInputs[toolCalls[i].ID]; exists && toolCalls[i].Arguments == nil {
+						jsonStr := builder.String()
+						if jsonStr != "" {
+							toolCalls[i].Arguments = json.RawMessage(jsonStr)
+						}
+						break
+					}
 				}
+
 			case "message_delta":
 				if event.Usage.InputTokens > 0 {
 					inputTokens = event.Usage.InputTokens
@@ -188,6 +214,7 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 			return
 		}
 
+		// Send final response with tool calls and token usage
 		out <- StreamChunk{
 			Done:         true,
 			ToolCalls:    toolCalls,

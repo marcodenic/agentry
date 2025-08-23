@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
-
-	"github.com/marcodenic/agentry/internal/sbox"
 )
 
 // getSystemBuiltins returns system information builtin tools
@@ -24,10 +22,10 @@ func getSystemBuiltins() map[string]builtinSpec {
 				// Cross-platform system information gathering
 				if runtime.GOOS == "windows" {
 					// Use simpler PowerShell commands for Windows
-					return ExecSandbox(ctx, "powershell -Command \"Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, TotalPhysicalMemory\"", sbox.Options{})
+					return ExecDirect(ctx, "powershell -Command \"Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, TotalPhysicalMemory\"")
 				} else {
 					// Use standard Unix commands for system info
-					return ExecSandbox(ctx, "uname -a && free -h", sbox.Options{})
+					return ExecDirect(ctx, "uname -a && free -h")
 				}
 			},
 		},
@@ -104,7 +102,7 @@ func getSystemBuiltins() map[string]builtinSpec {
 
 				cmd.WriteString(" -print | head -50 | sort")
 
-				result, err := ExecSandbox(ctx, cmd.String(), sbox.Options{})
+				result, err := ExecDirect(ctx, cmd.String())
 				if err != nil {
 					return "", fmt.Errorf("failed to get project tree: %w", err)
 				}

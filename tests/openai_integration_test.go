@@ -15,11 +15,23 @@ func TestOpenAIClient(t *testing.T) {
 	}
 	c := model.NewOpenAI(key, "gpt-4o")
 	msgs := []model.ChatMessage{{Role: "user", Content: "Hello"}}
-	comp, err := c.Complete(context.Background(), msgs, nil)
+	streamCh, err := c.Stream(context.Background(), msgs, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if comp.Content == "" {
+	
+	var content string
+	for chunk := range streamCh {
+		if chunk.Err != nil {
+			t.Fatal(chunk.Err)
+		}
+		content += chunk.ContentDelta
+		if chunk.Done {
+			break
+		}
+	}
+	
+	if content == "" {
 		t.Errorf("empty response")
 	}
 }

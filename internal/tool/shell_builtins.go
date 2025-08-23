@@ -7,7 +7,6 @@ import (
 	"runtime"
 
 	"github.com/marcodenic/agentry/internal/patch"
-	"github.com/marcodenic/agentry/internal/sbox"
 )
 
 func init() {
@@ -53,7 +52,7 @@ func init() {
 				if cmd == "" {
 					return "", errors.New("missing command")
 				}
-				return ExecSandbox(ctx, cmd, sbox.Options{})
+				return ExecDirect(ctx, cmd)
 			},
 		}
 
@@ -77,7 +76,7 @@ func init() {
 				}
 				// Execute using cmd.exe
 				cmdLine := fmt.Sprintf("cmd /c %s", cmd)
-				return ExecSandbox(ctx, cmdLine, sbox.Options{})
+				return ExecDirect(ctx, cmdLine)
 			},
 		}
 	} else {
@@ -99,7 +98,7 @@ func init() {
 				if cmd == "" {
 					return "", errors.New("missing command")
 				}
-				return ExecSandbox(ctx, cmd, sbox.Options{})
+				return ExecDirect(ctx, cmd)
 			},
 		}
 
@@ -121,7 +120,7 @@ func init() {
 				if cmd == "" {
 					return "", errors.New("missing command")
 				}
-				return ExecSandbox(ctx, cmd, sbox.Options{})
+				return ExecDirect(ctx, cmd)
 			},
 		}
 	}

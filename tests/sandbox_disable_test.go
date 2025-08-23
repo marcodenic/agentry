@@ -4,25 +4,23 @@ import (
 	"context"
 	"testing"
 
-	"github.com/marcodenic/agentry/internal/sbox"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
 func TestSandboxDisabled(t *testing.T) {
-	// Set sandbox to disabled
-	tool.SetSandboxEngine("disabled")
+	// No sandboxing setup needed - it's always disabled now
 
-	// Test that ExecSandbox with disabled engine works
-	result, err := tool.ExecSandbox(context.Background(), "echo hello", sbox.Options{})
+	// Test that ExecDirect works (no more ExecSandbox)
+	result, err := tool.ExecDirect(context.Background(), "echo hello")
 
 	if err != nil {
-		t.Logf("ExecSandbox with disabled engine returned error (expected): %v", err)
+		t.Logf("ExecDirect returned error: %v", err)
 	} else {
-		t.Logf("ExecSandbox with disabled engine succeeded: %s", result)
+		t.Logf("ExecDirect succeeded: %s", result)
 	}
 
 	// Test that direct execution works
-	result2, err2 := sbox.ExecDirect(context.Background(), "echo hello direct")
+	result2, err2 := tool.ExecDirect(context.Background(), "echo hello direct")
 
 	if err2 != nil {
 		t.Logf("ExecDirect returned error: %v", err2)

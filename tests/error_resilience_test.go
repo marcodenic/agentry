@@ -14,44 +14,13 @@ import (
 // errorClient simulates a client that calls a tool that will fail
 type errorClient struct{}
 
-func (errorClient) Complete(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (model.Completion, error) {
-	// Return a completion that tries to call a non-existent tool
-	return model.Completion{
-		Content: "I'll use a tool that doesn't exist to test error handling.",
-		ToolCalls: []model.ToolCall{
-			{
-				ID:        "call_123",
-				Name:      "nonexistent_tool",
-				Arguments: []byte(`{"test": "value"}`),
-			},
-		},
-	}, nil
-}
-
-// resilientClient simulates a client that can recover from errors
-type resilientClient struct {
-	callCount int
-}
-
-func (c *resilientClient) Complete(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (model.Completion, error) {
-	c.callCount++
-
-	// Check if we received error feedback from previous tool call
-	hasError := false
-	hasSuccess := false
-	for _, msg := range msgs {
-		if msg.Role == "tool" && strings.Contains(msg.Content, "Error") {
-			hasError = true
-		}
-		if msg.Role == "tool" && strings.Contains(msg.Content, "Recovery successful") {
-			hasSuccess = true
-		}
-	}
-
-	if c.callCount == 1 {
-		// First call - try a non-existent tool
-		return model.Completion{
-			Content: "I'll try to use a tool that doesn't exist.",
+func (errorClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
+	out := make(chan model.StreamChunk, 1)
+	go func() {
+		defer close(out)
+		// Return a completion that tries to call a non-existent tool
+		out <- model.StreamChunk{
+			ContentDelta: "I'll use a tool that doesn't exist to test error handling.",
 			ToolCalls: []model.ToolCall{
 				{
 					ID:        "call_123",
@@ -59,30 +28,76 @@ func (c *resilientClient) Complete(ctx context.Context, msgs []model.ChatMessage
 					Arguments: []byte(`{"test": "value"}`),
 				},
 			},
-		}, nil
-	} else if hasError && !hasSuccess {
-		// Second call - we got error feedback, now use a working tool
-		return model.Completion{
-			Content: "I see the previous tool failed. Let me try a working tool instead.",
-			ToolCalls: []model.ToolCall{
-				{
-					ID:        "call_456",
-					Name:      "echo",
-					Arguments: []byte(`{"text": "Recovery successful!"}`),
+			Done: true,
+		}
+	}()
+	return out, nil
+}
+
+// resilientClient simulates a client that can recover from errors
+type resilientClient struct {
+	callCount int
+}
+
+func (c *resilientClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
+	out := make(chan model.StreamChunk, 1)
+	go func() {
+		defer close(out)
+		c.callCount++
+
+		// Check if we received error feedback from previous tool call
+		hasError := false
+		hasSuccess := false
+		for _, msg := range msgs {
+			if msg.Role == "tool" && strings.Contains(msg.Content, "Error") {
+				hasError = true
+			}
+			if msg.Role == "tool" && strings.Contains(msg.Content, "Recovery successful") {
+				hasSuccess = true
+			}
+		}
+
+		if c.callCount == 1 {
+			// First call - try a non-existent tool
+			out <- model.StreamChunk{
+				ContentDelta: "I'll try to use a tool that doesn't exist.",
+				ToolCalls: []model.ToolCall{
+					{
+						ID:        "call_123",
+						Name:      "nonexistent_tool",
+						Arguments: []byte(`{"test": "value"}`),
+					},
 				},
-			},
-		}, nil
-	} else if hasSuccess {
-		// Third call - we got success feedback, now return final result
-		return model.Completion{
-			Content: "Task completed successfully after recovering from error.",
-		}, nil
-	} else {
-		// Fallback - just return content
-		return model.Completion{
-			Content: "Task completed.",
-		}, nil
-	}
+				Done: true,
+			}
+		} else if hasError && !hasSuccess {
+			// Second call - we got error feedback, now use a working tool
+			out <- model.StreamChunk{
+				ContentDelta: "I see the previous tool failed. Let me try a working tool instead.",
+				ToolCalls: []model.ToolCall{
+					{
+						ID:        "call_456",
+						Name:      "echo",
+						Arguments: []byte(`{"text": "Recovery successful!"}`),
+					},
+				},
+				Done: true,
+			}
+		} else if hasSuccess {
+			// Third call - we got success feedback, now return final result
+			out <- model.StreamChunk{
+				ContentDelta: "Task completed successfully after recovering from error.",
+				Done:         true,
+			}
+		} else {
+			// Fallback - just return content
+			out <- model.StreamChunk{
+				ContentDelta: "Task completed.",
+				Done:         true,
+			}
+		}
+	}()
+	return out, nil
 }
 
 func TestErrorHandlingWithNonResilientAgent(t *testing.T) {
@@ -147,18 +162,24 @@ type errorOnlyClient struct {
 	callCount int
 }
 
-func (c *errorOnlyClient) Complete(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (model.Completion, error) {
-	c.callCount++
-	return model.Completion{
-		Content: "I'll keep trying non-existent tools.",
-		ToolCalls: []model.ToolCall{
-			{
-				ID:        "call_" + string(rune('0'+c.callCount)),
-				Name:      "nonexistent_tool",
-				Arguments: []byte(`{"test": "value"}`),
+func (c *errorOnlyClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
+	out := make(chan model.StreamChunk, 1)
+	go func() {
+		defer close(out)
+		c.callCount++
+		out <- model.StreamChunk{
+			ContentDelta: "I'll keep trying non-existent tools.",
+			ToolCalls: []model.ToolCall{
+				{
+					ID:        "call_" + string(rune('0'+c.callCount)),
+					Name:      "nonexistent_tool",
+					Arguments: []byte(`{"test": "value"}`),
+				},
 			},
-		},
-	}, nil
+			Done: true,
+		}
+	}()
+	return out, nil
 }
 
 func TestErrorHandlingTooManyErrors(t *testing.T) {

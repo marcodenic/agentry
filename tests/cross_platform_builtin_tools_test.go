@@ -14,8 +14,7 @@ func TestCrossPlatformBuiltinTools(t *testing.T) {
 	// Create a context
 	ctx := context.Background()
 
-	// Set sandbox to disabled for direct execution
-	tool.SetSandboxEngine("disabled")
+	// No sandboxing setup needed - it's always disabled now
 
 	// Create a temporary working directory for testing
 	tempDir, err := os.MkdirTemp("", "agentry-crossplatform-test")

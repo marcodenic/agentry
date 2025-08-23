@@ -65,7 +65,7 @@ func loadPrimaryAgentRole() (*team.RoleConfig, error) {
 // buildAgent constructs an Agent from configuration.
 func buildAgent(cfg *config.File) (*core.Agent, error) {
 	tool.SetPermissions(cfg.Permissions.Tools)
-	tool.SetSandboxEngine(cfg.Sandbox.Engine)
+	// Sandboxing completely removed
 	reg := tool.Registry{}
 	for _, m := range cfg.Tools {
 		tl, err := tool.FromManifest(m)

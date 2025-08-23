@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/marcodenic/agentry/internal/sbox"
 )
 
 // getFileDiscoveryBuiltins returns file discovery builtin tools
@@ -248,7 +246,7 @@ func grepFileExec(ctx context.Context, args map[string]any) (string, error) {
 	}
 
 	cmd += " -- " + sq(pattern) + " " + sq(target)
-	return ExecSandbox(ctx, cmd, sbox.Options{})
+	return ExecDirect(ctx, cmd)
 }
 
 func listDirExec(ctx context.Context, args map[string]any) (string, error) {
@@ -278,7 +276,7 @@ func listDirExec(ctx context.Context, args map[string]any) (string, error) {
 
 	cmd += " " + path
 
-	return ExecSandbox(ctx, cmd, sbox.Options{})
+	return ExecDirect(ctx, cmd)
 }
 
 func globFileExec(ctx context.Context, args map[string]any) (string, error) {
