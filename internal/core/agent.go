@@ -100,6 +100,24 @@ func (a *Agent) InvalidateToolCache() { //lint:ignore U1000 exported for interna
 	a.toolNamesMu.Unlock()
 }
 
+// allToolCallsTerminal returns true if every tool call corresponds to a tool
+// implementing a Terminal() bool method (avoids direct import dep on tool.TerminalAware).
+func (a *Agent) allToolCallsTerminal(calls []model.ToolCall) bool {
+	if len(calls) == 0 {
+		return false
+	}
+	for _, tc := range calls {
+		t, ok := a.Tools.Use(tc.Name)
+		if !ok {
+			return false
+		}
+		if ta, ok := t.(interface{ Terminal() bool }); !ok || !ta.Terminal() {
+			return false
+		}
+	}
+	return true
+}
+
 var redactPatterns = []*regexp.Regexp{
 	// OpenAI style keys
 	regexp.MustCompile(`sk-[A-Za-z0-9]{16,}`),
@@ -314,150 +332,146 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		}
 		// Note: No iteration cap; agent runs until it produces a final answer.
 		debug.Printf("Agent.Run: Starting iteration %d", i)
-		// If client supports streaming, prefer that path
-		if sc, ok := a.Client.(model.StreamingClient); ok {
-			streamCh, sErr := sc.Stream(ctx, msgs, specs)
-			if sErr == nil && streamCh != nil {
-				var assembled string
-				var finalToolCalls []model.ToolCall
-				firstTokenRecorded := false
-				var sb strings.Builder
-				for chunk := range streamCh {
-					if chunk.Err != nil {
-						return "", chunk.Err
-					}
-					if chunk.ContentDelta != "" {
-						sb.WriteString(chunk.ContentDelta)
-						if !firstTokenRecorded {
-							firstTokenRecorded = true
-						}
-						// Emit raw delta for TUI-side smoothing
-						a.Trace(ctx, trace.EventToken, chunk.ContentDelta)
-					}
-					if chunk.Done {
-						finalToolCalls = chunk.ToolCalls
-					}
-				}
-				assembled = sb.String()
-				// After streaming, treat result as a single completion
-				res := model.Completion{Content: assembled, ToolCalls: finalToolCalls}
-				debug.Printf("Agent.Run: Streaming completed with %d tool calls", len(res.ToolCalls))
-				a.Trace(ctx, trace.EventStepStart, res)
-				// Approximate output tokens & update cost
-				outTok := tokens.Count(res.Content, a.ModelName)
-				if a.Cost != nil {
-					a.Cost.AddModelUsage(a.ModelName, 0, outTok)
-					if a.Cost.OverBudget() && env.Bool("AGENTRY_STOP_ON_BUDGET", false) {
-						return "", fmt.Errorf("cost or token budget exceeded (tokens=%d cost=$%.4f)", a.Cost.TotalTokens(), a.Cost.TotalCost())
-					}
-				}
-				// Append assistant message
-				msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
-				step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
-				if len(res.ToolCalls) == 0 {
-					a.Mem.AddStep(step)
-					_ = a.Checkpoint(ctx)
-					a.Trace(ctx, trace.EventFinal, res.Content)
-					return res.Content, nil
-				}
-				// Execute tools then continue loop with new messages
-				toolMsgs, hadErrors, execErr := a.executeToolCalls(ctx, res.ToolCalls, step)
-				if execErr != nil {
-					return "", execErr
-				}
-				msgs = append(msgs, toolMsgs...)
-				a.Mem.AddStep(step)
-				_ = a.Checkpoint(ctx)
-				if hadErrors {
-					consecutiveErrors++
-				} else {
-					consecutiveErrors = 0
-				}
-				if consecutiveErrors > a.ErrorHandling.MaxErrorRetries {
-					return "", fmt.Errorf("too many consecutive errors (%d), stopping execution", consecutiveErrors)
-				}
-				// Continue outer for-loop for next iteration
-				continue
+		debug.Printf("Agent.Run: Current message count: %d", len(msgs))
+		if i > 0 {
+			// Log recent messages to see what's causing continued iterations
+			debug.Printf("Agent.Run: Recent messages in iteration %d:", i)
+			start := len(msgs) - 3
+			if start < 0 {
+				start = 0
+			}
+			for j := start; j < len(msgs); j++ {
+				debug.Printf("  [%d] Role: %s, Content: %.100s...", j, msgs[j].Role, msgs[j].Content)
 			}
 		}
-		res, err := a.Client.Complete(ctx, msgs, specs)
-		debug.Printf("Agent.Run: Model call completed for iteration %d, err=%v", i, err)
-		if err != nil {
-			debug.Printf("Agent.Run: Model call failed: %v", err)
-			return "", err
+		// Use streaming API exclusively (responses API only supports streaming)
+		debug.Printf("Agent.Run: About to call model with %d messages", len(msgs))
+		debug.Printf("Agent.Run: WHAT TRIGGERS NEW CALL? Messages context:")
+		for j, msg := range msgs {
+			debug.Printf("  MSG[%d] Role:%s ToolCalls:%d Content:%.150s...", j, msg.Role, len(msg.ToolCalls), msg.Content)
+		}
+		streamCh, sErr := a.Client.Stream(ctx, msgs, specs)
+		if sErr != nil {
+			return "", sErr
+		}
+		if streamCh == nil {
+			return "", fmt.Errorf("streaming client returned nil channel")
 		}
 
-		debug.Printf("Agent.Run: Got response with %d tool calls", len(res.ToolCalls))
+		var assembled string
+		var finalToolCalls []model.ToolCall
+		firstTokenRecorded := false
+		var sb strings.Builder
+		for chunk := range streamCh {
+			if chunk.Err != nil {
+				return "", chunk.Err
+			}
+			if chunk.ContentDelta != "" {
+				sb.WriteString(chunk.ContentDelta)
+				if !firstTokenRecorded {
+					firstTokenRecorded = true
+				}
+				// Emit raw delta for TUI-side smoothing
+				a.Trace(ctx, trace.EventToken, chunk.ContentDelta)
+			}
+			if chunk.Done {
+				finalToolCalls = chunk.ToolCalls
+			}
+		}
+		assembled = sb.String()
 
+		// After streaming, treat result as a single completion
+		res := model.Completion{Content: assembled, ToolCalls: finalToolCalls}
+		debug.Printf("Agent.Run: Streaming completed with %d tool calls", len(res.ToolCalls))
+		debug.Printf("Agent.Run: Agent response content: '%.200s...'", res.Content)
+		if len(res.ToolCalls) > 0 {
+			debug.Printf("Agent.Run: AGENT IS MAKING TOOL CALLS - WHY?")
+			for i, tc := range res.ToolCalls {
+				debug.Printf("  TOOL_CALL[%d]: %s with args %s", i, tc.Name, string(tc.Arguments))
+			}
+		}
 		a.Trace(ctx, trace.EventStepStart, res)
 
-		// Use actual token counts from API response
-		actualInputTokens := res.InputTokens
-		actualOutputTokens := res.OutputTokens
-		debug.Printf("Agent.Run: Iteration %d - Input tokens: %d, Output tokens: %d", i, actualInputTokens, actualOutputTokens)
-
-		// Update cost manager with actual token usage
+		// Approximate output tokens & update cost
+		outTok := tokens.Count(res.Content, a.ModelName)
 		if a.Cost != nil {
-			if a.Cost.AddModelUsage(a.ModelName, actualInputTokens, actualOutputTokens) {
-				debug.Printf("Agent.Run: Updated cost manager, total tokens now: %d", a.Cost.TotalTokens())
-				if a.Cost.OverBudget() {
-					debug.Printf("budget exceeded")
-					if env.Bool("AGENTRY_STOP_ON_BUDGET", false) {
-						return "", fmt.Errorf("cost or token budget exceeded (tokens=%d cost=$%.4f)", a.Cost.TotalTokens(), a.Cost.TotalCost())
-					}
-				}
+			a.Cost.AddModelUsage(a.ModelName, 0, outTok)
+			if a.Cost.OverBudget() && env.Bool("AGENTRY_STOP_ON_BUDGET", false) {
+				return "", fmt.Errorf("cost or token budget exceeded (tokens=%d cost=$%.4f)", a.Cost.TotalTokens(), a.Cost.TotalCost())
 			}
 		}
 
+		// Append assistant message
 		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
 		step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
+
 		if len(res.ToolCalls) == 0 {
-			debug.Printf("Agent.Run: No tool calls, returning final result (length: %d)", len(res.Content))
+			// Previously we injected a follow-up prompt when the model produced a planning-style response.
+			// That caused unintended loops in TUI for simple greetings (because the role prompt mentions "plan").
+			// Now we return immediately like the non-streaming path, unless explicitly enabled via env.
+			debug.Printf("Agent.Run: No tool calls in response, checking for completion")
+			debug.Printf("Agent.Run: Response content snippet: '%.200s...'", res.Content)
+			if env.Bool("AGENTRY_PLAN_HEURISTIC", false) && len(specs) > 0 && (strings.Contains(strings.ToLower(res.Content), "plan") || strings.Contains(res.Content, "I'll ") || strings.Contains(strings.ToLower(res.Content), "i will")) {
+				debug.Printf("Agent.Run: Plan heuristic enabled; injecting follow-up to trigger tools")
+				follow := "You provided a plan. Now execute the necessary steps using the available tools. For each data collection action, call the appropriate tool (e.g., sysinfo). Then produce the consolidated final report. Respond only with tool calls until data is gathered."
+				msgs = append(msgs, model.ChatMessage{Role: "system", Content: follow})
+				continue
+			}
+			// Default behavior: finalize
+			debug.Printf("Agent.Run: Finalizing - no tools needed, returning response")
 			a.Mem.AddStep(step)
 			_ = a.Checkpoint(ctx)
-
-			// Emit token events for streaming effect with proper formatting preservation
-			// Process character by character to preserve newlines and formatting
-			for _, r := range res.Content {
-				a.Trace(ctx, trace.EventToken, string(r))
-				// No artificial delay - stream in real time as received
-			}
-
-			// Emit final message with the complete content for fallback
 			a.Trace(ctx, trace.EventFinal, res.Content)
-			debug.Printf("Agent.Run: Returning successfully with %d total tokens", func() int {
-				if a.Cost != nil {
-					return a.Cost.TotalTokens()
-				}
-				return 0
-			}())
 			return res.Content, nil
 		}
 
-		// Track if any tools in this step had errors
-		stepHadErrors := false
-
-		// Execute tool calls (extracted helper)
+		// Execute tools then continue loop with new messages
 		toolMsgs, hadErrors, execErr := a.executeToolCalls(ctx, res.ToolCalls, step)
-		stepHadErrors = hadErrors
 		if execErr != nil {
 			return "", execErr
 		}
-		msgs = append(msgs, toolMsgs...)
 
-		// Handle error recovery logic
-		if stepHadErrors {
-			consecutiveErrors++
-			if consecutiveErrors > a.ErrorHandling.MaxErrorRetries {
-				return "", fmt.Errorf("too many consecutive errors (%d), stopping execution", consecutiveErrors)
+		// Structural finalization: if all executed tools are terminal and no errors
+		// occurred, finalize with their combined outputs.
+		if !hadErrors && a.allToolCallsTerminal(res.ToolCalls) && len(toolMsgs) > 0 {
+			var b strings.Builder
+			for _, m := range toolMsgs {
+				if m.Role == "tool" && strings.TrimSpace(m.Content) != "" {
+					if b.Len() > 0 {
+						b.WriteString("\n")
+					}
+					b.WriteString(m.Content)
+				}
 			}
-			debug.Printf("Agent '%s' had errors in step, continuing with error feedback (consecutive: %d/%d)",
-				a.ID, consecutiveErrors, a.ErrorHandling.MaxErrorRetries)
+			out := strings.TrimSpace(b.String())
+			if out != "" {
+				debug.Printf("Agent.Run: Finalizing after terminal tool calls (%d tools, %d chars output)", len(res.ToolCalls), len(out))
+				a.Mem.AddStep(step)
+				_ = a.Checkpoint(ctx)
+				a.Trace(ctx, trace.EventFinal, out)
+				return out, nil
+			}
+		}
+		msgs = append(msgs, toolMsgs...)
+		a.Mem.AddStep(step)
+		_ = a.Checkpoint(ctx)
+
+		// DEBUG: Log the messages Agent 0 will see in the next iteration
+		debug.Printf("Agent.Run: Messages after tool execution (count=%d):", len(msgs))
+		for j, msg := range msgs {
+			debug.Printf("  [%d] Role: %s, Content: %.100s...", j, msg.Role, msg.Content)
+		}
+
+		if hadErrors {
+			consecutiveErrors++
 		} else {
 			consecutiveErrors = 0
 		}
-		a.Mem.AddStep(step)
-		_ = a.Checkpoint(ctx)
+		if consecutiveErrors > a.ErrorHandling.MaxErrorRetries {
+			return "", fmt.Errorf("too many consecutive errors (%d), stopping execution", consecutiveErrors)
+		}
+		// Continue outer for-loop for next iteration
+		debug.Printf("Agent.Run: Iteration %d complete, continuing to next iteration", i)
 	}
 }
 
@@ -497,6 +511,7 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 		debug.Printf("Agent '%s' executing tool '%s' with args: %v", a.ID, tc.Name, args)
 		a.Trace(ctx, trace.EventToolStart, map[string]any{"name": tc.Name, "args": args})
 		r, err := t.Execute(ctx, args)
+		debug.Printf("Agent '%s' tool '%s' execute completed, err=%v, result_length=%d", a.ID, tc.Name, err, len(r))
 		if err != nil {
 			debug.Printf("Agent '%s' tool '%s' failed: %v", a.ID, tc.Name, err)
 			var errorMsg string
@@ -516,7 +531,9 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 		debug.Printf("Agent '%s' tool '%s' succeeded, result length: %d", a.ID, tc.Name, len(r))
 		a.Trace(ctx, trace.EventToolEnd, map[string]any{"name": tc.Name, "result": r})
 		step.ToolResults[tc.ID] = r
+		debug.Printf("Agent '%s' adding tool result to messages, role=tool, callID=%s", a.ID, tc.ID)
 		msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})
 	}
+	debug.Printf("Agent.Run: executeToolCalls completed, returning %d messages, hadErrors=%v", len(msgs), hadErrors)
 	return msgs, hadErrors, nil
 }

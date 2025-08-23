@@ -186,10 +186,6 @@ type AgentInfo struct {
 	CurrentStep            int               // Current step number
 	DebugStreamingResponse string            // Debug streaming response
 	tracePipeWriter        io.WriteCloser
-
-	// Streaming aggregation (UI smoothing)
-	StreamAggBuf     string    // buffered delta
-	StreamAggStarted time.Time // timestamp of first char in buffer
 }
 
 // New creates a new TUI model bound to an Agent.
@@ -288,8 +284,8 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		PendingStatusUpdate: "",              // No pending status update initially
 		Spinner:             sp,
 		TokenProgress:       createTokenProgressBar(),
-		Name:                "Agent 0",       // Agent 0 gets the base name
-		Role:                "System",        // Keep the original System role
+		Name:                "Agent 0", // Agent 0 gets the base name
+		Role:                "System",  // Keep the original System role
 		History:             logoContent,
 		ActivityData:        make([]float64, 0),
 		ActivityTimes:       make([]time.Time, 0),

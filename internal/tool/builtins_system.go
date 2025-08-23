@@ -13,7 +13,7 @@ import (
 func getSystemBuiltins() map[string]builtinSpec {
 	return map[string]builtinSpec{
 		"sysinfo": {
-			Desc: "Get system information including CPU, memory, disk usage, OS details, and hardware specs",
+			Desc: "Get live system information including OS/kernel, uptime, load averages, CPU model & core counts, memory (used/total), swap, and disk usage. ALWAYS call this tool first when the user asks for system status, health, resources, performance, uptime, load, memory, disk, CPU, or metrics before attempting to summarize.",
 			Schema: map[string]any{
 				"type":       "object",
 				"properties": map[string]any{},
