@@ -124,6 +124,7 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 		scanner := bufio.NewScanner(resp.Body)
 		var contentBuilder strings.Builder
 		var toolCalls []ToolCall
+		var currentToolCall *ToolCall
 		inputTokens, outputTokens := 0, 0
 
 		for scanner.Scan() {
@@ -140,8 +141,9 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 			var event struct {
 				Type  string `json:"type"`
 				Delta struct {
-					Type string `json:"type"`
-					Text string `json:"text"`
+					Type           string          `json:"type"`
+					Text           string          `json:"text"`
+					PartialJson    string          `json:"partial_json"`
 				} `json:"delta"`
 				ContentBlock struct {
 					Type  string          `json:"type"`
@@ -164,14 +166,22 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 				if event.Delta.Type == "text_delta" && event.Delta.Text != "" {
 					contentBuilder.WriteString(event.Delta.Text)
 					out <- StreamChunk{ContentDelta: event.Delta.Text}
+				} else if event.Delta.Type == "input_json_delta" && currentToolCall != nil {
+					// Accumulate tool arguments from streaming deltas
+					currentToolCall.Arguments = append(currentToolCall.Arguments, []byte(event.Delta.PartialJson)...)
 				}
 			case "content_block_start":
 				if event.ContentBlock.Type == "tool_use" {
-					toolCalls = append(toolCalls, ToolCall{
+					currentToolCall = &ToolCall{
 						ID:        event.ContentBlock.ID,
 						Name:      event.ContentBlock.Name,
-						Arguments: event.ContentBlock.Input,
-					})
+						Arguments: json.RawMessage{}, // Start empty, will be filled by deltas
+					}
+				}
+			case "content_block_stop":
+				if currentToolCall != nil {
+					toolCalls = append(toolCalls, *currentToolCall)
+					currentToolCall = nil
 				}
 			case "message_delta":
 				if event.Usage.InputTokens > 0 {

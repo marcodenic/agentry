@@ -158,33 +158,24 @@ func New(client model.Client, modelName string, reg tool.Registry, mem memory.St
 }
 
 func (a *Agent) Spawn() *Agent {
-	// clone vars map to prevent parent/child accidental shared mutation
-	var clonedVars map[string]string
-	if a.Vars != nil {
-		clonedVars = make(map[string]string, len(a.Vars))
-		for k, v := range a.Vars {
-			clonedVars[k] = v
-		}
-	}
+	// Create completely independent spawned agent with fresh memory
+	// Do NOT inherit parent context to prevent exponential growth
 	spawned := &Agent{
 		ID:              uuid.New(),
-		Prompt:          a.Prompt, // inherit prompt
-		Vars:            clonedVars,
-		Tools:           a.Tools,
-		Mem:             memory.NewInMemory(),
-		Vector:          a.Vector, // share vector store intentionally (semantic memory)
+		Prompt:          "", // Will be set by role configuration, not inherited
+		Vars:            nil, // Fresh vars, no inheritance 
+		Tools:           a.Tools, // Tool registry can be shared
+		Mem:             memory.NewInMemory(), // Fresh memory - no inheritance
+		Vector:          memory.NewInMemoryVector(), // Fresh vector store - no shared state
 		Client:          a.Client,
 		ModelName:       a.ModelName,
 		Tracer:          a.Tracer,
 		Cost:            cost.New(a.Cost.BudgetTokens, a.Cost.BudgetDollars),
 		ErrorHandling:   DefaultErrorHandling(),
-		cachedToolNames: a.cachedToolNames, // reuse already computed list if present
+		cachedToolNames: nil, // Will be recomputed based on role's tools
 	}
-	debug.Printf("Agent.Spawn: Parent ID=%s, Spawned ID=%s", a.ID.String()[:8], spawned.ID.String()[:8])
-	debug.Printf("Agent.Spawn: Inherited prompt length=%d chars", len(spawned.Prompt))
-	if l := len(spawned.Prompt); l > 0 {
-		debug.Printf("Agent.Spawn: Inherited prompt preview: %s", spawned.Prompt[:min(100, l)])
-	}
+	debug.Printf("Agent.Spawn: Parent ID=%s, Spawned ID=%s (INDEPENDENT)", a.ID.String()[:8], spawned.ID.String()[:8])
+	debug.Printf("Agent.Spawn: Spawned agent has fresh memory and no inherited context")
 	return spawned
 }
 
