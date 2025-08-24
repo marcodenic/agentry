@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -20,4 +21,14 @@ func (m Model) statusBar() string {
 // completedStatusBar returns green horizontal bar for completed status updates
 func (m Model) completedStatusBar() string {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color("#32CD32")).Bold(true).Render("┃") // Green color
+}
+
+// createTokenProgressBar returns a progress bar configured for token usage.
+// Percentage text is rendered separately alongside the bar, so we disable it here.
+func createTokenProgressBar() progress.Model {
+	p := progress.New(
+		progress.WithDefaultGradient(),
+		progress.WithoutPercentage(),
+	)
+	return p
 }

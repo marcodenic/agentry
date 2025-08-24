@@ -22,6 +22,10 @@ func runPrompt(prompt string, args []string) {
 		prompt = prompt + " " + strings.Join(remainingArgs, " ")
 	}
 	
+	runPromptWithOpts(prompt, opts)
+}
+
+func runPromptWithOpts(prompt string, opts *commonOpts) {
 	cfg, err := config.Load(opts.configPath)
 	if err != nil {
 		fmt.Printf("failed to load config: %v\n", err)

@@ -19,64 +19,57 @@ func main() {
 		return
 	}
 
-	// Handle version flags first
+	// Handle version and help flags specially (before parsing)
 	if os.Args[1] == "--version" || os.Args[1] == "-v" {
 		fmt.Printf("agentry %s\n", agentry.Version)
 		return
 	}
-
-	// Handle help
 	if os.Args[1] == "help" || os.Args[1] == "-h" || os.Args[1] == "--help" {
 		showHelp()
 		return
 	}
 
-	// Determine the command (first non-flag argument or infer from context)
+	// Parse all arguments to separate global flags from command and its args
 	args := os.Args[1:]
+	opts, remainingArgs := parseCommon("agentry", args)
+	
+	// If no remaining args after flag parsing, start TUI
+	if len(remainingArgs) == 0 {
+		runTui(args) // Pass original args to TUI for its own parsing
+		return
+	}
+	
+	// Determine the command (first remaining argument or infer from context)  
 	var command string
 	var commandArgs []string
 	
-	// Find first non-flag argument to use as command
-	for i, arg := range args {
-		if !strings.HasPrefix(arg, "-") {
-			// Check if this looks like a known command
-			switch arg {
-			case "tui", "chat", "ask", "prompt", "refresh-models", "version":
-				command = arg
-				commandArgs = args[i+1:]
-			default:
-				// This is a direct prompt - everything from here is part of the prompt
-				command = "prompt-direct"
-				commandArgs = args[i:] // Include this arg and everything after
-			}
-			break
-		}
-	}
-	
-	// If we only found flags, default to TUI
-	if command == "" {
-		command = "tui"
-		commandArgs = args
+	// Check if first remaining arg is a known command
+	switch remainingArgs[0] {
+	case "chat", "ask", "prompt", "refresh-models", "version":
+		command = remainingArgs[0]
+		commandArgs = remainingArgs[1:]
+	default:
+		// This is a direct prompt - everything is part of the prompt
+		command = "prompt-direct"
+		commandArgs = remainingArgs
 	}
 
 	// Handle explicit commands
 	switch command {
-	case "tui":
-		runTui(commandArgs)
 	case "chat", "ask", "prompt":
 		if len(commandArgs) == 0 {
 			fmt.Println("Error: chat command requires a prompt")
 			fmt.Println("Usage: agentry chat \"your prompt here\"")
 			os.Exit(1)
 		}
-		runPrompt(strings.Join(commandArgs, " "), args[:len(args)-len(commandArgs)])
+		runPromptWithOpts(strings.Join(commandArgs, " "), opts)
 	case "refresh-models":
 		runRefreshModelsCmd(commandArgs)
 	case "version":
 		fmt.Printf("agentry %s\n", agentry.Version)
 	case "prompt-direct":
-		// Direct prompt with all arguments and flags
-		runPrompt(strings.Join(commandArgs, " "), args[:len(args)-len(commandArgs)])
+		// Direct prompt with all arguments
+		runPromptWithOpts(strings.Join(commandArgs, " "), opts)
 	default:
 		fmt.Printf("Error: Unknown command '%s'\n", command)
 		fmt.Println("Use 'agentry help' for usage information")
@@ -91,9 +84,8 @@ USAGE:
   agentry [command] [flags] [arguments]
 
 COMMANDS:
-  (no command)           Start TUI interface (default)
-  chat [prompt]          Interactive chat mode, optionally with initial prompt
-  tui                    Start TUI interface (same as no command)
+    (no command)           Start TUI interface (default)
+  chat <prompt>          Send a prompt to the AI assistant
   refresh-models         Update model pricing data
   help                   Show this help message
   
@@ -112,9 +104,9 @@ FLAGS:
   --resume-id ID         Load conversation state from this ID  
   --checkpoint-id ID     Checkpoint session ID
   --port PORT            HTTP server port
-  --disable-tools        Disable tool filtering entirely
-  --allow-tools TOOLS    Comma-separated list of additional tools to include
-  --deny-tools TOOLS     Comma-separated list of tools to exclude
+  --disable-tools        Disable tool filtering entirely (allow all tools)
+  --allow-tools TOOLS    Restrict to only specified tools (comma-separated)
+  --deny-tools TOOLS     Remove specific tools from available set (comma-separated)
   --disable-context      Disable context pipeline
   --audit-log PATH       Path to audit log file
 
@@ -124,8 +116,13 @@ EXAMPLES:
   agentry "complex prompt with & symbols"    # Quotes for special characters
   agentry chat hello there                   # Chat with initial prompt
   agentry --debug --theme dark analyze code # Debug mode with dark theme
-  agentry tui --resume-id my-session         # Resume TUI session
+  agentry --resume-id my-session             # Resume TUI session
   agentry refresh-models                     # Update model data
+  
+  Tool filtering examples:
+  agentry --allow-tools echo,ping chat "test"           # Only echo and ping tools
+  agentry --deny-tools bash,sh "safe operation"         # No shell access
+  agentry --disable-tools "unrestricted access"         # All tools available
 
 For more information, see PRODUCT.md or visit the project repository.
 `

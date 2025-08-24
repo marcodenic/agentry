@@ -105,17 +105,29 @@ This document tracks the comprehensive cleanup and simplification of the Agentry
 - [x] Add helper functions: `IsTraceEnabled()`, `IsContextDebugEnabled()`, `IsCommLogEnabled()`
 - [x] Update codebase to use new consolidated functions
 
-**Next: Tool Configuration Consolidation:**
-- [ ] Implement `AGENTRY_TOOL_CONFIG=disable_filter,allow:tool1,deny:tool2`
-- [ ] Replace `AGENTRY_DISABLE_TOOL_FILTER`, `AGENTRY_TOOL_ALLOW_EXTRA`, `AGENTRY_TOOL_DENY`
+**Tool Configuration Consolidation - COMPLETED:**
+- [x] Removed dead environment variables (`AGENTRY_DISABLE_TOOL_FILTER`, `AGENTRY_TOOL_ALLOW_EXTRA`, `AGENTRY_TOOL_DENY`)
+- [x] Kept functional CLI flags for testing/debugging (`--disable-tools`, `--allow-tools`, `--deny-tools`)
+- [x] Implemented proper tool filtering that works directly with config system
+- [x] Fixed flag parsing to work correctly with command structure
+- [x] Updated help text with clear descriptions and examples
+- [x] Updated PRODUCT.md to reflect the changes (marked env vars as deprecated)
+- [x] Verified functionality: `--allow-tools` restricts to specified tools, `--deny-tools` removes specific tools
 
 **Next: Context Limits Consolidation:**
-- [ ] Implement `AGENTRY_CONTEXT_LIMITS=agent0:8000,worker:4000`
-- [ ] Replace `AGENTRY_CTX_CAP_AGENT0` and `AGENTRY_CTX_CAP_WORKER`
+- [ ] Find and audit current context limit environment variables (`AGENTRY_CTX_CAP_AGENT0`, `AGENTRY_CTX_CAP_WORKER`)
+- [ ] Implement consolidated context configuration via config file or single env var
+- [ ] Remove individual context limit environment variables
+- [ ] Test context limiting functionality
 
-### **C. TUI Rendering Complexity Reduction**
+### **C. TUI Rendering Complexity Reduction** 🔄 **IN PROGRESS**
 
 **Current Issues:** 22+ TUI files with duplicate logic
+
+**File Consolidation Tasks - PARTIALLY COMPLETED:**
+- [x] Removed redundant TUI command from CLI (consolidated to default behavior)
+- [x] Consolidated memory display files (`memory_basic.go` + `memory_detailed.go` → `memory.go`)
+- [x] Removed `progress.go` and cleaned up `bars.go`
 
 **File Consolidation Tasks:**
 - [ ] Merge duplicate formatting functions in `format_text.go`
@@ -325,12 +337,12 @@ go vet ./...
 - Build system clean
 
 ### **Phase 2: System Simplification** 🔄 **IN PROGRESS**
-**Status:** 🔄 50% Complete  
+**Status:** 🔄 75% Complete  
 **Completed:**
 - ✅ Configuration system simplified (JSON removed, unused fields cleaned)
 - ✅ Debug flag consolidation (AGENTRY_DEBUG_LEVEL implemented)
+- ✅ Tool configuration consolidation (CLI flags working, dead env vars removed)
 **Remaining:**
-- ⏳ Tool configuration consolidation
 - ⏳ Context limits consolidation
 - ⏳ TUI complexity reduction
 

@@ -331,10 +331,10 @@ While flags are preferred, these environment variables are still supported:
 - `AGENTRY_MODELS_CACHE=/path/to/cache` - Model cache location
 - `AGENTRY_STORE_GC_SEC=3600` - Memory store garbage collection interval
 
-**Tool/Filter Controls:**
-- `AGENTRY_DISABLE_TOOL_FILTER=1` - Bypass tool filtering
-- `AGENTRY_TOOL_ALLOW_EXTRA=tool1,tool2` - Force-include specific tools
-- `AGENTRY_TOOL_DENY=tool1,tool2` - Exclude specific tools
+**Tool/Filter Controls (Deprecated - Use CLI flags instead):**
+- ~~`AGENTRY_DISABLE_TOOL_FILTER=1`~~ - Use `--disable-tools` flag
+- ~~`AGENTRY_TOOL_ALLOW_EXTRA=tool1,tool2`~~ - Use `--allow-tools` flag  
+- ~~`AGENTRY_TOOL_DENY=tool1,tool2`~~ - Use `--deny-tools` flag
 - `AGENTRY_DISABLE_CONTEXT=1` - Disable context pipeline
 
 **Context/Memory Tuning:**

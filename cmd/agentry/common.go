@@ -104,16 +104,61 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 		os.Setenv("AGENTRY_DEBUG", "1")
 	}
 
-	// Handle tool filtering flags
+	// Handle tool filtering flags by modifying config directly
 	if o.disableTools {
-		os.Setenv("AGENTRY_DISABLE_TOOL_FILTER", "1")
+		// Clear tool permissions to allow all tools
+		cfg.Permissions.Tools = nil
 	}
 	if o.allowTools != "" {
-		os.Setenv("AGENTRY_TOOL_ALLOW_EXTRA", o.allowTools)
+		// Replace tools list with only the specified tools (restrictive)
+		allowList := strings.Split(o.allowTools, ",")
+		allowSet := make(map[string]bool)
+		for _, tool := range allowList {
+			allowSet[strings.TrimSpace(tool)] = true
+		}
+		
+		// Filter tools to only include allowed ones
+		var filteredTools []config.ToolManifest
+		for _, tool := range cfg.Tools {
+			if allowSet[tool.Name] {
+				filteredTools = append(filteredTools, tool)
+			}
+		}
+		cfg.Tools = filteredTools
+		
+		// Also set permissions to the allow list
+		cfg.Permissions.Tools = allowList
 	}
 	if o.denyTools != "" {
-		os.Setenv("AGENTRY_TOOL_DENY", o.denyTools)
+		// Remove specified tools from config
+		denyList := strings.Split(o.denyTools, ",")
+		denySet := make(map[string]bool)
+		for _, tool := range denyList {
+			denySet[strings.TrimSpace(tool)] = true
+		}
+		
+		// Filter out denied tools from the tools list
+		var filteredTools []config.ToolManifest
+		for _, tool := range cfg.Tools {
+			if !denySet[tool.Name] {
+				filteredTools = append(filteredTools, tool)
+			}
+		}
+		cfg.Tools = filteredTools
+		
+		// Also remove from permissions if present
+		if cfg.Permissions.Tools != nil {
+			var filteredPerms []string
+			for _, tool := range cfg.Permissions.Tools {
+				if !denySet[tool] {
+					filteredPerms = append(filteredPerms, tool)
+				}
+			}
+			cfg.Permissions.Tools = filteredPerms
+		}
 	}
+
+	// Handle context and audit flags
 	if o.disableContext {
 		os.Setenv("AGENTRY_DISABLE_CONTEXT", "1")
 	}
