@@ -240,44 +240,125 @@ Deterministic, budget-aware assembly.
 
 ## CLI Usage
 
+Agentry has been simplified to focus on core functionality. The CLI supports four main commands:
+
+### Primary Usage
+
 ```bash
-# Start TUI (default)
-agentry
-agentry tui
+# Direct prompt execution (Agent 0 responds directly)
+# Quotes are optional for simple prompts:
+agentry hello there
+agentry fix the failing tests
+agentry implement a health check endpoint
 
-# Direct prompt
-agentry "Implement health endpoint and tests based on PROJECT.md"
+# Use quotes when you need special characters or want to be explicit:
+agentry "analyze the codebase structure & suggest improvements"
+agentry "implement user auth with JWT tokens"
 
-# Utilities
-agentry analyze <trace-file>        # Trace analysis
-agentry refresh-models              # Update model pricing table
-agentry invoke ...                  # One-shot JSON call
-agentry team ...                    # Team/agents ops
-agentry memory ...                  # SharedStore ops
-agentry cost                        # Summarize cost from recent traces
-agentry version
-agentry help
-
-# Deprecated (warns; will be removed)
+# Interactive chat mode
 agentry chat
-agentry dev
+agentry chat start with analyzing the code
+
+# Start TUI interface (full interactive mode)
+agentry tui
+agentry tui --config custom.yaml
+
+# Update model pricing data
+agentry refresh-models
+
+# Show help
+agentry help
 ```
 
-**Common flags (TUI):**
+### Common Flags
 
-```
---config path/to/.agentry.yaml
---theme dark
---save-id session1
---resume-id session1
+All commands support these flags:
+
+```bash
+--config path/to/.agentry.yaml    # Config file path
+--theme dark|light|auto           # Theme override  
+--debug                          # Enable debug output
+--keybinds path/to/keybinds.json # Custom keybindings
+--creds path/to/creds.json       # Credentials file
+--mcp server1,server2            # MCP servers list
+--save-id session1               # Save conversation state
+--resume-id session1             # Resume from saved state
+--checkpoint-id ckpt1            # Checkpoint session ID
+--port 8080                      # HTTP server port
 ```
 
-**Debug:**
+### Examples
 
+```bash
+# Simple tasks (no quotes needed!)
+agentry list all TODO comments in the codebase
+agentry fix the failing tests
+agentry add error handling to the auth module
+
+# With flags for debugging
+agentry --debug analyze the codebase structure
+
+# Chat with custom config and theme
+agentry chat --config dev.yaml --theme dark help me understand this error
+
+# TUI with session resumption
+agentry tui --resume-id my-session --theme light
+
+# Complex prompts (quotes recommended for special characters)
+agentry "implement user auth with JWT tokens & refresh logic"
+agentry "analyze performance bottlenecks using profiling data"
+
+# Update models and start fresh session
+agentry refresh-models
+agentry chat --save-id fresh-start
 ```
-AGENTRY_DEBUG=1 agentry "test prompt"   # detailed stderr logs
-AGENTRY_DEBUG=1 agentry                  # TUI logs redirected to file
+
+### Environment Variables (Alternative Configuration)
+
+While flags are preferred, these environment variables are still supported:
+
+**Core Settings:**
+- `AGENTRY_DEBUG=1` - Enable debug output (use `--debug` flag instead)
+- `AGENTRY_THEME=dark` - Set theme (use `--theme` flag instead)
+- `AGENTRY_ENV_FILE=/path/to/.env` - Load environment from file
+
+**Advanced/Internal Settings:**
+- `AGENTRY_TUI_MODE=1` - Internal flag (set automatically)
+- `AGENTRY_DEFAULT_PROMPT="..."` - Default prompt override
+- `AGENTRY_AUDIT_LOG=/path/to/audit.log` - Audit logging
+- `AGENTRY_HISTORY_LIMIT=100` - Chat history limit
+- `AGENTRY_DELEGATION_TIMEOUT=300` - Agent delegation timeout
+- `AGENTRY_MODELS_CACHE=/path/to/cache` - Model cache location
+- `AGENTRY_STORE_GC_SEC=3600` - Memory store garbage collection interval
+
+**Tool/Filter Controls:**
+- `AGENTRY_DISABLE_TOOL_FILTER=1` - Bypass tool filtering
+- `AGENTRY_TOOL_ALLOW_EXTRA=tool1,tool2` - Force-include specific tools
+- `AGENTRY_TOOL_DENY=tool1,tool2` - Exclude specific tools
+- `AGENTRY_DISABLE_CONTEXT=1` - Disable context pipeline
+
+**Context/Memory Tuning:**
+- `AGENTRY_CTX_CAP_AGENT0=8000` - Context limit for Agent 0
+- `AGENTRY_CTX_CAP_WORKER=4000` - Context limit for worker agents
+
+**Logging/Communication:**
+- `AGENTRY_COMM_LOG=1` - Enable communication logging
+- `AGENTRY_COLLECTOR=...` - Telemetry collector endpoint
+- `AGENTRY_PORT=8080` - HTTP server port (use `--port` flag instead)
+
+### Migration from Environment Variables
+
+Many environment variables can be replaced with cleaner CLI flags:
+
+```bash
+# Old way
+AGENTRY_DEBUG=1 AGENTRY_THEME=dark agentry "task"
+
+# New way  
+agentry --debug --theme dark "task"
 ```
+
+For advanced users who need environment variable control for automation or CI/CD, they remain supported, but flags are recommended for interactive use.
 
 ---
 

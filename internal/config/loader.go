@@ -1,8 +1,6 @@
 package config
 
 import (
-	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -10,100 +8,78 @@ import (
 )
 
 type ToolManifest struct {
-	Name        string          `yaml:"name" json:"name"`
-	Description string          `yaml:"description" json:"description"`
-	Type        string          `yaml:"type,omitempty" json:"type,omitempty"`
-	Command     string          `yaml:"command,omitempty" json:"command,omitempty"`
-	HTTP        string          `yaml:"http,omitempty" json:"http,omitempty"`
-	Args        map[string]any  `yaml:"args,omitempty" json:"args,omitempty"`
-	Privileged  bool            `yaml:"privileged,omitempty" json:"privileged,omitempty"`
-	Net         string          `yaml:"net,omitempty" json:"net,omitempty"`
-	CPULimit    string          `yaml:"cpu_limit,omitempty" json:"cpu_limit,omitempty"`
-	MemLimit    string          `yaml:"mem_limit,omitempty" json:"mem_limit,omitempty"`
-	Engine      string          `yaml:"engine,omitempty" json:"engine,omitempty"`
-	Permissions ToolPermissions `yaml:"permissions,omitempty" json:"permissions,omitempty"`
+	Name        string          `yaml:"name"`
+	Description string          `yaml:"description"`
+	Type        string          `yaml:"type,omitempty"`
+	Command     string          `yaml:"command,omitempty"`
+	HTTP        string          `yaml:"http,omitempty"`
+	Args        map[string]any  `yaml:"args,omitempty"`
+	Privileged  bool            `yaml:"privileged,omitempty"`
+	Net         string          `yaml:"net,omitempty"`
+	CPULimit    string          `yaml:"cpu_limit,omitempty"`
+	MemLimit    string          `yaml:"mem_limit,omitempty"`
+	Engine      string          `yaml:"engine,omitempty"`
+	Permissions ToolPermissions `yaml:"permissions,omitempty"`
 }
 
 type ToolPermissions struct {
-	Allow *bool `yaml:"allow" json:"allow"`
+	Allow *bool `yaml:"allow"`
 }
 
 type ModelManifest struct {
-	Name     string            `yaml:"name" json:"name"`
-	Provider string            `yaml:"provider" json:"provider"`
-	Options  map[string]string `yaml:"options,omitempty" json:"options,omitempty"`
-}
-
-type RouteRule struct {
-	IfContains []string `yaml:"if_contains" json:"if_contains"`
-	Model      string   `yaml:"model" json:"model"`
+	Name     string            `yaml:"name"`
+	Provider string            `yaml:"provider"`
+	Options  map[string]string `yaml:"options,omitempty"`
 }
 
 // VectorManifest describes a VectorStore backend.
 type VectorManifest struct {
-	Type       string `yaml:"type" json:"type"`
-	URL        string `yaml:"url" json:"url"`
-	Collection string `yaml:"collection,omitempty" json:"collection,omitempty"`
+	Type       string `yaml:"type"`
+	URL        string `yaml:"url"`
+	Collection string `yaml:"collection,omitempty"`
 }
 
 type File struct {
-	Models            []ModelManifest              `yaml:"models" json:"models"`
-	Routes            []RouteRule                  `yaml:"routes" json:"routes"`
-	Tools             []ToolManifest               `yaml:"tools" json:"tools"`
-	Include           []string                     `yaml:"include" json:"include"` // Add include support for role files
-	Memory            string                       `yaml:"memory" json:"memory"`
-	Store             string                       `yaml:"store" json:"store"`
-	SessionTTL        string                       `yaml:"session_ttl" json:"session_ttl"`
-	SessionGCInterval string                       `yaml:"session_gc_interval" json:"session_gc_interval"`
-	Vector            VectorManifest               `yaml:"vector_store" json:"vector_store"`
-	Theme             string                       `yaml:"theme" json:"theme"`
-	Themes            map[string]string            `yaml:"themes" json:"themes"`
-	Keybinds          map[string]string            `yaml:"keybinds" json:"keybinds"`
-	Credentials       map[string]map[string]string `yaml:"credentials" json:"credentials"`
-	MCPServers        map[string]string            `yaml:"mcp_servers" json:"mcp_servers"`
-	Collector         string                       `yaml:"collector" json:"collector"`
-	Port              string                       `yaml:"port" json:"port"`
-	Sandbox           Sandbox                      `yaml:"sandbox" json:"sandbox"`
-	Permissions       Permissions                  `yaml:"permissions" json:"permissions"`
-	Budget            Budget                       `yaml:"budget" json:"budget"`
+	Models      []ModelManifest              `yaml:"models"`
+	Tools       []ToolManifest               `yaml:"tools"`
+	Include     []string                     `yaml:"include"` // Add include support for role files
+	Memory      string                       `yaml:"memory"`
+	Store       string                       `yaml:"store"`
+	Vector      VectorManifest               `yaml:"vector_store"`
+	Theme       string                       `yaml:"theme"`
+	Themes      map[string]string            `yaml:"themes"`
+	Keybinds    map[string]string            `yaml:"keybinds"`
+	Credentials map[string]map[string]string `yaml:"credentials"`
+	MCPServers  map[string]string            `yaml:"mcp_servers"`
+	Collector   string                       `yaml:"collector"`
+	Port        string                       `yaml:"port"`
+	Sandbox     Sandbox                      `yaml:"sandbox"`
+	Permissions Permissions                  `yaml:"permissions"`
+	Budget      Budget                       `yaml:"budget"`
 }
 
 type Sandbox struct {
-	Engine string `yaml:"engine" json:"engine"`
+	Engine string `yaml:"engine"`
 }
 
 type Permissions struct {
-	Tools []string `yaml:"tools" json:"tools"`
+	Tools []string `yaml:"tools"`
 }
 
 type Budget struct {
-	Tokens  int     `yaml:"tokens" json:"tokens"`
-	Dollars float64 `yaml:"dollars" json:"dollars"`
+	Tokens  int     `yaml:"tokens"`
+	Dollars float64 `yaml:"dollars"`
 }
 
 // Validate performs basic sanity checks on the loaded configuration.
 func (f *File) Validate() error {
-	for _, r := range f.Routes {
-		found := false
-		for _, m := range f.Models {
-			if m.Name == r.Model {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return fmt.Errorf("model %s referenced in routes not defined", r.Model)
-		}
-	}
+	// No validation needed currently - models and tools are validated separately
 	return nil
 }
 
 func merge(dst *File, src File) {
 	if len(src.Models) > 0 {
 		dst.Models = src.Models
-	}
-	if len(src.Routes) > 0 {
-		dst.Routes = src.Routes
 	}
 	if len(src.Tools) > 0 {
 		dst.Tools = src.Tools
@@ -116,12 +92,6 @@ func merge(dst *File, src File) {
 	}
 	if src.Store != "" {
 		dst.Store = src.Store
-	}
-	if src.SessionTTL != "" {
-		dst.SessionTTL = src.SessionTTL
-	}
-	if src.SessionGCInterval != "" {
-		dst.SessionGCInterval = src.SessionGCInterval
 	}
 	if src.Vector.Type != "" {
 		dst.Vector = src.Vector
@@ -159,7 +129,6 @@ func merge(dst *File, src File) {
 	if src.Port != "" {
 		dst.Port = src.Port
 	}
-	// MaxIterations removed: agent runs until completion
 	if src.Sandbox.Engine != "" {
 		dst.Sandbox = src.Sandbox
 	}
@@ -174,6 +143,7 @@ func merge(dst *File, src File) {
 func Load(path string) (*File, error) {
 	var out File
 
+	// Load global config from user config directory if it exists
 	configHome := os.Getenv("AGENTRY_CONFIG_HOME")
 	if configHome == "" {
 		if home, err := os.UserHomeDir(); err == nil {
@@ -181,26 +151,28 @@ func Load(path string) (*File, error) {
 		}
 	}
 	if configHome != "" {
-		p := filepath.Join(configHome, "config.json")
-		if b, err := os.ReadFile(p); err == nil {
+		globalConfigPath := filepath.Join(configHome, "config.yaml")
+		if b, err := os.ReadFile(globalConfigPath); err == nil {
 			var f File
-			if json.Unmarshal(b, &f) == nil {
+			if yaml.Unmarshal(b, &f) == nil {
 				merge(&out, f)
 			}
 		}
 	}
 
+	// Load project-level config if it exists
 	projDir := filepath.Dir(path)
 	if projDir == "." || projDir == "" {
 		projDir, _ = os.Getwd()
 	}
-	if b, err := os.ReadFile(filepath.Join(projDir, "agentry.json")); err == nil {
+	if b, err := os.ReadFile(filepath.Join(projDir, "agentry.yaml")); err == nil {
 		var f File
-		if json.Unmarshal(b, &f) == nil {
+		if yaml.Unmarshal(b, &f) == nil {
 			merge(&out, f)
 		}
 	}
 
+	// Load the main config file
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -210,12 +182,14 @@ func Load(path string) (*File, error) {
 		return nil, err
 	}
 	merge(&out, yamlFile)
+
+	// Apply environment variable overrides
 	if v := os.Getenv("AGENTRY_COLLECTOR"); v != "" {
 		out.Collector = v
 	}
 	if v := os.Getenv("AGENTRY_PORT"); v != "" {
 		out.Port = v
 	}
-	// AGENTRY_MAX_ITER removed: agent runs until completion
+
 	return &out, nil
 }

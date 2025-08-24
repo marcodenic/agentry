@@ -13,14 +13,15 @@ import (
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
-func runPrompt(cmd string, args []string) {
-	// Use "agentry" as the flag set name for runPrompt, not the prompt text
+func runPrompt(prompt string, args []string) {
+	// Parse any flags that might be passed with the prompt
 	opts, remainingArgs := parseCommon("agentry", args)
-	// The actual prompt is the cmd + any remaining args after flag parsing
-	prompt := cmd
+	
+	// If there are remaining args, append them to the prompt
 	if len(remainingArgs) > 0 {
-		prompt = cmd + " " + strings.Join(remainingArgs, " ")
+		prompt = prompt + " " + strings.Join(remainingArgs, " ")
 	}
+	
 	cfg, err := config.Load(opts.configPath)
 	if err != nil {
 		fmt.Printf("failed to load config: %v\n", err)

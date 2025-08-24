@@ -17,6 +17,7 @@ import (
 
 	"github.com/marcodenic/agentry/internal/contracts"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/memstore"
 	"github.com/marcodenic/agentry/internal/tokens"
@@ -759,7 +760,7 @@ func (t *Team) GetTeamAgents() []*Agent {
 // logToFile logs the message to a file (only if not in TUI mode)
 func logToFile(message string) {
 	// Only log if explicitly enabled (reduces repo noise & accidental commits)
-	if os.Getenv("AGENTRY_COMM_LOG") != "1" {
+	if !debug.IsCommLogEnabled() {
 		return
 	}
 	if os.Getenv("AGENTRY_TUI_MODE") == "1" {

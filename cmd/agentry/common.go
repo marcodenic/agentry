@@ -12,16 +12,21 @@ import (
 )
 
 type commonOpts struct {
-	configPath   string
-	theme        string
-	keybindsPath string
-	credsPath    string
-	mcpFlag      string
-	saveID       string
-	resumeID     string
-	ckptID       string
-	port         string
-	debug        bool
+	configPath      string
+	theme           string
+	keybindsPath    string
+	credsPath       string
+	mcpFlag         string
+	saveID          string
+	resumeID        string
+	ckptID          string
+	port            string
+	debug           bool
+	disableTools    bool
+	allowTools      string
+	denyTools       string
+	disableContext  bool
+	auditLog        string
 }
 
 func parseCommon(name string, args []string) (*commonOpts, []string) {
@@ -37,6 +42,11 @@ func parseCommon(name string, args []string) (*commonOpts, []string) {
 	fs.StringVar(&opts.ckptID, "checkpoint-id", "", "checkpoint session id")
 	fs.StringVar(&opts.port, "port", "", "HTTP server port")
 	fs.BoolVar(&opts.debug, "debug", false, "enable debug output")
+	fs.BoolVar(&opts.disableTools, "disable-tools", false, "disable tool filtering entirely")
+	fs.StringVar(&opts.allowTools, "allow-tools", "", "comma-separated list of additional tools to include")
+	fs.StringVar(&opts.denyTools, "deny-tools", "", "comma-separated list of tools to exclude")
+	fs.BoolVar(&opts.disableContext, "disable-context", false, "disable context pipeline")
+	fs.StringVar(&opts.auditLog, "audit-log", "", "path to audit log file")
 	// max-iter removed: agents run until completion
 	_ = fs.Parse(args)
 
@@ -92,6 +102,23 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 	// Handle debug flag by setting environment variable
 	if o.debug {
 		os.Setenv("AGENTRY_DEBUG", "1")
+	}
+
+	// Handle tool filtering flags
+	if o.disableTools {
+		os.Setenv("AGENTRY_DISABLE_TOOL_FILTER", "1")
+	}
+	if o.allowTools != "" {
+		os.Setenv("AGENTRY_TOOL_ALLOW_EXTRA", o.allowTools)
+	}
+	if o.denyTools != "" {
+		os.Setenv("AGENTRY_TOOL_DENY", o.denyTools)
+	}
+	if o.disableContext {
+		os.Setenv("AGENTRY_DISABLE_CONTEXT", "1")
+	}
+	if o.auditLog != "" {
+		os.Setenv("AGENTRY_AUDIT_LOG", o.auditLog)
 	}
 
 	if o.theme != "" {

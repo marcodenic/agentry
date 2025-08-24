@@ -83,7 +83,7 @@ func (b Budget) Apply(msgs []model.ChatMessage) []model.ChatMessage {
 	msgs = append([]model.ChatMessage{systemMsg}, append(newMid, userMsg)...)
 	debug.Printf("Context trimmed: finalTokens≈%d removedMessages=%d", totalTokens, idx)
 
-	if env.Bool("AGENTRY_DEBUG_CONTEXT", false) {
+	if debug.IsContextDebugEnabled() {
 		var sb strings.Builder
 		sb.WriteString("[CONTEXT BREAKDOWN]\n")
 		for i, m := range msgs {

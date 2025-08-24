@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	agentry "github.com/marcodenic/agentry/internal"
 	"github.com/marcodenic/agentry/internal/cost"
@@ -11,70 +12,124 @@ import (
 
 func main() {
 	env.Load()
+	
+	// If no arguments, start TUI
 	if len(os.Args) < 2 {
 		runTui([]string{})
 		return
 	}
-	cmd := os.Args[1]
-	args := os.Args[2:]
 
 	// Handle version flags first
-	if cmd == "--version" || cmd == "-v" {
+	if os.Args[1] == "--version" || os.Args[1] == "-v" {
 		fmt.Printf("agentry %s\n", agentry.Version)
 		return
 	}
 
-	switch cmd {
+	// Handle help
+	if os.Args[1] == "help" || os.Args[1] == "-h" || os.Args[1] == "--help" {
+		showHelp()
+		return
+	}
+
+	// Determine the command (first non-flag argument or infer from context)
+	args := os.Args[1:]
+	var command string
+	var commandArgs []string
+	
+	// Find first non-flag argument to use as command
+	for i, arg := range args {
+		if !strings.HasPrefix(arg, "-") {
+			// Check if this looks like a known command
+			switch arg {
+			case "tui", "chat", "ask", "prompt", "refresh-models", "version":
+				command = arg
+				commandArgs = args[i+1:]
+			default:
+				// This is a direct prompt - everything from here is part of the prompt
+				command = "prompt-direct"
+				commandArgs = args[i:] // Include this arg and everything after
+			}
+			break
+		}
+	}
+	
+	// If we only found flags, default to TUI
+	if command == "" {
+		command = "tui"
+		commandArgs = args
+	}
+
+	// Handle explicit commands
+	switch command {
+	case "tui":
+		runTui(commandArgs)
+	case "chat", "ask", "prompt":
+		if len(commandArgs) == 0 {
+			fmt.Println("Error: chat command requires a prompt")
+			fmt.Println("Usage: agentry chat \"your prompt here\"")
+			os.Exit(1)
+		}
+		runPrompt(strings.Join(commandArgs, " "), args[:len(args)-len(commandArgs)])
 	case "refresh-models":
-		runRefreshModelsCmd(args)
+		runRefreshModelsCmd(commandArgs)
 	case "version":
 		fmt.Printf("agentry %s\n", agentry.Version)
-	case "help", "-h", "--help":
-		showHelp()
+	case "prompt-direct":
+		// Direct prompt with all arguments and flags
+		runPrompt(strings.Join(commandArgs, " "), args[:len(args)-len(commandArgs)])
 	default:
-		// Everything else is either TUI with flags or a direct prompt
-		runPrompt(cmd, args)
+		fmt.Printf("Error: Unknown command '%s'\n", command)
+		fmt.Println("Use 'agentry help' for usage information")
+		os.Exit(1)
 	}
 }
 
 func showHelp() {
-	fmt.Printf(`agentry - AI Agent Coordination Platform
+	helpText := `Agentry - Multi-agent orchestrator for development tasks
 
-Usage:
-	agentry [flags]           Start TUI (Terminal UI)
-	agentry "prompt text"     Execute prompt directly
+USAGE:
+  agentry [command] [flags] [arguments]
 
-Commands:
-	refresh-models    Download and cache latest model pricing from models.dev
-	version           Show version
-	help              Show this help
+COMMANDS:
+  (no command)           Start TUI interface (default)
+  chat [prompt]          Interactive chat mode, optionally with initial prompt
+  tui                    Start TUI interface (same as no command)
+  refresh-models         Update model pricing data
+  help                   Show this help message
+  
+  Direct prompt execution:
+  agentry "quoted prompt"    Execute prompt directly with Agent 0
+  agentry unquoted prompt    No quotes needed for simple prompts
 
-Direct Prompt:
-	agentry "create a hello world"      # Execute prompt directly
-	agentry "fix the bug in main.go"    # Direct task execution
+FLAGS:
+  --config PATH          Path to .agentry.yaml config file
+  --theme THEME          Theme override (dark|light|auto)  
+  --debug                Enable debug output
+  --keybinds PATH        Path to custom keybindings JSON file
+  --creds PATH           Path to credentials JSON file
+  --mcp SERVERS          Comma-separated MCP server list
+  --save-id ID           Save conversation state to this ID
+  --resume-id ID         Load conversation state from this ID  
+  --checkpoint-id ID     Checkpoint session ID
+  --port PORT            HTTP server port
+  --disable-tools        Disable tool filtering entirely
+  --allow-tools TOOLS    Comma-separated list of additional tools to include
+  --deny-tools TOOLS     Comma-separated list of tools to exclude
+  --disable-context      Disable context pipeline
+  --audit-log PATH       Path to audit log file
 
-TUI Options:
-	--config PATH     Path to config file (.agentry.yaml)
-	--theme NAME      Theme override (dark, light, etc.)
-	--save-id ID      Save conversation state to this ID
-	--resume-id ID    Load conversation state from this ID
-	--debug           Enable debug output
+EXAMPLES:
+  agentry                                    # Start TUI
+  agentry fix the auth tests                 # Direct prompt (no quotes needed)
+  agentry "complex prompt with & symbols"    # Quotes for special characters
+  agentry chat hello there                   # Chat with initial prompt
+  agentry --debug --theme dark analyze code # Debug mode with dark theme
+  agentry tui --resume-id my-session         # Resume TUI session
+  agentry refresh-models                     # Update model data
 
-Debug Mode:
-	AGENTRY_DEBUG=1 ./agentry "prompt"  # Enable debug output
-	AGENTRY_DEBUG=1 ./agentry           # Debug TUI (logs to file)
-
-Examples:
-	agentry                              # Start TUI (default)
-	agentry "write a README file"        # Direct prompt execution
-	agentry --debug "test the code"      # Direct prompt with debug output
-	agentry refresh-models               # Update model pricing
-
-Notes:
-	- Agent 0 automatically delegates to specialized agents through the 'agent' tool
-	- All multi-agent coordination happens through delegation, not separate commands
-	- Use --debug for detailed execution traces and diagnostics
-`)
+For more information, see PRODUCT.md or visit the project repository.
+`
+	fmt.Print(helpText)
 }
 
 // Stub implementation for optional command if not present in this build.
