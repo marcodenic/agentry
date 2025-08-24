@@ -14,7 +14,6 @@ import (
 	"sync"
 
 	"github.com/marcodenic/agentry/internal/config"
-	"github.com/marcodenic/agentry/internal/sbox"
 )
 
 // runtime import kept for platform-specific code elsewhere in package; no local vars needed here.
@@ -164,12 +163,7 @@ func FromManifest(m config.ToolManifest) (Tool, error) {
 	if m.Command != "" {
 		tl := NewWithSchema(m.Name, m.Description, map[string]any{"type": "object", "properties": map[string]any{}}, func(ctx context.Context, args map[string]any) (string, error) {
 			if !m.Privileged {
-				return ExecSandbox(ctx, m.Command, sbox.Options{
-					Engine:   m.Engine,
-					Net:      m.Net,
-					CPULimit: m.CPULimit,
-					MemLimit: m.MemLimit,
-				})
+				return ExecDirect(ctx, m.Command)
 			}
 			var cmd *exec.Cmd
 			if runtime.GOOS == "windows" {

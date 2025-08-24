@@ -16,27 +16,22 @@ type mockAgent0Client struct {
 	callCount int
 }
 
-func (m *mockAgent0Client) Complete(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (model.Completion, error) {
-	m.callCount++
-
-	if m.callCount == 1 {
-		// First call - return a tool call to spawn a coder agent
-		return model.Completion{
-			Content: "I'll spawn a coder agent to help you with this task.",
-			ToolCalls: []model.ToolCall{
-				{
-					ID:        "call_123",
-					Name:      "agent",
-					Arguments: []byte(`{"agent": "coder", "input": "help with Python project"}`),
-				},
-			},
-		}, nil
-	} else {
-		// After tool call, return final response
-		return model.Completion{
-			Content: "I've successfully delegated the Python project task to a coder agent. The coder agent will help you with your Python development needs.",
-		}, nil
-	}
+func (m *mockAgent0Client) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
+	ch := make(chan model.StreamChunk, 1)
+	go func() {
+		defer close(ch)
+		m.callCount++
+		if m.callCount == 1 {
+			ch <- model.StreamChunk{
+				ContentDelta: "I'll spawn a coder agent to help you with this task.",
+				ToolCalls:    []model.ToolCall{{ID: "call_123", Name: "agent", Arguments: []byte(`{"agent": "coder", "input": "help with Python project"}`)}},
+				Done:         true,
+			}
+			return
+		}
+		ch <- model.StreamChunk{ContentDelta: "I've successfully delegated the Python project task to a coder agent. The coder agent will help you with your Python development needs.", Done: true}
+	}()
+	return ch, nil
 }
 
 func TestAgent0DebugOutput(t *testing.T) {

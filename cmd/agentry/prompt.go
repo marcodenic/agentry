@@ -13,28 +13,19 @@ import (
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
-func runAnalyzeCmd(args []string) {
-	if len(args) < 1 {
-		fmt.Println("usage: agentry analyze trace.log")
-		return
+func runPrompt(prompt string, args []string) {
+	// Parse any flags that might be passed with the prompt
+	opts, remainingArgs := parseCommon("agentry", args)
+	
+	// If there are remaining args, append them to the prompt
+	if len(remainingArgs) > 0 {
+		prompt = prompt + " " + strings.Join(remainingArgs, " ")
 	}
-	sum, err := trace.AnalyzeFile(args[0])
-	if err != nil {
-		fmt.Println("analyze error:", err)
-		os.Exit(1)
-	}
-	fmt.Printf("input tokens: %d, output tokens: %d, total tokens: %d, cost: $%.6f\n",
-		sum.InputTokens, sum.OutputTokens, sum.TotalTokens, sum.Cost)
+	
+	runPromptWithOpts(prompt, opts)
 }
 
-func runPrompt(cmd string, args []string) {
-	// Use "agentry" as the flag set name for runPrompt, not the prompt text
-	opts, remainingArgs := parseCommon("agentry", args)
-	// The actual prompt is the cmd + any remaining args after flag parsing
-	prompt := cmd
-	if len(remainingArgs) > 0 {
-		prompt = cmd + " " + strings.Join(remainingArgs, " ")
-	}
+func runPromptWithOpts(prompt string, opts *commonOpts) {
 	cfg, err := config.Load(opts.configPath)
 	if err != nil {
 		fmt.Printf("failed to load config: %v\n", err)

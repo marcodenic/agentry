@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -13,16 +12,21 @@ import (
 )
 
 type commonOpts struct {
-	configPath   string
-	theme        string
-	keybindsPath string
-	credsPath    string
-	mcpFlag      string
-	saveID       string
-	resumeID     string
-	ckptID       string
-	port         string
-	debug        bool
+	configPath      string
+	theme           string
+	keybindsPath    string
+	credsPath       string
+	mcpFlag         string
+	saveID          string
+	resumeID        string
+	ckptID          string
+	port            string
+	debug           bool
+	disableTools    bool
+	allowTools      string
+	denyTools       string
+	disableContext  bool
+	auditLog        string
 }
 
 func parseCommon(name string, args []string) (*commonOpts, []string) {
@@ -38,6 +42,11 @@ func parseCommon(name string, args []string) (*commonOpts, []string) {
 	fs.StringVar(&opts.ckptID, "checkpoint-id", "", "checkpoint session id")
 	fs.StringVar(&opts.port, "port", "", "HTTP server port")
 	fs.BoolVar(&opts.debug, "debug", false, "enable debug output")
+	fs.BoolVar(&opts.disableTools, "disable-tools", false, "disable tool filtering entirely")
+	fs.StringVar(&opts.allowTools, "allow-tools", "", "comma-separated list of additional tools to include")
+	fs.StringVar(&opts.denyTools, "deny-tools", "", "comma-separated list of tools to exclude")
+	fs.BoolVar(&opts.disableContext, "disable-context", false, "disable context pipeline")
+	fs.StringVar(&opts.auditLog, "audit-log", "", "path to audit log file")
 	// max-iter removed: agents run until completion
 	_ = fs.Parse(args)
 
@@ -95,6 +104,68 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 		os.Setenv("AGENTRY_DEBUG", "1")
 	}
 
+	// Handle tool filtering flags by modifying config directly
+	if o.disableTools {
+		// Clear tool permissions to allow all tools
+		cfg.Permissions.Tools = nil
+	}
+	if o.allowTools != "" {
+		// Replace tools list with only the specified tools (restrictive)
+		allowList := strings.Split(o.allowTools, ",")
+		allowSet := make(map[string]bool)
+		for _, tool := range allowList {
+			allowSet[strings.TrimSpace(tool)] = true
+		}
+		
+		// Filter tools to only include allowed ones
+		var filteredTools []config.ToolManifest
+		for _, tool := range cfg.Tools {
+			if allowSet[tool.Name] {
+				filteredTools = append(filteredTools, tool)
+			}
+		}
+		cfg.Tools = filteredTools
+		
+		// Also set permissions to the allow list
+		cfg.Permissions.Tools = allowList
+	}
+	if o.denyTools != "" {
+		// Remove specified tools from config
+		denyList := strings.Split(o.denyTools, ",")
+		denySet := make(map[string]bool)
+		for _, tool := range denyList {
+			denySet[strings.TrimSpace(tool)] = true
+		}
+		
+		// Filter out denied tools from the tools list
+		var filteredTools []config.ToolManifest
+		for _, tool := range cfg.Tools {
+			if !denySet[tool.Name] {
+				filteredTools = append(filteredTools, tool)
+			}
+		}
+		cfg.Tools = filteredTools
+		
+		// Also remove from permissions if present
+		if cfg.Permissions.Tools != nil {
+			var filteredPerms []string
+			for _, tool := range cfg.Permissions.Tools {
+				if !denySet[tool] {
+					filteredPerms = append(filteredPerms, tool)
+				}
+			}
+			cfg.Permissions.Tools = filteredPerms
+		}
+	}
+
+	// Handle context and audit flags
+	if o.disableContext {
+		os.Setenv("AGENTRY_DISABLE_CONTEXT", "1")
+	}
+	if o.auditLog != "" {
+		os.Setenv("AGENTRY_AUDIT_LOG", o.auditLog)
+	}
+
 	if o.theme != "" {
 		if cfg.Themes == nil {
 			cfg.Themes = map[string]string{}
@@ -125,16 +196,3 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 		}
 	}
 }
-
-// emitJSON outputs a JSON response to stdout
-func emitJSON(data any) {
-	b, err := json.Marshal(data)
-	if err != nil {
-		fmt.Printf(`{"ok": false, "error": "json marshal failed: %v"}`, err)
-		return
-	}
-	fmt.Println(string(b))
-}
-
-// osBackgroundContext provides a cancellable background context.
-func osBackgroundContext() context.Context { return context.Background() }

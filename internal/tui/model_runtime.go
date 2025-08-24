@@ -2,7 +2,6 @@ package tui
 
 import (
 	"encoding/json"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
@@ -15,10 +14,7 @@ type tokenMsg struct {
 }
 
 // internal aggregated token flush message
-type tokenFlushMsg struct {
-	id   uuid.UUID
-	data string
-}
+// tokenFlushMsg removed – tokens are forwarded immediately for zero buffering.
 
 type startTokenStream struct {
 	id    uuid.UUID
@@ -105,25 +101,7 @@ func (m *Model) readEvent(id uuid.UUID) tea.Msg {
 		switch ev.Type {
 		case trace.EventToken:
 			if s, ok2 := ev.Data.(string); ok2 {
-				// Safe guard again in case info was deleted
-				info, ok = m.infos[id]
-				if !ok || info == nil {
-					return nil
-				}
-				info.StreamAggBuf += s
-				flush := false
-				// flush on first chunk or punctuation/size threshold
-				if len(info.StreamAggBuf) == len(s) || len(info.StreamAggBuf) >= 120 || strings.HasSuffix(info.StreamAggBuf, ".") || strings.HasSuffix(info.StreamAggBuf, "\n") || strings.HasSuffix(info.StreamAggBuf, "?") || strings.HasSuffix(info.StreamAggBuf, "!") {
-					flush = true
-				}
-				if flush {
-					buf := info.StreamAggBuf
-					info.StreamAggBuf = ""
-					m.infos[id] = info
-					return tokenFlushMsg{id: id, data: buf}
-				}
-				m.infos[id] = info
-				continue
+				return tokenMsg{id: id, token: s}
 			}
 		case trace.EventFinal:
 			if s, ok := ev.Data.(string); ok {

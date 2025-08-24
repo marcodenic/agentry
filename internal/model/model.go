@@ -34,7 +34,8 @@ type Completion struct {
 	ModelName    string // The provider/model name used (e.g., "openai/gpt-4")
 }
 
-// Client defines the interface for language model backends.
+// Client defines the interface for language model backends using the streaming responses API.
 type Client interface {
-	Complete(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (Completion, error)
+	// All clients must support streaming (required for responses API)
+	Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (<-chan StreamChunk, error)
 }

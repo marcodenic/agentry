@@ -10,14 +10,6 @@ import (
 	"github.com/marcodenic/agentry/internal/contracts"
 )
 
-// TeamContextKey is used to store a team implementation in context for builtins.
-// The concrete value should implement the contracts.TeamService interface.
-var TeamContextKey = struct{ key string }{"agentry.team"}
-
-// AgentNameContextKey provides the current agent's logical name (e.g., "agent_0" or role name)
-// when running within a Team. Team sets this value before invoking the agent.
-var AgentNameContextKey = struct{ key string }{"agentry.agent-name"}
-
 // Removed deprecated teamAPI alias; use contracts.TeamService directly
 
 // getTeamBuiltins returns team coordination builtin tools
@@ -80,7 +72,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 				"required":   []string{},
 			},
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				tv := ctx.Value(TeamContextKey)
+				tv := ctx.Value(contracts.TeamContextKey)
 				t, _ := tv.(contracts.TeamService)
 				if t == nil {
 					return "", fmt.Errorf("no team in context")
@@ -143,14 +135,14 @@ func getTeamBuiltins() map[string]builtinSpec {
 					msgType = "info"
 				}
 				// Resolve team from context without importing the team package
-				tv := ctx.Value(TeamContextKey)
+				tv := ctx.Value(contracts.TeamContextKey)
 				t, _ := tv.(contracts.TeamService)
 				if t == nil {
 					return "", fmt.Errorf("no team in context")
 				}
 				// Use current agent as sender if available; fallback to Agent 0
 				from := "agent_0"
-				if v := ctx.Value(AgentNameContextKey); v != nil {
+				if v := ctx.Value(contracts.AgentNameContextKey); v != nil {
 					if s, ok := v.(string); ok && s != "" {
 						from = s
 					}
@@ -177,7 +169,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
 				agentName, _ := args["agent"].(string)
 
-				tv := ctx.Value(TeamContextKey)
+				tv := ctx.Value(contracts.TeamContextKey)
 				t, _ := tv.(contracts.TeamService)
 				if t == nil {
 					return "", fmt.Errorf("no team in context")
@@ -199,7 +191,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 				"required":   []string{},
 			},
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				tv := ctx.Value(TeamContextKey)
+				tv := ctx.Value(contracts.TeamContextKey)
 				t, _ := tv.(contracts.TeamService)
 				if t == nil {
 					return "", fmt.Errorf("no team in context")
@@ -264,7 +256,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 				action, _ := args["action"].(string)
 				key, _ := args["key"].(string)
 				value, _ := args["value"].(string)
-				tv := ctx.Value(TeamContextKey)
+				tv := ctx.Value(contracts.TeamContextKey)
 				t, _ := tv.(contracts.TeamService)
 				if t == nil {
 					return "", fmt.Errorf("no team in context")
@@ -322,7 +314,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 				if detail == "" {
 					detail = "summary"
 				}
-				tv := ctx.Value(TeamContextKey)
+				tv := ctx.Value(contracts.TeamContextKey)
 				t, _ := tv.(contracts.TeamService)
 				if t == nil {
 					return "", fmt.Errorf("no team in context")
@@ -386,14 +378,14 @@ func getTeamBuiltins() map[string]builtinSpec {
 				"required": []string{},
 			},
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				tv := ctx.Value(TeamContextKey)
+				tv := ctx.Value(contracts.TeamContextKey)
 				t, _ := tv.(contracts.TeamService)
 				if t == nil {
 					return "", fmt.Errorf("no team in context")
 				}
 				agent, _ := args["agent"].(string)
 				if agent == "" {
-					if v := ctx.Value(AgentNameContextKey); v != nil {
+					if v := ctx.Value(contracts.AgentNameContextKey); v != nil {
 						if s, ok := v.(string); ok && s != "" {
 							agent = s
 						}
@@ -473,14 +465,14 @@ func getTeamBuiltins() map[string]builtinSpec {
 				"required": []string{},
 			},
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				tv := ctx.Value(TeamContextKey)
+				tv := ctx.Value(contracts.TeamContextKey)
 				t, _ := tv.(contracts.TeamService)
 				if t == nil {
 					return "", fmt.Errorf("no team in context")
 				}
 				agent, _ := args["agent"].(string)
 				if agent == "" {
-					if v := ctx.Value(AgentNameContextKey); v != nil {
+					if v := ctx.Value(contracts.AgentNameContextKey); v != nil {
 						if s, ok := v.(string); ok && s != "" {
 							agent = s
 						}
@@ -511,7 +503,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 				"required": []string{},
 			},
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				tv := ctx.Value(TeamContextKey)
+				tv := ctx.Value(contracts.TeamContextKey)
 				t, _ := tv.(contracts.TeamService)
 				if t == nil {
 					return "", fmt.Errorf("no team in context")
@@ -603,7 +595,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 				"required": []string{"description"},
 			},
 			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				tv := ctx.Value(TeamContextKey)
+				tv := ctx.Value(contracts.TeamContextKey)
 				t, _ := tv.(contracts.TeamService)
 				if t == nil {
 					return "", fmt.Errorf("no team in context")
@@ -614,7 +606,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 					return "", fmt.Errorf("description is required")
 				}
 				agent := "agent_0"
-				if v := ctx.Value(AgentNameContextKey); v != nil {
+				if v := ctx.Value(contracts.AgentNameContextKey); v != nil {
 					if s, ok := v.(string); ok && s != "" {
 						agent = s
 					}

@@ -7,36 +7,90 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func (m Model) formatWithBar(bar, text string, width int) string {
-	// Determine spacing based on bar type
+// getBarSpacing returns the appropriate spacing for a given bar type
+func (m Model) getBarSpacing(bar string) (string, int) {
 	aiBar := m.aiBar()
-	var spacing string
-	var barWidthSpacing int
-
 	if bar == aiBar {
-		spacing = "  " // Use 2 spaces for AI responses (accounts for Glamour padding)
-		barWidthSpacing = 2
-	} else {
-		spacing = "    " // Use 4 spaces for user inputs and status messages
-		barWidthSpacing = 4
+		return "  ", 2 // AI responses use 2 spaces (accounts for Glamour padding)
 	}
+	return "    ", 4 // User inputs and status messages use 4 spaces
+}
+
+// calculateTextWidth calculates the available text width given total width and bar
+func (m Model) calculateTextWidth(totalWidth int, bar string, minWidth int) int {
+	_, spacingWidth := m.getBarSpacing(bar)
+	barWidth := lipgloss.Width(bar) + spacingWidth
+	textWidth := totalWidth - barWidth
+	
+	// Use fallback width if calculation results in too narrow text area
+	if textWidth <= minWidth {
+		return 72 // Fallback to reasonable width (80% of default viewport width)
+	}
+	return textWidth
+}
+
+// wrapTextToLines wraps text to fit within the specified width
+func wrapTextToLines(text string, maxWidth int) []string {
+	if text == "" {
+		return nil
+	}
+	
+	lines := strings.Split(text, "\n")
+	var result []string
+	
+	for _, line := range lines {
+		if len(line) <= maxWidth {
+			result = append(result, line)
+		} else {
+			// Wrap long lines
+			words := strings.Fields(line)
+			var currentLine strings.Builder
+			
+			for _, word := range words {
+				testLine := currentLine.String()
+				if testLine != "" {
+					testLine += " "
+				}
+				testLine += word
+				
+				if len(testLine) <= maxWidth {
+					if currentLine.Len() > 0 {
+						currentLine.WriteString(" ")
+					}
+					currentLine.WriteString(word)
+				} else {
+					if currentLine.Len() > 0 {
+						result = append(result, currentLine.String())
+						currentLine.Reset()
+					}
+					currentLine.WriteString(word)
+				}
+			}
+			
+			if currentLine.Len() > 0 {
+				result = append(result, currentLine.String())
+			}
+		}
+	}
+	
+	return result
+}
+
+func (m Model) formatWithBar(bar, text string, width int) string {
+	spacing, _ := m.getBarSpacing(bar)
 
 	if text == "" {
 		return bar + spacing
 	}
+	
 	cleanText := strings.ReplaceAll(text, "┃", "")
 	cleanText = strings.Trim(cleanText, " \t")
 	if cleanText == "" {
 		return bar + spacing
 	}
 
-	barWidth := lipgloss.Width(bar) + barWidthSpacing
-	textWidth := width - barWidth
-	// Use a more reasonable fallback width if calculation results in too narrow text area
-	if textWidth <= 20 {
-		// Fallback to a reasonable text width (80% of default viewport width)
-		textWidth = 72 // 90 * 0.8 = 72 chars for text content
-	}
+	textWidth := m.calculateTextWidth(width, bar, 20)
+	aiBar := m.aiBar()
 
 	// Apply markdown rendering for AI responses
 	if bar == aiBar {
@@ -69,14 +123,15 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 					result.WriteString("\n")
 				}
 				first = false
-				result.WriteString(bar + spacing + line) // Use dynamic spacing
+				result.WriteString(bar + spacing + line)
 			}
 			return result.String()
 		}
 		// If markdown wasn't applied, continue with normal text wrapping below
 	}
 
-	lines := strings.Split(cleanText, "\n")
+	// Use the consolidated wrapping function
+	lines := wrapTextToLines(cleanText, textWidth)
 	var result strings.Builder
 	first := true
 	for _, line := range lines {
@@ -84,42 +139,7 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 			result.WriteString("\n")
 		}
 		first = false
-		if len(line) <= textWidth {
-			result.WriteString(bar + spacing + line) // Use dynamic spacing
-		} else {
-			words := strings.Fields(line)
-			var currentLine strings.Builder
-			lineFirst := true
-			for _, word := range words {
-				testLine := currentLine.String()
-				if testLine != "" {
-					testLine += " "
-				}
-				testLine += word
-				if len(testLine) <= textWidth {
-					if currentLine.Len() > 0 {
-						currentLine.WriteString(" ")
-					}
-					currentLine.WriteString(word)
-				} else {
-					if currentLine.Len() > 0 {
-						if !lineFirst {
-							result.WriteString("\n")
-						}
-						lineFirst = false
-						result.WriteString(bar + spacing + currentLine.String()) // Use dynamic spacing
-						currentLine.Reset()
-					}
-					currentLine.WriteString(word)
-				}
-			}
-			if currentLine.Len() > 0 {
-				if !lineFirst {
-					result.WriteString("\n")
-				}
-				result.WriteString(bar + spacing + currentLine.String()) // Use dynamic spacing
-			}
-		}
+		result.WriteString(bar + spacing + line)
 	}
 	return result.String()
 }
@@ -155,63 +175,36 @@ func (m Model) formatHistoryWithBars(history string, width int) string {
 }
 
 func (m Model) formatSingleCommand(command string) string {
-	return fmt.Sprintf("%s    %s", m.statusBar(), command) // Use 4 spaces to match user input alignment
+	spacing, _ := m.getBarSpacing(m.statusBar())
+	return fmt.Sprintf("%s%s%s", m.statusBar(), spacing, command)
 }
 
 func (m Model) formatUserInput(bar, text string, width int) string {
+	spacing, _ := m.getBarSpacing(bar)
+	
 	if text == "" {
-		return bar + "    " // Use 4 spaces to match AI spacing
+		return bar + spacing
 	}
+	
 	cleanText := strings.ReplaceAll(text, "┃", "")
 	cleanText = strings.Trim(cleanText, " \t")
 	if cleanText == "" {
-		return bar + "    " // Use 4 spaces to match AI spacing
+		return bar + spacing
 	}
-	barWidth := lipgloss.Width(bar) + 4 // Account for more spacing to match AI output
-	textWidth := width - barWidth
-	// Use a more reasonable fallback width if calculation results in too narrow text area
-	if textWidth <= 10 {
-		// Fallback to a reasonable text width (80% of default viewport width)
-		textWidth = 72 // 90 * 0.8 = 72 chars for text content
-	}
-	words := strings.Fields(cleanText)
-	if len(words) == 0 {
-		return bar + "    " // Use 4 spaces to match AI spacing
-	}
-	var lines []string
-	var currentLine strings.Builder
-	for _, word := range words {
-		testLine := currentLine.String()
-		if testLine != "" {
-			testLine += " "
-		}
-		testLine += word
-		if len(testLine) <= textWidth {
-			if currentLine.Len() > 0 {
-				currentLine.WriteString(" ")
-			}
-			currentLine.WriteString(word)
-		} else {
-			if currentLine.Len() > 0 {
-				lines = append(lines, currentLine.String())
-				currentLine.Reset()
-			}
-			currentLine.WriteString(word)
-		}
-	}
-	if currentLine.Len() > 0 {
-		lines = append(lines, currentLine.String())
-	}
+	
+	textWidth := m.calculateTextWidth(width, bar, 10)
+	lines := wrapTextToLines(cleanText, textWidth)
+	
 	if len(lines) == 0 {
-		return bar + "    " // Use 4 spaces to match AI spacing
+		return bar + spacing
 	}
+	
 	var result strings.Builder
 	for i, line := range lines {
 		if i > 0 {
 			result.WriteString("\n")
 		}
-		// Add consistent left padding to match AI responses
-		result.WriteString(bar + "    " + line) // Use "    " (4 spaces) to match AI indentation
+		result.WriteString(bar + spacing + line)
 	}
 	return result.String()
 }

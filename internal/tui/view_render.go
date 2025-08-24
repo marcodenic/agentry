@@ -145,7 +145,6 @@ func (m Model) View() string {
 		}
 	}
 
-
 	// Only show agent/cost/cwd/tokens info in the status bar, not workspace events
 	agentsDisplay := fmt.Sprintf("◆ agents: %d", len(m.infos))
 	cwdDisplay := fmt.Sprintf("⌂ cwd: %s", m.cwd)

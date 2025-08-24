@@ -1,16 +1,18 @@
 package model
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 )
 
-// Anthropic client uses Anthropic's messages API.
+// Anthropic client uses Anthropic's streaming messages API.
 type Anthropic struct {
 	key         string
 	model       string
@@ -22,9 +24,10 @@ func NewAnthropic(key, model string) *Anthropic {
 	return &Anthropic{key: key, model: model, client: http.DefaultClient}
 }
 
-func (a *Anthropic) Complete(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (Completion, error) {
+// Stream implements proper Anthropic streaming API
+func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (<-chan StreamChunk, error) {
 	if a.key == "" {
-		return Completion{}, errors.New("missing api key")
+		return nil, errors.New("missing api key")
 	}
 
 	type anthropicTool struct {
@@ -37,7 +40,7 @@ func (a *Anthropic) Complete(ctx context.Context, msgs []ChatMessage, tools []To
 	for i, t := range tools {
 		anTools[i].Name = t.Name
 		anTools[i].Description = t.Description
-		if t.Parameters != nil && len(t.Parameters) > 0 {
+		if len(t.Parameters) > 0 {
 			anTools[i].InputSchema = t.Parameters
 		} else {
 			anTools[i].InputSchema = map[string]any{"type": "object", "properties": map[string]any{}}
@@ -56,7 +59,7 @@ func (a *Anthropic) Complete(ctx context.Context, msgs []ChatMessage, tools []To
 			systemPrompt = m.Content
 			continue
 		}
-		// Skip messages with empty content (Anthropic requires non-empty content)
+		// Skip messages with empty content
 		if strings.TrimSpace(m.Content) == "" {
 			continue
 		}
@@ -73,6 +76,7 @@ func (a *Anthropic) Complete(ctx context.Context, msgs []ChatMessage, tools []To
 		"messages":    anMsgs,
 		"max_tokens":  4096,
 		"temperature": a.temperature,
+		"stream":      true, // Enable streaming
 	}
 	if len(anTools) > 0 {
 		reqBody["tools"] = anTools
@@ -81,65 +85,131 @@ func (a *Anthropic) Complete(ctx context.Context, msgs []ChatMessage, tools []To
 		reqBody["system"] = systemPrompt
 	}
 
+	// Log context size
+	totalChars := 0
+	for _, msg := range anMsgs {
+		totalChars += len(msg.Content)
+	}
+
 	b, _ := json.Marshal(reqBody)
+
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewReader(b))
 	if err != nil {
-		return Completion{}, err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-api-key", a.key)
 	req.Header.Set("anthropic-version", "2023-06-01")
 
-	resp, err := a.client.Do(req)
-	if err != nil {
-		return Completion{}, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
-		return Completion{}, errors.New(string(body))
-	}
-
-	var res struct {
-		Content []struct {
-			Type  string          `json:"type"`
-			Text  string          `json:"text,omitempty"`
-			ID    string          `json:"id,omitempty"`
-			Name  string          `json:"name,omitempty"`
-			Input json.RawMessage `json:"input,omitempty"`
-		} `json:"content"`
-		StopReason string `json:"stop_reason"`
-		Usage      struct {
-			InputTokens  int `json:"input_tokens"`
-			OutputTokens int `json:"output_tokens"`
-		} `json:"usage"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
-		return Completion{}, err
-	}
-
-	comp := Completion{
-		InputTokens:  res.Usage.InputTokens,
-		OutputTokens: res.Usage.OutputTokens,
-		ModelName:    "anthropic/" + a.model, // Store as provider/model format
-	}
-	var content strings.Builder
-	for _, c := range res.Content {
-		switch c.Type {
-		case "text":
-			content.WriteString(c.Text)
-		case "tool_use":
-			comp.ToolCalls = append(comp.ToolCalls, ToolCall{
-				ID:        c.ID,
-				Name:      c.Name,
-				Arguments: c.Input,
-			})
+	out := make(chan StreamChunk, 32)
+	go func() {
+		defer close(out)
+		resp, err := a.client.Do(req)
+		if err != nil {
+			out <- StreamChunk{Err: err}
+			return
 		}
-	}
-	comp.Content = content.String()
+		defer resp.Body.Close()
 
-	return comp, nil
+		if resp.StatusCode >= 300 {
+			body, _ := io.ReadAll(resp.Body)
+			if resp.StatusCode == 429 {
+				out <- StreamChunk{Err: fmt.Errorf("anthropic API rate limit exceeded: %s", string(body))}
+			} else {
+				out <- StreamChunk{Err: errors.New(string(body))}
+			}
+			return
+		}
+
+		scanner := bufio.NewScanner(resp.Body)
+		var contentBuilder strings.Builder
+		var toolCalls []ToolCall
+		var currentToolCall *ToolCall
+		inputTokens, outputTokens := 0, 0
+
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" || !strings.HasPrefix(line, "data: ") {
+				continue
+			}
+
+			data := strings.TrimPrefix(line, "data: ")
+			if data == "[DONE]" {
+				break
+			}
+
+			var event struct {
+				Type  string `json:"type"`
+				Index int    `json:"index,omitempty"`
+				Delta struct {
+					Type        string `json:"type"`
+					Text        string `json:"text"`
+					PartialJson string `json:"partial_json"`
+				} `json:"delta"`
+				ContentBlock struct {
+					Type  string          `json:"type"`
+					ID    string          `json:"id"`
+					Name  string          `json:"name"`
+					Input json.RawMessage `json:"input"`
+				} `json:"content_block"`
+				Usage struct {
+					InputTokens  int `json:"input_tokens"`
+					OutputTokens int `json:"output_tokens"`
+				} `json:"usage"`
+			}
+
+			if err := json.Unmarshal([]byte(data), &event); err != nil {
+				continue
+			}
+
+			switch event.Type {
+			case "content_block_delta":
+				if event.Delta.Type == "text_delta" && event.Delta.Text != "" {
+					contentBuilder.WriteString(event.Delta.Text)
+					out <- StreamChunk{ContentDelta: event.Delta.Text}
+				} else if event.Delta.Type == "input_json_delta" && currentToolCall != nil {
+					// Accumulate tool arguments from streaming deltas
+					currentToolCall.Arguments = append(currentToolCall.Arguments, []byte(event.Delta.PartialJson)...)
+				}
+			case "content_block_start":
+				if event.ContentBlock.Type == "tool_use" {
+					currentToolCall = &ToolCall{
+						ID:        event.ContentBlock.ID,
+						Name:      event.ContentBlock.Name,
+						Arguments: json.RawMessage{}, // Start empty, will be filled by deltas
+					}
+				}
+			case "content_block_stop":
+				if currentToolCall != nil {
+					toolCalls = append(toolCalls, *currentToolCall)
+					currentToolCall = nil
+				}
+
+			case "message_delta":
+				if event.Usage.InputTokens > 0 {
+					inputTokens = event.Usage.InputTokens
+				}
+				if event.Usage.OutputTokens > 0 {
+					outputTokens = event.Usage.OutputTokens
+				}
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			out <- StreamChunk{Err: err}
+			return
+		}
+
+		// Send final response with tool calls and token usage
+		out <- StreamChunk{
+			Done:         true,
+			ToolCalls:    toolCalls,
+			InputTokens:  inputTokens,
+			OutputTokens: outputTokens,
+		}
+	}()
+
+	return out, nil
 }
 
 // ModelName returns the model name used by this Anthropic client

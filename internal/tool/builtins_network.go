@@ -8,8 +8,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
-	"github.com/marcodenic/agentry/internal/sbox"
 )
 
 // getNetworkBuiltins returns network-related builtin tools
@@ -38,13 +36,13 @@ func getNetworkBuiltins() map[string]builtinSpec {
 				if runtime.GOOS == "windows" {
 					// Use PowerShell Invoke-WebRequest
 					cmd := fmt.Sprintf("(Invoke-WebRequest -Uri '%s').Content", url)
-					return ExecSandbox(ctx, cmd, sbox.Options{})
+					return ExecDirect(ctx, cmd)
 				} else {
 					// Try curl first, fallback to wget if available
-					result, err := ExecSandbox(ctx, "curl -s "+url, sbox.Options{})
+					result, err := ExecDirect(ctx, "curl -s "+url)
 					if err != nil {
 						// Fallback to wget if curl is not available
-						result, err = ExecSandbox(ctx, "wget -qO- "+url, sbox.Options{})
+						result, err = ExecDirect(ctx, "wget -qO- "+url)
 					}
 					return result, err
 				}

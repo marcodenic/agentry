@@ -17,6 +17,7 @@ import (
 
 	"github.com/marcodenic/agentry/internal/contracts"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/memstore"
 	"github.com/marcodenic/agentry/internal/tokens"
@@ -41,10 +42,6 @@ func StartTimer(name string) *Timer {
 		fmt.Fprintf(os.Stderr, "⏱️  [TIMER] Started: %s\n", name)
 	}
 	return timer
-}
-
-func (t *Timer) Elapsed() time.Duration {
-	return time.Since(t.start)
 }
 
 func (t *Timer) Stop() time.Duration {
@@ -487,7 +484,7 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 	defer timer.Stop()
 
 	// Attach agent name into context for builtins to use sensible defaults
-	ctx = context.WithValue(ctx, tool.AgentNameContextKey, name)
+	ctx = context.WithValue(ctx, contracts.AgentNameContextKey, name)
 	timer.Checkpoint("context prepared")
 
 	// Minimal bounded context wrapper (idempotent via sentinel)
@@ -763,7 +760,7 @@ func (t *Team) GetTeamAgents() []*Agent {
 // logToFile logs the message to a file (only if not in TUI mode)
 func logToFile(message string) {
 	// Only log if explicitly enabled (reduces repo noise & accidental commits)
-	if os.Getenv("AGENTRY_COMM_LOG") != "1" {
+	if !debug.IsCommLogEnabled() {
 		return
 	}
 	if os.Getenv("AGENTRY_TUI_MODE") == "1" {

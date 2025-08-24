@@ -14,8 +14,11 @@ import (
 // staticClient returns a fixed response.
 type staticClient struct{ out string }
 
-func (s staticClient) Complete(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (model.Completion, error) {
-	return model.Completion{Content: s.out}, nil
+func (s staticClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
+	ch := make(chan model.StreamChunk, 1)
+	ch <- model.StreamChunk{ContentDelta: s.out, Done: true}
+	close(ch)
+	return ch, nil
 }
 
 func newTestTeam(t *testing.T, reply string) (*team.Team, tool.Registry) {

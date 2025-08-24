@@ -231,25 +231,4 @@ func (m Model) handleFinalMessage(msg finalMsg) (Model, tea.Cmd) {
 	}
 	m.infos[msg.id] = info
 	return m, nil
-
-	// Set status to idle, clear spinner
-	info.Status = StatusIdle
-	info.TokensStarted = false // Reset streaming state
-
-	// Reconcile streaming token count with final API response
-	if info.Agent != nil && info.Agent.Cost != nil {
-		// The agent's cost manager has now been updated with real API tokens
-		// Reset streaming count to match real count for consistency
-		info.StreamingTokenCount = info.Agent.Cost.TotalTokens()
-	}
-
-	// Cost is now handled directly by the agent's cost manager
-	// No TUI-side cost tracking needed
-
-	if msg.id == m.active {
-		m.vp.SetContent(info.History)
-		m.vp.GotoBottom()
-	}
-	m.infos[msg.id] = info
-	return m, nil
 }

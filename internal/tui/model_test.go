@@ -47,6 +47,16 @@ func (m *seqMock) Complete(ctx context.Context, msgs []model.ChatMessage, tools 
 	return model.Completion{Content: fmt.Sprintf("msg%d", m.n)}, nil
 }
 
+func (m *seqMock) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
+	ch := make(chan model.StreamChunk, 1)
+	go func() {
+		defer close(ch)
+		m.n++
+		ch <- model.StreamChunk{ContentDelta: fmt.Sprintf("msg%d", m.n), Done: true}
+	}()
+	return ch, nil
+}
+
 func TestWindowSizing(t *testing.T) {
 	mock := &seqMock{}
 	ag := core.New(mock, "mock", tool.Registry{}, memory.NewInMemory(), memory.NewInMemoryVector(), nil)

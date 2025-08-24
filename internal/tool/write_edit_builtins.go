@@ -17,8 +17,8 @@ func init() {
 		Schema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"file":   map[string]any{"type": "string", "description": "File path (alias: path)"},
-				"path":   map[string]any{"type": "string", "description": "File path (alias: file)"},
+				"file":    map[string]any{"type": "string", "description": "File path (alias: path)"},
+				"path":    map[string]any{"type": "string", "description": "File path (alias: file)"},
 				"content": map[string]any{"type": "string", "description": "Content to write (alias: text)"},
 				"text":    map[string]any{"type": "string", "description": "Content to write (alias: content)"},
 			},
@@ -34,8 +34,8 @@ func init() {
 		Schema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"file":   map[string]any{"type": "string", "description": "File path (alias: path)"},
-				"path":   map[string]any{"type": "string", "description": "File path (alias: file)"},
+				"file":    map[string]any{"type": "string", "description": "File path (alias: path)"},
+				"path":    map[string]any{"type": "string", "description": "File path (alias: file)"},
 				"content": map[string]any{"type": "string", "description": "New content (alias: text)"},
 				"text":    map[string]any{"type": "string", "description": "New content (alias: content)"},
 			},

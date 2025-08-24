@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/marcodenic/agentry/internal/audit"
@@ -22,10 +23,49 @@ import (
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
+// loadPrimaryAgentRole loads the agent_0 role configuration
+func loadPrimaryAgentRole() (*team.RoleConfig, error) {
+	// Use the same search paths as core.GetDefaultPrompt but for full role config
+	candidates := make([]string, 0, 4)
+
+	if p := os.Getenv("AGENTRY_DEFAULT_PROMPT"); p != "" {
+		candidates = append(candidates, p)
+	}
+
+	// XDG config
+	cfgHome := os.Getenv("AGENTRY_CONFIG_HOME")
+	if cfgHome == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			cfgHome = filepath.Join(home, ".config", "agentry")
+		}
+	}
+	if cfgHome != "" {
+		candidates = append(candidates, filepath.Join(cfgHome, "roles", "agent_0.yaml"))
+	}
+
+	// Executable dir
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		candidates = append(candidates, filepath.Join(exeDir, "templates", "roles", "agent_0.yaml"))
+	}
+
+	// Working dir
+	candidates = append(candidates, filepath.Join("templates", "roles", "agent_0.yaml"))
+
+	for _, path := range candidates {
+		if role, err := team.LoadRoleFromFile(path); err == nil {
+			debug.Printf("Loaded primary agent role from %s: model=%v", path, role.Model)
+			return role, nil
+		}
+	}
+
+	return nil, fmt.Errorf("agent_0.yaml not found in any search path")
+}
+
 // buildAgent constructs an Agent from configuration.
 func buildAgent(cfg *config.File) (*core.Agent, error) {
 	tool.SetPermissions(cfg.Permissions.Tools)
-	tool.SetSandboxEngine(cfg.Sandbox.Engine)
+	// Sandboxing completely removed
 	reg := tool.Registry{}
 	for _, m := range cfg.Tools {
 		tl, err := tool.FromManifest(m)
@@ -84,7 +124,31 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	var client model.Client
 	var modelName string
 
-	if len(cfg.Models) > 0 {
+	// Try to load the primary agent role configuration for model override
+	primaryRole, roleErr := loadPrimaryAgentRole()
+	var roleModel *config.ModelManifest
+	if roleErr == nil && primaryRole.Model != nil {
+		roleModel = primaryRole.Model
+		debug.Printf("Primary agent will use role-specific model: %s/%s", roleModel.Provider, roleModel.Options["model"])
+	}
+
+	if roleModel != nil {
+		// Use role-specific model configuration
+		c, err := model.FromManifest(*roleModel)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create role-specific model client: %w", err)
+		}
+		client = c
+
+		// Construct the model name: provider/model
+		if roleModel.Options != nil && roleModel.Options["model"] != "" {
+			modelName = fmt.Sprintf("%s/%s", roleModel.Provider, roleModel.Options["model"])
+		} else {
+			modelName = roleModel.Provider
+		}
+		debug.Printf("Using role-specific model: %s", modelName)
+	} else if len(cfg.Models) > 0 {
+		// Fall back to global model configuration
 		primaryModel := cfg.Models[0]
 
 		c, ok := clients[primaryModel.Name]
@@ -99,10 +163,12 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		} else {
 			modelName = primaryModel.Name // fallback to name if no model option
 		}
+		debug.Printf("Using global model: %s", modelName)
 	} else {
 		// Fallback to mock if no models configured
 		client = model.NewMock()
 		modelName = "mock"
+		debug.Printf("Using mock model")
 	}
 
 	var vec memory.VectorStore
@@ -132,19 +198,25 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	}
 	// No iteration cap
 
-	// Resolve default prompt from user-editable files; fail if missing
-	ag.Prompt = core.GetDefaultPrompt()
-	if strings.TrimSpace(ag.Prompt) == "" {
+	// Use prompt from role configuration if available, otherwise fall back to GetDefaultPrompt
+	var prompt string
+	if roleErr == nil && primaryRole != nil && strings.TrimSpace(primaryRole.Prompt) != "" {
+		prompt = primaryRole.Prompt
+		debug.Printf("Using role-specific prompt from agent_0.yaml")
+	} else {
+		// Fallback to the existing GetDefaultPrompt logic
+		prompt = core.GetDefaultPrompt()
+		debug.Printf("Using prompt from GetDefaultPrompt fallback")
+	}
+
+	if strings.TrimSpace(prompt) == "" {
 		return nil, fmt.Errorf("no default prompt found: place agent_0.yaml under one of: $AGENTRY_DEFAULT_PROMPT, $AGENTRY_CONFIG_HOME/roles/, ~/.config/agentry/roles/, <exedir>/templates/roles/, ./templates/roles/")
 	}
+
+	ag.Prompt = prompt
 
 	// Initialize cost manager for token/cost tracking
 	ag.Cost = cost.New(0, 0.0) // No budget limits, just tracking
 
 	return ag, nil
-}
-
-// Stub functions for commands that are only available with tools build tag
-func runPProfCmd(_ []string) {
-	fmt.Println("PProf command not available (build with --tools flag)")
 }

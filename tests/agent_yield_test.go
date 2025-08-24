@@ -14,13 +14,18 @@ import (
 
 type loopMock struct{}
 
-func (loopMock) Complete(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (model.Completion, error) {
-	// After a tool result is present, return a final message to end the run.
-	if len(msgs) > 0 && msgs[len(msgs)-1].Role == "tool" {
-		return model.Completion{Content: "done"}, nil
-	}
-	args, _ := json.Marshal(map[string]string{"text": "hi"})
-	return model.Completion{ToolCalls: []model.ToolCall{{ID: "1", Name: "echo", Arguments: args}}}, nil
+func (loopMock) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
+	ch := make(chan model.StreamChunk, 1)
+	go func() {
+		defer close(ch)
+		if len(msgs) > 0 && msgs[len(msgs)-1].Role == "tool" {
+			ch <- model.StreamChunk{ContentDelta: "done", Done: true}
+			return
+		}
+		args, _ := json.Marshal(map[string]string{"text": "hi"})
+		ch <- model.StreamChunk{ToolCalls: []model.ToolCall{{ID: "1", Name: "echo", Arguments: args}}, Done: true}
+	}()
+	return ch, nil
 }
 
 type captureWriter struct{ events []trace.Event }

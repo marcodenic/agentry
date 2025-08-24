@@ -12,159 +12,121 @@ import (
 
 func main() {
 	env.Load()
+	
+	// If no arguments, start TUI
 	if len(os.Args) < 2 {
 		runTui([]string{})
 		return
 	}
-	cmd := os.Args[1]
-	args := os.Args[2:]
 
-	// Handle version flags first
-	if cmd == "--version" || cmd == "-v" {
+	// Handle version and help flags specially (before parsing)
+	if os.Args[1] == "--version" || os.Args[1] == "-v" {
 		fmt.Printf("agentry %s\n", agentry.Version)
 		return
 	}
-
-	// If cmd starts with "-", treat it as flags for the default action
-	// Look for the actual command or prompt after the flags
-	if strings.HasPrefix(cmd, "-") {
-		// Parse all arguments to find the actual command or prompt
-		allArgs := os.Args[1:]
-		actualCmd := ""
-		actualArgs := []string{}
-
-		// Find the first non-flag argument
-		for i := 0; i < len(allArgs); i++ {
-			arg := allArgs[i]
-			if strings.HasPrefix(arg, "-") {
-				// Handle boolean flags that don't take values
-				if arg == "--debug" || arg == "-debug" {
-					// Boolean flag, no value to skip
-					continue
-				}
-				// Skip flag and its value for non-boolean flags
-				if i+1 < len(allArgs) && !strings.HasPrefix(allArgs[i+1], "-") {
-					i++ // Skip the flag value
-				}
-			} else {
-				// This is the actual command or prompt
-				actualCmd = arg
-				actualArgs = allArgs[:i]                          // All flags before this
-				actualArgs = append(actualArgs, allArgs[i+1:]...) // Plus any remaining args
-				break
-			}
-		}
-
-		// If no command found after flags, default to TUI
-		if actualCmd == "" {
-			runTui(allArgs)
-			return
-		}
-
-		// Check if it's a known command
-		switch actualCmd {
-		case "tui":
-			runTui(actualArgs)
-			return
-		case "eval", "test":
-			runEval(actualArgs)
-			return
-		// Add other commands as needed
-		default:
-			// It's a prompt, run it
-			runPrompt(actualCmd, actualArgs)
-			return
-		}
+	if os.Args[1] == "help" || os.Args[1] == "-h" || os.Args[1] == "--help" {
+		showHelp()
+		return
 	}
 
-	switch cmd {
-	case "chat":
-		// Deprecated: chat mode is now an alias for the default TUI.
-		fmt.Println("[deprecation] 'agentry chat' is deprecated. Use 'agentry' to launch the TUI.")
-		runTui(args)
-	case "dev":
-		// Deprecated: dev mode is now an alias for the default TUI (use flags for debugging).
-		fmt.Println("[deprecation] 'agentry dev' is deprecated. Use 'agentry' (TUI) with appropriate flags.")
-		runTui(args)
-	case "eval", "test":
-		runEval(args)
+	// Parse all arguments to separate global flags from command and its args
+	args := os.Args[1:]
+	opts, remainingArgs := parseCommon("agentry", args)
+	
+	// If no remaining args after flag parsing, start TUI
+	if len(remainingArgs) == 0 {
+		runTui(args) // Pass original args to TUI for its own parsing
+		return
+	}
+	
+	// Determine the command (first remaining argument or infer from context)  
+	var command string
+	var commandArgs []string
+	
+	// Check if first remaining arg is a known command
+	switch remainingArgs[0] {
+	case "chat", "ask", "prompt", "refresh-models", "version":
+		command = remainingArgs[0]
+		commandArgs = remainingArgs[1:]
+	default:
+		// This is a direct prompt - everything is part of the prompt
+		command = "prompt-direct"
+		commandArgs = remainingArgs
+	}
 
-	case "tui":
-		runTui(args)
-	case "invoke":
-		runInvokeCmd(args)
-	case "cost":
-		runCostCmd(args)
-	case "pprof":
-		runPProfCmd(args)
-	case "tool":
-		runToolCmd(args)
-	case "analyze":
-		runAnalyzeCmd(args)
+	// Handle explicit commands
+	switch command {
+	case "chat", "ask", "prompt":
+		if len(commandArgs) == 0 {
+			fmt.Println("Error: chat command requires a prompt")
+			fmt.Println("Usage: agentry chat \"your prompt here\"")
+			os.Exit(1)
+		}
+		runPromptWithOpts(strings.Join(commandArgs, " "), opts)
 	case "refresh-models":
-		runRefreshModelsCmd(args)
+		runRefreshModelsCmd(commandArgs)
 	case "version":
 		fmt.Printf("agentry %s\n", agentry.Version)
-	case "help", "-h", "--help":
-		showHelp()
+	case "prompt-direct":
+		// Direct prompt with all arguments
+		runPromptWithOpts(strings.Join(commandArgs, " "), opts)
 	default:
-		runPrompt(cmd, args)
+		fmt.Printf("Error: Unknown command '%s'\n", command)
+		fmt.Println("Use 'agentry help' for usage information")
+		os.Exit(1)
 	}
 }
 
 func showHelp() {
-	fmt.Printf(`agentry - AI Agent Coordination Platform
+	helpText := `Agentry - Multi-agent orchestrator for development tasks
 
-Usage:
-	agentry [command] [options]
-	agentry "prompt text"
+USAGE:
+  agentry [command] [flags] [arguments]
 
-Commands:
-	tui               Terminal UI mode (default when no command provided)
-	eval, test        Run evaluations/tests
-	cost              Analyze cost from trace logs
-	pprof             Profiling utilities
-	tool              Tool management
-	analyze           Analyze trace files
-	refresh-models    Download and cache latest model pricing from models.dev
-	version           Show version
-	help              Show this help
+COMMANDS:
+    (no command)           Start TUI interface (default)
+  chat <prompt>          Send a prompt to the AI assistant
+  refresh-models         Update model pricing data
+  help                   Show this help message
+  
+  Direct prompt execution:
+  agentry "quoted prompt"    Execute prompt directly with Agent 0
+  agentry unquoted prompt    No quotes needed for simple prompts
 
-Direct Prompt:
-	agentry "create a hello world"      # Execute prompt directly
-	agentry "spawn coder to fix bug"    # Delegate to specialized agent
+FLAGS:
+  --config PATH          Path to .agentry.yaml config file
+  --theme THEME          Theme override (dark|light|auto)  
+  --debug                Enable debug output
+  --keybinds PATH        Path to custom keybindings JSON file
+  --creds PATH           Path to credentials JSON file
+  --mcp SERVERS          Comma-separated MCP server list
+  --save-id ID           Save conversation state to this ID
+  --resume-id ID         Load conversation state from this ID  
+  --checkpoint-id ID     Checkpoint session ID
+  --port PORT            HTTP server port
+  --disable-tools        Disable tool filtering entirely (allow all tools)
+  --allow-tools TOOLS    Restrict to only specified tools (comma-separated)
+  --deny-tools TOOLS     Remove specific tools from available set (comma-separated)
+  --disable-context      Disable context pipeline
+  --audit-log PATH       Path to audit log file
 
-TUI Options:
-	--config PATH     Path to config file (.agentry.yaml)
-	--theme NAME      Theme override (dark, light, etc.)
-	--save-id ID      Save conversation state to this ID
-	--resume-id ID    Load conversation state from this ID
-	--port PORT       HTTP server port
+EXAMPLES:
+  agentry                                    # Start TUI
+  agentry fix the auth tests                 # Direct prompt (no quotes needed)
+  agentry "complex prompt with & symbols"    # Quotes for special characters
+  agentry chat hello there                   # Chat with initial prompt
+  agentry --debug --theme dark analyze code # Debug mode with dark theme
+  agentry --resume-id my-session             # Resume TUI session
+  agentry refresh-models                     # Update model data
+  
+  Tool filtering examples:
+  agentry --allow-tools echo,ping chat "test"           # Only echo and ping tools
+  agentry --deny-tools bash,sh "safe operation"         # No shell access
+  agentry --disable-tools "unrestricted access"         # All tools available
 
-Debug Mode:
-	AGENTRY_DEBUG=1 ./agentry "prompt"  # Enable debug output
-	AGENTRY_DEBUG=1 ./agentry           # Debug TUI (logs to file)
-
-Examples:
-	agentry                              # Start TUI (default)
-	agentry "write a README file"        # Direct prompt
-	agentry tui --theme dark             # TUI with dark theme
-	AGENTRY_DEBUG=1 agentry "test"       # Debug mode
-	agentry refresh-models               # Update model pricing
-
-Deprecated Commands (use alternatives):
-	chat              → Use 'agentry' (TUI mode)
-	dev               → Use 'AGENTRY_DEBUG=1 agentry'
-
-Notes:
-	- In TUI mode, debug output is redirected to avoid interface conflicts
-	- Direct prompts run through Agent 0 and can delegate to other agents
-	- Config files support model selection, tool configuration, and themes
-`)
-}
-
-func runToolCmd(_ []string) {
-	fmt.Println("Tool command not implemented")
+For more information, see PRODUCT.md or visit the project repository.
+`
+	fmt.Print(helpText)
 }
 
 // Stub implementation for optional command if not present in this build.
@@ -178,18 +140,4 @@ func runRefreshModelsCmd(_ []string) {
 	// Give a small summary
 	models := pt.ListModels()
 	fmt.Printf("Refreshed %d models and cached to your user cache dir (agentry/models_pricing.json)\n", len(models))
-}
-
-func runInvokeCmd(args []string) {
-	// Simple invoke command implementation
-	if len(args) == 0 {
-		fmt.Println("Usage: agentry invoke <prompt>")
-		return
-	}
-
-	// Join all args as the prompt
-	prompt := strings.Join(args, " ")
-
-	// For now, just delegate to the prompt runner
-	runPrompt(prompt, []string{})
 }
