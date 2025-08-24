@@ -42,11 +42,6 @@ type openAITool struct {
 	Parameters  map[string]any `json:"parameters"`
 }
 
-// oaToolCall matches streamed tool call events (flattened)
-type oaToolCall struct {
-	ID, Type, Name, Arguments string
-	Index                     *int
-}
 
 // partial represents an in-progress tool call assembly during streaming.
 type partial struct {
@@ -291,7 +286,7 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 func finalizeOpenAI(partials map[int]*partial, out chan<- StreamChunk, inTok, outTok int) {
 	if len(partials) == 0 {
 		println("[OPENAI FINALIZE] No tool calls, sending Done chunk")
-		out <- StreamChunk{Done: true, InputTokens: inTok, OutputTokens: outTok}
+		out <- StreamChunk{Done: true, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai"}
 		return
 	}
 	idxs := make([]int, 0, len(partials))
@@ -304,7 +299,7 @@ func finalizeOpenAI(partials map[int]*partial, out chan<- StreamChunk, inTok, ou
 		p := partials[i]
 		final = append(final, ToolCall{ID: p.ID, Name: p.Name, Arguments: p.Arguments})
 	}
-	out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok}
+	out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai"}
 }
 
 func finalizeWithResponses(partials map[int]*partial, responseCalls map[string]*partial, out chan<- StreamChunk, inTok, outTok int) {
@@ -325,7 +320,7 @@ func finalizeWithResponses(partials map[int]*partial, responseCalls map[string]*
 	for _, p := range responseCalls {
 		final = append(final, ToolCall{ID: p.ID, Name: p.Name, Arguments: p.Arguments})
 	}
-	out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok}
+	out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai"}
 }
 
 func (o *OpenAI) ModelName() string { return o.model }

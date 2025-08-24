@@ -3,6 +3,7 @@ package core
 import (
 	"runtime"
 	"strings"
+	"sync"
 )
 
 // GetPlatformContext returns OS-specific guidance for agents with tiered tool hierarchy
@@ -187,13 +188,26 @@ func contains(slice []string, item string) bool {
 }
 
 // InjectPlatformContext adds OS-specific guidance to agent prompts with filtered commands
+var platformCache struct {
+	sync.Mutex
+	value string
+	key   string
+}
+
 func InjectPlatformContext(prompt string, allowedCommands []string, allowedBuiltins []string) string {
-	platformInfo := GetPlatformContext(allowedCommands, allowedBuiltins)
 	const start = "<!-- PLATFORM_CONTEXT_START -->"
 	const end = "<!-- PLATFORM_CONTEXT_END -->"
-	if strings.Contains(prompt, start) { // already injected
-		return prompt
+	if strings.Contains(prompt, start) {
+		return prompt // already has context
 	}
+	cacheKey := strings.Join(allowedCommands, ",") + "|" + strings.Join(allowedBuiltins, ",")
+	platformCache.Lock()
+	if platformCache.key != cacheKey || platformCache.value == "" {
+		platformCache.value = GetPlatformContext(allowedCommands, allowedBuiltins)
+		platformCache.key = cacheKey
+	}
+	platformInfo := platformCache.value
+	platformCache.Unlock()
 	return prompt + "\n" + start + "\n" + platformInfo + end
 }
 

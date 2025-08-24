@@ -10,6 +10,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 )
 
 // Anthropic client uses Anthropic's streaming messages API.
@@ -18,6 +20,10 @@ type Anthropic struct {
 	model       string
 	temperature float64
 	client      *http.Client
+	// simple local rate limiter (approximate) per minute window
+	mu          sync.Mutex
+	windowStart time.Time
+	windowTokens int
 }
 
 func NewAnthropic(key, model string) *Anthropic {
@@ -92,6 +98,22 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 	}
 
 	b, _ := json.Marshal(reqBody)
+
+	// crude token estimation (char/4) before sending for rate limiting
+	estTokens := len(b) / 4
+	a.mu.Lock()
+	now := time.Now()
+	if a.windowStart.IsZero() || now.Sub(a.windowStart) > time.Minute {
+		a.windowStart = now
+		a.windowTokens = 0
+	}
+	limitPerMin := 28000 // keep a safety margin below 30k
+	if a.windowTokens+estTokens > limitPerMin {
+		a.mu.Unlock()
+		return nil, fmt.Errorf("anthropic local rate limiter: estimated tokens %d would exceed per-minute budget (%d/%d used)", estTokens, a.windowTokens, limitPerMin)
+	}
+	a.windowTokens += estTokens
+	a.mu.Unlock()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewReader(b))
 	if err != nil {
@@ -200,12 +222,13 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 			return
 		}
 
-		// Send final response with tool calls and token usage
-		out <- StreamChunk{
+		// Send final response with tool calls and token usage; include model name via special terminal chunk
+		out <- StreamChunk{ // final chunk
 			Done:         true,
 			ToolCalls:    toolCalls,
 			InputTokens:  inputTokens,
 			OutputTokens: outputTokens,
+			ModelName:    a.model,
 		}
 	}()
 

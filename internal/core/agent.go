@@ -249,7 +249,8 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		}
 		// Note: No iteration cap; agent runs until it produces a final answer.
 		debug.Printf("Agent.Run: Starting iteration %d", i)
-		msgs = budget.Apply(msgs)
+		// Apply budgeting including tool schemas for accurate trimming
+		msgs = agentctx.Budget{ModelName: a.ModelName}.ApplyWithTools(msgs, specs)
 		debug.Printf("Agent.Run: Current message count: %d", len(msgs))
 		if i > 0 {
 			// Log recent messages to see what's causing continued iterations
@@ -278,6 +279,8 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 		var assembled string
 		var finalToolCalls []model.ToolCall
+		var inputTokensUsed, outputTokensUsed int
+		var modelNameUsed string
 		firstTokenRecorded := false
 		var sb strings.Builder
 		for chunk := range streamCh {
@@ -294,12 +297,24 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			}
 			if chunk.Done {
 				finalToolCalls = chunk.ToolCalls
+				if chunk.InputTokens > 0 {
+					inputTokensUsed = chunk.InputTokens
+				}
+				if chunk.OutputTokens > 0 {
+					outputTokensUsed = chunk.OutputTokens
+				}
+				if chunk.ModelName != "" {
+					modelNameUsed = chunk.ModelName
+				}
 			}
 		}
 		assembled = sb.String()
 
 		// After streaming, treat result as a single completion
-		res := model.Completion{Content: assembled, ToolCalls: finalToolCalls}
+		res := model.Completion{Content: assembled, ToolCalls: finalToolCalls, InputTokens: inputTokensUsed, OutputTokens: outputTokensUsed, ModelName: func() string {
+			if modelNameUsed != "" { return modelNameUsed }
+			return a.ModelName
+		}()}
 		debug.Printf("Agent.Run: Streaming completed with %d tool calls", len(res.ToolCalls))
 		debug.Printf("Agent.Run: Agent response content: '%.200s...'", res.Content)
 		if len(res.ToolCalls) > 0 {
@@ -311,9 +326,24 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		a.Trace(ctx, trace.EventStepStart, res)
 
 		// Approximate output tokens & update cost
-		outTok := tokens.Count(res.Content, a.ModelName)
+		// Prefer API-provided counts else fallback to estimation
+		inTok := res.InputTokens
+		if inTok == 0 { // fallback estimate based on current messages (excluding assistant response just added later)
+			// Roughly count tokens of system + user + last assistant/tool context
+			for _, m := range msgs {
+				inTok += tokens.Count(m.Content, a.ModelName)
+				for _, tc := range m.ToolCalls {
+					inTok += tokens.Count(tc.Name, a.ModelName)
+					inTok += tokens.Count(string(tc.Arguments), a.ModelName)
+				}
+			}
+		}
+		outTok := res.OutputTokens
+		if outTok == 0 {
+			outTok = tokens.Count(res.Content, a.ModelName)
+		}
 		if a.Cost != nil {
-			a.Cost.AddModelUsage(a.ModelName, 0, outTok)
+			a.Cost.AddModelUsage(a.ModelName, inTok, outTok)
 			if a.Cost.OverBudget() && env.Bool("AGENTRY_STOP_ON_BUDGET", false) {
 				return "", fmt.Errorf("cost or token budget exceeded (tokens=%d cost=$%.4f)", a.Cost.TotalTokens(), a.Cost.TotalCost())
 			}
