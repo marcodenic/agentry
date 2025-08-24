@@ -142,9 +142,9 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 				Type  string `json:"type"`
 				Index int    `json:"index,omitempty"`
 				Delta struct {
-					Type           string          `json:"type"`
-					Text           string          `json:"text"`
-					PartialJson    string          `json:"partial_json"`
+					Type        string `json:"type"`
+					Text        string `json:"text"`
+					PartialJson string `json:"partial_json"`
 				} `json:"delta"`
 				ContentBlock struct {
 					Type  string          `json:"type"`

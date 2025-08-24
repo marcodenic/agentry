@@ -55,7 +55,7 @@ func (m *coderDebugClient) Stream(ctx context.Context, msgs []model.ChatMessage,
 					break
 				}
 			}
-			
+
 			if hasLsResult {
 				// Second try: Read the file directly
 				m.t.Logf("Attempting to view PRODUCT.md")
@@ -87,7 +87,7 @@ func (m *coderDebugClient) Stream(ctx context.Context, msgs []model.ChatMessage,
 					break
 				}
 			}
-			
+
 			if hasFileContent {
 				out <- model.StreamChunk{
 					ContentDelta: "Successfully read PRODUCT.md file content.",
@@ -114,7 +114,7 @@ func TestCoderFileReadingDebug(t *testing.T) {
 	// Create a team like the real application does
 	registry := tool.DefaultRegistry()
 	mockClient := &coderDebugClient{t: t}
-	
+
 	// Create parent agent (Agent 0)
 	ag := core.New(mockClient, "mock", registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 	ag.Prompt = "You are Agent 0"
@@ -139,10 +139,10 @@ func TestCoderFileReadingDebug(t *testing.T) {
 
 	// This should create a coder agent and try to read PRODUCT.md
 	output, err := tl.Execute(ctx, map[string]any{
-		"agent": "coder", 
+		"agent": "coder",
 		"input": "Please read the file PRODUCT.md and tell me what it contains",
 	})
-	
+
 	t.Logf("Delegation output: %s", output)
 	if err != nil {
 		t.Logf("Delegation error: %v", err)
@@ -159,25 +159,25 @@ func TestCoderFileReadingDebug(t *testing.T) {
 func TestFileToolsDirectly(t *testing.T) {
 	// Test file tools directly to make sure they work
 	registry := tool.DefaultRegistry()
-	
+
 	t.Logf("Testing ls tool directly...")
 	lsTool, ok := registry.Use("ls")
 	if !ok {
 		t.Fatal("ls tool missing from registry")
 	}
-	
+
 	lsOutput, err := lsTool.Execute(context.Background(), map[string]any{})
 	if err != nil {
 		t.Fatalf("ls tool failed: %v", err)
 	}
 	t.Logf("ls output: %s", lsOutput)
-	
+
 	t.Logf("Testing view tool directly...")
 	viewTool, ok := registry.Use("view")
 	if !ok {
 		t.Fatal("view tool missing from registry")
 	}
-	
+
 	viewOutput, err := viewTool.Execute(context.Background(), map[string]any{"path": "PRODUCT.md"})
 	if err != nil {
 		t.Fatalf("view tool failed: %v", err)

@@ -78,7 +78,7 @@ func (m Model) View() string {
 	if m.Width <= 0 {
 		return ""
 	}
-	
+
 	width := lipgloss.Width
 
 	// Create sophisticated styles for each column with subtle effects

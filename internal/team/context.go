@@ -36,15 +36,6 @@ func FromContext(ctx context.Context) (Caller, bool) {
 	return t, ok
 }
 
-// Call sends input to the named agent of the team stored in ctx.
-func Call(ctx context.Context, name, input string) (string, error) {
-	t, ok := FromContext(ctx)
-	if !ok || t == nil {
-		return "", ErrNoTeam
-	}
-	return t.Call(ctx, name, input)
-}
-
 // TeamFromContext extracts a Team pointer if present.
 // This provides compatibility with legacy converse.TeamFromContext usage.
 func TeamFromContext(ctx context.Context) *Team {

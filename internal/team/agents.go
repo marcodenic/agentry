@@ -62,14 +62,14 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 
 	// Create the core agent
 	registry := tool.DefaultRegistry()
-	
+
 	// Apply tool restrictions based on role configuration
 	if len(roleConfig.RestrictedTools) > 0 {
 		for _, restrictedTool := range roleConfig.RestrictedTools {
 			delete(registry, restrictedTool)
 		}
 		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-			fmt.Fprintf(os.Stderr, "🚫 SpawnAgent: Restricted %d tools for role %s: %v\n", 
+			fmt.Fprintf(os.Stderr, "🚫 SpawnAgent: Restricted %d tools for role %s: %v\n",
 				len(roleConfig.RestrictedTools), role, roleConfig.RestrictedTools)
 		}
 	}

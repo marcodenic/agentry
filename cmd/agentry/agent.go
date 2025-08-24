@@ -220,8 +220,3 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 
 	return ag, nil
 }
-
-// Stub functions for commands that are only available with tools build tag
-func runPProfCmd(_ []string) {
-	fmt.Println("PProf command not available (build with --tools flag)")
-}

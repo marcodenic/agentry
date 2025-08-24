@@ -58,7 +58,7 @@ func (m Model) handleActionMessage(msg actionMsg) (Model, tea.Cmd) {
 		formatted := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
 		info.addContentWithSpacing(formatted, ContentTypeAIResponse)
 		info.StreamingResponse = "" // mark as committed
-		info.TokensStarted = false   // reset so future streaming cycles behave normally
+		info.TokensStarted = false  // reset so future streaming cycles behave normally
 	}
 
 	// Start progressive status update with orange bar

@@ -2,7 +2,7 @@ package context
 
 import (
 	"fmt"
-	
+
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 )

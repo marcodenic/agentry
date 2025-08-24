@@ -162,10 +162,10 @@ func (a *Agent) Spawn() *Agent {
 	// Do NOT inherit parent context to prevent exponential growth
 	spawned := &Agent{
 		ID:              uuid.New(),
-		Prompt:          "", // Will be set by role configuration, not inherited
-		Vars:            nil, // Fresh vars, no inheritance 
-		Tools:           a.Tools, // Tool registry can be shared
-		Mem:             memory.NewInMemory(), // Fresh memory - no inheritance
+		Prompt:          "",                         // Will be set by role configuration, not inherited
+		Vars:            nil,                        // Fresh vars, no inheritance
+		Tools:           a.Tools,                    // Tool registry can be shared
+		Mem:             memory.NewInMemory(),       // Fresh memory - no inheritance
 		Vector:          memory.NewInMemoryVector(), // Fresh vector store - no shared state
 		Client:          a.Client,
 		ModelName:       a.ModelName,

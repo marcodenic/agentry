@@ -18,7 +18,7 @@ import (
 //
 // This test suite validates the three core scenarios you requested:
 // 1. Agent 0 simple greeting (works)
-// 2. Agent 0 -> writer delegation (works) 
+// 2. Agent 0 -> writer delegation (works)
 // 3. Agent 0 -> coder file reading (currently fails due to ls tool issue)
 //
 // Uses canned/simulated API responses for deterministic testing
@@ -27,7 +27,7 @@ func TestAgentryMultiAgentOrchestration(t *testing.T) {
 	// Set up correct working directory for all tests
 	originalWd, _ := os.Getwd()
 	defer os.Chdir(originalWd)
-	
+
 	agentryRoot := filepath.Join(originalWd, "..")
 	err := os.Chdir(agentryRoot)
 	if err != nil {
@@ -41,7 +41,7 @@ func TestAgentryMultiAgentOrchestration(t *testing.T) {
 			response: "Hi! How can I help you today?",
 			t:        t,
 		}
-		
+
 		registry := tool.DefaultRegistry()
 		ag := core.New(client, "openai/gpt-5-mini", registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 		ag.Prompt = "You are Agent 0, the system orchestrator."
@@ -66,7 +66,7 @@ func TestAgentryMultiAgentOrchestration(t *testing.T) {
 			finalResponse:      "Hello!",
 			t:                  t,
 		}
-		
+
 		registry := tool.DefaultRegistry()
 		ag := core.New(client, "openai/gpt-5-mini", registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 		ag.Prompt = "You are Agent 0, delegate appropriate tasks to other agents."
@@ -92,15 +92,15 @@ func TestAgentryMultiAgentOrchestration(t *testing.T) {
 	t.Run("Scenario3_CoderFileReading_CurrentlyFailing", func(t *testing.T) {
 		// Test Agent 0 delegating to coder for "spawn a coder to read PRODUCT.md and report back"
 		// This currently fails because coder tries 'ls' first, which has sandbox issues
-		
+
 		client := &delegationMockClient{
 			delegationResponse: "I'll delegate this file reading task to a coder agent.",
-			toolCallAgent:      "coder", 
+			toolCallAgent:      "coder",
 			toolCallInput:      "Please read PRODUCT.md and report back",
 			finalResponse:      "Coder task completed",
 			t:                  t,
 		}
-		
+
 		registry := tool.DefaultRegistry()
 		ag := core.New(client, "openai/gpt-5-mini", registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 		ag.Prompt = "You are Agent 0, delegate file operations to coder agents."
@@ -113,7 +113,7 @@ func TestAgentryMultiAgentOrchestration(t *testing.T) {
 		ctx := team.WithContext(context.Background(), tm)
 
 		result, err := ag.Run(ctx, "spawn a coder to read PRODUCT.md and report back")
-		
+
 		// This test documents the current failure mode
 		if err != nil {
 			t.Logf("❌ SCENARIO 3 FAILED (EXPECTED): %v", err)
@@ -121,14 +121,14 @@ func TestAgentryMultiAgentOrchestration(t *testing.T) {
 		} else {
 			t.Logf("✅ SCENARIO 3 PASSED: Coder delegation - %s", result)
 		}
-		
+
 		// Test should pass regardless - we're documenting current behavior
 	})
 
 	t.Run("Scenario3_Fix_CoderWithoutLS", func(t *testing.T) {
 		// Test showing how coder works when it skips 'ls' and uses 'view' directly
 		client := &fixedCoderClient{t: t}
-		
+
 		registry := tool.DefaultRegistry()
 		ag := core.New(client, "anthropic/claude-sonnet-4", registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 		ag.Prompt = `You are Coder, an AI software developer. When asked to read a file, use the 'view' tool directly. Do not use 'ls' first.`
@@ -149,7 +149,7 @@ func TestAgentryMultiAgentOrchestration(t *testing.T) {
 func TestFileToolDiagnostics(t *testing.T) {
 	originalWd, _ := os.Getwd()
 	defer os.Chdir(originalWd)
-	
+
 	agentryRoot := filepath.Join(originalWd, "..")
 	err := os.Chdir(agentryRoot)
 	if err != nil {
@@ -272,7 +272,7 @@ func (f *fixedCoderClient) Stream(ctx context.Context, msgs []model.ChatMessage,
 				ToolCalls: []model.ToolCall{
 					{
 						ID:        "view_file",
-						Name:      "view", 
+						Name:      "view",
 						Arguments: []byte(`{"path": "PRODUCT.md"}`),
 					},
 				},
@@ -291,12 +291,12 @@ func (f *fixedCoderClient) Stream(ctx context.Context, msgs []model.ChatMessage,
 			if hasFileContent {
 				out <- model.StreamChunk{
 					ContentDelta: "Successfully read PRODUCT.md. This is the Agentry Product & Roadmap document which describes a local-first, observable, resilient multi-agent development orchestrator. Key features include Agent 0 coordination, 30+ built-in tools for file operations and delegation, support for OpenAI and Anthropic models, and a comprehensive system for task delegation, implementation, testing, and review.",
-					Done: true,
+					Done:         true,
 				}
 			} else {
 				out <- model.StreamChunk{
 					ContentDelta: "Failed to read PRODUCT.md file.",
-					Done: true,
+					Done:         true,
 				}
 			}
 		}

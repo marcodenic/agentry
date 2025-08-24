@@ -13,20 +13,6 @@ import (
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
-func runAnalyzeCmd(args []string) {
-	if len(args) < 1 {
-		fmt.Println("usage: agentry analyze trace.log")
-		return
-	}
-	sum, err := trace.AnalyzeFile(args[0])
-	if err != nil {
-		fmt.Println("analyze error:", err)
-		os.Exit(1)
-	}
-	fmt.Printf("input tokens: %d, output tokens: %d, total tokens: %d, cost: $%.6f\n",
-		sum.InputTokens, sum.OutputTokens, sum.TotalTokens, sum.Cost)
-}
-
 func runPrompt(cmd string, args []string) {
 	// Use "agentry" as the flag set name for runPrompt, not the prompt text
 	opts, remainingArgs := parseCommon("agentry", args)

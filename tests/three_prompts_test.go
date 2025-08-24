@@ -26,7 +26,7 @@ func (c *cannedResponseClient) Stream(ctx context.Context, msgs []model.ChatMess
 	go func() {
 		defer close(out)
 		c.callCount++
-		
+
 		if c.callCount <= len(c.responses) {
 			response := c.responses[c.callCount-1]
 			c.t.Logf("Canned response #%d: %s", c.callCount, response.ContentDelta)
@@ -47,7 +47,7 @@ func TestThreePrompts_SimpleGreeting(t *testing.T) {
 	// Change to the agentry root directory for proper file access
 	originalWd, _ := os.Getwd()
 	defer os.Chdir(originalWd)
-	
+
 	agentryRoot := filepath.Join(originalWd, "..")
 	err := os.Chdir(agentryRoot)
 	if err != nil {
@@ -90,12 +90,12 @@ func TestThreePrompts_SimpleGreeting(t *testing.T) {
 	t.Logf("✅ Test 1 PASSED: Agent 0 simple greeting - %s", result)
 }
 
-// Test Case 2: Agent 0 delegates to writer - should work  
+// Test Case 2: Agent 0 delegates to writer - should work
 func TestThreePrompts_WriterDelegation(t *testing.T) {
 	// Change to the agentry root directory
 	originalWd, _ := os.Getwd()
 	defer os.Chdir(originalWd)
-	
+
 	agentryRoot := filepath.Join(originalWd, "..")
 	err := os.Chdir(agentryRoot)
 	if err != nil {
@@ -173,7 +173,7 @@ func TestThreePrompts_CoderFileReading(t *testing.T) {
 	// Change to the agentry root directory so PRODUCT.md can be found
 	originalWd, _ := os.Getwd()
 	defer os.Chdir(originalWd)
-	
+
 	agentryRoot := filepath.Join(originalWd, "..")
 	err := os.Chdir(agentryRoot)
 	if err != nil {
@@ -189,13 +189,13 @@ func TestThreePrompts_CoderFileReading(t *testing.T) {
 	// Client that delegates to coder
 	delegationClient := &cannedResponseClient{
 		responses: []model.StreamChunk{
-			// Agent 0's response - delegates to coder 
+			// Agent 0's response - delegates to coder
 			{
 				ContentDelta: "I'll delegate this task to a coder agent who can read and analyze the PRODUCT.md file.",
 				ToolCalls: []model.ToolCall{
 					{
 						ID:        "call_coder",
-						Name:      "agent", 
+						Name:      "agent",
 						Arguments: []byte(`{"agent": "coder", "input": "Please read the file named PRODUCT.md at the repository root and report back. Do all of the following in your response: 1) If PRODUCT.md does not exist or cannot be read, say so clearly and include any error details. 2) Otherwise, provide the full raw content of PRODUCT.md at the top of your reply (exact content, unmodified). 3) After the raw content, provide a concise summary (3-6 bullets) that captures: product goals, main features, target users, timeline or milestones (if present), and any constraints or success metrics mentioned."}`),
 					},
 				},
@@ -238,8 +238,8 @@ func (c *coderMockClient) Stream(ctx context.Context, msgs []model.ChatMessage, 
 	go func() {
 		defer close(out)
 		c.t.Logf("Coder agent received task")
-		
-		// Simulate the coder reading PRODUCT.md successfully  
+
+		// Simulate the coder reading PRODUCT.md successfully
 		out <- model.StreamChunk{
 			ContentDelta: "I'll read the PRODUCT.md file for you.",
 			ToolCalls: []model.ToolCall{
@@ -251,11 +251,11 @@ func (c *coderMockClient) Stream(ctx context.Context, msgs []model.ChatMessage, 
 			},
 			Done: false,
 		}
-		
+
 		// Simulate tool result and final response
 		out <- model.StreamChunk{
 			ContentDelta: "# Agentry Product & Roadmap\n\nSingle authoritative doc. Keep terse, actionable. Update after each merge/re-prioritization.\n\n## Summary:\n- Multi-agent development orchestrator\n- Local-first, observable, resilient\n- Agent 0 delegates → implements → tests → reviews\n- 30+ built-in tools for file ops, web/network, delegation\n- OpenAI + Anthropic model support",
-			Done: true,
+			Done:         true,
 		}
 	}()
 	return out, nil
@@ -266,7 +266,7 @@ func TestThreePrompts_FullIntegration(t *testing.T) {
 	// Change to the agentry root directory
 	originalWd, _ := os.Getwd()
 	defer os.Chdir(originalWd)
-	
+
 	agentryRoot := filepath.Join(originalWd, "..")
 	err := os.Chdir(agentryRoot)
 	if err != nil {
@@ -280,7 +280,7 @@ func TestThreePrompts_FullIntegration(t *testing.T) {
 		}
 		registry := tool.DefaultRegistry()
 		ag := core.New(client, "mock", registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
-		
+
 		result, err := ag.Run(context.Background(), "hi")
 		if err != nil {
 			t.Fatalf("Simple greeting failed: %v", err)

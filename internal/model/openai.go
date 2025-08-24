@@ -336,23 +336,3 @@ func supportsTemperature(model string) bool {
 	}
 	return true
 }
-
-// collectOutputText walks arbitrary decoded JSON and extracts any objects
-// with type == "output_text" and a non-empty text field.
-func collectOutputText(node any, out *[]string) {
-	switch v := node.(type) {
-	case map[string]any:
-		if t, ok := v["type"].(string); ok && strings.Contains(t, "output_text") {
-			if txt, _ := v["text"].(string); txt != "" {
-				*out = append(*out, txt)
-			}
-		}
-		for _, vv := range v {
-			collectOutputText(vv, out)
-		}
-	case []any:
-		for _, itm := range v {
-			collectOutputText(itm, out)
-		}
-	}
-}

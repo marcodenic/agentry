@@ -5,8 +5,8 @@ package tool
 // additional model reflection pass. Example: the "agent" delegation tool
 // returns a final answer string from the delegated agent.
 type TerminalAware interface {
-    Tool
-    Terminal() bool
+	Tool
+	Terminal() bool
 }
 
 // terminalTool wraps a Tool and marks it terminal.
@@ -18,4 +18,3 @@ func (t terminalTool) Terminal() bool { return true }
 // immediately after successful execution (if all tool calls in a step are
 // terminal and there are no errors).
 func MarkTerminal(t Tool) Tool { return terminalTool{t} }
-

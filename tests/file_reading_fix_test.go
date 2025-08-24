@@ -14,12 +14,12 @@ import (
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
-// Test the actual file reading tools in the correct directory 
+// Test the actual file reading tools in the correct directory
 func TestFileToolsWithCorrectWorkingDirectory(t *testing.T) {
 	// Change to agentry root where PRODUCT.md exists
 	originalWd, _ := os.Getwd()
 	defer os.Chdir(originalWd)
-	
+
 	agentryRoot := filepath.Join(originalWd, "..")
 	err := os.Chdir(agentryRoot)
 	if err != nil {
@@ -67,7 +67,7 @@ func TestRealCoderAgentFileReading(t *testing.T) {
 	// Change to agentry root
 	originalWd, _ := os.Getwd()
 	defer os.Chdir(originalWd)
-	
+
 	agentryRoot := filepath.Join(originalWd, "..")
 	err := os.Chdir(agentryRoot)
 	if err != nil {
@@ -77,22 +77,22 @@ func TestRealCoderAgentFileReading(t *testing.T) {
 
 	// Create a mock client that simulates a real coder trying to read PRODUCT.md
 	coderClient := &realCoderMockClient{t: t}
-	
+
 	registry := tool.DefaultRegistry()
 	ag := core.New(coderClient, "mock", registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 	ag.Prompt = `You are Coder, an AI software developer agent. When asked to read a file, use the 'view' tool to read it and then summarize the content.`
 
 	// Run the agent directly (not through delegation) to test file reading
 	result, err := ag.Run(context.Background(), "Please read PRODUCT.md and tell me what it contains")
-	
+
 	if err != nil {
 		t.Fatalf("Coder agent failed: %v", err)
 	}
-	
+
 	if !strings.Contains(result, "Agentry") {
 		t.Errorf("Expected PRODUCT.md content in result, got: %s", result)
 	}
-	
+
 	t.Logf("✅ Coder agent successfully read PRODUCT.md: %.200s...", result)
 }
 
@@ -136,32 +136,32 @@ func (c *realCoderMockClient) Stream(ctx context.Context, msgs []model.ChatMessa
 					break
 				}
 			}
-			
+
 			if hasToolResult && strings.Contains(toolResult, "Agentry Product") {
 				// Success! We got the file content
 				out <- model.StreamChunk{
 					ContentDelta: "Successfully read PRODUCT.md. This is the Agentry Product & Roadmap document which describes a multi-agent development orchestrator. Key points: Local-first, observable, resilient system where Agent 0 delegates tasks to specialized agents, implements solutions, runs tests, and manages reviews. The system includes 30+ built-in tools for file operations, web/network access, and agent delegation. It supports both OpenAI and Anthropic models.",
-					Done: true,
+					Done:         true,
 				}
 			} else if hasToolResult {
 				// Got content but wrong content
 				c.t.Logf("Got unexpected content: %.100s...", toolResult)
 				out <- model.StreamChunk{
 					ContentDelta: "I was able to read a file, but it doesn't appear to be the expected PRODUCT.md content.",
-					Done: true,
+					Done:         true,
 				}
 			} else {
 				// No tool result, there was an error
 				c.t.Logf("No tool result received - file reading failed")
 				out <- model.StreamChunk{
 					ContentDelta: "I encountered an error trying to read PRODUCT.md. The file may not exist or there may be a permissions issue.",
-					Done: true,
+					Done:         true,
 				}
 			}
 		default:
 			out <- model.StreamChunk{
 				ContentDelta: "Task completed.",
-				Done: true,
+				Done:         true,
 			}
 		}
 	}()
@@ -173,13 +173,13 @@ func TestCompleteCoderDelegationFlow(t *testing.T) {
 	// Change to agentry root
 	originalWd, _ := os.Getwd()
 	defer os.Chdir(originalWd)
-	
+
 	agentryRoot := filepath.Join(originalWd, "..")
 	err := os.Chdir(agentryRoot)
 	if err != nil {
 		t.Fatalf("Failed to change to agentry root: %v", err)
 	}
-	
+
 	// Create Agent 0 that delegates to coder
 	agent0Client := &delegatingAgent0Client{t: t}
 	registry := tool.DefaultRegistry()

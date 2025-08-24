@@ -43,10 +43,6 @@ func StartTimer(name string) *Timer {
 	return timer
 }
 
-func (t *Timer) Elapsed() time.Duration {
-	return time.Since(t.start)
-}
-
 func (t *Timer) Stop() time.Duration {
 	elapsed := time.Since(t.start)
 	if os.Getenv("AGENTRY_DEBUG") == "1" {

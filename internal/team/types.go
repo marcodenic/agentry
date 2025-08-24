@@ -63,13 +63,13 @@ type Message struct {
 
 // RoleConfig represents configuration for an agent role
 type RoleConfig struct {
-	Name           string                `json:"name" yaml:"name"`
-	Model          *config.ModelManifest `json:"model,omitempty" yaml:"model,omitempty"`
-	Prompt         string                `json:"prompt" yaml:"prompt"`
-	Tools          []string              `json:"tools,omitempty" yaml:"tools,omitempty"`
+	Name            string                `json:"name" yaml:"name"`
+	Model           *config.ModelManifest `json:"model,omitempty" yaml:"model,omitempty"`
+	Prompt          string                `json:"prompt" yaml:"prompt"`
+	Tools           []string              `json:"tools,omitempty" yaml:"tools,omitempty"`
 	RestrictedTools []string              `json:"restricted_tools,omitempty" yaml:"restricted_tools,omitempty"`
-	Capabilities   []string              `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
-	Metadata       map[string]string     `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Capabilities    []string              `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
+	Metadata        map[string]string     `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 }
 
 // PortRange defines a range of ports for agent communication
