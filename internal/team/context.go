@@ -4,8 +4,7 @@ import (
 	"context"
 	"errors"
 
-	// avoid import cycles by referring to tool package only in type-free way
-	"github.com/marcodenic/agentry/internal/tool"
+	"github.com/marcodenic/agentry/internal/contracts"
 )
 
 // Caller represents a team capable of handling delegated calls.
@@ -26,8 +25,8 @@ var ErrUnknownAgent = errors.New("unknown agent")
 func WithContext(ctx context.Context, t Caller) context.Context {
 	// Store under local key
 	ctx = context.WithValue(ctx, ctxKey{}, t)
-	// Also store under tool's context key so builtins can fetch without importing team
-	return context.WithValue(ctx, tool.TeamContextKey, t)
+	// Also store under contracts context key so builtins can fetch without importing team
+	return context.WithValue(ctx, contracts.TeamContextKey, t)
 }
 
 // FromContext retrieves the team stored in ctx.

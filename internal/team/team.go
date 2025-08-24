@@ -484,7 +484,7 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 	defer timer.Stop()
 
 	// Attach agent name into context for builtins to use sensible defaults
-	ctx = context.WithValue(ctx, tool.AgentNameContextKey, name)
+	ctx = context.WithValue(ctx, contracts.AgentNameContextKey, name)
 	timer.Checkpoint("context prepared")
 
 	// Minimal bounded context wrapper (idempotent via sentinel)
