@@ -1,8 +1,6 @@
 module github.com/marcodenic/agentry
 
-go 1.23.0
-
-toolchain go1.23.8
+go 1.23
 
 require (
 	github.com/google/uuid v1.6.0

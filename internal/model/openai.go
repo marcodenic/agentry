@@ -1,15 +1,17 @@
 package model
 
 import (
-	"bufio"
-	"bytes"
-	"context"
-	"encoding/json"
-	"errors"
-	"io"
-	"net/http"
-	"sort"
-	"strings"
+    "bufio"
+    "bytes"
+    "context"
+    "encoding/json"
+    "errors"
+    "io"
+    "net/http"
+    "sort"
+    "strings"
+
+    "github.com/marcodenic/agentry/internal/debug"
 )
 
 // OpenAI client implemented against /v1/responses (legacy chat completions removed).
@@ -117,39 +119,33 @@ func (o *OpenAI) buildRequest(ctx context.Context, msgs []ChatMessage, tools []T
 }
 
 func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (<-chan StreamChunk, error) {
-	debug := func(msg string, args ...interface{}) {
-		// Debug logging disabled for production use
-		// Comment out next line to enable debug logging when needed
-		// println(fmt.Sprintf("[OPENAI STREAM DEBUG] "+msg, args...))
-	}
+    debug.Printf("OpenAI.Stream: msgs=%d tools=%d", len(msgs), len(tools))
 
-	debug("Starting OpenAI.Stream with %d messages, %d tools", len(msgs), len(tools))
-
-	req, err := o.buildRequest(ctx, msgs, tools, true)
-	debug("buildRequest completed, err=%v", err)
-	if err != nil {
-		debug("ERROR: buildRequest failed: %v", err)
-		return nil, err
-	}
-	debug("Creating output channel and starting goroutine...")
-	out := make(chan StreamChunk, 32)
-	go func() {
-		defer close(out)
-		debug("Goroutine started, making HTTP request...")
-		resp, err := o.client.Do(req)
-		debug("HTTP request completed, err=%v", err)
-		if err != nil {
-			debug("ERROR: HTTP request failed: %v", err)
-			out <- StreamChunk{Err: err}
-			return
-		}
-		defer resp.Body.Close()
-		debug("Response status: %d", resp.StatusCode)
-		if resp.StatusCode >= 300 {
-			body, _ := io.ReadAll(resp.Body)
-			out <- StreamChunk{Err: errors.New(string(body))}
-			return
-		}
+    req, err := o.buildRequest(ctx, msgs, tools, true)
+    debug.Printf("OpenAI.Stream: buildRequest err=%v", err)
+    if err != nil {
+        debug.Printf("OpenAI.Stream: buildRequest failed: %v", err)
+        return nil, err
+    }
+    debug.Printf("OpenAI.Stream: starting HTTP request goroutine")
+    out := make(chan StreamChunk, 32)
+    go func() {
+        defer close(out)
+        debug.Printf("OpenAI.Stream: HTTP request...")
+        resp, err := o.client.Do(req)
+        debug.Printf("OpenAI.Stream: HTTP response err=%v", err)
+        if err != nil {
+            debug.Printf("OpenAI.Stream: HTTP request failed: %v", err)
+            out <- StreamChunk{Err: err}
+            return
+        }
+        defer resp.Body.Close()
+        debug.Printf("OpenAI.Stream: status=%d", resp.StatusCode)
+        if resp.StatusCode >= 300 {
+            body, _ := io.ReadAll(resp.Body)
+            out <- StreamChunk{Err: errors.New(string(body))}
+            return
+        }
 		scanner := bufio.NewScanner(resp.Body)
 		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		partials := map[int]*partial{}
@@ -165,12 +161,12 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 				continue
 			}
 			payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-			debug("Stream payload: %q", payload)
-			if payload == "[DONE]" {
-				debug("Received [DONE], finalizing with %d partials, %d response calls", len(partials), len(responseCalls))
-				finalizeOpenAI(partials, out, inTok, outTok)
-				return
-			}
+            debug.Printf("OpenAI.Stream: payload=%q", payload)
+            if payload == "[DONE]" {
+                debug.Printf("OpenAI.Stream: [DONE], finalize (partials=%d responseCalls=%d)", len(partials), len(responseCalls))
+                finalizeOpenAI(partials, out, inTok, outTok)
+                return
+            }
 			if payload == "" {
 				continue
 			}
@@ -220,19 +216,19 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 					}
 				}
 			// Responses API: Handle function call start
-			case t == "response.output_item.added":
-				if item, ok := env["item"].(map[string]any); ok {
-					if itemType, _ := item["type"].(string); itemType == "function_call" {
-						if itemID, _ := item["id"].(string); itemID != "" {
-							if name, _ := item["name"].(string); name != "" {
-								callID, _ := item["call_id"].(string)
-								p := &partial{ToolCall: ToolCall{ID: callID, Name: name}, index: 0}
-								responseCalls[itemID] = p
-								debug("Response API: Added function call %s/%s", itemID, name)
-							}
-						}
-					}
-				}
+            case t == "response.output_item.added":
+                if item, ok := env["item"].(map[string]any); ok {
+                    if itemType, _ := item["type"].(string); itemType == "function_call" {
+                        if itemID, _ := item["id"].(string); itemID != "" {
+                            if name, _ := item["name"].(string); name != "" {
+                                callID, _ := item["call_id"].(string)
+                                p := &partial{ToolCall: ToolCall{ID: callID, Name: name}, index: 0}
+                                responseCalls[itemID] = p
+                                debug.Printf("OpenAI.Stream: Added function call %s/%s", itemID, name)
+                            }
+                        }
+                    }
+                }
 			// Responses API: Handle function call argument deltas
 			case t == "response.function_call_arguments.delta":
 				if itemID, _ := env["item_id"].(string); itemID != "" {
@@ -248,47 +244,47 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 				}
 			// Responses API: Handle final arguments
 			case t == "response.function_call_arguments.done":
-				if itemID, _ := env["item_id"].(string); itemID != "" {
-					if p, exists := responseCalls[itemID]; exists {
-						if args, _ := env["arguments"].(string); args != "" {
-							p.Arguments = []byte(args)
-						}
-						debug("Response API: Function call args done for %s", itemID)
-					}
-				}
-			case t == "response.completed":
-				debug("Response API: Response completed")
-				if u, ok := env["usage"].(map[string]any); ok {
-					if iv, ok := u["input_tokens"].(float64); ok {
-						inTok = int(iv)
-					}
-					if ov, ok := u["output_tokens"].(float64); ok {
-						outTok = int(ov)
-					}
-				}
-				// Combine both legacy and responses API calls
-				finalizeWithResponses(partials, responseCalls, out, inTok, outTok)
-				return
-			default: /* ignore */
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			debug("Scanner error: %v", err)
-			out <- StreamChunk{Err: err}
-		} else {
-			debug("Scanner ended normally, finalizing with %d partials, %d response calls", len(partials), len(responseCalls))
-			finalizeWithResponses(partials, responseCalls, out, inTok, outTok)
-		}
-	}()
-	return out, nil
+                if itemID, _ := env["item_id"].(string); itemID != "" {
+                    if p, exists := responseCalls[itemID]; exists {
+                        if args, _ := env["arguments"].(string); args != "" {
+                            p.Arguments = []byte(args)
+                        }
+                        debug.Printf("OpenAI.Stream: Function call args done for %s", itemID)
+                    }
+                }
+            case t == "response.completed":
+                debug.Printf("OpenAI.Stream: response completed")
+                if u, ok := env["usage"].(map[string]any); ok {
+                    if iv, ok := u["input_tokens"].(float64); ok {
+                        inTok = int(iv)
+                    }
+                    if ov, ok := u["output_tokens"].(float64); ok {
+                        outTok = int(ov)
+                    }
+                }
+                // Combine both legacy and responses API calls
+                finalizeWithResponses(partials, responseCalls, out, inTok, outTok)
+                return
+            default: /* ignore */
+            }
+        }
+        if err := scanner.Err(); err != nil {
+            debug.Printf("OpenAI.Stream: scanner error: %v", err)
+            out <- StreamChunk{Err: err}
+        } else {
+            debug.Printf("OpenAI.Stream: scanner ended, finalize (partials=%d responseCalls=%d)", len(partials), len(responseCalls))
+            finalizeWithResponses(partials, responseCalls, out, inTok, outTok)
+        }
+    }()
+    return out, nil
 }
 
 func finalizeOpenAI(partials map[int]*partial, out chan<- StreamChunk, inTok, outTok int) {
-	if len(partials) == 0 {
-		println("[OPENAI FINALIZE] No tool calls, sending Done chunk")
-		out <- StreamChunk{Done: true, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai"}
-		return
-	}
+    if len(partials) == 0 {
+        // No tool calls: emit final chunk with usage
+        out <- StreamChunk{Done: true, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai"}
+        return
+    }
 	idxs := make([]int, 0, len(partials))
 	for i := range partials {
 		idxs = append(idxs, i)

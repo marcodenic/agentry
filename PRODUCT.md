@@ -16,7 +16,7 @@ Local-first, observable, resilient **multi-agent** development orchestrator. Ope
 * **Multi-agent:** Team registry + delegation; Agent 0 role = orchestrator (spawn/manage workers).
 * **Memory:** per-agent convo history + vector store; SharedStore (mem/file) for persistence; **basic checkpointing** (low priority to extend).
 * **TUI:** live stream, delegation events, token/cost bar, diagnostics summary, safe autoscroll.
-* **CLI:** JSON-pure automation (`invoke`, `team`, `memory`, `analyze`, `refresh-models`). Deprecated: `chat`, `dev`.
+* **CLI:** Direct prompts (+ default TUI when no command) and `refresh-models`. Legacy commands (`invoke`, `team`, `memory`, `analyze`) removed.
 * **Context:** minimal builder (v2 pipeline incoming). Platform/roles injected via files.
 
 ## Recently Completed (Highlights)
@@ -31,8 +31,8 @@ Local-first, observable, resilient **multi-agent** development orchestrator. Ope
 * **Sprint Complete: Major Cleanup & Simplification**
   * Removed Prometheus/metrics system completely (code, deps, configs)
   * Removed eval system entirely (internal/eval, commands, test files)
-  * Simplified CLI to core functionality: `./agentry [prompt]` + essential utilities
-  * Eliminated legacy commands: tui, invoke, team, memory, cost, analyze
+* Simplified CLI to core functionality: direct prompts (default TUI with no command) and `refresh-models`
+* Eliminated legacy commands: invoke, team, memory, cost, analyze
   * Agent 0 TUI display fixed (now shows "Agent 0" with "System" role)
   * All tests passing; cleaner, lighter codebase ready for Context v2
 
@@ -61,7 +61,7 @@ Code Quality
 
 * [x] **Remove Prometheus/metrics** code & deps; delete metric labels/counters/histograms.
 * [x] Remove legacy **eval** paths/flags/commands and dead modes.
-* [x] **Remove legacy CLI commands** (tui, invoke, team, memory, cost, analyze) - simplified to direct prompts.
+* [x] **Remove legacy CLI commands** (invoke, team, memory, cost, analyze) - simplified to direct prompts.
 * [x] Purge unused metrics env vars & docs.
 
 
@@ -255,13 +255,9 @@ agentry implement a health check endpoint
 agentry "analyze the codebase structure & suggest improvements"
 agentry "implement user auth with JWT tokens"
 
-# Interactive chat mode
-agentry chat
-agentry chat start with analyzing the code
-
-# Start TUI interface (full interactive mode)
-agentry tui
-agentry tui --config custom.yaml
+# Start TUI interface (default when no command)
+agentry
+agentry --config custom.yaml
 
 # Update model pricing data
 agentry refresh-models
@@ -298,19 +294,15 @@ agentry add error handling to the auth module
 # With flags for debugging
 agentry --debug analyze the codebase structure
 
-# Chat with custom config and theme
-agentry chat --config dev.yaml --theme dark help me understand this error
-
 # TUI with session resumption
-agentry tui --resume-id my-session --theme light
+agentry --resume-id my-session --theme light
 
 # Complex prompts (quotes recommended for special characters)
 agentry "implement user auth with JWT tokens & refresh logic"
 agentry "analyze performance bottlenecks using profiling data"
 
-# Update models and start fresh session
+# Update models
 agentry refresh-models
-agentry chat --save-id fresh-start
 ```
 
 ### Environment Variables (Alternative Configuration)

@@ -197,11 +197,10 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	)
 	prompt = applyVars(prompt, a.Vars)
 
-	prov := agentctx.Provider{Prompt: prompt, History: a.Mem.History()}
-	budget := agentctx.Budget{ModelName: a.ModelName}
-	assembler := agentctx.Assembler{Provider: prov, Budget: budget}
-	msgs := assembler.Assemble(input)
-	specs := tool.BuildSpecs(a.Tools)
+    prov := agentctx.Provider{Prompt: prompt, History: a.Mem.History()}
+    specs := tool.BuildSpecs(a.Tools)
+    // Build initial messages from provider and apply budgeting once initially
+    msgs := agentctx.Assembler{Provider: prov, Budget: agentctx.Budget{ModelName: a.ModelName}}.AssembleWithTools(input, specs)
 
 	debug.Printf("Agent.Run: Built %d messages (post-trim), %d tool specs", len(msgs), len(specs))
 	debug.Printf("Agent.Run: About to call model client with model %s", a.ModelName)
@@ -232,15 +231,12 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	// Track consecutive errors for resilience
 	consecutiveErrors := 0
 
-	// optional iteration cap via env var (safety) "AGENTRY_MAX_ITER"
-	maxIter := env.Int("AGENTRY_MAX_ITER", 0)
-	if maxIter == 0 { // provide a safety default
-		maxIter = 12
-	}
-	for i := 0; ; i++ {
-		if maxIter > 0 && i >= maxIter {
-			return "", fmt.Errorf("iteration cap reached (%d)", maxIter)
-		}
+    // Iteration cap removed by default; honor only if explicitly set
+    maxIter := env.Int("AGENTRY_MAX_ITER", 0)
+    for i := 0; ; i++ {
+        if maxIter > 0 && i >= maxIter {
+            return "", fmt.Errorf("iteration cap reached (%d)", maxIter)
+        }
 		// cancellation check early in loop
 		select {
 		case <-ctx.Done():
@@ -456,7 +452,12 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 			return msgs, hadErrors, err
 		}
 		applyVarsMap(args, a.Vars)
-		debug.Printf("Agent '%s' executing tool '%s' with args: %v", a.ID, tc.Name, args)
+        // Sanitize tool args before logging to avoid leaking secrets
+        if b, _ := json.Marshal(args); len(b) > 0 {
+            debug.Printf("Agent '%s' executing tool '%s' with args: %s", a.ID, tc.Name, sanitizeForLog(string(b)))
+        } else {
+            debug.Printf("Agent '%s' executing tool '%s'", a.ID, tc.Name)
+        }
 		a.Trace(ctx, trace.EventToolStart, map[string]any{"name": tc.Name, "args": args})
 		r, err := t.Execute(ctx, args)
 		debug.Printf("Agent '%s' tool '%s' execute completed, err=%v, result_length=%d", a.ID, tc.Name, err, len(r))
