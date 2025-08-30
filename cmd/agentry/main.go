@@ -11,11 +11,11 @@ import (
 )
 
 func main() {
-	env.Load()
-	
-    // If no arguments, show help (explicit TUI required)
+    env.Load()
+    
+    // If no arguments, start TUI (default)
     if len(os.Args) < 2 {
-        showHelp()
+        runTui([]string{})
         return
     }
 
@@ -33,9 +33,9 @@ func main() {
 	args := os.Args[1:]
 	opts, remainingArgs := parseCommon("agentry", args)
 	
-    // If no remaining args after flag parsing, show help
+    // If no remaining args after flag parsing, start TUI (default)
     if len(remainingArgs) == 0 {
-        showHelp()
+        runTui(args) // Pass original args to TUI for its own parsing
         return
     }
 
@@ -83,7 +83,7 @@ USAGE:
   agentry [command] [flags] [arguments]
 
 COMMANDS:
-  tui                  Start TUI interface
+    (no command)         Start TUI interface (default)
   refresh-models       Update model pricing data
   help                 Show this help message
   
@@ -109,11 +109,11 @@ FLAGS:
   --audit-log PATH       Path to audit log file
 
 EXAMPLES:
-  agentry tui                              # Start TUI
+  agentry                                  # Start TUI (default)
   agentry fix the auth tests               # Direct prompt (no quotes needed)
   agentry "complex prompt with & symbols"  # Quotes for special characters
   agentry --debug analyze code             # Debug mode with direct prompt
-  agentry tui --resume-id my-session       # Resume TUI session
+  agentry --resume-id my-session           # Resume TUI session
   agentry refresh-models                   # Update model data
   
   Tool filtering examples:

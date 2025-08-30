@@ -187,15 +187,16 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 	a.Trace(ctx, trace.EventModelStart, a.ModelName)
 
-	prompt := a.Prompt
-	if prompt == "" {
-		prompt = defaultPrompt()
-	}
-	prompt = InjectPlatformContext(prompt,
-		[]string{"list", "view", "write", "run", "search", "find", "cwd", "env"},
-		[]string{},
-	)
-	prompt = applyVars(prompt, a.Vars)
+    prompt := a.Prompt
+    if prompt == "" {
+        prompt = defaultPrompt()
+    }
+    // Inject platform/tool guidance only once per agent (persist into Agent.Prompt)
+    if !strings.Contains(prompt, "<!-- PLATFORM_CONTEXT_START -->") {
+        prompt = InjectPlatformContextFromRegistry(prompt, a.Tools)
+        a.Prompt = prompt
+    }
+    prompt = applyVars(prompt, a.Vars)
 
     prov := agentctx.Provider{Prompt: prompt, History: a.Mem.History()}
     specs := tool.BuildSpecs(a.Tools)
