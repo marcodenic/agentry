@@ -18,71 +18,8 @@ func (t *Team) RegisterAgentTool(registry tool.Registry) {
         agentDelegationExec(t),
     ))
 
-	// Add parallel agent tool for executing multiple agents simultaneously
-	parallelSchema := map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"tasks": map[string]any{
-				"type":        "array",
-				"description": "Array of agent tasks to execute in parallel",
-				"items": map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"agent": map[string]any{"type": "string", "description": "Name of the agent to delegate to"},
-						"input": map[string]any{"type": "string", "description": "Task description or input for the agent"},
-						"role":  map[string]any{"type": "string", "description": "Alias for agent"},
-						"task":  map[string]any{"type": "string", "description": "Alias for input"},
-					},
-					"required": []string{},
-				},
-			},
-		},
-		"required": []string{"tasks"},
-	}
-
-	registry["parallel_agents"] = tool.NewWithSchema("parallel_agents", "Execute multiple agent tasks in parallel for efficiency", parallelSchema, func(ctx context.Context, args map[string]any) (string, error) {
-		tasksInterface, ok := args["tasks"]
-		if !ok {
-			return "", errors.New("tasks array is required")
-		}
-
-		raw, ok := tasksInterface.([]interface{})
-		if !ok {
-			return "", errors.New("tasks must be an array")
-		}
-
-		// Convert alias keys for each task item
-		for i, item := range raw {
-			m, ok := item.(map[string]any)
-			if !ok {
-				continue
-			}
-			if _, has := m["agent"]; !has {
-				if v, ok := m["role"].(string); ok && v != "" {
-					m["agent"] = v
-				}
-			}
-			if _, has := m["input"]; !has {
-				for _, k := range []string{"task"} {
-					if v, ok := m[k].(string); ok && v != "" {
-						m["input"] = v
-						break
-					}
-				}
-			}
-			raw[i] = m
-		}
-
-		// Use team from context if available
-		var teamInstance *Team
-		if contextTeam := TeamFromContext(ctx); contextTeam != nil {
-			teamInstance = contextTeam
-		} else {
-			teamInstance = t
-		}
-
-		return teamInstance.CallParallel(ctx, raw)
-	})
+    // Add parallel agent tool via shared helper
+    registry["parallel_agents"] = parallelAgentsToolSpec(t)
 }
 
 // GetAgentToolSpec returns the tool specification for the agent tool
@@ -156,4 +93,66 @@ func agentDelegationExec(t *Team) func(ctx context.Context, args map[string]any)
         }
         return teamInstance.Call(ctx, name, input)
     }
+}
+
+// parallelAgentsToolSpec defines a reusable spec for executing multiple agents in parallel.
+func parallelAgentsToolSpec(t *Team) tool.Tool {
+    schema := map[string]any{
+        "type": "object",
+        "properties": map[string]any{
+            "tasks": map[string]any{
+                "type":        "array",
+                "description": "Array of agent tasks to execute in parallel",
+                "items": map[string]any{
+                    "type": "object",
+                    "properties": map[string]any{
+                        "agent": map[string]any{"type": "string", "description": "Name of the agent to delegate to"},
+                        "input": map[string]any{"type": "string", "description": "Task description or input for the agent"},
+                        "role":  map[string]any{"type": "string", "description": "Alias for agent"},
+                        "task":  map[string]any{"type": "string", "description": "Alias for input"},
+                    },
+                    "required": []string{},
+                },
+            },
+        },
+        "required": []string{"tasks"},
+    }
+    return tool.NewWithSchema("parallel_agents", "Execute multiple agent tasks in parallel for efficiency", schema, func(ctx context.Context, args map[string]any) (string, error) {
+        tasksInterface, ok := args["tasks"]
+        if !ok {
+            return "", errors.New("tasks array is required")
+        }
+        raw, ok := tasksInterface.([]interface{})
+        if !ok {
+            return "", errors.New("tasks must be an array")
+        }
+        // Normalize aliases
+        for i, item := range raw {
+            m, ok := item.(map[string]any)
+            if !ok {
+                continue
+            }
+            if _, has := m["agent"]; !has {
+                if v, ok := m["role"].(string); ok && v != "" {
+                    m["agent"] = v
+                }
+            }
+            if _, has := m["input"]; !has {
+                if v, ok := m["task"].(string); ok && v != "" {
+                    m["input"] = v
+                }
+            }
+            raw[i] = m
+        }
+        var teamInstance *Team
+        if contextTeam := TeamFromContext(ctx); contextTeam != nil {
+            teamInstance = contextTeam
+        } else {
+            teamInstance = t
+        }
+        if teamInstance == nil {
+            return "", errors.New("no team in context")
+        }
+        return teamInstance.CallParallel(ctx, raw)
+    })
 }

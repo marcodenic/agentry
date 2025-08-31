@@ -197,21 +197,4 @@ func (t *Team) StopAgent(ctx context.Context, agentID string) error {
 }
 
 // GetAgentCount returns the number of agents in the team
-func (t *Team) GetAgentCount() int {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-	return len(t.agents)
-}
-
-// GetAgentNames returns the names of all agents
-func (t *Team) GetAgentNames() []string {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-
-	names := make([]string, 0, len(t.agentsByName))
-	for name := range t.agentsByName {
-		names = append(names, name)
-	}
-
-	return names
-}
+// (Removed) GetAgentCount and GetAgentNames: use GetAgents() and ListAgents() instead to avoid duplication
