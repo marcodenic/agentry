@@ -1,16 +1,17 @@
 package team
 
 import (
-	"context"
-	"fmt"
-	"os"
-	"time"
+    "context"
+    "fmt"
+    "os"
+    "time"
 
-	"github.com/google/uuid"
-	"github.com/marcodenic/agentry/internal/core"
-	"github.com/marcodenic/agentry/internal/memory"
-	"github.com/marcodenic/agentry/internal/model"
-	"github.com/marcodenic/agentry/internal/tool"
+    "github.com/google/uuid"
+    "github.com/marcodenic/agentry/internal/core"
+    "github.com/marcodenic/agentry/internal/env"
+    "github.com/marcodenic/agentry/internal/memory"
+    "github.com/marcodenic/agentry/internal/model"
+    "github.com/marcodenic/agentry/internal/tool"
 )
 
 // AddExistingAgent adds an existing agent to the team
@@ -61,7 +62,15 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 	timer.Checkpoint("role config resolved")
 
 	// Create the core agent
-	registry := tool.DefaultRegistry()
+    registry := tool.DefaultRegistry()
+    // Apply curated defaults and cap tool schemas to keep context small
+    maxTools := env.Int("AGENTRY_MAX_TOOLS", 5)
+    curated := curatedToolsForRole(role)
+    if len(curated) > 0 {
+        registry = filterRegistryByNames(registry, curated, maxTools)
+    } else if maxTools > 0 {
+        registry = capRegistry(registry, maxTools)
+    }
 
 	// Apply tool restrictions based on role configuration
 	if len(roleConfig.RestrictedTools) > 0 {
@@ -106,7 +115,10 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 		}
 	}
 
-	agent := core.New(client, modelName, registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
+    agent := core.New(client, modelName, registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
+    // Ensure we do not allow recursive delegation by default
+    delete(agent.Tools, "agent")
+    agent.InvalidateToolCache()
 	agent.Prompt = roleConfig.Prompt
 
 	// Find available port

@@ -6,6 +6,7 @@ import (
     "strings"
     "sync"
 
+    "github.com/marcodenic/agentry/internal/env"
     "github.com/marcodenic/agentry/internal/tool"
 )
 
@@ -260,6 +261,11 @@ func InjectPlatformContextFromRegistry(prompt string, reg tool.Registry) string 
     sort.Strings(fileTools)
     sort.Strings(webTools)
     sort.Strings(otherTools)
+
+    // If tool list injection is disabled, provide only OS header
+    if env.Bool("AGENTRY_DISABLE_TOOL_LIST", true) {
+        return prompt + "\n" + start + "\n" + platformInfo + end
+    }
 
     // Limit list sizes to keep context minimal
     capList := func(in []string, n int) []string {

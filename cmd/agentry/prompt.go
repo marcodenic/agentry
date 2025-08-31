@@ -90,17 +90,38 @@ func runPromptWithOpts(prompt string, opts *commonOpts) {
         debug.Printf("Team context attached to execution context")
     }
     debug.Printf("Running Agent 0 with prompt length=%d", len(prompt))
+    
+    // Show actual useful information about what's happening
+    taskPreview := prompt
+    if len(prompt) > 100 {
+        taskPreview = prompt[:100] + "..."
+    }
+    fmt.Fprintf(os.Stderr, "🤖 Agent 0 (%s) analyzing task: \"%s\"\n", 
+        ag.ModelName, 
+        taskPreview)
+    
+    if teamCtx != nil {
+        availableAgents := teamCtx.AvailableRoleNames()
+        fmt.Fprintf(os.Stderr, "� Available agents for delegation: %v\n", availableAgents)
+    }
+    
 	out, err := ag.Run(ctx, prompt)
     if err != nil {
-        fmt.Fprintf(os.Stderr, "ERR: %v\n", err)
+        fmt.Fprintf(os.Stderr, "❌ ERR: %v\n", err)
         os.Exit(1)
     }
+    
     sum := trace.Analyze(prompt, col.Events())
-    // Print only the model output to stdout
+    
+    // Show completion status
+    fmt.Fprintf(os.Stderr, "✅ Task completed successfully!\n")
+    
+    // Print the model output to stdout
     fmt.Println(out)
-    // Print usage summary to stderr in debug mode
-    if debug.DebugEnabled {
-        fmt.Fprintf(os.Stderr, "input tokens: %d, output tokens: %d, total tokens: %d, cost: $%.6f\n",
+    
+    // Print usage summary to stderr (always show, not just in debug)
+    if sum.TotalTokens > 0 {
+        fmt.Fprintf(os.Stderr, "📊 Usage: %d input + %d output = %d total tokens, cost: $%.6f\n",
             sum.InputTokens, sum.OutputTokens, sum.TotalTokens, sum.Cost)
     }
 	if opts.saveID != "" {

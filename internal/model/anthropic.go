@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/marcodenic/agentry/internal/env"
 )
 
 // Anthropic client uses Anthropic's streaming messages API.
@@ -97,23 +99,45 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 		totalChars += len(msg.Content)
 	}
 
-	b, _ := json.Marshal(reqBody)
+    b, _ := json.Marshal(reqBody)
 
-	// crude token estimation (char/4) before sending for rate limiting
-	estTokens := len(b) / 4
-	a.mu.Lock()
-	now := time.Now()
-	if a.windowStart.IsZero() || now.Sub(a.windowStart) > time.Minute {
-		a.windowStart = now
-		a.windowTokens = 0
-	}
-	limitPerMin := 28000 // keep a safety margin below 30k
-	if a.windowTokens+estTokens > limitPerMin {
-		a.mu.Unlock()
-		return nil, fmt.Errorf("anthropic local rate limiter: estimated tokens %d would exceed per-minute budget (%d/%d used)", estTokens, a.windowTokens, limitPerMin)
-	}
-	a.windowTokens += estTokens
-	a.mu.Unlock()
+    // crude token estimation (char/4) before sending for rate limiting
+    estTokens := len(b) / 4
+
+    // Local TPM limiter with wait instead of failing; configurable via env
+    limitPerMin := env.Int("AGENTRY_ANTHROPIC_TPM_LIMIT", 30000)
+    for {
+        a.mu.Lock()
+        now := time.Now()
+        if a.windowStart.IsZero() || now.Sub(a.windowStart) > time.Minute {
+            a.windowStart = now
+            a.windowTokens = 0
+        }
+        remaining := limitPerMin - a.windowTokens
+        if estTokens <= remaining {
+            a.windowTokens += estTokens
+            a.mu.Unlock()
+            break
+        }
+        // Need to wait for window reset
+        wait := time.Minute - now.Sub(a.windowStart)
+        a.mu.Unlock()
+        if wait <= 0 {
+            // Reset immediately and retry loop
+            continue
+        }
+        // Respect context cancellation while waiting
+        timer := time.NewTimer(wait)
+        select {
+        case <-ctx.Done():
+            if !timer.Stop() {
+                <-timer.C
+            }
+            return nil, ctx.Err()
+        case <-timer.C:
+            // retry loop
+        }
+    }
 
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewReader(b))
 	if err != nil {
@@ -223,6 +247,25 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 		}
 
 		// Send final response with tool calls and token usage; include model name via special terminal chunk
+        // Adjust local limiter with actual input tokens used (if lower than estimate)
+        if inputTokens > 0 {
+            a.mu.Lock()
+            now := time.Now()
+            if a.windowStart.IsZero() || now.Sub(a.windowStart) > time.Minute {
+                a.windowStart = now
+                a.windowTokens = 0
+            }
+            if inputTokens < estTokens {
+                delta := estTokens - inputTokens
+                if a.windowTokens >= delta {
+                    a.windowTokens -= delta
+                } else {
+                    a.windowTokens = 0
+                }
+            }
+            a.mu.Unlock()
+        }
+
         out <- StreamChunk{ // final chunk
             Done:         true,
             ToolCalls:    toolCalls,

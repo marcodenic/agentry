@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -232,8 +233,8 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	// Track consecutive errors for resilience
 	consecutiveErrors := 0
 
-    // Iteration cap removed by default; honor only if explicitly set
-    maxIter := env.Int("AGENTRY_MAX_ITER", 0)
+    // Iteration cap: prevent infinite loops while allowing reasonable work
+    maxIter := env.Int("AGENTRY_MAX_ITER", 50) // Default to 50 iterations max
     for i := 0; ; i++ {
         if maxIter > 0 && i >= maxIter {
             return "", fmt.Errorf("iteration cap reached (%d)", maxIter)
@@ -465,10 +466,22 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
             debug.Printf("Agent '%s' executing tool '%s'", a.ID, tc.Name)
         }
 		a.Trace(ctx, trace.EventToolStart, map[string]any{"name": tc.Name, "args": args})
+		
+		// Show tool execution to user (not just debug mode)
+		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			fmt.Fprintf(os.Stderr, "🔧 %s: %s\n", a.ID, tc.Name)
+		}
+		
 		r, err := t.Execute(ctx, args)
 		debug.Printf("Agent '%s' tool '%s' execute completed, err=%v, result_length=%d", a.ID, tc.Name, err, len(r))
 		if err != nil {
 			debug.Printf("Agent '%s' tool '%s' failed: %v", a.ID, tc.Name, err)
+			
+			// Show tool failure to user
+			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+				fmt.Fprintf(os.Stderr, "❌ %s: %s failed: %v\n", a.ID, tc.Name, err)
+			}
+			
 			var errorMsg string
 			if a.ErrorHandling.IncludeErrorContext {
 				errorMsg = fmt.Sprintf("Error executing tool '%s': %v\n\nContext:\n- Tool: %s\n- Arguments: %v\n- Suggestion: Please try a different approach or check the tool usage.", tc.Name, err, tc.Name, args)
@@ -484,6 +497,12 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 			return msgs, hadErrors, err
 		}
 		debug.Printf("Agent '%s' tool '%s' succeeded, result length: %d", a.ID, tc.Name, len(r))
+		
+		// Show successful tool execution result to user
+		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			fmt.Fprintf(os.Stderr, "✅ %s: %s completed\n", a.ID, tc.Name)
+		}
+		
 		a.Trace(ctx, trace.EventToolEnd, map[string]any{"name": tc.Name, "result": r})
 		step.ToolResults[tc.ID] = r
 		debug.Printf("Agent '%s' adding tool result to messages, role=tool, callID=%s", a.ID, tc.ID)

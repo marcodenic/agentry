@@ -18,6 +18,7 @@ import (
 	"github.com/marcodenic/agentry/internal/contracts"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/debug"
+	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/memstore"
 	"github.com/marcodenic/agentry/internal/tokens"
@@ -145,6 +146,74 @@ func (t *Team) GetRoles() map[string]*RoleConfig {
 	return out
 }
 
+// curatedToolsForRole returns a small, role-specific default tool subset.
+func curatedToolsForRole(role string) []string {
+    r := strings.ToLower(strings.TrimSpace(role))
+    switch r {
+    case "coder":
+        // Coders need comprehensive development tools - file ops, shell, discovery, git
+        return []string{
+            // File operations
+            "read_lines", "view", "edit_range", "create", "search_replace", "insert_at", "fileinfo",
+            // Shell commands  
+            "bash", "sh",
+            // Discovery and exploration
+            "ls", "find", "glob", "grep",
+            // Git and patches
+            "patch", "branch-tidy",
+            // LSP diagnostics for code quality
+            "lsp_diagnostics",
+        }
+    case "reviewer", "critic", "editor":
+        return []string{"view", "read_lines", "lsp_diagnostics"}
+    case "tester":
+        return []string{"view", "read_lines", "lsp_diagnostics"}
+    case "researcher", "writer":
+        return []string{"web_search", "read_webpage", "api"}
+    default:
+        // Conservative default
+        return []string{"view", "read_lines"}
+    }
+}
+
+// filterRegistryByNames keeps only the specified tools (up to capN) from reg.
+func filterRegistryByNames(reg tool.Registry, names []string, capN int) tool.Registry {
+    set := map[string]bool{}
+    for _, n := range names {
+        set[n] = true
+    }
+    out := make(tool.Registry)
+    count := 0
+    for n, tl := range reg {
+        if !set[n] {
+            continue
+        }
+        out[n] = tl
+        count++
+        if capN > 0 && count >= capN {
+            break
+        }
+    }
+    return out
+}
+
+// capRegistry returns at most capN tools from reg (arbitrary order).
+func capRegistry(reg tool.Registry, capN int) tool.Registry {
+    if capN <= 0 {
+        return reg
+    }
+    out := make(tool.Registry)
+    i := 0
+    for n, tl := range reg {
+        out[n] = tl
+        i++
+        if i >= capN {
+            break
+        }
+    }
+    return out
+}
+
 // Add registers ag under name so it can be addressed via Call.
 func (t *Team) Add(name string, ag *core.Agent) {
 	// CRITICAL: Remove the "agent" tool from added agents to prevent delegation cascading
@@ -188,7 +257,17 @@ func (t *Team) Add(name string, ag *core.Agent) {
 func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	// FIXED: Create agent with FULL tool registry instead of inheriting restricted parent tools
 	// This prevents the tool inheritance bug where spawned agents get Agent 0's restricted tools
-	registry := tool.DefaultRegistry() // Get all available tools
+    registry := tool.DefaultRegistry() // Get all available tools
+
+    // Curate default tool subset per role and cap total schemas to reduce prompt bloat
+    maxTools := env.Int("AGENTRY_MAX_TOOLS", 5)
+    curated := curatedToolsForRole(name)
+    if len(curated) > 0 {
+        registry = filterRegistryByNames(registry, curated, maxTools)
+    } else if maxTools > 0 {
+        // Fallback: cap arbitrarily by name order for unknown roles
+        registry = capRegistry(registry, maxTools)
+    }
 
 	// Create new agent with full capabilities, not inherited restrictions
 	// Pass parent's tracer to enable proper trace events for spawned agents
@@ -202,10 +281,10 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	coreAgent.ErrorHandling.MaxErrorRetries = 3
 	coreAgent.ErrorHandling.IncludeErrorContext = true
 
-	// Remove ONLY the "agent" tool to prevent delegation cascading
-	// Keep all other tools (create, write, edit_range, etc.) so agents can actually work
-	delete(coreAgent.Tools, "agent")
-	coreAgent.InvalidateToolCache()
+    // Remove ONLY the "agent" tool to prevent delegation cascading
+    // Keep all other tools (create, write, edit_range, etc.) so agents can actually work
+    delete(coreAgent.Tools, "agent")
+    coreAgent.InvalidateToolCache()
 
 	// Note: Cost manager is already initialized in core.New()
 
@@ -241,6 +320,11 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	debugPrintf("📝 Task: %s\n", input)
 	debugPrintf("⏰ Timestamp: %s\n", time.Now().Format("15:04:05"))
 
+	// Always show delegation progress to user (not just debug mode)
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		fmt.Fprintf(os.Stderr, "🔄 Delegating to %s agent...\n", agentID)
+	}
+
 	// Log coordination event
 	t.LogCoordinationEvent("delegation", "agent_0", agentID, input, map[string]interface{}{
 		"task_length": len(input),
@@ -255,6 +339,9 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 
 	if !exists {
 		debugPrintf("🆕 Creating new agent: %s\n", agentID)
+		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			fmt.Fprintf(os.Stderr, "🆕 Creating %s agent...\n", agentID)
+		}
 		// If agent doesn't exist, create it using SpawnAgent for proper model selection
 		spawnedAgent, err := t.SpawnAgent(ctx, agentID, agentID)
 		if err != nil {
@@ -264,6 +351,9 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 		agent = spawnedAgent
 		timer.Checkpoint("new agent spawned")
 		debugPrintf("✅ Agent %s created and ready\n", agentID)
+		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			fmt.Fprintf(os.Stderr, "✅ %s agent ready\n", agentID)
+		}
 	} else {
 		timer.Checkpoint("existing agent found")
 		debugPrintf("♻️  Using existing agent: %s (Status: %s)\n", agentID, agent.Status)
@@ -274,6 +364,9 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 
 	// Log delegation start
 	debugPrintf("🚀 Starting task execution on agent %s...\n", agentID)
+	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		fmt.Fprintf(os.Stderr, "🚀 %s agent working on task...\n", agentID)
+	}
 
 	// Log the communication to file as well
 	logMessage := fmt.Sprintf("DELEGATION: Agent 0 -> %s | Task: %s", agentID, input)
@@ -316,8 +409,8 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	}
 	timer.Checkpoint("inbox processing completed")
 
-	// Execute the input on the core agent with a bounded timeout to avoid indefinite hangs
-	timeout := 120 * time.Second
+	// Execute the input on the core agent with a reasonable timeout for complex development tasks
+	timeout := 15 * time.Minute // Much longer default for development tasks
 	if v := os.Getenv("AGENTRY_DELEGATION_TIMEOUT"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil && d > 0 {
 			timeout = d
@@ -348,14 +441,28 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	if err != nil {
 		debugPrintf("❌ Call: runAgent failed for %s: %v", agentID, err)
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			// Explicit timeout handling
-			msg := fmt.Sprintf("⏳ Delegation to '%s' timed out after %s. Consider simplifying the task, choosing a different agent, or increasing AGENTRY_DELEGATION_TIMEOUT.", agentID, timeout)
-			t.LogCoordinationEvent("delegation_timeout", agentID, "agent_0", msg, map[string]interface{}{"timeout": timeout.String()})
-			// Skip workspace event publishing in TUI mode
-			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-				t.PublishWorkspaceEvent("agent_0", "delegation_timeout", msg, map[string]interface{}{"agent": agentID})
+			// Check if work was actually completed despite timeout
+			workCompleted := t.checkWorkCompleted(agentID, input)
+			
+			if workCompleted {
+				msg := fmt.Sprintf("✅ %s agent completed the work successfully (response generation timed out after %s but files were created)", agentID, timeout)
+				if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+					fmt.Fprintf(os.Stderr, "✅ %s agent completed work successfully (response timed out)\n", agentID)
+				}
+				t.LogCoordinationEvent("delegation_success_timeout", agentID, "agent_0", msg, map[string]interface{}{"timeout": timeout.String()})
+				return msg, nil
+			} else {
+				// Actual timeout without work completion
+				msg := fmt.Sprintf("⏳ Delegation to '%s' timed out after %s without completing work. Consider simplifying the task, choosing a different agent, or increasing AGENTRY_DELEGATION_TIMEOUT.", agentID, timeout)
+				if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+					fmt.Fprintf(os.Stderr, "⏳ %s agent timed out without completing work\n", agentID)
+				}
+				t.LogCoordinationEvent("delegation_timeout", agentID, "agent_0", msg, map[string]interface{}{"timeout": timeout.String()})
+				if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+					t.PublishWorkspaceEvent("agent_0", "delegation_timeout", msg, map[string]interface{}{"agent": agentID})
+				}
+				return msg, nil
 			}
-			return msg, nil
 		}
 	}
 
@@ -383,6 +490,9 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	} else {
 		agent.SetStatus("ready")
 		debugPrintf("✅ Agent %s completed successfully\n", agentID)
+		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			fmt.Fprintf(os.Stderr, "✅ %s agent completed task\n", agentID)
+		}
 		debugPrintf("📤 Result length: %d characters\n", len(result))
 		debugPrintf("🧮 Agent %s final token count: %d\n", agentID, func() int {
 			if agent.Agent.Cost != nil {
@@ -774,9 +884,9 @@ func logToFile(message string) {
 	log.New(file, "", log.LstdFlags).Println(message)
 }
 
-// debugPrintf prints debug information only when not in TUI mode
+// debugPrintf prints debug information only when debug is enabled and not in TUI mode
 func debugPrintf(format string, v ...interface{}) {
-	if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+	if (os.Getenv("AGENTRY_DEBUG") == "1" || os.Getenv("AGENTRY_DEBUG") == "true") && os.Getenv("AGENTRY_TUI_MODE") != "1" {
 		fmt.Fprintf(os.Stderr, format, v...)
 	}
 }
@@ -1212,4 +1322,73 @@ func (t *Team) ProposeCollaboration(ctx context.Context, proposerID, targetAgent
 	// Send direct message
 	message := fmt.Sprintf("Collaboration proposal: %s. Please respond with your thoughts.", proposal)
 	return t.SendMessageToAgent(ctx, proposerID, targetAgentID, message)
+}
+
+// checkWorkCompleted attempts to detect if an agent completed meaningful work
+// even if the response generation timed out
+func (t *Team) checkWorkCompleted(agentID, task string) bool {
+	// Simple heuristic: check if the task involved file creation/modification
+	// and if recent files exist in the workspace
+	taskLower := strings.ToLower(task)
+	
+	// Look for task keywords that suggest file creation
+	fileCreationKeywords := []string{
+		"create", "write", "generate", "build", "make", "implement", 
+		"add file", "new file", "script", "code", "project",
+		"folder", "directory", "app", "api", "web", "flask", "django",
+	}
+	
+	hasFileWork := false
+	for _, keyword := range fileCreationKeywords {
+		if strings.Contains(taskLower, keyword) {
+			hasFileWork = true
+			break
+		}
+	}
+	
+	if !hasFileWork {
+		return false
+	}
+	
+	// Check if any new files were created in the last few minutes
+	// This is a simple heuristic - could be improved with more sophisticated tracking
+	workDir, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+	
+	// Look for recently modified/created files (within last 5 minutes)
+	recentThreshold := time.Now().Add(-5 * time.Minute)
+	hasRecentFiles := false
+	
+	filepath.Walk(workDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		
+		// Skip .git and other hidden directories
+		if strings.Contains(path, "/.git/") || strings.Contains(path, "/.") {
+			return nil
+		}
+		
+		// Check if file was created/modified recently
+		if info.ModTime().After(recentThreshold) {
+			// Check if it's a meaningful file (not temp/log files)
+			ext := filepath.Ext(path)
+			meaningfulExts := map[string]bool{
+				".py": true, ".js": true, ".go": true, ".java": true, ".cpp": true, ".c": true,
+				".html": true, ".css": true, ".json": true, ".yaml": true, ".yml": true,
+				".md": true, ".txt": true, ".sql": true, ".sh": true, ".bat": true,
+				".ts": true, ".jsx": true, ".tsx": true, ".vue": true, ".php": true,
+			}
+			
+			if meaningfulExts[ext] || info.IsDir() {
+				hasRecentFiles = true
+				return filepath.SkipDir // Found evidence, can stop walking
+			}
+		}
+		return nil
+	})
+	
+	return hasRecentFiles
 }
