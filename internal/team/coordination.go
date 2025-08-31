@@ -10,10 +10,10 @@ import (
 
 // AssignTask assigns a task to a specific agent
 func (t *Team) AssignTask(ctx context.Context, agentID, taskType, input string) (*Task, error) {
-	agent := t.GetAgent(agentID)
-	if agent == nil {
-		return nil, fmt.Errorf("agent %s not found", agentID)
-	}
+    agent := t.GetAgent(agentID)
+    if agent == nil {
+        return nil, fmt.Errorf("agent %s not found", agentID)
+    }
 
 	task := &Task{
 		ID:        uuid.New().String(),
@@ -29,21 +29,21 @@ func (t *Team) AssignTask(ctx context.Context, agentID, taskType, input string) 
 	t.tasks[task.ID] = task
 	t.mutex.Unlock()
 
-	// Execute the task asynchronously
-	go func() {
-		task.Status = "running"
-		task.UpdatedAt = time.Now()
+    // Execute the task asynchronously using the unified Call path
+    go func() {
+        task.Status = "running"
+        task.UpdatedAt = time.Now()
 
-		result, err := agent.Agent.Run(ctx, input)
-		if err != nil {
-			task.Status = "failed"
-			task.Result = err.Error()
-		} else {
-			task.Status = "completed"
-			task.Result = result
-		}
-		task.UpdatedAt = time.Now()
-	}()
+        result, err := t.Call(ctx, agentID, input)
+        if err != nil {
+            task.Status = "failed"
+            task.Result = err.Error()
+        } else {
+            task.Status = "completed"
+            task.Result = result
+        }
+        task.UpdatedAt = time.Now()
+    }()
 
 	return task, nil
 }
@@ -70,33 +70,8 @@ func (t *Team) ListTasks() []*Task {
 
 // SendMessage sends a message from one agent to another
 func (t *Team) SendMessage(ctx context.Context, from, to, content string) error {
-	fromAgent := t.GetAgent(from)
-	toAgent := t.GetAgent(to)
-
-	if fromAgent == nil {
-		return fmt.Errorf("sender agent %s not found", from)
-	}
-	if toAgent == nil {
-		return fmt.Errorf("recipient agent %s not found", to)
-	}
-
-	message := Message{
-		ID:        uuid.New().String(),
-		From:      from,
-		To:        to,
-		Content:   content,
-		Type:      "direct",
-		Timestamp: time.Now(),
-	}
-
-	t.mutex.Lock()
-	t.messages = append(t.messages, message)
-	t.mutex.Unlock()
-
-	// For now, messages are just logged
-	// In the future, this could trigger agent processing
-
-	return nil
+    // Single messaging path
+    return t.SendMessageToAgent(ctx, from, to, content)
 }
 
 // GetMessages returns messages with optional filtering

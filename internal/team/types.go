@@ -52,13 +52,14 @@ type Task struct {
 
 // Message represents a message between agents
 type Message struct {
-	ID        string            `json:"id"`
-	From      string            `json:"from"`
-	To        string            `json:"to"`
-	Content   string            `json:"content"`
-	Type      string            `json:"type"`
-	Timestamp time.Time         `json:"timestamp"`
-	Metadata  map[string]string `json:"metadata,omitempty"`
+    ID        string            `json:"id"`
+    From      string            `json:"from"`
+    To        string            `json:"to"`
+    Content   string            `json:"content"`
+    Type      string            `json:"type"`
+    Timestamp time.Time         `json:"timestamp"`
+    Read      bool              `json:"read"`
+    Metadata  map[string]string `json:"metadata,omitempty"`
 }
 
 // RoleConfig represents configuration for an agent role
