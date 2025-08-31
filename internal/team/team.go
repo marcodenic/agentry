@@ -127,7 +127,9 @@ func NewTeamWithRoles(parent *core.Agent, maxTurns int, name string, includePath
 		for name, role := range roles {
 			team.roles[name] = role
 			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+				if os.Getenv("AGENTRY_DEBUG") == "1" || os.Getenv("AGENTRY_DEBUG") == "true" {
 				fmt.Fprintf(os.Stderr, "📋 Team role loaded: %s\n", name)
+			}
 			}
 		}
 	}
@@ -263,7 +265,36 @@ func (t *Team) AddAgent(name string) (*core.Agent, string) {
     maxTools := env.Int("AGENTRY_MAX_TOOLS", 5)
     curated := curatedToolsForRole(name)
     if len(curated) > 0 {
-        registry = filterRegistryByNames(registry, curated, maxTools)
+        // Don't cap tools for roles that need comprehensive toolsets (like coder)
+        roleName := strings.ToLower(strings.TrimSpace(name))
+        if roleName == "coder" {
+            if env.Bool("AGENTRY_DEBUG", false) {
+                debugPrintf("DEBUG: Default registry has %d tools", len(registry))
+                debugPrintf("DEBUG: Coder curated list: %v", curated)
+                // Check which curated tools are missing
+                var missing []string
+                for _, tool := range curated {
+                    if _, exists := registry[tool]; !exists {
+                        missing = append(missing, tool)
+                    }
+                }
+                if len(missing) > 0 {
+                    debugPrintf("DEBUG: Missing tools from default registry: %v", missing)
+                }
+            }
+            // Give coder all the tools it needs - no artificial cap
+            registry = filterRegistryByNames(registry, curated, 0) // 0 = no cap
+            if env.Bool("AGENTRY_DEBUG", false) {
+                debugPrintf("DEBUG: Coder tools after filtering: %d tools", len(registry))
+                var names []string
+                for n := range registry {
+                    names = append(names, n)
+                }
+                debugPrintf("DEBUG: Coder tool names: %v", names)
+            }
+        } else {
+            registry = filterRegistryByNames(registry, curated, maxTools)
+        }
     } else if maxTools > 0 {
         // Fallback: cap arbitrarily by name order for unknown roles
         registry = capRegistry(registry, maxTools)

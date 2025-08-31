@@ -232,6 +232,15 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 	// Track consecutive errors for resilience
 	consecutiveErrors := 0
+	
+	// Track recent tool calls to detect infinite loops
+	type toolCallSignature struct {
+		Name string
+		Args string
+	}
+	var recentToolCalls []toolCallSignature
+	const maxRecentCalls = 6 // Track last 6 tool calls
+	const maxIdenticalCalls = 3 // Break if we see the same call 3 times in recent history
 
     // Iteration cap: prevent infinite loops while allowing reasonable work
     maxIter := env.Int("AGENTRY_MAX_ITER", 50) // Default to 50 iterations max
@@ -376,6 +385,38 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			return res.Content, nil
 		}
 
+		// Check for repeated identical tool calls to prevent infinite loops
+		if len(res.ToolCalls) > 0 {
+			// Create signature for this batch of tool calls
+			for _, tc := range res.ToolCalls {
+				// Serialize args to string for comparison
+				argsBytes, _ := json.Marshal(tc.Arguments)
+				signature := toolCallSignature{
+					Name: tc.Name,
+					Args: string(argsBytes),
+				}
+				
+				// Add to recent calls (maintain sliding window)
+				recentToolCalls = append(recentToolCalls, signature)
+				if len(recentToolCalls) > maxRecentCalls {
+					recentToolCalls = recentToolCalls[1:]
+				}
+				
+				// Count identical calls in recent history
+				identicalCount := 0
+				for _, recent := range recentToolCalls {
+					if recent.Name == signature.Name && recent.Args == signature.Args {
+						identicalCount++
+					}
+				}
+				
+				if identicalCount >= maxIdenticalCalls {
+					debug.Printf("Agent.Run: Detected repeated tool call (%s) %d times, breaking loop", tc.Name, identicalCount)
+					return fmt.Sprintf("Task completed. Detected repeated tool execution (%s), stopping to prevent infinite loop.", tc.Name), nil
+				}
+			}
+		}
+
 		// Execute tools then continue loop with new messages
 		toolMsgs, hadErrors, execErr := a.executeToolCalls(ctx, res.ToolCalls, step)
 		if execErr != nil {
@@ -469,7 +510,13 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 		
 		// Show tool execution to user (not just debug mode)
 		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-			fmt.Fprintf(os.Stderr, "🔧 %s: %s\n", a.ID, tc.Name)
+			// Show tool with key arguments for better visibility
+			argSummary := getToolArgSummary(tc.Name, args)
+			if argSummary != "" {
+				fmt.Fprintf(os.Stderr, "🔧 %s: %s %s\n", a.ID.String()[:8], tc.Name, argSummary)
+			} else {
+				fmt.Fprintf(os.Stderr, "🔧 %s: %s\n", a.ID.String()[:8], tc.Name)
+			}
 		}
 		
 		r, err := t.Execute(ctx, args)
@@ -479,7 +526,7 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 			
 			// Show tool failure to user
 			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-				fmt.Fprintf(os.Stderr, "❌ %s: %s failed: %v\n", a.ID, tc.Name, err)
+				fmt.Fprintf(os.Stderr, "❌ %s: %s failed: %v\n", a.ID.String()[:8], tc.Name, err)
 			}
 			
 			var errorMsg string
@@ -500,7 +547,7 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 		
 		// Show successful tool execution result to user
 		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-			fmt.Fprintf(os.Stderr, "✅ %s: %s completed\n", a.ID, tc.Name)
+			fmt.Fprintf(os.Stderr, "✅ %s: %s completed\n", a.ID.String()[:8], tc.Name)
 		}
 		
 		a.Trace(ctx, trace.EventToolEnd, map[string]any{"name": tc.Name, "result": r})
@@ -510,4 +557,62 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 	}
 	debug.Printf("Agent.Run: executeToolCalls completed, returning %d messages, hadErrors=%v", len(msgs), hadErrors)
 	return msgs, hadErrors, nil
+}
+
+// getToolArgSummary returns a brief summary of key tool arguments for user-friendly logging
+func getToolArgSummary(toolName string, args map[string]any) string {
+	switch toolName {
+	case "create":
+		if path, ok := args["path"].(string); ok {
+			return fmt.Sprintf("'%s'", path)
+		}
+	case "view", "read_lines":
+		if path, ok := args["path"].(string); ok {
+			return fmt.Sprintf("'%s'", path)
+		}
+	case "edit_range":
+		if path, ok := args["path"].(string); ok {
+			start, _ := args["start_line"].(float64)
+			end, _ := args["end_line"].(float64)
+			return fmt.Sprintf("'%s' (lines %g-%g)", path, start, end)
+		}
+	case "find":
+		if pattern, ok := args["name"].(string); ok {
+			if path, pathOk := args["path"].(string); pathOk && path != "." {
+				return fmt.Sprintf("'%s' in '%s'", pattern, path)
+			}
+			return fmt.Sprintf("'%s'", pattern)
+		}
+	case "grep":
+		if pattern, ok := args["pattern"].(string); ok {
+			if filePattern, fpOk := args["file_pattern"].(string); fpOk {
+				return fmt.Sprintf("'%s' in %s files", pattern, filePattern)
+			}
+			return fmt.Sprintf("'%s'", pattern)
+		}
+	case "ls":
+		if path, ok := args["path"].(string); ok && path != "." {
+			return fmt.Sprintf("'%s'", path)
+		}
+	case "sh", "bash":
+		if cmd, ok := args["command"].(string); ok {
+			// Truncate very long commands
+			if len(cmd) > 50 {
+				return fmt.Sprintf("'%s...'", cmd[:47])
+			}
+			return fmt.Sprintf("'%s'", cmd)
+		}
+	case "agent":
+		if agent, ok := args["agent"].(string); ok {
+			if input, inputOk := args["input"].(string); inputOk {
+				// Truncate long inputs
+				if len(input) > 40 {
+					return fmt.Sprintf("-> %s ('%s...')", agent, input[:37])
+				}
+				return fmt.Sprintf("-> %s ('%s')", agent, input)
+			}
+			return fmt.Sprintf("-> %s", agent)
+		}
+	}
+	return ""
 }

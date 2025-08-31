@@ -4,6 +4,7 @@ import (
     "context"
     "fmt"
     "os"
+    "strings"
     "time"
 
     "github.com/google/uuid"
@@ -67,7 +68,14 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
     maxTools := env.Int("AGENTRY_MAX_TOOLS", 5)
     curated := curatedToolsForRole(role)
     if len(curated) > 0 {
-        registry = filterRegistryByNames(registry, curated, maxTools)
+        // Don't cap tools for roles that need comprehensive toolsets (like coder)
+        roleName := strings.ToLower(strings.TrimSpace(role))
+        if roleName == "coder" {
+            // Give coder all the tools it needs - no artificial cap
+            registry = filterRegistryByNames(registry, curated, 0) // 0 = no cap
+        } else {
+            registry = filterRegistryByNames(registry, curated, maxTools)
+        }
     } else if maxTools > 0 {
         registry = capRegistry(registry, maxTools)
     }
