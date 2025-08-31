@@ -17,24 +17,9 @@ import (
 
 // AddExistingAgent adds an existing agent to the team
 func (t *Team) AddExistingAgent(name string, agent *core.Agent) error {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	id := uuid.New().String()
-	teamAgent := &Agent{
-		ID:        id,
-		Name:      name,
-		Agent:     agent,
-		Status:    "ready",
-		StartedAt: time.Now(),
-		LastSeen:  time.Now(),
-		Metadata:  make(map[string]string),
-	}
-
-	t.agents[id] = teamAgent
-	t.agentsByName[name] = teamAgent
-
-	return nil
+    // Consolidate with Add to ensure consistent sanitization (e.g., removing the "agent" tool)
+    t.Add(name, agent)
+    return nil
 }
 
 // SpawnAgent creates a new agent with the given configuration

@@ -18,7 +18,6 @@ import (
 	"github.com/marcodenic/agentry/internal/contracts"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/debug"
-	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/memstore"
 	"github.com/marcodenic/agentry/internal/tokens"
@@ -257,87 +256,21 @@ func (t *Team) Add(name string, ag *core.Agent) {
 // AddAgent creates a new agent and adds it to the team.
 // Returns the core agent and its assigned name.
 func (t *Team) AddAgent(name string) (*core.Agent, string) {
-	// FIXED: Create agent with FULL tool registry instead of inheriting restricted parent tools
-	// This prevents the tool inheritance bug where spawned agents get Agent 0's restricted tools
-    registry := tool.DefaultRegistry() // Get all available tools
-
-    // Curate default tool subset per role and cap total schemas to reduce prompt bloat
-    maxTools := env.Int("AGENTRY_MAX_TOOLS", 5)
-    curated := curatedToolsForRole(name)
-    if len(curated) > 0 {
-        // Don't cap tools for roles that need comprehensive toolsets (like coder)
-        roleName := strings.ToLower(strings.TrimSpace(name))
-        if roleName == "coder" {
-            if env.Bool("AGENTRY_DEBUG", false) {
-                debugPrintf("DEBUG: Default registry has %d tools", len(registry))
-                debugPrintf("DEBUG: Coder curated list: %v", curated)
-                // Check which curated tools are missing
-                var missing []string
-                for _, tool := range curated {
-                    if _, exists := registry[tool]; !exists {
-                        missing = append(missing, tool)
-                    }
-                }
-                if len(missing) > 0 {
-                    debugPrintf("DEBUG: Missing tools from default registry: %v", missing)
-                }
-            }
-            // Give coder all the tools it needs - no artificial cap
-            registry = filterRegistryByNames(registry, curated, 0) // 0 = no cap
-            if env.Bool("AGENTRY_DEBUG", false) {
-                debugPrintf("DEBUG: Coder tools after filtering: %d tools", len(registry))
-                var names []string
-                for n := range registry {
-                    names = append(names, n)
-                }
-                debugPrintf("DEBUG: Coder tool names: %v", names)
-            }
-        } else {
-            registry = filterRegistryByNames(registry, curated, maxTools)
-        }
-    } else if maxTools > 0 {
-        // Fallback: cap arbitrarily by name order for unknown roles
-        registry = capRegistry(registry, maxTools)
+    // DEPRECATED: Consolidated to use SpawnAgent to avoid divergent codepaths.
+    // This ensures consistent tool curation, model selection, restrictions, and sanitization.
+    spawned, err := t.SpawnAgent(context.Background(), name, name)
+    if err != nil {
+        // Preserve previous behavior: in failure cases, do not panic; log and return a minimal agent
+        debugPrintf("AddAgent fallback: failed to SpawnAgent(%s): %v", name, err)
+        // Fallback to parent client with default registry to keep the system operational
+        registry := tool.DefaultRegistry()
+        // Prevent recursive delegation
+        delete(registry, "agent")
+        coreAgent := core.New(t.parent.Client, t.parent.ModelName, registry, memory.NewInMemory(), memory.NewInMemoryVector(), t.parent.Tracer)
+        t.Add(name, coreAgent)
+        return coreAgent, name
     }
-
-	// Create new agent with full capabilities, not inherited restrictions
-	// Pass parent's tracer to enable proper trace events for spawned agents
-	coreAgent := core.New(t.parent.Client, t.parent.ModelName, registry, memory.NewInMemory(), memory.NewInMemoryVector(), t.parent.Tracer)
-
-	// Set role-appropriate prompt
-	coreAgent.Prompt = fmt.Sprintf("You are a %s agent specialized in %s tasks. You have access to all necessary tools to complete your assignments.", name, name)
-
-	// Configure error handling for resilience
-	coreAgent.ErrorHandling.TreatErrorsAsResults = true
-	coreAgent.ErrorHandling.MaxErrorRetries = 3
-	coreAgent.ErrorHandling.IncludeErrorContext = true
-
-    // Remove ONLY the "agent" tool to prevent delegation cascading
-    // Keep all other tools (create, write, edit_range, etc.) so agents can actually work
-    delete(coreAgent.Tools, "agent")
-    coreAgent.InvalidateToolCache()
-
-	// Note: Cost manager is already initialized in core.New()
-
-	// Create wrapper
-	agent := &Agent{
-		ID:        name, // Use name as ID for simplicity
-		Name:      name,
-		Agent:     coreAgent,
-		Status:    "ready",
-		StartedAt: time.Now(),
-		LastSeen:  time.Now(),
-		Metadata:  make(map[string]string),
-	}
-
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	t.agents[name] = agent
-	t.agentsByName[name] = agent
-	t.names = append(t.names, name)
-
-	return coreAgent, name
+    return spawned.Agent, spawned.Name
 }
 
 // Call implements the Caller interface for compatibility with existing code.
