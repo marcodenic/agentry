@@ -371,6 +371,37 @@ For advanced users who need environment variable control for automation or CI/CD
 - on resizing the window we get like: marlformed char codes or something.
 - no reasoning_effort support
 
+## TODO - Prompt Engineering & Structuring
+
+### Prompt Structure Improvements
+- [ ] **Implement structured prompt framework** following the 10-part structure:
+  1. Task context
+  2. Tone context  
+  3. Background data, documents, and images
+  4. Detailed task description & rules
+  5. Examples
+  6. Conversation history
+  7. Immediate task description or request
+  8. Thinking step by step / take a deep breath
+  9. Output formatting
+  10. Prefilled response (if any)
+- [ ] **Apply prompt structure to Agent 0 orchestration** - ensure planning/delegation prompts follow structured format
+- [ ] **Standardize worker agent prompts** with consistent structure across coder, tester, reviewer roles
+- [ ] **Add prompt template validation** to ensure all agent prompts follow the structured framework
+
+### XML-like Syntax for Instructions  
+- [ ] **Adopt XML-like syntax for prompt instructions** (e.g., `<code_editing_rules>`, `<guiding_principles>`, `<frontend_task_defaults>`)
+- [ ] **Implement modular prompt components** - reusable XML blocks for common instructions
+- [ ] **Add XML instruction validation** - ensure properly formatted XML-like blocks in prompts
+- [ ] **Create instruction library** - common XML blocks for file editing, code review, testing, etc.
+- [ ] **Support dynamic XML instruction injection** - context-aware instruction blocks based on task type
+
+### Advanced Prompting Techniques
+- [ ] **Implement reasoning effort control** - use high reasoning for complex tasks, medium/low for simple ones
+- [ ] **Add self-reflection prompts** for agents to validate their work before completion
+- [ ] **Implement tool usage budgeting** - prescriptive guidance on when to be thorough vs. quick
+- [ ] **Add persistent context awareness** - agents should understand their role in larger workflows
+
 
 
 **Update Policy:** After material change, update this file + role templates + CLI help. Keep backlog clean (remove shipped; no stale dupes).

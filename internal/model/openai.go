@@ -66,29 +66,31 @@ func buildOATools(tools []ToolSpec) []openAITool {
 	return oa
 }
 func buildOAInput(msgs []ChatMessage) []oaInputItem {
-	out := make([]oaInputItem, len(msgs))
-	for i, m := range msgs {
-		// Map role to supported values
-		role := m.Role
-		switch m.Role {
-		case "tool":
-			role = "user" // Convert tool results to user messages
-		}
-		out[i].Role = role
+    out := make([]oaInputItem, len(msgs))
+    for i, m := range msgs {
+        // Map role to supported values
+        role := m.Role
+        switch m.Role {
+        case "tool":
+            role = "user" // Convert tool results to user messages
+        }
+        out[i].Role = role
 
-		// Use appropriate content type based on message role
-		var contentType string
-		switch m.Role {
-		case "assistant":
-			contentType = "output_text"
-		case "user", "system", "tool":
-			contentType = "input_text"
-		default:
-			contentType = "input_text" // Default fallback
-		}
-		out[i].Content = []oaContentPart{{Type: contentType, Text: m.Content}}
-	}
-	return out
+        // Use appropriate content type based on message role
+        // Responses API expects prior assistant messages as output types to preserve conversation context,
+        // while system/user/tool inputs are input types.
+        var contentType string
+        switch m.Role {
+        case "assistant":
+            contentType = "output_text"
+        case "user", "system", "tool":
+            contentType = "input_text"
+        default:
+            contentType = "input_text" // Default fallback
+        }
+        out[i].Content = []oaContentPart{{Type: contentType, Text: m.Content}}
+    }
+    return out
 }
 
 func (o *OpenAI) buildRequest(ctx context.Context, msgs []ChatMessage, tools []ToolSpec, stream bool) (*http.Request, error) {
@@ -164,7 +166,7 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
             debug.Printf("OpenAI.Stream: payload=%q", payload)
             if payload == "[DONE]" {
                 debug.Printf("OpenAI.Stream: [DONE], finalize (partials=%d responseCalls=%d)", len(partials), len(responseCalls))
-                finalizeOpenAI(partials, out, inTok, outTok)
+                finalizeOpenAI(partials, out, inTok, outTok, o.model)
                 return
             }
 			if payload == "" {
@@ -263,7 +265,7 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
                     }
                 }
                 // Combine both legacy and responses API calls
-                finalizeWithResponses(partials, responseCalls, out, inTok, outTok)
+                finalizeWithResponses(partials, responseCalls, out, inTok, outTok, o.model)
                 return
             default: /* ignore */
             }
@@ -273,32 +275,33 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
             out <- StreamChunk{Err: err}
         } else {
             debug.Printf("OpenAI.Stream: scanner ended, finalize (partials=%d responseCalls=%d)", len(partials), len(responseCalls))
-            finalizeWithResponses(partials, responseCalls, out, inTok, outTok)
+            finalizeWithResponses(partials, responseCalls, out, inTok, outTok, o.model)
         }
     }()
     return out, nil
 }
 
-func finalizeOpenAI(partials map[int]*partial, out chan<- StreamChunk, inTok, outTok int) {
+func finalizeOpenAI(partials map[int]*partial, out chan<- StreamChunk, inTok, outTok int, model string) {
     if len(partials) == 0 {
         // No tool calls: emit final chunk with usage
-        out <- StreamChunk{Done: true, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai"}
+        // Include provider/model for accurate pricing
+        out <- StreamChunk{Done: true, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai/" + model}
         return
     }
-	idxs := make([]int, 0, len(partials))
-	for i := range partials {
-		idxs = append(idxs, i)
-	}
-	sort.Ints(idxs)
-	final := make([]ToolCall, 0, len(partials))
-	for _, i := range idxs {
-		p := partials[i]
-		final = append(final, ToolCall{ID: p.ID, Name: p.Name, Arguments: p.Arguments})
-	}
-	out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai"}
+    idxs := make([]int, 0, len(partials))
+    for i := range partials {
+        idxs = append(idxs, i)
+    }
+    sort.Ints(idxs)
+    final := make([]ToolCall, 0, len(partials))
+    for _, i := range idxs {
+        p := partials[i]
+        final = append(final, ToolCall{ID: p.ID, Name: p.Name, Arguments: p.Arguments})
+    }
+    out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai/" + model}
 }
 
-func finalizeWithResponses(partials map[int]*partial, responseCalls map[string]*partial, out chan<- StreamChunk, inTok, outTok int) {
+func finalizeWithResponses(partials map[int]*partial, responseCalls map[string]*partial, out chan<- StreamChunk, inTok, outTok int, model string) {
 	final := make([]ToolCall, 0, len(partials)+len(responseCalls))
 	// Add legacy format calls
 	if len(partials) > 0 {
@@ -316,7 +319,7 @@ func finalizeWithResponses(partials map[int]*partial, responseCalls map[string]*
 	for _, p := range responseCalls {
 		final = append(final, ToolCall{ID: p.ID, Name: p.Name, Arguments: p.Arguments})
 	}
-	out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai"}
+    out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai/" + model}
 }
 
 func (o *OpenAI) ModelName() string { return o.model }

@@ -339,12 +339,17 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		if outTok == 0 {
 			outTok = tokens.Count(res.Content, a.ModelName)
 		}
-		if a.Cost != nil {
-			a.Cost.AddModelUsage(a.ModelName, inTok, outTok)
-			if a.Cost.OverBudget() && env.Bool("AGENTRY_STOP_ON_BUDGET", false) {
-				return "", fmt.Errorf("cost or token budget exceeded (tokens=%d cost=$%.4f)", a.Cost.TotalTokens(), a.Cost.TotalCost())
-			}
-		}
+        if a.Cost != nil {
+            // Prefer the provider/model used by the backend when available
+            modelForCost := res.ModelName
+            if strings.TrimSpace(modelForCost) == "" {
+                modelForCost = a.ModelName
+            }
+            a.Cost.AddModelUsage(modelForCost, inTok, outTok)
+            if a.Cost.OverBudget() && env.Bool("AGENTRY_STOP_ON_BUDGET", false) {
+                return "", fmt.Errorf("cost or token budget exceeded (tokens=%d cost=$%.4f)", a.Cost.TotalTokens(), a.Cost.TotalCost())
+            }
+        }
 
 		// Append assistant message
 		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})

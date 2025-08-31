@@ -223,13 +223,13 @@ func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []Tool
 		}
 
 		// Send final response with tool calls and token usage; include model name via special terminal chunk
-		out <- StreamChunk{ // final chunk
-			Done:         true,
-			ToolCalls:    toolCalls,
-			InputTokens:  inputTokens,
-			OutputTokens: outputTokens,
-			ModelName:    a.model,
-		}
+        out <- StreamChunk{ // final chunk
+            Done:         true,
+            ToolCalls:    toolCalls,
+            InputTokens:  inputTokens,
+            OutputTokens: outputTokens,
+            ModelName:    "anthropic/" + a.model,
+        }
 	}()
 
 	return out, nil

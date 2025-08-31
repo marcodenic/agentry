@@ -191,8 +191,11 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 
 	ag.Prompt = prompt
 
-	// Initialize cost manager for token/cost tracking
-	ag.Cost = cost.New(0, 0.0) // No budget limits, just tracking
+    // Initialize/override cost manager budgets from config when provided.
+    // core.New() already set budgets from env; honor config if specified.
+    if cfg.Budget.Tokens > 0 || cfg.Budget.Dollars > 0 {
+        ag.Cost = cost.New(cfg.Budget.Tokens, cfg.Budget.Dollars)
+    }
 
-	return ag, nil
+    return ag, nil
 }
