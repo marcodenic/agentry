@@ -14,7 +14,6 @@ import (
 // Compile-time check to ensure Team implements contracts.TeamService
 var _ contracts.TeamService = (*Team)(nil)
 
-// Timer moved to timer.go
 
 // Team manages a multi-agent conversation step by step.
 // This is a simplified version that consolidates the functionality
