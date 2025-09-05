@@ -30,6 +30,7 @@ jobs:
         run: go mod download
 
       - name: Check gofmt
+        shell: bash
         run: |
           diff=$(gofmt -l $(git ls-files '*.go'))
           if [ -n "$diff" ]; then echo "gofmt needed:" && echo "$diff" && exit 1; fi
