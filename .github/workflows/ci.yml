@@ -29,11 +29,23 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Check gofmt
+      - name: Check gofmt (Unix-like only)
+        if: matrix.os != 'windows-latest'
         shell: bash
         run: |
           diff=$(gofmt -l $(git ls-files '*.go'))
           if [ -n "$diff" ]; then echo "gofmt needed:" && echo "$diff" && exit 1; fi
+
+      - name: Check gofmt (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          $files = gofmt -l $(git ls-files '*.go')
+          if ($files) {
+            Write-Host "gofmt needed:"
+            Write-Host $files
+            exit 1
+          }
 
       - name: Run go vet
         run: go vet ./...
