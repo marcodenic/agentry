@@ -40,10 +40,11 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: powershell
         run: |
-          $files = gofmt -l $(git ls-files '*.go')
-          if ($files) {
+          $goFiles = git ls-files '*.go'
+          $diff = gofmt -l $goFiles
+          if ($diff) {
             Write-Host "gofmt needed:"
-            Write-Host $files
+            Write-Host $diff
             exit 1
           }
 
