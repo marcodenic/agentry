@@ -12,21 +12,21 @@ import (
 )
 
 type commonOpts struct {
-	configPath      string
-	theme           string
-	keybindsPath    string
-	credsPath       string
-	mcpFlag         string
-	saveID          string
-	resumeID        string
-	ckptID          string
-	port            string
-	debug           bool
-	disableTools    bool
-	allowTools      string
-	denyTools       string
-	disableContext  bool
-	auditLog        string
+	configPath     string
+	theme          string
+	keybindsPath   string
+	credsPath      string
+	mcpFlag        string
+	saveID         string
+	resumeID       string
+	ckptID         string
+	port           string
+	debug          bool
+	disableTools   bool
+	allowTools     string
+	denyTools      string
+	disableContext bool
+	auditLog       string
 }
 
 func parseCommon(name string, args []string) (*commonOpts, []string) {
@@ -116,7 +116,7 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 		for _, tool := range allowList {
 			allowSet[strings.TrimSpace(tool)] = true
 		}
-		
+
 		// Filter tools to only include allowed ones
 		var filteredTools []config.ToolManifest
 		for _, tool := range cfg.Tools {
@@ -125,7 +125,7 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 			}
 		}
 		cfg.Tools = filteredTools
-		
+
 		// Also set permissions to the allow list
 		cfg.Permissions.Tools = allowList
 	}
@@ -136,7 +136,7 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 		for _, tool := range denyList {
 			denySet[strings.TrimSpace(tool)] = true
 		}
-		
+
 		// Filter out denied tools from the tools list
 		var filteredTools []config.ToolManifest
 		for _, tool := range cfg.Tools {
@@ -145,7 +145,7 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 			}
 		}
 		cfg.Tools = filteredTools
-		
+
 		// Also remove from permissions if present
 		if cfg.Permissions.Tools != nil {
 			var filteredPerms []string

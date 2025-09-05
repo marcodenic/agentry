@@ -1,23 +1,23 @@
 package main
 
 import (
-    "fmt"
-    "os"
-    "strings"
+	"fmt"
+	"os"
+	"strings"
 
-    agentry "github.com/marcodenic/agentry/internal"
-    "github.com/marcodenic/agentry/internal/cost"
-    "github.com/marcodenic/agentry/internal/env"
+	agentry "github.com/marcodenic/agentry/internal"
+	"github.com/marcodenic/agentry/internal/cost"
+	"github.com/marcodenic/agentry/internal/env"
 )
 
 func main() {
-    env.Load()
-    
-    // If no arguments, start TUI (default)
-    if len(os.Args) < 2 {
-        runTui([]string{})
-        return
-    }
+	env.Load()
+
+	// If no arguments, start TUI (default)
+	if len(os.Args) < 2 {
+		runTui([]string{})
+		return
+	}
 
 	// Handle version and help flags specially (before parsing)
 	if os.Args[1] == "--version" || os.Args[1] == "-v" {
@@ -32,52 +32,52 @@ func main() {
 	// Parse all arguments to separate global flags from command and its args
 	args := os.Args[1:]
 	opts, remainingArgs := parseCommon("agentry", args)
-	
-    // If no remaining args after flag parsing, start TUI (default)
-    if len(remainingArgs) == 0 {
-        runTui(args) // Pass original args to TUI for its own parsing
-        return
-    }
 
-    // Determine the command (first remaining argument or infer from context)
-    var command string
-    var commandArgs []string
+	// If no remaining args after flag parsing, start TUI (default)
+	if len(remainingArgs) == 0 {
+		runTui(args) // Pass original args to TUI for its own parsing
+		return
+	}
 
-    // Recognized commands: tui, refresh-models, version. Deprecated aliases: chat/ask/prompt → direct prompt.
-    switch remainingArgs[0] {
-    case "tui", "refresh-models", "version":
-        command = remainingArgs[0]
-        commandArgs = remainingArgs[1:]
-    case "chat", "ask", "prompt":
-        // Deprecated aliases: treat everything after as a direct prompt
-        command = "prompt-direct"
-        commandArgs = remainingArgs[1:]
-    default:
-        // Direct prompt with all remaining args
-        command = "prompt-direct"
-        commandArgs = remainingArgs
-    }
+	// Determine the command (first remaining argument or infer from context)
+	var command string
+	var commandArgs []string
+
+	// Recognized commands: tui, refresh-models, version. Deprecated aliases: chat/ask/prompt → direct prompt.
+	switch remainingArgs[0] {
+	case "tui", "refresh-models", "version":
+		command = remainingArgs[0]
+		commandArgs = remainingArgs[1:]
+	case "chat", "ask", "prompt":
+		// Deprecated aliases: treat everything after as a direct prompt
+		command = "prompt-direct"
+		commandArgs = remainingArgs[1:]
+	default:
+		// Direct prompt with all remaining args
+		command = "prompt-direct"
+		commandArgs = remainingArgs
+	}
 
 	// Handle explicit commands
 	switch command {
-    case "tui":
-        runTui(commandArgs)
-    case "refresh-models":
-        runRefreshModelsCmd(commandArgs)
-    case "version":
-        fmt.Printf("agentry %s\n", agentry.Version)
-    case "prompt-direct":
-        // Direct prompt with all arguments
-        runPromptWithOpts(strings.Join(commandArgs, " "), opts)
-    default:
-        fmt.Printf("Error: Unknown command '%s'\n", command)
-        fmt.Println("Use 'agentry help' for usage information")
-        os.Exit(1)
-    }
+	case "tui":
+		runTui(commandArgs)
+	case "refresh-models":
+		runRefreshModelsCmd(commandArgs)
+	case "version":
+		fmt.Printf("agentry %s\n", agentry.Version)
+	case "prompt-direct":
+		// Direct prompt with all arguments
+		runPromptWithOpts(strings.Join(commandArgs, " "), opts)
+	default:
+		fmt.Printf("Error: Unknown command '%s'\n", command)
+		fmt.Println("Use 'agentry help' for usage information")
+		os.Exit(1)
+	}
 }
 
 func showHelp() {
-    helpText := `Agentry - Multi-agent orchestrator for development tasks
+	helpText := `Agentry - Multi-agent orchestrator for development tasks
 
 USAGE:
   agentry [command] [flags] [arguments]
@@ -123,7 +123,7 @@ EXAMPLES:
 
 For more information, see PRODUCT.md or visit the project repository.
 `
-    fmt.Print(helpText)
+	fmt.Print(helpText)
 }
 
 // Stub implementation for optional command if not present in this build.

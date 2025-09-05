@@ -122,13 +122,13 @@ func (b Budget) ApplyWithTools(msgs []model.ChatMessage, specs []model.ToolSpec)
 			}
 			sb.WriteString(fmt.Sprintf("%02d %-8s tokens=%d len=%d\n", i, role, tokens.Count(m.Content, b.ModelName), len(m.Content)))
 		}
-			sb.WriteString(fmt.Sprintf("Total≈%d (budget=%d reserve=%d) buildTime=%s (toolSchemas≈%d)\n", func() int {
+		sb.WriteString(fmt.Sprintf("Total≈%d (budget=%d reserve=%d) buildTime=%s (toolSchemas≈%d)\n", func() int {
 			t := 0
 			for _, m := range msgs {
 				t += tokens.Count(m.Content, b.ModelName)
 			}
 			return t
-			}(), targetBudget, reserveForOutput, time.Since(startMeasure), toolSchemaTokens))
+		}(), targetBudget, reserveForOutput, time.Since(startMeasure), toolSchemaTokens))
 		debug.Printf(sb.String())
 	}
 	return msgs

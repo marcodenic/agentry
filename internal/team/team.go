@@ -1,32 +1,31 @@
 package team
 
 import (
-    "fmt"
-    "os"
-    "sync"
-    "time"
+	"fmt"
+	"os"
+	"sync"
+	"time"
 
-    "github.com/marcodenic/agentry/internal/contracts"
-    "github.com/marcodenic/agentry/internal/core"
-    "github.com/marcodenic/agentry/internal/memstore"
+	"github.com/marcodenic/agentry/internal/contracts"
+	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/memstore"
 )
 
 // Compile-time check to ensure Team implements contracts.TeamService
 var _ contracts.TeamService = (*Team)(nil)
 
-
 // Team manages a multi-agent conversation step by step.
 // This is a simplified version that consolidates the functionality
 // from converse.Team and maintains compatibility.
 type Team struct {
-    parent       *core.Agent
-    agents       map[string]*Agent // Changed to use Agent type
-    agentsByName map[string]*Agent // Changed to use Agent type
-    tasks        map[string]*Task
-    messages     []Message
-    roles        map[string]*RoleConfig
-    portRange    PortRange
-    name         string
+	parent       *core.Agent
+	agents       map[string]*Agent // Changed to use Agent type
+	agentsByName map[string]*Agent // Changed to use Agent type
+	tasks        map[string]*Task
+	messages     []Message
+	roles        map[string]*RoleConfig
+	portRange    PortRange
+	name         string
 	maxTurns     int
 	mutex        sync.RWMutex
 	// ENHANCED: Shared memory and communication tracking

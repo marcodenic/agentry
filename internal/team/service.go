@@ -1,18 +1,20 @@
 package team
 
 import (
-    "context"
-    "sort"
+	"context"
+	"sort"
 )
 
 // GetAgents returns a list of all agent names in the team.
 func (t *Team) GetAgents() []string {
-    t.mutex.RLock()
-    defer t.mutex.RUnlock()
-    out := make([]string, 0, len(t.agentsByName))
-    for name := range t.agentsByName { out = append(out, name) }
-    sort.Strings(out)
-    return out
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	out := make([]string, 0, len(t.agentsByName))
+	for name := range t.agentsByName {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // Names returns a list of all agent names in the team.
@@ -27,7 +29,9 @@ func (t *Team) SpawnedAgentNames() []string { return t.GetAgents() }
 func (t *Team) AvailableRoleNames() []string { return t.ListRoleNames() }
 
 // DelegateTask delegates a task to a role (spawning if needed)
-func (t *Team) DelegateTask(ctx context.Context, role, task string) (string, error) { return t.Call(ctx, role, task) }
+func (t *Team) DelegateTask(ctx context.Context, role, task string) (string, error) {
+	return t.Call(ctx, role, task)
+}
 
 // GetInbox returns an agent's inbox messages
 func (t *Team) GetInbox(agentID string) []map[string]interface{} { return t.GetAgentInbox(agentID) }
@@ -40,4 +44,3 @@ func (t *Team) GetCoordinationHistory(limit int) []string { return t.Coordinatio
 
 // GetTeamAgents returns a list of all team agents with role information.
 func (t *Team) GetTeamAgents() []*Agent { return t.ListAgents() }
-

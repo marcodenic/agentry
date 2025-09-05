@@ -128,56 +128,56 @@ func (m Model) View() string {
 	// Stack everything vertically
 	content := lipgloss.JoinVertical(lipgloss.Left, topSection, horizontalLine, inputSection)
 
-    // Calculate total tokens and cost across all agents
-    totalTokens := 0
-    totalCost := 0.0
-    // Track session-level budgets (assume shared across agents; take max)
-    var budgetTokens int
-    var budgetDollars float64
+	// Calculate total tokens and cost across all agents
+	totalTokens := 0
+	totalCost := 0.0
+	// Track session-level budgets (assume shared across agents; take max)
+	var budgetTokens int
+	var budgetDollars float64
 
 	// Sum up tokens and costs, using live streaming counts when available
-    for _, info := range m.infos {
-        if info.Agent != nil && info.Agent.Cost != nil {
-            // Use streaming token count during active streaming, real count otherwise
-            if info.TokensStarted && info.StreamingResponse != "" {
-                totalTokens += info.StreamingTokenCount
-            } else {
-                totalTokens += info.Agent.Cost.TotalTokens()
-            }
-            totalCost += info.Agent.Cost.TotalCost()
-            if info.Agent.Cost.BudgetTokens > budgetTokens {
-                budgetTokens = info.Agent.Cost.BudgetTokens
-            }
-            if info.Agent.Cost.BudgetDollars > budgetDollars {
-                budgetDollars = info.Agent.Cost.BudgetDollars
-            }
-        }
-    }
+	for _, info := range m.infos {
+		if info.Agent != nil && info.Agent.Cost != nil {
+			// Use streaming token count during active streaming, real count otherwise
+			if info.TokensStarted && info.StreamingResponse != "" {
+				totalTokens += info.StreamingTokenCount
+			} else {
+				totalTokens += info.Agent.Cost.TotalTokens()
+			}
+			totalCost += info.Agent.Cost.TotalCost()
+			if info.Agent.Cost.BudgetTokens > budgetTokens {
+				budgetTokens = info.Agent.Cost.BudgetTokens
+			}
+			if info.Agent.Cost.BudgetDollars > budgetDollars {
+				budgetDollars = info.Agent.Cost.BudgetDollars
+			}
+		}
+	}
 
 	// Only show agent/cost/cwd/tokens info in the status bar, not workspace events
 	agentsDisplay := fmt.Sprintf("◆ agents: %d", len(m.infos))
 	cwdDisplay := fmt.Sprintf("⌂ cwd: %s", m.cwd)
-    tokensDisplay := fmt.Sprintf("◈ tokens: %d", totalTokens)
-    costDisplay := fmt.Sprintf("◎ cost: $%.6f", totalCost)
+	tokensDisplay := fmt.Sprintf("◈ tokens: %d", totalTokens)
+	costDisplay := fmt.Sprintf("◎ cost: $%.6f", totalCost)
 
-    // Append budget warnings (soft at 80%, hard at 100%)
-    softPct := 0.80
-    // Budget by tokens
-    if budgetTokens > 0 {
-        if totalTokens >= budgetTokens {
-            tokensDisplay += " ⛔"
-        } else if float64(totalTokens) >= float64(budgetTokens)*softPct {
-            tokensDisplay += " ⚠"
-        }
-    }
-    // Budget by dollars
-    if budgetDollars > 0.0 {
-        if totalCost >= budgetDollars {
-            costDisplay += " ⛔"
-        } else if totalCost >= budgetDollars*softPct {
-            costDisplay += " ⚠"
-        }
-    }
+	// Append budget warnings (soft at 80%, hard at 100%)
+	softPct := 0.80
+	// Budget by tokens
+	if budgetTokens > 0 {
+		if totalTokens >= budgetTokens {
+			tokensDisplay += " ⛔"
+		} else if float64(totalTokens) >= float64(budgetTokens)*softPct {
+			tokensDisplay += " ⚠"
+		}
+	}
+	// Budget by dollars
+	if budgetDollars > 0.0 {
+		if totalCost >= budgetDollars {
+			costDisplay += " ⛔"
+		} else if totalCost >= budgetDollars*softPct {
+			costDisplay += " ⚠"
+		}
+	}
 	m.statusBarModel.SetSize(m.width)
 	m.statusBarModel.SetContent(agentsDisplay, cwdDisplay, tokensDisplay, costDisplay)
 	footer := m.statusBarModel.View()

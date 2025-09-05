@@ -1,25 +1,25 @@
 package team
 
 import (
-    "context"
-    "fmt"
-    "os"
-    "strings"
-    "time"
+	"context"
+	"fmt"
+	"os"
+	"strings"
+	"time"
 
-    "github.com/google/uuid"
-    "github.com/marcodenic/agentry/internal/core"
-    "github.com/marcodenic/agentry/internal/env"
-    "github.com/marcodenic/agentry/internal/memory"
-    "github.com/marcodenic/agentry/internal/model"
-    "github.com/marcodenic/agentry/internal/tool"
+	"github.com/google/uuid"
+	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/env"
+	"github.com/marcodenic/agentry/internal/memory"
+	"github.com/marcodenic/agentry/internal/model"
+	"github.com/marcodenic/agentry/internal/tool"
 )
 
 // AddExistingAgent adds an existing agent to the team
 func (t *Team) AddExistingAgent(name string, agent *core.Agent) error {
-    // Consolidate with Add to ensure consistent sanitization (e.g., removing the "agent" tool)
-    t.Add(name, agent)
-    return nil
+	// Consolidate with Add to ensure consistent sanitization (e.g., removing the "agent" tool)
+	t.Add(name, agent)
+	return nil
 }
 
 // SpawnAgent creates a new agent with the given configuration
@@ -48,22 +48,22 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 	timer.Checkpoint("role config resolved")
 
 	// Create the core agent
-    registry := tool.DefaultRegistry()
-    // Apply curated defaults and cap tool schemas to keep context small
-    maxTools := env.Int("AGENTRY_MAX_TOOLS", 5)
-    curated := curatedToolsForRole(role)
-    if len(curated) > 0 {
-        // Don't cap tools for roles that need comprehensive toolsets (like coder)
-        roleName := strings.ToLower(strings.TrimSpace(role))
-        if roleName == "coder" {
-            // Give coder all the tools it needs - no artificial cap
-            registry = filterRegistryByNames(registry, curated, 0) // 0 = no cap
-        } else {
-            registry = filterRegistryByNames(registry, curated, maxTools)
-        }
-    } else if maxTools > 0 {
-        registry = capRegistry(registry, maxTools)
-    }
+	registry := tool.DefaultRegistry()
+	// Apply curated defaults and cap tool schemas to keep context small
+	maxTools := env.Int("AGENTRY_MAX_TOOLS", 5)
+	curated := curatedToolsForRole(role)
+	if len(curated) > 0 {
+		// Don't cap tools for roles that need comprehensive toolsets (like coder)
+		roleName := strings.ToLower(strings.TrimSpace(role))
+		if roleName == "coder" {
+			// Give coder all the tools it needs - no artificial cap
+			registry = filterRegistryByNames(registry, curated, 0) // 0 = no cap
+		} else {
+			registry = filterRegistryByNames(registry, curated, maxTools)
+		}
+	} else if maxTools > 0 {
+		registry = capRegistry(registry, maxTools)
+	}
 
 	// Apply tool restrictions based on role configuration
 	if len(roleConfig.RestrictedTools) > 0 {
@@ -108,10 +108,10 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 		}
 	}
 
-    agent := core.New(client, modelName, registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
-    // Ensure we do not allow recursive delegation by default
-    delete(agent.Tools, "agent")
-    agent.InvalidateToolCache()
+	agent := core.New(client, modelName, registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
+	// Ensure we do not allow recursive delegation by default
+	delete(agent.Tools, "agent")
+	agent.InvalidateToolCache()
 	agent.Prompt = roleConfig.Prompt
 
 	// Find available port

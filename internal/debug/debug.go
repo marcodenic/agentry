@@ -18,18 +18,18 @@ var (
 func init() {
 	// Check for consolidated debug level first
 	debugLevel = os.Getenv("AGENTRY_DEBUG_LEVEL")
-	
+
 	// Backward compatibility with old flags
 	if debugLevel == "" {
 		if os.Getenv("AGENTRY_DEBUG") == "1" || os.Getenv("AGENTRY_DEBUG") == "true" {
 			debugLevel = "debug"
 		} else if os.Getenv("AGENTRY_COMM_LOG") == "1" {
-			debugLevel = "trace"  // communication logging is trace level
+			debugLevel = "trace" // communication logging is trace level
 		} else if os.Getenv("AGENTRY_DEBUG_CONTEXT") == "1" {
 			debugLevel = "debug"
 		}
 	}
-	
+
 	// Set debug enabled based on level
 	DebugEnabled = debugLevel == "debug" || debugLevel == "trace"
 

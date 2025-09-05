@@ -4,11 +4,11 @@
 package main
 
 import (
-    "errors"
-    "fmt"
-    "os"
-    "path/filepath"
-    "strings"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/marcodenic/agentry/internal/audit"
 	"github.com/marcodenic/agentry/internal/config"
@@ -19,7 +19,7 @@ import (
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/tool"
-    "github.com/marcodenic/agentry/internal/trace"
+	"github.com/marcodenic/agentry/internal/trace"
 )
 
 // loadPrimaryAgentRole loads the agent_0 role configuration
@@ -78,7 +78,7 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		reg[m.Name] = tl
 	}
 
-    // Agent delegation tool is registered by team.RegisterAgentTool at runtime.
+	// Agent delegation tool is registered by team.RegisterAgentTool at runtime.
 	var logWriter *audit.Log
 	if path := os.Getenv("AGENTRY_AUDIT_LOG"); path != "" {
 		if lw, err := audit.Open(path, 1<<20); err == nil {
@@ -191,11 +191,11 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 
 	ag.Prompt = prompt
 
-    // Initialize/override cost manager budgets from config when provided.
-    // core.New() already set budgets from env; honor config if specified.
-    if cfg.Budget.Tokens > 0 || cfg.Budget.Dollars > 0 {
-        ag.Cost = cost.New(cfg.Budget.Tokens, cfg.Budget.Dollars)
-    }
+	// Initialize/override cost manager budgets from config when provided.
+	// core.New() already set budgets from env; honor config if specified.
+	if cfg.Budget.Tokens > 0 || cfg.Budget.Dollars > 0 {
+		ag.Cost = cost.New(cfg.Budget.Tokens, cfg.Budget.Dollars)
+	}
 
-    return ag, nil
+	return ag, nil
 }

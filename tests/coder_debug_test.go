@@ -67,7 +67,7 @@ func (m *coderDebugClient) Stream(ctx context.Context, msgs []model.ChatMessage,
 						{
 							ID:        "call_view",
 							Name:      "view",
-							Arguments: []byte(`{"path": "PRODUCT.md"}`),
+							Arguments: []byte(`{"path": "../PRODUCT.md"}`),
 						},
 					},
 					Done: true,

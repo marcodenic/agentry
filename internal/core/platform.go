@@ -1,13 +1,13 @@
 package core
 
 import (
-    "runtime"
-    "sort"
-    "strings"
-    "sync"
+	"runtime"
+	"sort"
+	"strings"
+	"sync"
 
-    "github.com/marcodenic/agentry/internal/env"
-    "github.com/marcodenic/agentry/internal/tool"
+	"github.com/marcodenic/agentry/internal/env"
+	"github.com/marcodenic/agentry/internal/tool"
 )
 
 // GetPlatformContext returns OS-specific guidance for agents with tiered tool hierarchy
@@ -218,119 +218,119 @@ func InjectPlatformContext(prompt string, allowedCommands []string, allowedBuilt
 // InjectPlatformContextFromRegistry adds OS + tool guidance using the live registry.
 // It injects only once (recognized by PLATFORM_CONTEXT_START/END markers).
 func InjectPlatformContextFromRegistry(prompt string, reg tool.Registry) string {
-    const start = "<!-- PLATFORM_CONTEXT_START -->"
-    const end = "<!-- PLATFORM_CONTEXT_END -->"
-    if strings.Contains(prompt, start) {
-        return prompt
-    }
-    // OS header
-    var platformInfo string
-    switch runtime.GOOS {
-    case "windows":
-        platformInfo = "PLATFORM: Windows with PowerShell"
-    case "darwin":
-        platformInfo = "PLATFORM: macOS with Unix shell"
-    case "linux":
-        platformInfo = "PLATFORM: Linux with Unix shell"
-    default:
-        platformInfo = "PLATFORM: Unknown OS"
-    }
+	const start = "<!-- PLATFORM_CONTEXT_START -->"
+	const end = "<!-- PLATFORM_CONTEXT_END -->"
+	if strings.Contains(prompt, start) {
+		return prompt
+	}
+	// OS header
+	var platformInfo string
+	switch runtime.GOOS {
+	case "windows":
+		platformInfo = "PLATFORM: Windows with PowerShell"
+	case "darwin":
+		platformInfo = "PLATFORM: macOS with Unix shell"
+	case "linux":
+		platformInfo = "PLATFORM: Linux with Unix shell"
+	default:
+		platformInfo = "PLATFORM: Unknown OS"
+	}
 
-    // Categorize a compact set of builtins from the actual registry
-    fileSet := map[string]bool{
-        "read_lines": true, "edit_range": true, "insert_at": true, "search_replace": true,
-        "fileinfo": true, "view": true, "create": true, "patch": true,
-    }
-    webSet := map[string]bool{
-        "web_search": true, "read_webpage": true, "api": true, "download": true, "fetch": true, "mcp": true,
-    }
+	// Categorize a compact set of builtins from the actual registry
+	fileSet := map[string]bool{
+		"read_lines": true, "edit_range": true, "insert_at": true, "search_replace": true,
+		"fileinfo": true, "view": true, "create": true, "patch": true,
+	}
+	webSet := map[string]bool{
+		"web_search": true, "read_webpage": true, "api": true, "download": true, "fetch": true, "mcp": true,
+	}
 
-    var fileTools, webTools, otherTools []string
-    // Collect tool names from registry
-    for name := range reg {
-        if fileSet[name] {
-            fileTools = append(fileTools, name)
-            continue
-        }
-        if webSet[name] {
-            webTools = append(webTools, name)
-            continue
-        }
-        otherTools = append(otherTools, name)
-    }
-    sort.Strings(fileTools)
-    sort.Strings(webTools)
-    sort.Strings(otherTools)
+	var fileTools, webTools, otherTools []string
+	// Collect tool names from registry
+	for name := range reg {
+		if fileSet[name] {
+			fileTools = append(fileTools, name)
+			continue
+		}
+		if webSet[name] {
+			webTools = append(webTools, name)
+			continue
+		}
+		otherTools = append(otherTools, name)
+	}
+	sort.Strings(fileTools)
+	sort.Strings(webTools)
+	sort.Strings(otherTools)
 
-    // If tool list injection is disabled, provide only OS header
-    if env.Bool("AGENTRY_DISABLE_TOOL_LIST", true) {
-        return prompt + "\n" + start + "\n" + platformInfo + end
-    }
+	// If tool list injection is disabled, provide only OS header
+	if env.Bool("AGENTRY_DISABLE_TOOL_LIST", true) {
+		return prompt + "\n" + start + "\n" + platformInfo + end
+	}
 
-    // Limit list sizes to keep context minimal
-    capList := func(in []string, n int) []string {
-        if n <= 0 || len(in) <= n {
-            return in
-        }
-        return in[:n]
-    }
-    fileTools = capList(fileTools, 8)
-    webTools = capList(webTools, 6)
-    otherTools = capList(otherTools, 6)
+	// Limit list sizes to keep context minimal
+	capList := func(in []string, n int) []string {
+		if n <= 0 || len(in) <= n {
+			return in
+		}
+		return in[:n]
+	}
+	fileTools = capList(fileTools, 8)
+	webTools = capList(webTools, 6)
+	otherTools = capList(otherTools, 6)
 
-    var b strings.Builder
-    b.WriteString(platformInfo)
-    b.WriteString("\n\n")
-    if len(fileTools)+len(webTools)+len(otherTools) > 0 {
-        b.WriteString("🎯 PREFERRED TOOLS (discovery from registry):\n")
-        if len(fileTools) > 0 {
-            b.WriteString("\n📁 File Operations:\n")
-            for _, n := range fileTools {
-                if t, ok := reg[n]; ok {
-                    b.WriteString("- ")
-                    b.WriteString(n)
-                    desc := t.Description()
-                    if desc != "" {
-                        b.WriteString(": ")
-                        b.WriteString(desc)
-                    }
-                    b.WriteString("\n")
-                }
-            }
-        }
-        if len(webTools) > 0 {
-            b.WriteString("\n🌐 Web & Network:\n")
-            for _, n := range webTools {
-                if t, ok := reg[n]; ok {
-                    b.WriteString("- ")
-                    b.WriteString(n)
-                    desc := t.Description()
-                    if desc != "" {
-                        b.WriteString(": ")
-                        b.WriteString(desc)
-                    }
-                    b.WriteString("\n")
-                }
-            }
-        }
-        if len(otherTools) > 0 {
-            b.WriteString("\n🔧 Other Tools:\n")
-            for _, n := range otherTools {
-                if t, ok := reg[n]; ok {
-                    b.WriteString("- ")
-                    b.WriteString(n)
-                    desc := t.Description()
-                    if desc != "" {
-                        b.WriteString(": ")
-                        b.WriteString(desc)
-                    }
-                    b.WriteString("\n")
-                }
-            }
-        }
-    }
+	var b strings.Builder
+	b.WriteString(platformInfo)
+	b.WriteString("\n\n")
+	if len(fileTools)+len(webTools)+len(otherTools) > 0 {
+		b.WriteString("🎯 PREFERRED TOOLS (discovery from registry):\n")
+		if len(fileTools) > 0 {
+			b.WriteString("\n📁 File Operations:\n")
+			for _, n := range fileTools {
+				if t, ok := reg[n]; ok {
+					b.WriteString("- ")
+					b.WriteString(n)
+					desc := t.Description()
+					if desc != "" {
+						b.WriteString(": ")
+						b.WriteString(desc)
+					}
+					b.WriteString("\n")
+				}
+			}
+		}
+		if len(webTools) > 0 {
+			b.WriteString("\n🌐 Web & Network:\n")
+			for _, n := range webTools {
+				if t, ok := reg[n]; ok {
+					b.WriteString("- ")
+					b.WriteString(n)
+					desc := t.Description()
+					if desc != "" {
+						b.WriteString(": ")
+						b.WriteString(desc)
+					}
+					b.WriteString("\n")
+				}
+			}
+		}
+		if len(otherTools) > 0 {
+			b.WriteString("\n🔧 Other Tools:\n")
+			for _, n := range otherTools {
+				if t, ok := reg[n]; ok {
+					b.WriteString("- ")
+					b.WriteString(n)
+					desc := t.Description()
+					if desc != "" {
+						b.WriteString(": ")
+						b.WriteString(desc)
+					}
+					b.WriteString("\n")
+				}
+			}
+		}
+	}
 
-    return prompt + "\n" + start + "\n" + b.String() + end
+	return prompt + "\n" + start + "\n" + b.String() + end
 }
 
 // InjectAvailableRoles adds available agent role information to the prompt
