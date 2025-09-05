@@ -1,22 +1,44 @@
-Agentry — Minimal, extensible AI agent runtime for the terminal
+```
+                                 
+                                 
+    ████▒               ▒████    
+      ▒▓███▓▒       ▒▓███▓▒      
+        ▒█▒████▓▒▓████▓█▒        
+        ▒█   ▓█████▓▒  █▒        
+        ▒█▓███▓▓█▓▓███▓█▒        
+     ▒▓███▓▒   ▒▓▒   ▒▓███▓▒     
+   ▒███▓▓█     ▒▓▒     █▓▓▓██▒   
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+        ▒█     ▒▓▒     █▒        
+               ▒▓▒               
+                                 
+                         v0.2.0  
+   █▀█ █▀▀ █▀▀ █▀█ ▀█▀ █▀▄ █ █   
+   █▀█ █ █ █▀▀ █ █  █  █▀▄  █    
+   ▀ ▀ ▀▀▀ ▀▀▀ ▀ ▀  ▀  ▀ ▀  ▀    
+ AGENT  ORCHESTRATION  FRAMEWORK 
+```
+
+![Demo](agentry.gif)
 
 Overview
 - Minimal core in Go with fast startup and no heavy deps
 - Built-in TUI for day-to-day coding and debugging
 - Pluggable tools via simple manifests; safe permission gating
 - Team/delegation helpers to spawn and coordinate sub-agents
-- Model-agnostic with mock mode for offline/dev
 - Structured tracing and live token/cost accounting
-
-Demo: see `agentry.gif` in the repo
 
 Install
 - Prereq: Go 1.23+
 - Install CLI: `go install github.com/marcodenic/agentry/cmd/agentry@latest`
 
 Quick Start
-- TUI (recommended): `agentry tui --config examples/.agentry.yaml`
-- Direct prompt: `agentry "summarize the README"`
+- TUI (default): `./agentry`
+- Direct prompt: `./agentry "summarize the README"`
 - Show version: `agentry --version`
 
 Configuration
@@ -24,11 +46,9 @@ Configuration
 - Env vars: copy `.env.example` to `.env.local` and set keys (e.g., `OPENAI_API_KEY`)
 - Flags you may care about:
   - `--config PATH`: select config file
-  - `--theme THEME`: theme override for TUI
   - `--debug`: verbose diagnostics
   - `--allow-tools a,b` / `--deny-tools a,b` / `--disable-tools`
   - `--resume-id` / `--save-id` / `--checkpoint-id` for session state
-  - `--port` to set embedded HTTP server
 
 Usage Notes
 - TUI launches when no command is provided: just run `agentry`
