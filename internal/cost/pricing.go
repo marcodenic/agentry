@@ -33,7 +33,7 @@ func NewPricingTable() *PricingTable {
 	}
 	// Use deterministic built-in defaults during "go test" runs,
 	// to avoid variability from user cache contents on the machine.
-	if strings.HasSuffix(os.Args[0], ".test") {
+	if strings.HasSuffix(os.Args[0], ".test") || strings.HasSuffix(os.Args[0], ".test.exe") {
 		pt.installBuiltInDefaults()
 		return pt
 	}
