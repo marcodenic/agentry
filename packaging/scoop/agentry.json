@@ -1,8 +1,8 @@
 {
-  "version": "0.1.0",
+  "version": "0.1.3",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/marcodenic/agentry/releases/download/v0.1.0/agentry-windows-amd64.exe",
+      "url": "https://github.com/marcodenic/agentry/releases/download/v0.1.3/agentry-windows-amd64.exe",
       "hash": "PUT_SHA256_HERE"
     }
   },

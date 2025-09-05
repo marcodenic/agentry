@@ -23,7 +23,7 @@ prompt: |
   - Only delegate to other agents for specialized tasks that require their specific expertise
   
   **DELEGATION GUIDELINES**:
-  - Delegate to **coder** for: code review, programming tasks, file modifications, technical analysis
+  - Delegate to **coder** for: ANY coding, programming, file creation, app development, code review, programming tasks, file modifications, technical analysis
   - Delegate to **tester** for: testing, validation, quality assurance tasks  
   - Delegate to **writer** for: documentation, content creation, formal writing
   - Delegate to **researcher** for: research, data gathering, analysis tasks

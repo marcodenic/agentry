@@ -58,6 +58,7 @@ type Message struct {
 	Content   string            `json:"content"`
 	Type      string            `json:"type"`
 	Timestamp time.Time         `json:"timestamp"`
+	Read      bool              `json:"read"`
 	Metadata  map[string]string `json:"metadata,omitempty"`
 }
 

@@ -209,24 +209,36 @@ func TestCompleteCoderDelegationFlow(t *testing.T) {
 
 // Mock Agent 0 client that delegates to coder
 type delegatingAgent0Client struct {
-	t *testing.T
+	t         *testing.T
+	callCount int
 }
 
 func (d *delegatingAgent0Client) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
 	out := make(chan model.StreamChunk, 1)
 	go func() {
 		defer close(out)
-		d.t.Logf("Agent 0 delegating to coder")
-		out <- model.StreamChunk{
-			ContentDelta: "I'll delegate this file reading task to a coder agent.",
-			ToolCalls: []model.ToolCall{
-				{
-					ID:        "delegate_coder",
-					Name:      "agent",
-					Arguments: []byte(`{"agent": "coder", "input": "Please read PRODUCT.md and provide a summary of its contents"}`),
+		d.callCount++
+
+		if d.callCount == 1 {
+			d.t.Logf("Agent 0 delegating to coder")
+			out <- model.StreamChunk{
+				ContentDelta: "I'll delegate this file reading task to a coder agent.",
+				ToolCalls: []model.ToolCall{
+					{
+						ID:        "delegate_coder",
+						Name:      "agent",
+						Arguments: []byte(`{"agent": "coder", "input": "Please read PRODUCT.md and provide a summary of its contents"}`),
+					},
 				},
-			},
-			Done: true,
+				Done: true,
+			}
+		} else {
+			// After delegation, provide a final answer
+			d.t.Logf("Agent 0 providing final response")
+			out <- model.StreamChunk{
+				ContentDelta: "The coder agent has successfully read and analyzed the PRODUCT.md file. Task completed.",
+				Done:         true,
+			}
 		}
 	}()
 	return out, nil

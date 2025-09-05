@@ -481,10 +481,9 @@ func getTeamBuiltins() map[string]builtinSpec {
 				if agent == "" {
 					agent = "agent_0"
 				}
-				// Clear inbox by setting an empty slice
-				inboxKey := fmt.Sprintf("inbox_%s", agent)
-				t.SetSharedData(inboxKey, []map[string]interface{}{})
-				return fmt.Sprintf("🧹 Cleared inbox for %s", agent), nil
+				// Consolidated: mark all messages as read, which clears unread inbox
+				t.MarkInboxRead(agent)
+				return fmt.Sprintf("🧹 Cleared unread inbox for %s", agent), nil
 			},
 		},
 

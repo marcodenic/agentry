@@ -12,8 +12,8 @@ import (
 
 func main() {
 	env.Load()
-	
-	// If no arguments, start TUI
+
+	// If no arguments, start TUI (default)
 	if len(os.Args) < 2 {
 		runTui([]string{})
 		return
@@ -32,37 +32,36 @@ func main() {
 	// Parse all arguments to separate global flags from command and its args
 	args := os.Args[1:]
 	opts, remainingArgs := parseCommon("agentry", args)
-	
-	// If no remaining args after flag parsing, start TUI
+
+	// If no remaining args after flag parsing, start TUI (default)
 	if len(remainingArgs) == 0 {
 		runTui(args) // Pass original args to TUI for its own parsing
 		return
 	}
-	
-	// Determine the command (first remaining argument or infer from context)  
+
+	// Determine the command (first remaining argument or infer from context)
 	var command string
 	var commandArgs []string
-	
-	// Check if first remaining arg is a known command
+
+	// Recognized commands: tui, refresh-models, version. Deprecated aliases: chat/ask/prompt → direct prompt.
 	switch remainingArgs[0] {
-	case "chat", "ask", "prompt", "refresh-models", "version":
+	case "tui", "refresh-models", "version":
 		command = remainingArgs[0]
 		commandArgs = remainingArgs[1:]
+	case "chat", "ask", "prompt":
+		// Deprecated aliases: treat everything after as a direct prompt
+		command = "prompt-direct"
+		commandArgs = remainingArgs[1:]
 	default:
-		// This is a direct prompt - everything is part of the prompt
+		// Direct prompt with all remaining args
 		command = "prompt-direct"
 		commandArgs = remainingArgs
 	}
 
 	// Handle explicit commands
 	switch command {
-	case "chat", "ask", "prompt":
-		if len(commandArgs) == 0 {
-			fmt.Println("Error: chat command requires a prompt")
-			fmt.Println("Usage: agentry chat \"your prompt here\"")
-			os.Exit(1)
-		}
-		runPromptWithOpts(strings.Join(commandArgs, " "), opts)
+	case "tui":
+		runTui(commandArgs)
 	case "refresh-models":
 		runRefreshModelsCmd(commandArgs)
 	case "version":
@@ -84,10 +83,9 @@ USAGE:
   agentry [command] [flags] [arguments]
 
 COMMANDS:
-    (no command)           Start TUI interface (default)
-  chat <prompt>          Send a prompt to the AI assistant
-  refresh-models         Update model pricing data
-  help                   Show this help message
+    (no command)         Start TUI interface (default)
+  refresh-models       Update model pricing data
+  help                 Show this help message
   
   Direct prompt execution:
   agentry "quoted prompt"    Execute prompt directly with Agent 0
@@ -111,18 +109,17 @@ FLAGS:
   --audit-log PATH       Path to audit log file
 
 EXAMPLES:
-  agentry                                    # Start TUI
-  agentry fix the auth tests                 # Direct prompt (no quotes needed)
-  agentry "complex prompt with & symbols"    # Quotes for special characters
-  agentry chat hello there                   # Chat with initial prompt
-  agentry --debug --theme dark analyze code # Debug mode with dark theme
-  agentry --resume-id my-session             # Resume TUI session
-  agentry refresh-models                     # Update model data
+  agentry                                  # Start TUI (default)
+  agentry fix the auth tests               # Direct prompt (no quotes needed)
+  agentry "complex prompt with & symbols"  # Quotes for special characters
+  agentry --debug analyze code             # Debug mode with direct prompt
+  agentry --resume-id my-session           # Resume TUI session
+  agentry refresh-models                   # Update model data
   
   Tool filtering examples:
-  agentry --allow-tools echo,ping chat "test"           # Only echo and ping tools
-  agentry --deny-tools bash,sh "safe operation"         # No shell access
-  agentry --disable-tools "unrestricted access"         # All tools available
+  agentry --allow-tools echo,ping "test"           # Only echo and ping tools
+  agentry --deny-tools bash,sh "safe operation"    # No shell access
+  agentry --disable-tools "unrestricted access"    # All tools available
 
 For more information, see PRODUCT.md or visit the project repository.
 `

@@ -21,7 +21,7 @@ func (m Model) calculateTextWidth(totalWidth int, bar string, minWidth int) int 
 	_, spacingWidth := m.getBarSpacing(bar)
 	barWidth := lipgloss.Width(bar) + spacingWidth
 	textWidth := totalWidth - barWidth
-	
+
 	// Use fallback width if calculation results in too narrow text area
 	if textWidth <= minWidth {
 		return 72 // Fallback to reasonable width (80% of default viewport width)
@@ -34,10 +34,10 @@ func wrapTextToLines(text string, maxWidth int) []string {
 	if text == "" {
 		return nil
 	}
-	
+
 	lines := strings.Split(text, "\n")
 	var result []string
-	
+
 	for _, line := range lines {
 		if len(line) <= maxWidth {
 			result = append(result, line)
@@ -45,14 +45,14 @@ func wrapTextToLines(text string, maxWidth int) []string {
 			// Wrap long lines
 			words := strings.Fields(line)
 			var currentLine strings.Builder
-			
+
 			for _, word := range words {
 				testLine := currentLine.String()
 				if testLine != "" {
 					testLine += " "
 				}
 				testLine += word
-				
+
 				if len(testLine) <= maxWidth {
 					if currentLine.Len() > 0 {
 						currentLine.WriteString(" ")
@@ -66,13 +66,13 @@ func wrapTextToLines(text string, maxWidth int) []string {
 					currentLine.WriteString(word)
 				}
 			}
-			
+
 			if currentLine.Len() > 0 {
 				result = append(result, currentLine.String())
 			}
 		}
 	}
-	
+
 	return result
 }
 
@@ -82,7 +82,7 @@ func (m Model) formatWithBar(bar, text string, width int) string {
 	if text == "" {
 		return bar + spacing
 	}
-	
+
 	cleanText := strings.ReplaceAll(text, "┃", "")
 	cleanText = strings.Trim(cleanText, " \t")
 	if cleanText == "" {
@@ -181,24 +181,24 @@ func (m Model) formatSingleCommand(command string) string {
 
 func (m Model) formatUserInput(bar, text string, width int) string {
 	spacing, _ := m.getBarSpacing(bar)
-	
+
 	if text == "" {
 		return bar + spacing
 	}
-	
+
 	cleanText := strings.ReplaceAll(text, "┃", "")
 	cleanText = strings.Trim(cleanText, " \t")
 	if cleanText == "" {
 		return bar + spacing
 	}
-	
+
 	textWidth := m.calculateTextWidth(width, bar, 10)
 	lines := wrapTextToLines(cleanText, textWidth)
-	
+
 	if len(lines) == 0 {
 		return bar + spacing
 	}
-	
+
 	var result strings.Builder
 	for i, line := range lines {
 		if i > 0 {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -157,28 +158,6 @@ func New(client model.Client, modelName string, reg tool.Registry, mem memory.St
 	}
 }
 
-func (a *Agent) Spawn() *Agent {
-	// Create completely independent spawned agent with fresh memory
-	// Do NOT inherit parent context to prevent exponential growth
-	spawned := &Agent{
-		ID:              uuid.New(),
-		Prompt:          "",                         // Will be set by role configuration, not inherited
-		Vars:            nil,                        // Fresh vars, no inheritance
-		Tools:           a.Tools,                    // Tool registry can be shared
-		Mem:             memory.NewInMemory(),       // Fresh memory - no inheritance
-		Vector:          memory.NewInMemoryVector(), // Fresh vector store - no shared state
-		Client:          a.Client,
-		ModelName:       a.ModelName,
-		Tracer:          a.Tracer,
-		Cost:            cost.New(a.Cost.BudgetTokens, a.Cost.BudgetDollars),
-		ErrorHandling:   DefaultErrorHandling(),
-		cachedToolNames: nil, // Will be recomputed based on role's tools
-	}
-	debug.Printf("Agent.Spawn: Parent ID=%s, Spawned ID=%s (INDEPENDENT)", a.ID.String()[:8], spawned.ID.String()[:8])
-	debug.Printf("Agent.Spawn: Spawned agent has fresh memory and no inherited context")
-	return spawned
-}
-
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	debug.Printf("Agent.Run: Agent ID=%s, Prompt length=%d chars", a.ID.String()[:8], len(a.Prompt))
 	debug.Printf("Agent.Run: Available tools: %v", a.toolNames())
@@ -191,17 +170,17 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	if prompt == "" {
 		prompt = defaultPrompt()
 	}
-	prompt = InjectPlatformContext(prompt,
-		[]string{"list", "view", "write", "run", "search", "find", "cwd", "env"},
-		[]string{},
-	)
+	// Inject platform/tool guidance only once per agent (persist into Agent.Prompt)
+	if !strings.Contains(prompt, "<!-- PLATFORM_CONTEXT_START -->") {
+		prompt = InjectPlatformContextFromRegistry(prompt, a.Tools)
+		a.Prompt = prompt
+	}
 	prompt = applyVars(prompt, a.Vars)
 
 	prov := agentctx.Provider{Prompt: prompt, History: a.Mem.History()}
-	budget := agentctx.Budget{ModelName: a.ModelName}
-	assembler := agentctx.Assembler{Provider: prov, Budget: budget}
-	msgs := assembler.Assemble(input)
 	specs := tool.BuildSpecs(a.Tools)
+	// Build initial messages from provider and apply budgeting once initially
+	msgs := agentctx.Assembler{Provider: prov, Budget: agentctx.Budget{ModelName: a.ModelName}}.AssembleWithTools(input, specs)
 
 	debug.Printf("Agent.Run: Built %d messages (post-trim), %d tool specs", len(msgs), len(specs))
 	debug.Printf("Agent.Run: About to call model client with model %s", a.ModelName)
@@ -232,11 +211,17 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	// Track consecutive errors for resilience
 	consecutiveErrors := 0
 
-	// optional iteration cap via env var (safety) "AGENTRY_MAX_ITER"
-	maxIter := env.Int("AGENTRY_MAX_ITER", 0)
-	if maxIter == 0 { // provide a safety default
-		maxIter = 12
+	// Track recent tool calls to detect infinite loops
+	type toolCallSignature struct {
+		Name string
+		Args string
 	}
+	var recentToolCalls []toolCallSignature
+	const maxRecentCalls = 6    // Track last 6 tool calls
+	const maxIdenticalCalls = 3 // Break if we see the same call 3 times in recent history
+
+	// Iteration cap: prevent infinite loops while allowing reasonable work
+	maxIter := env.Int("AGENTRY_MAX_ITER", 50) // Default to 50 iterations max
 	for i := 0; ; i++ {
 		if maxIter > 0 && i >= maxIter {
 			return "", fmt.Errorf("iteration cap reached (%d)", maxIter)
@@ -249,7 +234,8 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		}
 		// Note: No iteration cap; agent runs until it produces a final answer.
 		debug.Printf("Agent.Run: Starting iteration %d", i)
-		msgs = budget.Apply(msgs)
+		// Apply budgeting including tool schemas for accurate trimming
+		msgs = agentctx.Budget{ModelName: a.ModelName}.ApplyWithTools(msgs, specs)
 		debug.Printf("Agent.Run: Current message count: %d", len(msgs))
 		if i > 0 {
 			// Log recent messages to see what's causing continued iterations
@@ -278,6 +264,8 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 		var assembled string
 		var finalToolCalls []model.ToolCall
+		var inputTokensUsed, outputTokensUsed int
+		var modelNameUsed string
 		firstTokenRecorded := false
 		var sb strings.Builder
 		for chunk := range streamCh {
@@ -294,12 +282,26 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			}
 			if chunk.Done {
 				finalToolCalls = chunk.ToolCalls
+				if chunk.InputTokens > 0 {
+					inputTokensUsed = chunk.InputTokens
+				}
+				if chunk.OutputTokens > 0 {
+					outputTokensUsed = chunk.OutputTokens
+				}
+				if chunk.ModelName != "" {
+					modelNameUsed = chunk.ModelName
+				}
 			}
 		}
 		assembled = sb.String()
 
 		// After streaming, treat result as a single completion
-		res := model.Completion{Content: assembled, ToolCalls: finalToolCalls}
+		res := model.Completion{Content: assembled, ToolCalls: finalToolCalls, InputTokens: inputTokensUsed, OutputTokens: outputTokensUsed, ModelName: func() string {
+			if modelNameUsed != "" {
+				return modelNameUsed
+			}
+			return a.ModelName
+		}()}
 		debug.Printf("Agent.Run: Streaming completed with %d tool calls", len(res.ToolCalls))
 		debug.Printf("Agent.Run: Agent response content: '%.200s...'", res.Content)
 		if len(res.ToolCalls) > 0 {
@@ -311,9 +313,29 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		a.Trace(ctx, trace.EventStepStart, res)
 
 		// Approximate output tokens & update cost
-		outTok := tokens.Count(res.Content, a.ModelName)
+		// Prefer API-provided counts else fallback to estimation
+		inTok := res.InputTokens
+		if inTok == 0 { // fallback estimate based on current messages (excluding assistant response just added later)
+			// Roughly count tokens of system + user + last assistant/tool context
+			for _, m := range msgs {
+				inTok += tokens.Count(m.Content, a.ModelName)
+				for _, tc := range m.ToolCalls {
+					inTok += tokens.Count(tc.Name, a.ModelName)
+					inTok += tokens.Count(string(tc.Arguments), a.ModelName)
+				}
+			}
+		}
+		outTok := res.OutputTokens
+		if outTok == 0 {
+			outTok = tokens.Count(res.Content, a.ModelName)
+		}
 		if a.Cost != nil {
-			a.Cost.AddModelUsage(a.ModelName, 0, outTok)
+			// Prefer the provider/model used by the backend when available
+			modelForCost := res.ModelName
+			if strings.TrimSpace(modelForCost) == "" {
+				modelForCost = a.ModelName
+			}
+			a.Cost.AddModelUsage(modelForCost, inTok, outTok)
 			if a.Cost.OverBudget() && env.Bool("AGENTRY_STOP_ON_BUDGET", false) {
 				return "", fmt.Errorf("cost or token budget exceeded (tokens=%d cost=$%.4f)", a.Cost.TotalTokens(), a.Cost.TotalCost())
 			}
@@ -341,6 +363,38 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			_ = a.Checkpoint(ctx)
 			a.Trace(ctx, trace.EventFinal, res.Content)
 			return res.Content, nil
+		}
+
+		// Check for repeated identical tool calls to prevent infinite loops
+		if len(res.ToolCalls) > 0 {
+			// Create signature for this batch of tool calls
+			for _, tc := range res.ToolCalls {
+				// Serialize args to string for comparison
+				argsBytes, _ := json.Marshal(tc.Arguments)
+				signature := toolCallSignature{
+					Name: tc.Name,
+					Args: string(argsBytes),
+				}
+
+				// Add to recent calls (maintain sliding window)
+				recentToolCalls = append(recentToolCalls, signature)
+				if len(recentToolCalls) > maxRecentCalls {
+					recentToolCalls = recentToolCalls[1:]
+				}
+
+				// Count identical calls in recent history
+				identicalCount := 0
+				for _, recent := range recentToolCalls {
+					if recent.Name == signature.Name && recent.Args == signature.Args {
+						identicalCount++
+					}
+				}
+
+				if identicalCount >= maxIdenticalCalls {
+					debug.Printf("Agent.Run: Detected repeated tool call (%s) %d times, breaking loop", tc.Name, identicalCount)
+					return fmt.Sprintf("Task completed. Detected repeated tool execution (%s), stopping to prevent infinite loop.", tc.Name), nil
+				}
+			}
 		}
 
 		// Execute tools then continue loop with new messages
@@ -426,12 +480,35 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 			return msgs, hadErrors, err
 		}
 		applyVarsMap(args, a.Vars)
-		debug.Printf("Agent '%s' executing tool '%s' with args: %v", a.ID, tc.Name, args)
+		// Sanitize tool args before logging to avoid leaking secrets
+		if b, _ := json.Marshal(args); len(b) > 0 {
+			debug.Printf("Agent '%s' executing tool '%s' with args: %s", a.ID, tc.Name, sanitizeForLog(string(b)))
+		} else {
+			debug.Printf("Agent '%s' executing tool '%s'", a.ID, tc.Name)
+		}
 		a.Trace(ctx, trace.EventToolStart, map[string]any{"name": tc.Name, "args": args})
+
+		// Show tool execution to user (not just debug mode)
+		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			// Show tool with key arguments for better visibility
+			argSummary := getToolArgSummary(tc.Name, args)
+			if argSummary != "" {
+				fmt.Fprintf(os.Stderr, "🔧 %s: %s %s\n", a.ID.String()[:8], tc.Name, argSummary)
+			} else {
+				fmt.Fprintf(os.Stderr, "🔧 %s: %s\n", a.ID.String()[:8], tc.Name)
+			}
+		}
+
 		r, err := t.Execute(ctx, args)
 		debug.Printf("Agent '%s' tool '%s' execute completed, err=%v, result_length=%d", a.ID, tc.Name, err, len(r))
 		if err != nil {
 			debug.Printf("Agent '%s' tool '%s' failed: %v", a.ID, tc.Name, err)
+
+			// Show tool failure to user
+			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+				fmt.Fprintf(os.Stderr, "❌ %s: %s failed: %v\n", a.ID.String()[:8], tc.Name, err)
+			}
+
 			var errorMsg string
 			if a.ErrorHandling.IncludeErrorContext {
 				errorMsg = fmt.Sprintf("Error executing tool '%s': %v\n\nContext:\n- Tool: %s\n- Arguments: %v\n- Suggestion: Please try a different approach or check the tool usage.", tc.Name, err, tc.Name, args)
@@ -447,6 +524,12 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 			return msgs, hadErrors, err
 		}
 		debug.Printf("Agent '%s' tool '%s' succeeded, result length: %d", a.ID, tc.Name, len(r))
+
+		// Show successful tool execution result to user
+		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			fmt.Fprintf(os.Stderr, "✅ %s: %s completed\n", a.ID.String()[:8], tc.Name)
+		}
+
 		a.Trace(ctx, trace.EventToolEnd, map[string]any{"name": tc.Name, "result": r})
 		step.ToolResults[tc.ID] = r
 		debug.Printf("Agent '%s' adding tool result to messages, role=tool, callID=%s", a.ID, tc.ID)
@@ -454,4 +537,62 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 	}
 	debug.Printf("Agent.Run: executeToolCalls completed, returning %d messages, hadErrors=%v", len(msgs), hadErrors)
 	return msgs, hadErrors, nil
+}
+
+// getToolArgSummary returns a brief summary of key tool arguments for user-friendly logging
+func getToolArgSummary(toolName string, args map[string]any) string {
+	switch toolName {
+	case "create":
+		if path, ok := args["path"].(string); ok {
+			return fmt.Sprintf("'%s'", path)
+		}
+	case "view", "read_lines":
+		if path, ok := args["path"].(string); ok {
+			return fmt.Sprintf("'%s'", path)
+		}
+	case "edit_range":
+		if path, ok := args["path"].(string); ok {
+			start, _ := args["start_line"].(float64)
+			end, _ := args["end_line"].(float64)
+			return fmt.Sprintf("'%s' (lines %g-%g)", path, start, end)
+		}
+	case "find":
+		if pattern, ok := args["name"].(string); ok {
+			if path, pathOk := args["path"].(string); pathOk && path != "." {
+				return fmt.Sprintf("'%s' in '%s'", pattern, path)
+			}
+			return fmt.Sprintf("'%s'", pattern)
+		}
+	case "grep":
+		if pattern, ok := args["pattern"].(string); ok {
+			if filePattern, fpOk := args["file_pattern"].(string); fpOk {
+				return fmt.Sprintf("'%s' in %s files", pattern, filePattern)
+			}
+			return fmt.Sprintf("'%s'", pattern)
+		}
+	case "ls":
+		if path, ok := args["path"].(string); ok && path != "." {
+			return fmt.Sprintf("'%s'", path)
+		}
+	case "sh", "bash":
+		if cmd, ok := args["command"].(string); ok {
+			// Truncate very long commands
+			if len(cmd) > 50 {
+				return fmt.Sprintf("'%s...'", cmd[:47])
+			}
+			return fmt.Sprintf("'%s'", cmd)
+		}
+	case "agent":
+		if agent, ok := args["agent"].(string); ok {
+			if input, inputOk := args["input"].(string); inputOk {
+				// Truncate long inputs
+				if len(input) > 40 {
+					return fmt.Sprintf("-> %s ('%s...')", agent, input[:37])
+				}
+				return fmt.Sprintf("-> %s ('%s')", agent, input)
+			}
+			return fmt.Sprintf("-> %s", agent)
+		}
+	}
+	return ""
 }

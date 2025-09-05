@@ -1,0 +1,27 @@
+run:
+  timeout: 5m
+  tests: false
+  skip-dirs:
+    - vendor
+    - examples
+    - packaging
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+  disable-all: false
+
+linters-settings:
+  errcheck:
+    check-type-assertions: false
+    check-blank: false
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 50
+  max-same-issues: 3

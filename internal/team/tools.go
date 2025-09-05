@@ -10,7 +10,34 @@ import (
 // RegisterAgentTool registers the "agent" tool with the given tool registry.
 // This must be called after creating the team to avoid import cycles.
 func (t *Team) RegisterAgentTool(registry tool.Registry) {
-	schema := map[string]any{
+	// Wrap delegation tool as terminal: its result is typically the final answer.
+	registry["agent"] = tool.MarkTerminal(tool.NewWithSchema(
+		"agent",
+		"Delegate work to another agent",
+		agentToolSchema(),
+		agentDelegationExec(t),
+	))
+
+	// Add parallel agent tool via shared helper
+	registry["parallel_agents"] = parallelAgentsToolSpec(t)
+}
+
+// GetAgentToolSpec returns the tool specification for the agent tool
+// This can be used to register the tool without creating a team instance
+func GetAgentToolSpec() tool.Tool {
+	// Provide the same permissive schema and alias handling used by RegisterAgentTool.
+	// Requires a Team in context at execution time.
+	return tool.MarkTerminal(tool.NewWithSchema(
+		"agent",
+		"Delegate work to another agent",
+		agentToolSchema(),
+		agentDelegationExec(nil),
+	))
+}
+
+// agentToolSchema returns a permissive schema accepting common alias keys.
+func agentToolSchema() map[string]any {
+	return map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"agent": map[string]any{"type": "string", "description": "Name of the agent to delegate to"},
@@ -22,11 +49,15 @@ func (t *Team) RegisterAgentTool(registry tool.Registry) {
 			"query":        map[string]any{"type": "string", "description": "Alias for input"},
 			"instructions": map[string]any{"type": "string", "description": "Alias for input"},
 		},
-		"required": []string{}, // keep schema permissive; we validate at runtime with aliases
+		// Keep schema permissive; runtime resolves aliases
+		"required": []string{},
 	}
+}
 
-	// Wrap delegation tool as terminal: its result is typically the final answer.
-	registry["agent"] = tool.MarkTerminal(tool.NewWithSchema("agent", "Delegate work to another agent", schema, func(ctx context.Context, args map[string]any) (string, error) {
+// agentDelegationExec returns the Exec function used by the agent delegation tool.
+// If t is nil, the function requires a Team present in the context.
+func agentDelegationExec(t *Team) func(ctx context.Context, args map[string]any) (string, error) {
+	return func(ctx context.Context, args map[string]any) (string, error) {
 		// Resolve aliases for agent name
 		var name string
 		if v, ok := args["agent"].(string); ok && v != "" {
@@ -50,19 +81,23 @@ func (t *Team) RegisterAgentTool(registry tool.Registry) {
 			return "", errors.New("input is required (use 'input', 'task', 'message', 'query', or 'instructions')")
 		}
 
-		// Use the team from the context if available, or use this team instance
+		// Use the team from the context if available, or use provided team instance
 		var teamInstance *Team
 		if contextTeam := TeamFromContext(ctx); contextTeam != nil {
 			teamInstance = contextTeam
 		} else {
 			teamInstance = t
 		}
-
+		if teamInstance == nil {
+			return "", errors.New("no team found in context")
+		}
 		return teamInstance.Call(ctx, name, input)
-	}))
+	}
+}
 
-	// Add parallel agent tool for executing multiple agents simultaneously
-	parallelSchema := map[string]any{
+// parallelAgentsToolSpec defines a reusable spec for executing multiple agents in parallel.
+func parallelAgentsToolSpec(t *Team) tool.Tool {
+	schema := map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"tasks": map[string]any{
@@ -82,19 +117,16 @@ func (t *Team) RegisterAgentTool(registry tool.Registry) {
 		},
 		"required": []string{"tasks"},
 	}
-
-	registry["parallel_agents"] = tool.NewWithSchema("parallel_agents", "Execute multiple agent tasks in parallel for efficiency", parallelSchema, func(ctx context.Context, args map[string]any) (string, error) {
+	return tool.NewWithSchema("parallel_agents", "Execute multiple agent tasks in parallel for efficiency", schema, func(ctx context.Context, args map[string]any) (string, error) {
 		tasksInterface, ok := args["tasks"]
 		if !ok {
 			return "", errors.New("tasks array is required")
 		}
-
 		raw, ok := tasksInterface.([]interface{})
 		if !ok {
 			return "", errors.New("tasks must be an array")
 		}
-
-		// Convert alias keys for each task item
+		// Normalize aliases
 		for i, item := range raw {
 			m, ok := item.(map[string]any)
 			if !ok {
@@ -106,47 +138,21 @@ func (t *Team) RegisterAgentTool(registry tool.Registry) {
 				}
 			}
 			if _, has := m["input"]; !has {
-				for _, k := range []string{"task"} {
-					if v, ok := m[k].(string); ok && v != "" {
-						m["input"] = v
-						break
-					}
+				if v, ok := m["task"].(string); ok && v != "" {
+					m["input"] = v
 				}
 			}
 			raw[i] = m
 		}
-
-		// Use team from context if available
 		var teamInstance *Team
 		if contextTeam := TeamFromContext(ctx); contextTeam != nil {
 			teamInstance = contextTeam
 		} else {
 			teamInstance = t
 		}
-
+		if teamInstance == nil {
+			return "", errors.New("no team in context")
+		}
 		return teamInstance.CallParallel(ctx, raw)
 	})
-}
-
-// GetAgentToolSpec returns the tool specification for the agent tool
-// This can be used to register the tool without creating a team instance
-func GetAgentToolSpec() tool.Tool {
-	return tool.MarkTerminal(tool.New("agent", "Delegate work to another agent", func(ctx context.Context, args map[string]any) (string, error) {
-		name, ok := args["agent"].(string)
-		if !ok {
-			return "", errors.New("agent name is required")
-		}
-		input, ok := args["input"].(string)
-		if !ok {
-			return "", errors.New("input is required")
-		}
-
-		// Get the team from context
-		teamInstance := TeamFromContext(ctx)
-		if teamInstance == nil {
-			return "", errors.New("no team found in context")
-		}
-
-		return teamInstance.Call(ctx, name, input)
-	}))
 }

@@ -46,8 +46,10 @@ func LoadRolesFromIncludePaths(includePaths []string, configDir string) (map[str
 		}
 
 		roles[role.Name] = role
-		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-			fmt.Fprintf(os.Stderr, "✅ Loaded role: %s (model: %v)\n", role.Name, role.Model)
+		if !isTUI() {
+			if isDebug() {
+				fmt.Fprintf(os.Stderr, "✅ Loaded role: %s (model: %v)\n", role.Name, role.Model)
+			}
 		}
 	}
 

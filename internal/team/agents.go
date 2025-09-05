@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
+	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/tool"
@@ -15,23 +17,8 @@ import (
 
 // AddExistingAgent adds an existing agent to the team
 func (t *Team) AddExistingAgent(name string, agent *core.Agent) error {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	id := uuid.New().String()
-	teamAgent := &Agent{
-		ID:        id,
-		Name:      name,
-		Agent:     agent,
-		Status:    "ready",
-		StartedAt: time.Now(),
-		LastSeen:  time.Now(),
-		Metadata:  make(map[string]string),
-	}
-
-	t.agents[id] = teamAgent
-	t.agentsByName[name] = teamAgent
-
+	// Consolidate with Add to ensure consistent sanitization (e.g., removing the "agent" tool)
+	t.Add(name, agent)
 	return nil
 }
 
@@ -62,13 +49,28 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 
 	// Create the core agent
 	registry := tool.DefaultRegistry()
+	// Apply curated defaults and cap tool schemas to keep context small
+	maxTools := env.Int("AGENTRY_MAX_TOOLS", 5)
+	curated := curatedToolsForRole(role)
+	if len(curated) > 0 {
+		// Don't cap tools for roles that need comprehensive toolsets (like coder)
+		roleName := strings.ToLower(strings.TrimSpace(role))
+		if roleName == "coder" {
+			// Give coder all the tools it needs - no artificial cap
+			registry = filterRegistryByNames(registry, curated, 0) // 0 = no cap
+		} else {
+			registry = filterRegistryByNames(registry, curated, maxTools)
+		}
+	} else if maxTools > 0 {
+		registry = capRegistry(registry, maxTools)
+	}
 
 	// Apply tool restrictions based on role configuration
 	if len(roleConfig.RestrictedTools) > 0 {
 		for _, restrictedTool := range roleConfig.RestrictedTools {
 			delete(registry, restrictedTool)
 		}
-		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		if !isTUI() {
 			fmt.Fprintf(os.Stderr, "🚫 SpawnAgent: Restricted %d tools for role %s: %v\n",
 				len(roleConfig.RestrictedTools), role, roleConfig.RestrictedTools)
 		}
@@ -80,12 +82,12 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 
 	if roleConfig.Model != nil {
 		// Use role-specific model configuration
-		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		if !isTUI() {
 			fmt.Fprintf(os.Stderr, "🔧 SpawnAgent: Attempting to create model client for role %s with provider %s\n", role, roleConfig.Model.Provider)
 		}
 		c, err := model.FromManifest(*roleConfig.Model)
 		if err != nil {
-			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			if !isTUI() {
 				fmt.Fprintf(os.Stderr, "❌ SpawnAgent: failed to create model client for role %s: %v, falling back to mock\n", role, err)
 			}
 			client = model.NewMock()
@@ -93,7 +95,7 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 		} else {
 			client = c
 			modelName = fmt.Sprintf("%s/%s", roleConfig.Model.Provider, roleConfig.Model.Options["model"])
-			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			if !isTUI() {
 				fmt.Fprintf(os.Stderr, "✅ SpawnAgent: Successfully created %s model client for role %s\n", modelName, role)
 			}
 		}
@@ -101,12 +103,15 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 		// Fallback to parent's client when no role config is found
 		client = t.parent.Client
 		modelName = t.parent.ModelName
-		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		if !isTUI() {
 			fmt.Fprintf(os.Stderr, "⚠️  SpawnAgent: No model config for role %s, using parent's client (%s)\n", role, modelName)
 		}
 	}
 
 	agent := core.New(client, modelName, registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
+	// Ensure we do not allow recursive delegation by default
+	delete(agent.Tools, "agent")
+	agent.InvalidateToolCache()
 	agent.Prompt = roleConfig.Prompt
 
 	// Find available port
@@ -192,21 +197,4 @@ func (t *Team) StopAgent(ctx context.Context, agentID string) error {
 }
 
 // GetAgentCount returns the number of agents in the team
-func (t *Team) GetAgentCount() int {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-	return len(t.agents)
-}
-
-// GetAgentNames returns the names of all agents
-func (t *Team) GetAgentNames() []string {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-
-	names := make([]string, 0, len(t.agentsByName))
-	for name := range t.agentsByName {
-		names = append(names, name)
-	}
-
-	return names
-}
+// (Removed) GetAgentCount and GetAgentNames: use GetAgents() and ListAgents() instead to avoid duplication

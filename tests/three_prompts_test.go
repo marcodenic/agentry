@@ -201,6 +201,11 @@ func TestThreePrompts_CoderFileReading(t *testing.T) {
 				},
 				Done: true,
 			},
+			// Second response after delegation completes
+			{
+				ContentDelta: "The coder agent has successfully read and analyzed the PRODUCT.md file. Task completed.",
+				Done:         true,
+			},
 		},
 		t: t,
 	}
