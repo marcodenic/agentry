@@ -158,27 +158,7 @@ func New(client model.Client, modelName string, reg tool.Registry, mem memory.St
 	}
 }
 
-func (a *Agent) Spawn() *Agent {
-	// Create completely independent spawned agent with fresh memory
-	// Do NOT inherit parent context to prevent exponential growth
-	spawned := &Agent{
-		ID:              uuid.New(),
-		Prompt:          "",                         // Will be set by role configuration, not inherited
-		Vars:            nil,                        // Fresh vars, no inheritance
-		Tools:           a.Tools,                    // Tool registry can be shared
-		Mem:             memory.NewInMemory(),       // Fresh memory - no inheritance
-		Vector:          memory.NewInMemoryVector(), // Fresh vector store - no shared state
-		Client:          a.Client,
-		ModelName:       a.ModelName,
-		Tracer:          a.Tracer,
-		Cost:            cost.New(a.Cost.BudgetTokens, a.Cost.BudgetDollars),
-		ErrorHandling:   DefaultErrorHandling(),
-		cachedToolNames: nil, // Will be recomputed based on role's tools
-	}
-	debug.Printf("Agent.Spawn: Parent ID=%s, Spawned ID=%s (INDEPENDENT)", a.ID.String()[:8], spawned.ID.String()[:8])
-	debug.Printf("Agent.Spawn: Spawned agent has fresh memory and no inherited context")
-	return spawned
-}
+// (Removed) Agent.Spawn: spawning is handled by team.SpawnAgent to avoid divergent codepaths
 
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	debug.Printf("Agent.Run: Agent ID=%s, Prompt length=%d chars", a.ID.String()[:8], len(a.Prompt))

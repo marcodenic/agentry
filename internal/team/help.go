@@ -11,10 +11,10 @@ import (
 
 // RequestHelp allows an agent to request help from other agents
 func (t *Team) RequestHelp(ctx context.Context, agentID, helpDescription string, preferredHelper string) error {
-    if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+    if !isTUI() {
         fmt.Fprintf(os.Stderr, "🆘 HELP REQUEST from %s: %s\n", agentID, helpDescription)
     }
-    if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+    if !isTUI() {
         t.PublishWorkspaceEvent(agentID, "help_request", helpDescription, map[string]interface{}{
             "preferred_helper": preferredHelper, "urgency": "normal",
         })
@@ -36,7 +36,7 @@ func (t *Team) ProposeCollaboration(ctx context.Context, proposerID, targetAgent
         "from": proposerID, "to": targetAgentID, "proposal": proposal, "status": "pending", "timestamp": time.Now(),
     }
     t.SetSharedData(proposalKey, proposalData)
-    if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+    if !isTUI() {
         t.PublishWorkspaceEvent(proposerID, "collaboration_proposal", fmt.Sprintf("Proposed collaboration with %s", targetAgentID), map[string]interface{}{
             "target_agent": targetAgentID, "proposal": proposal,
         })
@@ -82,4 +82,3 @@ func (t *Team) checkWorkCompleted(agentID, task string) bool {
     })
     return hasRecentFiles
 }
-

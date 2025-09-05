@@ -147,7 +147,7 @@ func (t *Team) PublishWorkspaceEvent(agentID, eventType, description string, dat
     t.SetSharedData(eventsKey, eventList)
 
     // Only log to stderr in non-TUI mode to avoid console interference
-    if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+    if !isTUI() {
         fmt.Fprintf(os.Stderr, "📡 WORKSPACE EVENT: %s | %s: %s\n", agentID, eventType, description)
     }
 
@@ -173,4 +173,3 @@ func (t *Team) GetWorkspaceEvents(limit int) []WorkspaceEvent {
     }
     return []WorkspaceEvent{}
 }
-

@@ -70,7 +70,7 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 		for _, restrictedTool := range roleConfig.RestrictedTools {
 			delete(registry, restrictedTool)
 		}
-		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		if !isTUI() {
 			fmt.Fprintf(os.Stderr, "🚫 SpawnAgent: Restricted %d tools for role %s: %v\n",
 				len(roleConfig.RestrictedTools), role, roleConfig.RestrictedTools)
 		}
@@ -82,12 +82,12 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 
 	if roleConfig.Model != nil {
 		// Use role-specific model configuration
-		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		if !isTUI() {
 			fmt.Fprintf(os.Stderr, "🔧 SpawnAgent: Attempting to create model client for role %s with provider %s\n", role, roleConfig.Model.Provider)
 		}
 		c, err := model.FromManifest(*roleConfig.Model)
 		if err != nil {
-			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			if !isTUI() {
 				fmt.Fprintf(os.Stderr, "❌ SpawnAgent: failed to create model client for role %s: %v, falling back to mock\n", role, err)
 			}
 			client = model.NewMock()
@@ -95,7 +95,7 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 		} else {
 			client = c
 			modelName = fmt.Sprintf("%s/%s", roleConfig.Model.Provider, roleConfig.Model.Options["model"])
-			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			if !isTUI() {
 				fmt.Fprintf(os.Stderr, "✅ SpawnAgent: Successfully created %s model client for role %s\n", modelName, role)
 			}
 		}
@@ -103,7 +103,7 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 		// Fallback to parent's client when no role config is found
 		client = t.parent.Client
 		modelName = t.parent.ModelName
-		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+		if !isTUI() {
 			fmt.Fprintf(os.Stderr, "⚠️  SpawnAgent: No model config for role %s, using parent's client (%s)\n", role, modelName)
 		}
 	}

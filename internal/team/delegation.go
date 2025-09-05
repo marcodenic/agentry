@@ -23,7 +23,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
     debugPrintf("⏰ Timestamp: %s\n", time.Now().Format("15:04:05"))
 
     // Always show delegation progress to user (not just debug mode)
-    if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+    if !isTUI() {
         fmt.Fprintf(os.Stderr, "🔄 Delegating to %s agent...\n", agentID)
     }
 
@@ -41,7 +41,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 
     if !exists {
         debugPrintf("🆕 Creating new agent: %s\n", agentID)
-        if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+        if !isTUI() {
             fmt.Fprintf(os.Stderr, "🆕 Creating %s agent...\n", agentID)
         }
         // Create missing agent using SpawnAgent
@@ -53,7 +53,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
         agent = spawnedAgent
         timer.Checkpoint("new agent spawned")
         debugPrintf("✅ Agent %s created and ready\n", agentID)
-        if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+        if !isTUI() {
             fmt.Fprintf(os.Stderr, "✅ %s agent ready\n", agentID)
         }
     } else {
@@ -66,7 +66,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 
     // Log delegation start
     debugPrintf("🚀 Starting task execution on agent %s...\n", agentID)
-    if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+    if !isTUI() {
         fmt.Fprintf(os.Stderr, "🚀 %s agent working on task...\n", agentID)
     }
 
@@ -114,7 +114,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
     defer cancel()
 
     // Skip workspace event publishing in TUI mode
-    if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+    if !isTUI() {
         t.PublishWorkspaceEvent("agent_0", "delegation_started", fmt.Sprintf("Delegated to %s", agentID), map[string]interface{}{"agent": agentID, "timeout": timeout.String()})
     }
     timer.Checkpoint("context and events prepared")
@@ -137,7 +137,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
             workCompleted := t.checkWorkCompleted(agentID, input)
             if workCompleted {
                 msg := fmt.Sprintf("✅ %s agent completed the work successfully (response generation timed out after %s but files were created)", agentID, timeout)
-                if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+                if !isTUI() {
                     fmt.Fprintf(os.Stderr, "✅ %s agent completed work successfully (response timed out)\n", agentID)
                 }
                 t.LogCoordinationEvent("delegation_success_timeout", agentID, "agent_0", msg, map[string]interface{}{"timeout": timeout.String()})
@@ -145,11 +145,11 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
             }
             // Actual timeout without work completion
             msg := fmt.Sprintf("⏳ Delegation to '%s' timed out after %s without completing work. Consider simplifying the task, choosing a different agent, or increasing AGENTRY_DELEGATION_TIMEOUT.", agentID, timeout)
-            if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+            if !isTUI() {
                 fmt.Fprintf(os.Stderr, "⏳ %s agent timed out without completing work\n", agentID)
             }
             t.LogCoordinationEvent("delegation_timeout", agentID, "agent_0", msg, map[string]interface{}{"timeout": timeout.String()})
-            if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+            if !isTUI() {
                 t.PublishWorkspaceEvent("agent_0", "delegation_timeout", msg, map[string]interface{}{"agent": agentID})
             }
             return msg, nil
@@ -173,7 +173,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 
     agent.SetStatus("ready")
     debugPrintf("✅ Agent %s completed successfully\n", agentID)
-    if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+    if !isTUI() {
         fmt.Fprintf(os.Stderr, "✅ %s agent completed task\n", agentID)
     }
     debugPrintf("📤 Result length: %d characters\n", len(result))
@@ -227,4 +227,3 @@ func (t *Team) CallParallel(ctx context.Context, tasks []interface{}) (string, e
     debugPrintf("✅ Parallel execution completed successfully with %d agents", len(tasks))
     return combinedResult.String(), nil
 }
-

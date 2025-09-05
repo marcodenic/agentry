@@ -22,8 +22,10 @@ func (t *Team) SendMessageToAgent(ctx context.Context, fromAgentID, toAgentID, m
     }
 
     // Log the direct communication
-    fmt.Fprintf(os.Stderr, "💬 DIRECT MESSAGE: %s → %s\n", fromAgentID, toAgentID)
-    fmt.Fprintf(os.Stderr, "📝 Message: %s\n", message)
+    if !isTUI() {
+        fmt.Fprintf(os.Stderr, "💬 DIRECT MESSAGE: %s → %s\n", fromAgentID, toAgentID)
+        fmt.Fprintf(os.Stderr, "📝 Message: %s\n", message)
+    }
 
     // Store in coordination events
     t.LogCoordinationEvent("direct_message", fromAgentID, toAgentID, message, map[string]interface{}{
@@ -44,18 +46,24 @@ func (t *Team) SendMessageToAgent(ctx context.Context, fromAgentID, toAgentID, m
     })
     t.mutex.Unlock()
 
-    fmt.Fprintf(os.Stderr, "📬 Message delivered to %s's inbox\n", toAgentID)
+    if !isTUI() {
+        fmt.Fprintf(os.Stderr, "📬 Message delivered to %s's inbox\n", toAgentID)
+    }
     return nil
 }
 
 // BroadcastToAllAgents sends a message to all agents
 func (t *Team) BroadcastToAllAgents(ctx context.Context, fromAgentID, message string) error {
     agentNames := t.GetAgents()
-    fmt.Fprintf(os.Stderr, "📢 BROADCAST from %s: %s\n", fromAgentID, message)
+    if !isTUI() {
+        fmt.Fprintf(os.Stderr, "📢 BROADCAST from %s: %s\n", fromAgentID, message)
+    }
     for _, agentName := range agentNames {
         if agentName != fromAgentID { // Don't send to self
             if err := t.SendMessageToAgent(ctx, fromAgentID, agentName, message); err != nil {
-                fmt.Fprintf(os.Stderr, "❌ Failed to broadcast to %s: %v\n", agentName, err)
+                if !isTUI() {
+                    fmt.Fprintf(os.Stderr, "❌ Failed to broadcast to %s: %v\n", agentName, err)
+                }
             }
         }
     }

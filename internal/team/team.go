@@ -80,10 +80,10 @@ func NewTeamWithRoles(parent *core.Agent, maxTurns int, name string, includePath
 		// Add loaded roles to team
 		for name, role := range roles {
 			team.roles[name] = role
-			if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-				if os.Getenv("AGENTRY_DEBUG") == "1" || os.Getenv("AGENTRY_DEBUG") == "true" {
-				fmt.Fprintf(os.Stderr, "📋 Team role loaded: %s\n", name)
-			}
+			if !isTUI() {
+				if isDebug() {
+					fmt.Fprintf(os.Stderr, "📋 Team role loaded: %s\n", name)
+				}
 			}
 		}
 	}
