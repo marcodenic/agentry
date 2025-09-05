@@ -24,14 +24,20 @@ func TestBudgetExceededTokens(t *testing.T) {
 }
 
 func TestBudgetExceededDollars(t *testing.T) {
-	m := cost.New(0, 0.00005)             // Budget of $0.00005
+	// Use a budget that's more clearly between 1 and 2 token costs to avoid floating-point precision issues
+	// With default pricing of $30/1M tokens, 1 token = $0.00003, 2 tokens = $0.00006
+	m := cost.New(0, 0.000045)            // Budget between 1 and 2 token costs
 	m.AddModelUsage("openai/gpt-4", 0, 1) // Add 1 output token (~$0.00003)
+	cost1 := m.TotalCost()
+	t.Logf("Cost after 1 token: %f, Budget: %f", cost1, 0.000045)
 	if m.OverBudget() {
-		t.Fatal("should not exceed yet")
+		t.Fatalf("should not exceed yet: cost=%f, budget=%f", cost1, 0.000045)
 	}
 	m.AddModelUsage("openai/gpt-4", 0, 1) // Add another output token (~$0.00006 total)
+	cost2 := m.TotalCost()
+	t.Logf("Cost after 2 tokens: %f, Budget: %f", cost2, 0.000045)
 	if !m.OverBudget() {
-		t.Fatal("should exceed dollar budget")
+		t.Fatalf("should exceed dollar budget: cost=%f, budget=%f", cost2, 0.000045)
 	}
 }
 
