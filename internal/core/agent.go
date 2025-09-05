@@ -158,8 +158,6 @@ func New(client model.Client, modelName string, reg tool.Registry, mem memory.St
 	}
 }
 
-// (Removed) Agent.Spawn: spawning is handled by team.SpawnAgent to avoid divergent codepaths
-
 func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	debug.Printf("Agent.Run: Agent ID=%s, Prompt length=%d chars", a.ID.String()[:8], len(a.Prompt))
 	debug.Printf("Agent.Run: Available tools: %v", a.toolNames())
