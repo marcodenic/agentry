@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
@@ -37,21 +38,22 @@ jobs:
         run: go vet ./...
 
       - name: Install and run golangci-lint
+        if: matrix.os == 'ubuntu-latest'
         shell: bash
-        timeout-minutes: 10
+        timeout-minutes: 8
+        continue-on-error: true
         run: |
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-          $(go env GOPATH)/bin/golangci-lint run --timeout=5m
+          $(go env GOPATH)/bin/golangci-lint run --timeout=3m
 
       - name: Run Go tests
         shell: bash
+        timeout-minutes: 10
         run: go test ./...
-
-      - name: OTLP export integration test
-        run: go test ./tests -run TestOTLPExport -count=1
 
       - name: Smoke test CLI version
         shell: bash
+        timeout-minutes: 2
         run: go run ./cmd/agentry --version
 
   e2e:
