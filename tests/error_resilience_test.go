@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -137,9 +138,10 @@ func (c *errorOnlyClient) Stream(ctx context.Context, msgs []model.ChatMessage, 
 	go func() {
 		defer close(ch)
 		c.callCount++
+		toolName := fmt.Sprintf("nonexistent_tool_%d", c.callCount) // Use different tool names to avoid repeated call detection
 		ch <- model.StreamChunk{
-			ContentDelta: "I'll keep trying non-existent tools.",
-			ToolCalls:    []model.ToolCall{{ID: "call_" + string(rune('0'+c.callCount)), Name: "nonexistent_tool", Arguments: []byte(`{"test": "value"}`)}},
+			ContentDelta: fmt.Sprintf("I'll try %s.", toolName),
+			ToolCalls:    []model.ToolCall{{ID: "call_" + string(rune('0'+c.callCount)), Name: toolName, Arguments: []byte(`{"test": "value"}`)}},
 			Done:         true,
 		}
 	}()

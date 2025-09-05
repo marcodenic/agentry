@@ -2,6 +2,8 @@ package tests
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/marcodenic/agentry/internal/core"
@@ -157,6 +159,16 @@ func TestCoderFileReadingDebug(t *testing.T) {
 }
 
 func TestFileToolsDirectly(t *testing.T) {
+	// Change to the agentry root directory so PRODUCT.md can be found
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+
+	agentryRoot := filepath.Join(originalWd, "..")
+	err := os.Chdir(agentryRoot)
+	if err != nil {
+		t.Fatalf("Failed to change to agentry root: %v", err)
+	}
+
 	// Test file tools directly to make sure they work
 	registry := tool.DefaultRegistry()
 

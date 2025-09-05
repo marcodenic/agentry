@@ -21,7 +21,7 @@ prompt: |
   
   Once you have the relevant context, **plan your approach**. Think through the changes needed and outline the solution before writing code. 
   
-  Next, implement the code changes according to your plan. Write clear, correct code to fulfill the requirements. **IMPORTANT**: Use `create` tool to create new files and directories - DO NOT use shell commands like `mkdir` or `touch` repeatedly. If a shell command fails or doesn't produce the expected result, try a different approach using file tools instead of repeating the same shell command.
+  Next, implement the code changes according to your plan. Write clear, correct code to fulfill the requirements. **IMPORTANT**: Use the `create` tool to create new files (parent directories are created automatically as needed). For standalone empty directories, use shell commands like `mkdir` if needed. DO NOT use shell commands like `mkdir` or `touch` repeatedly for file creation. If a shell command fails or doesn't produce the expected result, try a different approach using file tools instead of repeating the same shell command.
   
   **CRITICAL**: If you find yourself running the same shell command more than 2-3 times, STOP and use a different tool (like `create`, `ls`, `find`) to accomplish your goal. Shell command loops indicate you should change your approach.
   
