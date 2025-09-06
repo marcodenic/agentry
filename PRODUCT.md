@@ -1,16 +1,6 @@
-Here’s a **drop‑in replacement** for your `PRODUCT.md` that integrates the CLI/config changes:
-
-* **YAML‑first configuration** with clear precedence
-* **Minimal, reliable flags** (`--config`, `--set`, `--debug`, `--theme`)
-* **TUI default** (no args) and **implicit run** (`agentry <prompt>`)
-* **Robust parsing** (flags must come before prompt; non‑interspersed parsing; `--` sentinel supported)
-* **Env vars deprecated** (keep only `AGENTRY_CONFIG` for CI)
-
----
-
 # Agentry Product & Roadmap
 
-Single authoritative doc. Keep terse, actionable. Update after each merge/re‑prioritization.
+Single authoritative doc. Keep terse, actionable. Update after each merge/re-prioritization.
 
 FOR AGENTS, run: `./agentry <prompt>`
 
@@ -18,29 +8,29 @@ FOR AGENTS, run: `./agentry <prompt>`
 
 ## Vision (Condensed)
 
-Local‑first, observable, resilient **multi‑agent** development orchestrator. Open any repo, point **Agent 0** at a planning doc or task list, and it **plans → delegates → implements → tests → reviews → finalizes (PR/commit)** with clear traces.
+Local-first, observable, resilient **multi-agent** development orchestrator. Open any repo, point **Agent 0** at a planning doc or task list, and it **plans → delegates → implements → tests → reviews → finalizes (PR/commit)** with clear traces.
 
 **Principles**
 
-* **Context‑Lite:** inject only **SOP, TaskSpec, RunningSummary**. Agents fetch everything else via tools.
-* **Agent 0 orchestrates:** one spawn path; runtime scheduler handles concurrency (no special “parallel tool”).
+* **Context-Lite:** inject only **SOP, TaskSpec, RunningSummary**. Agents fetch everything else via tools.
+* **Agent 0 orchestrates:** one spawn path; runtime scheduler handles concurrency (no special “parallel tool”).
 * **Quality gate:** a task is *done* only when tests are green and a Critic approves (if relevant to task).
-* **Durable memory:** per‑agent disk history with short RunningSummary in prompts.
-* **Terminal‑first UX:** tasks, agents, events, artifacts visible as they happen.
-* **No per‑agent inbox:** coordination is via Agent 0, the TODO store, and workspace events (shared log).
+* **Durable memory:** per-agent disk history with short RunningSummary in prompts.
+* **Terminal-first UX:** tasks, agents, events, artifacts visible as they happen.
+* **No per-agent inbox:** coordination is via Agent 0, the TODO store, and workspace events (shared log).
 
 ---
 
 ## Current Foundations (What Exists)
 
-* **Core loop:** tool calling, streaming, tracing, error‑as‑data, retry caps.
-* **Tools:** 30+ built‑ins (atomic file ops, search/replace, web/network, OpenAPI/MCP, audit/patch, delegation/spawn).
+* **Core loop:** tool calling, streaming, tracing, error-as-data, retry caps.
+* **Tools:** 30+ built-ins (atomic file ops, search/replace, web/network, OpenAPI/MCP, audit/patch, delegation/spawn).
 * **Models:** OpenAI + Anthropic via unified `model.Client` (streaming; usage tracked).
-* **Multi‑agent:** team registry + delegation; Agent 0 role = orchestrator (spawn/manage workers).
-* **Memory:** per‑agent convo history + vector store; SharedStore (mem/file); basic checkpointing.
-* **Coordination:** **workspace events** feed (shared), **TODO store** (planning memory). **Per‑agent inbox removed.**
-* **TUI/CLI:** TUI default when no args; **implicit run** with `agentry <prompt>`; **minimal flags**; YAML‑first config.
-* **Context:** **minimal builder** in place; **Context‑Lite** compiler incoming (replacing Context v2).
+* **Multi-agent:** team registry + delegation; Agent 0 role = orchestrator (spawn/manage workers).
+* **Memory:** per-agent convo history + vector store; SharedStore (mem/file); basic checkpointing.
+* **Coordination:** **workspace events** feed (shared), **TODO store** (planning memory). **Per-agent inbox removed.**
+* **TUI/CLI:** TUI default when no args; **implicit run** with `agentry <prompt>`; **minimal flags**; YAML-first config.
+* **Context:** **minimal builder** in place; **Context-Lite** compiler incoming (replacing Context v2).
 
 ---
 
@@ -66,7 +56,7 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 
 ### Architecture
 
-* [ ] **Context‑Lite Prompt Compiler** (XML system prompt; inject **SOP + TaskSpec + RunningSummary**; outputs JSON).
+* [ ] **Context-Lite Prompt Compiler** (XML system prompt; inject **SOP + TaskSpec + RunningSummary**; outputs JSON).
 * [ ] Introduce `AgentConfig` (budgets, error handling, model name) to reduce env sprawl.
 * [x] Extract tool execution from `Agent.Run` → `executeToolCalls` (smaller CC, testable).
 * [x] Cancellation checks pre/post model call & per tool.
@@ -83,78 +73,78 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 
 ### **Remove / Retire (this sprint)**
 
-* [ ] **Remove Context v2 pipeline** code & configs. Delete provider‑based relevance/budget assembly.
+* [ ] **Remove Context v2 pipeline** code & configs. Delete provider-based relevance/budget assembly.
 * [ ] **Remove `parallel_agents` (or any parallel tool path)** — consolidate on single `spawn/gather`; runtime scheduler handles concurrency.
 * [ ] **Remove auto “related files”/vector sweeps** from prompt assembly. Retrieval happens via tools only.
-* [ ] **Remove per‑agent inbox messaging** — delete `send_message`, `inbox_read`, `inbox_clear`, `request_help`; remove “INBOX CONTEXT” injection; delete 📬/🆘 console prints; migrate signals to TODOs or workspace events.
-* [ ] **Remove pinned‑rules block** from prompts/configs; move any global guidance into **role SOPs** and **runtime enforcement** (output JSON validation, echo guard).
-* [ ] Mark `AGENTRY_DISABLE_CONTEXT` **deprecated/no‑op** (pipeline removed).
+* [ ] **Remove per-agent inbox messaging** — delete `send_message`, `inbox_read`, `inbox_clear`, `request_help`; remove “INBOX CONTEXT” injection; delete 📬/🆘 console prints; migrate signals to TODOs or workspace events.
+* [ ] Mark `AGENTRY_DISABLE_CONTEXT` **deprecated/no-op** (pipeline removed).
 
 ### Testing
 
 * [ ] Unit: tool error recovery (consecutive cap), history compaction edges, spawn inheritance deep copy.
 * [ ] Golden: **XML prompt rendering** (token cap, escaping/CDATA, tool lists, no dangling tags).
 * [ ] Integration: JSON stdout purity regression; spawn/gather with queued execution under artificial TPM.
-* [ ] Regression: ensure no inbox or pinned‑rules injection paths remain; workspace events continue to surface team signals.
+* [ ] Regression: ensure no inbox or pinned-rules injection paths remain; workspace events continue to surface team signals.
 
 ### Docs
 
 * [ ] CONTRIBUTING: layers, adding tool/provider, test matrix, release steps.
 * [ ] Memory architecture diagram (conversation vs vector vs shared store).
 * [ ] Role authoring guide (SOPs, tool allowlists, output schemas).
-* [ ] Remove inbox & pinned‑rules references from docs; add “coordination via TODO + workspace events”.
+* [ ] Remove inbox & pinned-rules references from docs; add “coordination via TODO + workspace events”.
 
 ---
 
-## Priorities (User‑Visible)
+## Priorities (User-Visible)
 
 ### High
 
-1. **Context‑Lite Prompt Compiler + XML prompt bodies**
+1. **Context-Lite Prompt Compiler + XML prompt bodies**
 
    * Minimal injection; CDATA/escape; golden tests; outputs JSON.
-2. **Role SOPs (Agent 0, Coder, Tester, Critic)**
+2. **Role SOPs (Agent 0, Coder, Tester, Critic)**
 
    * Standardize allowed tools + output schemas; concise, stepwise SOPs.
 3. **Agent TODO & Planning Memory**
 
    * Persistent TODOs (CRUD, filters, comments, attachments) + TUI board.
-4. **Spawn/Gather + Scheduler**
+4. **Spawn/Gather Job API + Scheduler**
 
-   * Agent 0 spawns multiple workers when independent; runtime enforces TPM queues; TUI agents panel.
+   * Implement explicit `spawn` and `gather` actions: Agent 0 spawns workers with TODOs, runtime scheduler enforces TPM/concurrency, results gathered via handles.
+   * Integrate into **TUI Agents panel**: show queued/running/done jobs with links to TODOs and results.
 5. **Memory & RunningSummary (per agent)**
 
    * Disk logs; thresholded summarization to short RunningSummary injected in prompts.
 6. **QA Loop (Tests, LSP, Critic) — enforced**
 
    * Coder must run tests + LSP; Critic must approve before DONE.
-7. **Auto‑LSP Loop**
+7. **Auto-LSP Loop**
 
-   * Diagnostics post‑edit; TUI diag panel; feed into next turn.
+   * Diagnostics post-edit; TUI diag panel; feed into next turn.
 
 ### Medium
 
-* **AST‑Based Editing v1** (Go/TS/JS) + formatter/diag validation + fallback.
+* **AST-Based Editing v1** (Go/TS/JS) + formatter/diag validation + fallback.
 * TUI polish: spinner, unified stream tail, syntax highlighting; agent cycling keybind fixes; Nerd Font optional glyphs.
-* Planning‑doc ingestion (parse PRODUCT.md/ROADMAP/TASKS.md → TODOs).
+* Planning-doc ingestion (parse PRODUCT.md/ROADMAP/TASKS.md → TODOs).
 * Normalize model names; spawn semantics toggle; collapse default prompt helpers.
 
 ### Deferred / Later
 
 * **Cost Accuracy Pass** (usage parsing, pricing loader, TUI totals/budgets).
 * Advanced checkpointing; resumable workflows UX.
-* Multi‑provider plugins; remote/cluster spawn; event bus; distributed teams.
+* Multi-provider plugins; remote/cluster spawn; event bus; distributed teams.
 * Guardrail frameworks; sandbox hardening.
 
 ---
 
-## Context‑Lite Prompt Compiler (Summary)
+## Context-Lite Prompt Compiler (Summary)
 
 * **Inject only:** **SOP, TaskSpec, RunningSummary**.
 * **Prompt body:** XML tags; config remains YAML/JSON; **outputs must be JSON**.
 * **Security:** escape or wrap untrusted content in `<![CDATA[ ... ]]>`.
 * **Token cap:** target ≤ \~1–1.5k input tokens per system message.
-* **No providers:** remove provider‑based context assembly (RelatedFiles, WorkspaceSummary, GitDiff, TestFailures, LSPDefs, Memory, etc.). Agents retrieve via tools.
+* **No providers:** remove provider-based context assembly (RelatedFiles, WorkspaceSummary, GitDiff, TestFailures, LSPDefs, Memory, etc.). Agents retrieve via tools.
 
 ---
 
@@ -168,19 +158,20 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 
 ---
 
-## Spawn/Gather & Scheduler (Spec)
+## Spawn/Gather Job API + Scheduler (Spec)
 
 * `spawn(role, input, {todo_id?, artifacts?}) -> spawn_id`
 * `gather(spawn_id | spawn_ids[]) -> results`
 
-**Runtime scheduler**: TPM‑aware queues, max in‑flight per provider, fair ordering; aggregates results for Agent 0.
-**Agent 0 SOP**: may issue multiple `spawn` for independent tasks; runtime handles concurrency.
+**Runtime scheduler**: TPM-aware queues, max in-flight per provider, fair ordering; retries and cancellation.
+**Agent 0 SOP**: may issue multiple `spawn` for independent tasks; runtime handles safe concurrency.
+**TUI Agents panel**: show each spawn job (Queued / Running / Blocked / Done), link to TODO ID and results.
 
 ---
 
 ## Memory & RunningSummary (Spec)
 
-* Per‑agent logs: `.agentry/sessions/{session}/{agent}.log`.
+* Per-agent logs: `.agentry/sessions/{session}/{agent}.log`.
 * On threshold, compress oldest segment → **RunningSummary** (≈150–300 tokens) and replace dropped segment with pointer “See summary vN”.
 * **Only** RunningSummary is injected in prompts; full logs remain on disk.
 
@@ -191,11 +182,11 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 * **Coder** must run `run_tests` + `lsp_diagnostics`; iterate until green; return diff + proposed commit.
 * **Tester** returns failures as `file:line — message` bullets or “✅ Tests passing”.
 * **Critic** checks diff vs acceptance; outputs “✅ Approve” or blockers/nits.
-* **Agent 0** marks TODO **DONE** only when tests green **and** Critic approves (or explicit user override).
+* **Agent 0** marks TODO **DONE** only when tests green **and** Critic approves (or explicit user override).
 
 ---
 
-## Auto‑LSP Loop (Spec)
+## Auto-LSP Loop (Spec)
 
 * Start servers as needed; cache per workspace.
 * Trigger after writes; batch per tick to avoid thrash.
@@ -203,7 +194,7 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 
 ---
 
-## AST‑Based Editing v1 (Spec)
+## AST-Based Editing v1 (Spec)
 
 * **Languages:** Go, TypeScript/JavaScript (Python optional).
 * **Ops:** `rename_symbol`, `replace_by_query`, `ensure_import`, `apply_patch_tree`.
@@ -212,7 +203,7 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 
 ---
 
-## Agent 0 Orchestration Loop (Runtime + Role Addendum)
+## Agent 0 Orchestration Loop (Runtime + Role Addendum)
 
 1. **Plan** (read PRODUCT/ROADMAP; create/update TODOs with acceptance).
 2. **Delegate** (spawn coder/tester/critic; independent tasks can proceed concurrently).
@@ -220,12 +211,12 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 4. **Test** (auto detect & run tests; capture failures).
 5. **Review/Critic** (approve or blockers).
 6. **Integrate** (summarize; propose commit/PR text).
-7. **Verify‑Done** (re‑run tests; close TODO).
+7. **Verify-Done** (re-run tests; close TODO).
 8. **Iterate** as needed.
 
 ---
 
-## Configuration (YAML‑first)
+## Configuration (YAML-first)
 
 **YAML is the source of truth.** Flags are small overrides; env vars are deprecated.
 
@@ -234,12 +225,12 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 1. **CLI flags** (`--config`, `--set`, `--debug`, `--theme`)
 2. **`--set key=value`** overrides (merge into loaded YAML; supports nested paths)
 3. **`--config /path/to/.agentry.yaml`** (explicit file)
-4. **Auto‑discover** first existing:
+4. **Auto-discover** first existing:
 
    * `./.agentry.yaml`
    * `$(git root)/.agentry.yaml`
    * `$XDG_CONFIG_HOME/agentry/config.yaml` or `~/.config/agentry/config.yaml`
-5. **Built‑in defaults**
+5. **Built-in defaults**
 
 **Example `.agentry.yaml`**
 
@@ -274,11 +265,11 @@ agentry [GLOBAL_FLAGS] [SUBCOMMAND] [SUBCOMMAND_FLAGS] [--] [PROMPT...]
 **Behavior**
 
 * **No args** → launch **TUI**
-* **No subcommand but PROMPT present** → **implicit run** (Agent 0 with that prompt)
+* **No subcommand but PROMPT present** → **implicit run** (Agent 0 with that prompt)
 * **With subcommand** → run that subcommand
 
 **Flags must come before the prompt.**
-Parsing is **non‑interspersed**: the first non‑flag token starts the prompt. Use `--` only if your prompt begins with `-`.
+Parsing is **non-interspersed**: the first non-flag token starts the prompt. Use `--` only if your prompt begins with `-`.
 
 ### Minimal Global Flags
 
@@ -330,26 +321,12 @@ Env vars are deprecated; use YAML + flags. The only supported var is:
 
 * `AGENTRY_CONFIG=/path/to/.agentry.yaml` — config file path (CI convenience)
 
-When other legacy env vars are detected, print a one‑line deprecation notice and ignore.
+When other legacy env vars are detected, print a one-line deprecation notice and ignore.
 
 ---
 
 ## Next Steps (Tight List)
 
-1. **Delete** Context v2 pipeline (+ providers, docs); remove auto related‑files/vector sweeps.
-2. **Delete** per‑agent inbox messaging (tools + injection + prints); migrate “help/notify” flows to TODOs or workspace events.
-3. **Delete** pinned‑rules injection; move any remaining policy lines into SOPs; add runtime **JSON output validation** and **echo guard**.
-4. **Implement** Context‑Lite Prompt Compiler (XML body; JSON outputs; CDATA/escape; golden tests).
-5. **Author** SOP prompts (Agent 0, Coder); update role configs + tool allowlists.
-6. **Build** TODO tool + persistence + TUI board.
-7. **Add** per‑agent history + RunningSummary (thresholded).
-8. **Ship** spawn/gather & scheduler; TUI Agents panel.
-9. **Wire** QA loop (tests + LSP + critic) & enforce **DONE** gate.
-10. **Add** Auto‑LSP post‑edit with TUI panel.
-11. **Prepare** AST v1 ops (Go/TS/JS) with validation + fallback.
-12. **CLI hardening**
-
----
 
 ## TODO - Prompt Engineering & Structuring
 
@@ -373,13 +350,24 @@ When other legacy env vars are detected, print a one‑line deprecation notice a
     * Add `--set` key=value merges and **config doctor**
     * Add CLI golden tests for all examples above
     * Emit deprecation warnings for legacy env vars
+1. **Delete** Context v2 pipeline (+ providers, docs); remove auto related-files/vector sweeps.
+2. **Delete** per-agent inbox messaging (tools + injection + prints); migrate “help/notify” flows to TODOs or workspace events.
+3. **Implement** Context-Lite Prompt Compiler (XML body; JSON outputs; CDATA/escape; golden tests).
+4. **Author** SOP prompts (Agent 0, Coder); update role configs + tool allowlists.
+5. **Build** TODO tool + persistence + TUI board.
+6. **Add** per-agent history + RunningSummary (thresholded).
+7. **Ship** spawn/gather Job API + scheduler; integrate into TUI Agents panel.
+8. **Wire** QA loop (tests + LSP + critic) & enforce **DONE** gate.
+9. **Add** Auto-LSP post-edit with TUI panel.
+10. **Prepare** AST v1 ops (Go/TS/JS) with validation + fallback.
+11. **CLI hardening** (non-interspersed parser, implicit run, `--set` merges, config doctor, golden tests, env deprecation).
 
 ---
 
 ## TODO — Prompt Engineering & Structuring
 
 * [ ] **Prompt compiler**: render XML system prompts; minimal tag vocab (`<sop>`, `<tools>`, `<task-spec>`, `<running-summary>`, `<output-format>`).
-* [ ] **Templates**: Agent 0, Coder, Tester, Critic SOPs; output JSON schemas; tool lists per role.
+* [ ] **Templates**: Agent 0, Coder, Tester, Critic SOPs; output JSON schemas; tool lists per role.
 * [ ] **Escaping**: CDATA/escape all untrusted content; golden tests.
 * [ ] **Caps**: enforce token caps for system message; keep outputs concise.
 * [ ] **Validation**: prompt render unit tests; “no dangling tags”; JSON schema checks on outputs.
@@ -396,6 +384,6 @@ When other legacy env vars are detected, print a one‑line deprecation notice a
 ---
 
 **Update Policy:** After material change, update this file + role templates + CLI help. Remove shipped items; avoid stale duplication.
-**Status Legend:** Internal hardening stays until merged; user‑visible items move to “Recently Completed” once the minimal slice is shipped & documented.
+**Status Legend:** Internal hardening stays until merged; user-visible items move to “Recently Completed” once the minimal slice is shipped & documented.
 
-*Historical PLAN.md & FEATURES.md merged here (updated 2025‑09‑06).*
+*Historical PLAN.md & FEATURES.md merged here (updated 2025-09-06).*
