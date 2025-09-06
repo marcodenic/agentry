@@ -20,11 +20,6 @@ type TeamService interface {
 	// Task Delegation
 	DelegateTask(ctx context.Context, role, task string) (string, error)
 
-	// Communication
-	SendMessage(ctx context.Context, from, to, message string) error
-	GetInbox(agentID string) []map[string]interface{}
-	MarkInboxRead(agentID string)
-
 	// Coordination
 	GetCoordinationSummary() string
 	GetCoordinationHistory(limit int) []string
@@ -33,7 +28,4 @@ type TeamService interface {
 	GetSharedData(key string) (interface{}, bool)
 	SetSharedData(key string, value interface{})
 	GetAllSharedData() map[string]interface{}
-
-	// Help System
-	RequestHelp(ctx context.Context, agentID, description, preferredHelper string) error
 }

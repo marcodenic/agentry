@@ -30,14 +30,8 @@ func (t *Team) AvailableRoleNames() []string { return t.ListRoleNames() }
 
 // DelegateTask delegates a task to a role (spawning if needed)
 func (t *Team) DelegateTask(ctx context.Context, role, task string) (string, error) {
-	return t.Call(ctx, role, task)
+    return t.Call(ctx, role, task)
 }
-
-// GetInbox returns an agent's inbox messages
-func (t *Team) GetInbox(agentID string) []map[string]interface{} { return t.GetAgentInbox(agentID) }
-
-// MarkInboxRead marks an agent's messages as read
-func (t *Team) MarkInboxRead(agentID string) { t.MarkMessagesAsRead(agentID) }
 
 // GetCoordinationHistory returns coordination event history
 func (t *Team) GetCoordinationHistory(limit int) []string { return t.CoordinationHistoryStrings(limit) }

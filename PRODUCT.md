@@ -6,7 +6,7 @@ Single authoritative doc. Keep terse, actionable. Update after each merge/re-pri
 * [x] **Remove auto "related files"/vector sweeps** from prompt assembly. Retrieval happens via tools only.
 * [x] Mark `AGENTRY_DISABLE_CONTEXT` **deprecated/no-op** (pipeline removed).
 * [x] **Remove `parallel_agents` (or any parallel tool path)** — consolidate on single `spawn/gather`; runtime scheduler handles concurrency.
-* [ ] **Remove per-agent inbox messaging** — delete `send_message`, `inbox_read`, `inbox_clear`, `request_help`; remove "INBOX CONTEXT" injection; delete 📬/🆘 console prints; migrate signals to TODOs or workspace events.
+* [x] **Remove per-agent inbox messaging** — delete `send_message`, `inbox_read`, `inbox_clear`, `request_help`; remove "INBOX CONTEXT" injection; delete 📬/🆘 console prints; migrate signals to TODOs or workspace events.
 * [x] **Remove pinned-rules block** from prompts/configs; move any global guidance into **role SOPs** and **runtime enforcement** (output JSON validation, echo guard).
 
 FOR AGENTS, run: `./agentry <prompt>`
@@ -35,7 +35,7 @@ Local-first, observable, resilient **multi-agent** development orchestrator. Ope
 * **Models:** OpenAI + Anthropic via unified `model.Client` (streaming; usage tracked).
 * **Multi-agent:** team registry + delegation; Agent 0 role = orchestrator (spawn/manage workers).
 * **Memory:** per-agent convo history + vector store; SharedStore (mem/file); basic checkpointing.
-* **Coordination:** **workspace events** feed (shared), **TODO store** (planning memory). Per-agent inbox currently present (migration in progress).
+* **Coordination:** **workspace events** feed (shared), **TODO store** (planning memory). **Per-agent inbox removed.**
 * **TUI/CLI:** TUI default when no args; **implicit run** with `agentry <prompt>`; **minimal flags**; YAML-first config.
 * **Context:** **minimal builder** in place; **Context-Lite** compiler incoming (replacing Context v2).
 
@@ -83,7 +83,7 @@ Local-first, observable, resilient **multi-agent** development orchestrator. Ope
 * [x] **Remove Context v2 pipeline** code & configs. Delete provider-based relevance/budget assembly.
 * [x] **Remove `parallel_agents` (or any parallel tool path)** — consolidate on single `spawn/gather`; runtime scheduler handles concurrency.
 * [x] **Remove auto “related files”/vector sweeps** from prompt assembly. Retrieval happens via tools only.
-* [ ] **Remove per-agent inbox messaging** — delete `send_message`, `inbox_read`, `inbox_clear`, `request_help`; remove “INBOX CONTEXT” injection; delete 📬/🆘 console prints; migrate signals to TODOs or workspace events.
+* [x] **Remove per-agent inbox messaging** — delete `send_message`, `inbox_read`, `inbox_clear`, `request_help`; remove “INBOX CONTEXT” injection; delete 📬/🆘 console prints; migrate signals to TODOs or workspace events.
 * [x] Mark `AGENTRY_DISABLE_CONTEXT` **deprecated/no-op** (pipeline removed).
 
 ### Testing
