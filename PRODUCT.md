@@ -1,54 +1,68 @@
 # Agentry Product & Roadmap
 
-Single authoritative doc. Keep terse, actionable. Update after each merge/re-prioritization.
+Single authoritative doc. Keep terse, actionable. Update after each merge/re‑prioritization.
 
-FOR AGENTS, run: ./agentry <prompt>
+FOR AGENTS, run: `./agentry <prompt>`
+
+---
 
 ## Vision (Condensed)
 
-Local-first, observable, resilient **multi-agent** development orchestrator. Open any repo, point Agent 0 at a planning doc or task list, and it **delegates → implements → tests → reviews → finalizes (PR/commit)** with clear traces and accurate cost accounting.
+Local‑first, observable, resilient **multi‑agent** development orchestrator. Open any repo, point **Agent 0** at a planning doc or task list, and it **plans → delegates → implements → tests → reviews → finalizes (PR/commit)** with clear traces.
+
+**Principles**
+
+* **Context‑Lite:** inject only SOP, TaskSpec, RunningSummary, Pinned rules. Agents fetch everything else via tools.
+* **Agent 0 orchestrates:** one spawn path; runtime scheduler handles concurrency (no special “parallel tool”).
+* **Quality gate:** a task is *done* only when tests are green and a Critic approves (if relevant to task).
+* **Durable memory:** per‑agent disk history with short RunningSummary in prompts.
+* **Terminal‑first UX:** tasks, agents, events, artifacts visible as they happen.
+
+---
 
 ## Current Foundations (What Exists)
 
-* **Core loop:** tool calling, streaming, tracing, cost/token accounting (per turn), error-as-data, retry caps.
-* **Tools:** 30+ built-ins (atomic file ops, search/replace, web/network, OpenAPI/MCP, audit/patch, delegation/spawn).
+* **Core loop:** tool calling, streaming, tracing, error‑as‑data, retry caps.
+* **Tools:** 30+ built‑ins (atomic file ops, search/replace, web/network, OpenAPI/MCP, audit/patch, delegation/spawn).
 * **Models:** OpenAI + Anthropic via unified `model.Client` (streaming; usage tracked).
-* **Multi-agent:** Team registry + delegation; Agent 0 role = orchestrator (spawn/manage workers).
-* **Memory:** per-agent convo history + vector store; SharedStore (mem/file) for persistence; **basic checkpointing** (low priority to extend).
+* **Multi‑agent:** team registry + delegation; Agent 0 role = orchestrator (spawn/manage workers).
+* **Memory:** per‑agent convo history + vector store; SharedStore (mem/file); basic checkpointing.
 * **TUI:** live stream, delegation events, token/cost bar, diagnostics summary, safe autoscroll.
-* **CLI:** Direct prompts (+ default TUI when no command) and `refresh-models`. Legacy commands (`invoke`, `team`, `memory`, `analyze`) removed.
-* **Context:** minimal builder (v2 pipeline incoming). Platform/roles injected via files.
+* **CLI:** direct prompts (+ default TUI when no command) and `refresh-models`. Legacy commands removed.
+* **Context:** **minimal builder** in place; **Context‑Lite** compiler incoming (replacing Context v2).
+
+---
 
 ## Recently Completed (Highlights)
 
 * SharedStore (mem+file) with TTL/GC; persist coordination events.
-* Inbox tools: `inbox_read`, `inbox_clear`, `request_help`, `workspace_events` (+ auto-inject unread).
+* Inbox tools: `inbox_read`, `inbox_clear`, `request_help`, `workspace_events` (+ auto‑inject unread).
 * Delegation safety: worker agents lose `agent` tool.
 * LSP diagnostics surfaced in TUI (gopls / tsc).
 * Minimal context builder shipped; heavy hardcoded text removed.
 * Pricing cache path moved to user cache dir; `refresh-models` command available.
 * Iteration cap removed (agent runs to final) with optional budget stop.
 * **Sprint Complete: Major Cleanup & Simplification**
+
   * Removed Prometheus/metrics system completely (code, deps, configs)
   * Removed eval system entirely (internal/eval, commands, test files)
-* Simplified CLI to core functionality: direct prompts (default TUI with no command) and `refresh-models`
-* Eliminated legacy commands: invoke, team, memory, cost, analyze
-  * Agent 0 TUI display fixed (now shows "Agent 0" with "System" role)
-  * All tests passing; cleaner, lighter codebase ready for Context v2
+  * Simplified CLI to core functionality; eliminated legacy commands
+  * Agent 0 TUI display fixed (shows “Agent 0” with “System” role)
+  * All tests passing; cleaner, lighter codebase
 
 ---
 
 ## Hardening & Cleanup (No New UX; ship fast)
 
-Architecture
+### Architecture
 
-* [x] **Context pipeline**: Provider → Budget → Assembler.
+* [ ] **Context‑Lite Prompt Compiler** (XML system prompt; inject SOP + TaskSpec + RunningSummary + Pinned; outputs JSON).
 * [ ] Introduce `AgentConfig` (budgets, error handling, model name) to reduce env sprawl.
 * [x] Extract tool execution from `Agent.Run` → `executeToolCalls` (smaller CC, testable).
 * [x] Cancellation checks pre/post model call & per tool.
 * [x] Fallback minimal system prompt if role file missing.
 
-Code Quality
+### Code Quality
 
 * [x] Consolidate env helpers into `internal/env`.
 * [x] Replace O(n²) compaction sort with `sort.Slice`.
@@ -57,203 +71,204 @@ Code Quality
 * [ ] Guard verbose dumps behind selective debug channels.
 * [ ] Normalize model names (`provider/model`) via helper.
 
-**Remove/Retire (this sprint)**
+### **Remove / Retire (this sprint)**
 
-* [x] **Remove Prometheus/metrics** code & deps; delete metric labels/counters/histograms.
-* [x] Remove legacy **eval** paths/flags/commands and dead modes.
-* [x] **Remove legacy CLI commands** (invoke, team, memory, cost, analyze) - simplified to direct prompts.
-* [x] Purge unused metrics env vars & docs.
+* [ ] **Remove Context v2 pipeline** code & configs. Delete provider‑based relevance/budget assembly.
+* [ ] **Remove `parallel_agents` (or any parallel tool path)** — consolidate on single `spawn/gather`; runtime scheduler handles concurrency.
+* [ ] **Remove auto “related files”/vector sweeps** from prompt assembly. Retrieval happens via tools only.
+* [ ] Mark `AGENTRY_DISABLE_CONTEXT` **deprecated/no‑op** (pipeline removed).
 
-
-Testing
+### Testing
 
 * [ ] Unit: tool error recovery (consecutive cap), history compaction edges, spawn inheritance deep copy.
-* [ ] Integration: budget warnings (80%/100%), JSON stdout purity regression.
-* [ ] Golden: prompt resolution precedence.
+* [ ] Golden: **XML prompt rendering** (token cap, escaping/CDATA, tool lists, no dangling tags).
+* [ ] Integration: JSON stdout purity regression; spawn/gather with queued execution under artificial TPM.
 
-Docs
+### Docs
 
 * [ ] CONTRIBUTING: layers, adding tool/provider, test matrix, release steps.
 * [ ] Memory architecture diagram (conversation vs vector vs shared store).
+* [ ] Role authoring guide (SOPs, tool allowlists, output schemas).
 
 ---
 
-## Priorities (User-Visible)
+## Priorities (User‑Visible)
 
 ### High
 
-1. **Context Pipeline v2** (relevance + token budgeting; see spec below).
-2. **Agent TODO & Planning Memory**
+1. **Context‑Lite Prompt Compiler + XML prompt bodies**
 
-   * Persistent TODOs & project planning memory (CRUD, filters, TTL); planning-doc ingestion.
-3. **Cost Accuracy Pass**
+   * Minimal injection; CDATA/escape; golden tests; outputs JSON.
+2. **Role SOPs (Agent 0, Coder, Tester, Critic)**
 
-   * Correct **input+output** token accounting per model; pricing from `models.dev` table; per-agent/session totals; budgets.
-4. **AST-Based Editing v1**
+   * Standardize allowed tools + output schemas; concise, stepwise SOPs.
+3. **Agent TODO & Planning Memory**
 
-   * Surgical, syntax-aware edits (rename, insert/import, replace by query) for Go/TS/JS (Python optional); graceful text fallback.
-5. **Auto-LSP Loop**
+   * Persistent TODOs (CRUD, filters, comments, attachments) + TUI board.
+4. **Spawn/Gather + Scheduler**
 
-   * Run diagnostics automatically after edits; feed results into next turn; TUI summary; fix-it guidance.
-6. **Agent 0 Orchestration Loop**
+   * Agent 0 spawns multiple workers when independent; runtime enforces TPM queues; TUI agents panel.
+5. **Memory & RunningSummary (per agent)**
 
-   * Explicit “plan → delegate → build → test → review/critic → integrate/PR → verify-done” loop in role & runtime hooks.
+   * Disk logs; thresholded summarization to short RunningSummary injected in prompts.
+6. **QA Loop (Tests, LSP, Critic) — enforced**
+
+   * Coder must run tests + LSP; Critic must approve before DONE.
+7. **Auto‑LSP Loop**
+
+   * Diagnostics post‑edit; TUI diag panel; feed into next turn.
 
 ### Medium
 
-* TUI polish: modern spinner, unified stream tail, code syntax highlighting.
-* Agent cycling keybind fix; Nerd Font optional glyphs.
-* Inline diff preview before patch apply (UX).
+* **AST‑Based Editing v1** (Go/TS/JS) + formatter/diag validation + fallback.
+* TUI polish: spinner, unified stream tail, syntax highlighting; agent cycling keybind fixes; Nerd Font optional glyphs.
+* Planning‑doc ingestion (parse PRODUCT.md/ROADMAP/TASKS.md → TODOs).
+* Normalize model names; spawn semantics toggle; collapse default prompt helpers.
 
 ### Deferred / Later
 
+* **Cost Accuracy Pass** (usage parsing, pricing loader, TUI totals/budgets).
 * Advanced checkpointing; resumable workflows UX.
-* Multi-model/provider plugins (beyond OpenAI/Anthropic).
-* Remote/cluster spawn; event bus; distributed teams.
+* Multi‑provider plugins; remote/cluster spawn; event bus; distributed teams.
 * Guardrail frameworks; sandbox hardening.
 
 ---
 
 ## Roadmap (Milestones)
 
-**M1 — Hardening & Cost** (In Progress)
+### **M1 — Context‑Lite & SOPs (Now)**
 
-* [x] Remove Prometheus/metrics + eval code.
-* [x] CLI simplification (direct prompts, removed legacy commands).
-* [ ] Context v2 scaffolding + token counters.
-* [ ] Cost correctness (input/output/tool) + pricing loader + TUI totals/budgets.
-* [ ] OpenAI/Anthropic usage normalization (streaming + usage unify).
+* [ ] Remove **Context v2** pipeline from code and docs.
+* [ ] Implement **Prompt Compiler (Context‑Lite)** → XML system message from role config + TaskSpec + RunningSummary + Pinned.
+* [ ] Author SOPs + output JSON schemas for **Agent 0** and **Coder**; update role configs & tool allowlists.
+* [ ] Golden tests: render stability, token caps, escaping/CDATA.
 
-**M2 — Memory & Orchestration**
+### **M2 — TODO Store, Memory & Scheduler**
 
-* Ship **TODO tool** + project planning memory.
-* Planning-doc provider (detect TASKS.md/PROJECT.md/ROADMAP.md).
-* Agent 0 loop hooks: completion verification + critic pass; success criteria.
+* [ ] TODO tool + persistence under `.agentry/` (CRUD, comments, attachments).
+* [ ] Per‑agent history logs + RunningSummary on threshold.
+* [ ] `spawn` + `gather` API; TPM‑aware scheduler; basic TUI Agents panel.
 
-**M3 — LSP & Tests Loop**
+### **M3 — QA Loop**
 
-* Auto-LSP diagnostics post-edit; TUI diag panel.
-* Test-runner integration (detect `go test` / `npm test` / `pytest`) and auto-run after builds; feed failures back.
+* [ ] Coder enforces tests + LSP before returning; surfaces diffs + commit message.
+* [ ] Tester returns concise failures or “✅ Tests passing”.
+* [ ] Critic gate; Agent 0 only marks DONE when tests green + critic approve.
+* [ ] TUI panels for tests/LSP/critic.
 
-**M4 — AST Editing v1**
+### **M4 — Auto‑LSP & Tests Integration**
 
-* Tree-sitter or language parsers for Go/TS/JS: `rename_symbol`, `replace_by_query`, `ensure_import`, `apply_patch_tree`.
-* Fallback to line edits when AST fails; validate with formatter/linter.
+* [ ] Language detection; run diagnostics automatically after writes; dedupe per tick.
+* [ ] Test‑runner detection (`go test` / `npm test` / `pytest`); run after builds; feed failures.
 
-**M5 — UX Polish**
+### **M5 — AST Editing v1**
 
-* Diff preview, syntax highlight, spinner/stream improvements.
-* Docs: CONTRIBUTING + memory architecture.
+* [ ] tree‑sitter / native parsers (Go/TS/JS): `rename_symbol`, `replace_by_query`, `ensure_import`, `apply_patch_tree`.
+* [ ] Fallback to line edits when AST fails; validate with formatter/linter + diagnostics.
+
+### **M6 — UX Polish & Docs**
+
+* [ ] Diff preview; syntax highlighting; spinner/stream improvements.
+* [ ] CONTRIBUTING; memory architecture; examples.
+
+### **M7 — Cost Accuracy (Later)**
+
+* [ ] Accurate usage parsing; pricing loader; TUI totals; budgets (warn/stop).
 
 ---
 
-## Context Management v2 (Summary)
+## Context‑Lite Prompt Compiler (Summary)
 
-Deterministic, budget-aware assembly.
-
-**Pipeline:** Providers → Score/Budget → Assemble → Messages
-**Core Providers (initial):**
-
-* `TaskSpec` (user ask + agent role)
-* `PlanningDoc` (extract tasks/goals from TASKS.md/PROJECT.md/ROADMAP.md)
-* `History` (compacted, with auto-summary on overflow)
-* `WorkspaceSummary` (tree outline)
-* `ActiveFile` (windowed excerpt)
-* `RelatedFiles` (hybrid scoring: lexical + semantic + structural)
-* `GitDiff` (staged/unstaged)
-* `TestFailures` (recent failing traces)
-* `RunOutput` (last command output)
-* `LSPDefs` (defs/refs/hover snippets)
-* `Memory` (project KB/TODOs)
-
-**Budgeting:**
-
-* Compute available tokens (`contextLimit(model) - system - user`).
-* Rank by `score * weight`; include greedily; apply truncation (prefix/suffix/outline).
-* Always annotate provenance: `<<file:path.go:23-57>>`.
+* **Inject only:** SOP, TaskSpec, RunningSummary, Pinned rules.
+* **Prompt body:** XML tags; config remains YAML/JSON; **outputs must be JSON**.
+* **Security:** escape or wrap untrusted content in `<![CDATA[ ... ]]>`.
+* **Token cap:** target ≤ \~1–1.5k input tokens per system message.
+* **No providers:** remove provider‑based context assembly (RelatedFiles, WorkspaceSummary, GitDiff, TestFailures, LSPDefs, Memory, etc.). Agents retrieve via tools.
 
 ---
 
 ## Agent TODO & Planning Memory (Spec)
 
 **Namespace:** `todo:project:<hash>`
-**Item:** `id, title, description, priority(low|med|high), tags[], agent_id, status(pending|done), created_at, updated_at`
-**APIs:** `todo_add`, `todo_list(filters)`, `todo_update`, `todo_delete`, `todo_get`
-**PlanningDoc ingestion:** parse structured bullets/checkboxes into TODOs; link back to source (file\:line).
-**Persistence:** SharedStore (file or sqlite); optional TTL for done.
+**Item:** `id, title, description, acceptance, owner(agent-id|role), status(todo|wip|done), created_at, updated_at, depends_on[], tags[]`
+**APIs:** `todo.add`, `todo.list`, `todo.update`, `todo.comment`, `todo.attach`
+**Persistence:** file/SQLite under `.agentry/`
+**TUI:** columns **TODO/WIP/DONE**, owner badges, acceptance chips.
 
 ---
 
-## Cost Accuracy (Spec)
+## Spawn/Gather & Scheduler (Spec)
 
-**Goals:** exact token & cost visibility; budget enforcement.
+* `spawn(role, input, {todo_id?, artifacts?}) -> spawn_id`
+* `gather(spawn_id | spawn_ids[]) -> results`
 
-* **Usage accounting:** count **prompt (system+user+tool args)** and **completion** tokens; include tool-returned function messages if billable; handle streaming chunks cumulatively.
-* **Pricing source:** load from `models.dev` mapping into `models_pricing.json` (cached by `refresh-models`).
-* **Displays:** per-turn + per-agent + session totals in TUI; cost per tool; first-token latency retained (as a trace field, not metrics).
-* **Budgets:** soft warn at 80%, hard stop at 100% (env configurable).
-* **Tests:** golden tests for usage parsing; cross-provider parity (OpenAI/Anthropic).
+**Runtime scheduler**: TPM‑aware queues, max in‑flight per provider, fair ordering; aggregates results for Agent 0.
+**Agent 0 SOP**: may issue multiple `spawn` for independent tasks; runtime handles concurrency.
 
 ---
 
-## AST-Based Editing v1 (Spec)
+## Memory & RunningSummary (Spec)
 
-**Languages:** Go, TypeScript/JavaScript (Python optional).
-**Backends:** tree-sitter or native parsers (`go/ast`, `ts-morph` via child proc).
-**Operations:**
-
-* `rename_symbol(file, from, to, scope?)`
-* `replace_by_query(file, query, replacement)` (TSQ/AST query)
-* `ensure_import(file, module, name?)`
-* `apply_patch_tree(file, patchSpec)` (insert/move/delete nodes)
-  **Validation:** run formatter (`gofmt`, `eslint --fix`/`prettier`) and basic build after each edit; auto-LSP diagnostics.
-  **Fallback:** degrade to line-level `edit_range` with syntax check if AST parse fails.
+* Per‑agent logs: `.agentry/sessions/{session}/{agent}.log`.
+* On threshold, compress oldest segment → **RunningSummary** (≈150–300 tokens) and replace dropped segment with pointer “See summary vN”.
+* **Only** RunningSummary is injected in prompts; full logs remain on disk.
 
 ---
 
-## Auto-LSP Loop (Spec)
+## QA Loop (Spec)
 
-* Detect language → start server(s) as needed; cache handles per workspace.
-* **Trigger:** after any file write/patch, run diagnostics automatically; batch per tick to avoid thrash.
-* **Surface:** TUI panel (errors/warnings per file), quick links, summarized hints.
-* **Feed back:** append diagnostics into next agent turn context (`LSPDefs`, `TestFailures`).
-* **Cache:** defs/refs/hover by file+version to reduce redundant queries.
+* **Coder** must run `run_tests` + `lsp_diagnostics`; iterate until green; return diff + proposed commit.
+* **Tester** returns failures as `file:line — message` bullets or “✅ Tests passing”.
+* **Critic** checks diff vs acceptance; outputs “✅ Approve” or blockers/nits.
+* **Agent 0** marks TODO **DONE** only when tests green **and** Critic approves (or explicit user override).
 
 ---
 
-## Agent 0 Orchestration Loop (Runtime + Role Addendum)
+## Auto‑LSP Loop (Spec)
 
-**Loop skeleton (implicit; no external DSL):**
+* Start servers as needed; cache per workspace.
+* Trigger after writes; batch per tick to avoid thrash.
+* Surface errors/warnings per file; feed key diagnostics into next turn.
 
-1. **Plan** (read PlanningDoc/TODOs; create/update TODOs).
-2. **Delegate** (spawn coder/tester/reviewer agents as needed).
-3. **Build** (coder edits; AST where possible).
-4. **Test** (auto detect & run project tests/build; capture failures).
-5. **Review/Critic** (spawn critic/reviewer; verify acceptance criteria).
-6. **Integrate** (commit/PR when green; reference tasks).
-7. **Verify-Done** (re-run tests; sanity checks; close TODOs).
-8. If not done → **iterate** with bounded retries/budget.
+---
 
-**Role template updates:** explicit success criteria; require critic pass; require zero diagnostics in touched files, or acknowledged waivers.
+## AST‑Based Editing v1 (Spec)
+
+* **Languages:** Go, TypeScript/JavaScript (Python optional).
+* **Ops:** `rename_symbol`, `replace_by_query`, `ensure_import`, `apply_patch_tree`.
+* **Validate:** run formatter/linter; auto diagnostics.
+* **Fallback:** degrade to line edits if AST parse fails.
+
+---
+
+## Agent 0 Orchestration Loop (Runtime + Role Addendum)
+
+1. **Plan** (read PRODUCT/ROADMAP; create/update TODOs with acceptance).
+2. **Delegate** (spawn coder/tester/critic; independent tasks can proceed concurrently).
+3. **Build** (Coder edits).
+4. **Test** (auto detect & run tests; capture failures).
+5. **Review/Critic** (approve or blockers).
+6. **Integrate** (summarize; propose commit/PR text).
+7. **Verify‑Done** (re‑run tests; close TODO).
+8. **Iterate** as needed.
 
 ---
 
 ## CLI Usage
 
-Agentry has been simplified to focus on core functionality. The CLI supports four main commands:
+Agentry supports four main commands:
 
 ### Primary Usage
 
 ```bash
 # Direct prompt execution (Agent 0 responds directly)
-# Quotes are optional for simple prompts:
 agentry hello there
 agentry fix the failing tests
 agentry implement a health check endpoint
 
-# Use quotes when you need special characters or want to be explicit:
+# Use quotes when you need special characters
 agentry "analyze the codebase structure & suggest improvements"
-agentry "implement user auth with JWT tokens"
+agentry "implement user auth with JWT tokens & refresh logic"
 
 # Start TUI interface (default when no command)
 agentry
@@ -268,108 +283,97 @@ agentry help
 
 ### Common Flags
 
-All commands support these flags:
-
 ```bash
---config path/to/.agentry.yaml    # Config file path
---theme dark|light|auto           # Theme override  
---debug                          # Enable debug output
---keybinds path/to/keybinds.json # Custom keybindings
---creds path/to/creds.json       # Credentials file
---mcp server1,server2            # MCP servers list
---save-id session1               # Save conversation state
---resume-id session1             # Resume from saved state
---checkpoint-id ckpt1            # Checkpoint session ID
---port 8080                      # HTTP server port
+--config path/to/.agentry.yaml
+--theme dark|light|auto
+--debug
+--keybinds path/to/keybinds.json
+--creds path/to/creds.json
+--mcp server1,server2
+--save-id session1
+--resume-id session1
+--checkpoint-id ckpt1
+--port 8080
 ```
 
 ### Examples
 
 ```bash
-# Simple tasks (no quotes needed!)
 agentry list all TODO comments in the codebase
 agentry fix the failing tests
 agentry add error handling to the auth module
 
-# With flags for debugging
 agentry --debug analyze the codebase structure
 
-# TUI with session resumption
 agentry --resume-id my-session --theme light
 
-# Complex prompts (quotes recommended for special characters)
 agentry "implement user auth with JWT tokens & refresh logic"
 agentry "analyze performance bottlenecks using profiling data"
 
-# Update models
 agentry refresh-models
 ```
 
 ### Environment Variables (Alternative Configuration)
 
-While flags are preferred, these environment variables are still supported:
+**Core Settings**
 
-**Core Settings:**
-- `AGENTRY_DEBUG=1` - Enable debug output (use `--debug` flag instead)
-- `AGENTRY_THEME=dark` - Set theme (use `--theme` flag instead)
-- `AGENTRY_ENV_FILE=/path/to/.env` - Load environment from file
+* `AGENTRY_DEBUG=1` — Enable debug output (prefer `--debug`)
+* `AGENTRY_THEME=dark` — Set theme (prefer `--theme`)
+* `AGENTRY_ENV_FILE=/path/to/.env` — Load env from file
 
-**Advanced/Internal Settings:**
-- `AGENTRY_TUI_MODE=1` - Internal flag (set automatically)
-- `AGENTRY_DEFAULT_PROMPT="..."` - Default prompt override
-- `AGENTRY_AUDIT_LOG=/path/to/audit.log` - Audit logging
-- `AGENTRY_HISTORY_LIMIT=100` - Chat history limit
-- `AGENTRY_DELEGATION_TIMEOUT=300` - Agent delegation timeout
-- `AGENTRY_MODELS_CACHE=/path/to/cache` - Model cache location
-- `AGENTRY_STORE_GC_SEC=3600` - Memory store garbage collection interval
+**Advanced/Internal**
 
-**Tool/Filter Controls (Deprecated - Use CLI flags instead):**
-- ~~`AGENTRY_DISABLE_TOOL_FILTER=1`~~ - Use `--disable-tools` flag
-- ~~`AGENTRY_TOOL_ALLOW_EXTRA=tool1,tool2`~~ - Use `--allow-tools` flag  
-- ~~`AGENTRY_TOOL_DENY=tool1,tool2`~~ - Use `--deny-tools` flag
-- `AGENTRY_DISABLE_CONTEXT=1` - Disable context pipeline
+* `AGENTRY_TUI_MODE=1` — Internal flag (set automatically)
+* `AGENTRY_DEFAULT_PROMPT="..."` — Default prompt override
+* `AGENTRY_AUDIT_LOG=/path/to/audit.log` — Audit logging
+* `AGENTRY_HISTORY_LIMIT=100` — Chat history limit
+* `AGENTRY_DELEGATION_TIMEOUT=300` — Delegation timeout
+* `AGENTRY_MODELS_CACHE=/path/to/cache` — Model cache location
+* `AGENTRY_STORE_GC_SEC=3600` — Memory store GC interval
 
-**Context/Memory Tuning:**
-- `AGENTRY_CTX_CAP_AGENT0=8000` - Context limit for Agent 0
-- `AGENTRY_CTX_CAP_WORKER=4000` - Context limit for worker agents
+**Tool/Filter Controls (Deprecated — use CLI flags)**
 
-**Logging/Communication:**
-- `AGENTRY_COMM_LOG=1` - Enable communication logging
-- `AGENTRY_COLLECTOR=...` - Telemetry collector endpoint
-- `AGENTRY_PORT=8080` - HTTP server port (use `--port` flag instead)
+* ~~`AGENTRY_DISABLE_TOOL_FILTER=1`~~ — use `--disable-tools`
+* ~~`AGENTRY_TOOL_ALLOW_EXTRA=tool1,tool2`~~ — use `--allow-tools`
+* ~~`AGENTRY_TOOL_DENY=tool1,tool2`~~ — use `--deny-tools`
+* `AGENTRY_DISABLE_CONTEXT=1` — **deprecated/no‑op** (Context v2 removed)
+
+**Context/Memory Tuning**
+
+* `AGENTRY_CTX_CAP_AGENT0=8000` — Context cap for Agent 0
+* `AGENTRY_CTX_CAP_WORKER=4000` — Context cap for workers
+
+**Logging/Communication**
+
+* `AGENTRY_COMM_LOG=1` — Enable comm logging
+* `AGENTRY_COLLECTOR=...` — Telemetry endpoint
+* `AGENTRY_PORT=8080` — HTTP server port (prefer `--port`)
 
 ### Migration from Environment Variables
 
-Many environment variables can be replaced with cleaner CLI flags:
-
 ```bash
-# Old way
+# Old
 AGENTRY_DEBUG=1 AGENTRY_THEME=dark agentry "task"
 
-# New way  
+# New
 agentry --debug --theme dark "task"
 ```
-
-For advanced users who need environment variable control for automation or CI/CD, they remain supported, but flags are recommended for interactive use.
 
 ---
 
 ## Next Steps (Tight List)
 
-1. [x] **Rip metrics & eval**: remove code/deps/flags/docs.
-2. **Context v2 harness** + token counters + provider stubs (TaskSpec, PlanningDoc, History, ActiveFile, RelatedFiles, LSPDefs, GitDiff, TestFailures, RunOutput, Memory).
-3. **TODO tool** + PlanningDoc ingestion + persistence.
-4. **Cost pass**: accurate usage parsing, pricing loader, TUI totals + budgets.
-5. **Auto-LSP** post-edit loop + TUI diagnostics.
-6. **AST v1** ops (Go/TS/JS) + formatter/diag validation + fallback.
-7. **Agent 0 loop** addendum in role + runtime hooks (critic + success checks).
-8. **Tests**: context truncation, TODO CRUD, cost accounting, diag loop, AST operations.
+1. **Delete** Context v2 pipeline (+ providers, docs); remove auto related‑files/vector sweeps.
+2. **Implement** Context‑Lite Prompt Compiler (XML body; JSON outputs; CDATA/escape; golden tests).
+3. **Author** SOP prompts (Agent 0, Coder); update role configs + tool allowlists.
+4. **Build** TODO tool + persistence + TUI board.
+5. **Add** per‑agent history + RunningSummary (thresholded).
+6. **Ship** spawn/gather & scheduler; TUI Agents panel.
+7. **Wire** QA loop (tests + LSP + critic) & enforce **DONE** gate.
+8. **Add** Auto‑LSP post‑edit with TUI panel.
+9. **Prepare** AST v1 ops (Go/TS/JS) with validation + fallback.
 
 ---
-## BUGS
-
-- on resizing the window we get like: marlformed char codes or something.
-- no reasoning_effort support
 
 ## TODO - Prompt Engineering & Structuring
 
@@ -388,24 +392,25 @@ For advanced users who need environment variable control for automation or CI/CD
 - [ ] **Apply prompt structure to Agent 0 orchestration** - ensure planning/delegation prompts follow structured format
 - [ ] **Standardize worker agent prompts** with consistent structure across coder, tester, reviewer roles
 - [ ] **Add prompt template validation** to ensure all agent prompts follow the structured framework
+## BUGS
 
-### XML-like Syntax for Instructions  
-- [ ] **Adopt XML-like syntax for prompt instructions** (e.g., `<code_editing_rules>`, `<guiding_principles>`, `<frontend_task_defaults>`)
-- [ ] **Implement modular prompt components** - reusable XML blocks for common instructions
-- [ ] **Add XML instruction validation** - ensure properly formatted XML-like blocks in prompts
-- [ ] **Create instruction library** - common XML blocks for file editing, code review, testing, etc.
-- [ ] **Support dynamic XML instruction injection** - context-aware instruction blocks based on task type
+* On window resize: “malformed char codes”.
+* No `reasoning_effort` support.
 
-### Advanced Prompting Techniques
-- [ ] **Implement reasoning effort control** - use high reasoning for complex tasks, medium/low for simple ones
-- [ ] **Add self-reflection prompts** for agents to validate their work before completion
-- [ ] **Implement tool usage budgeting** - prescriptive guidance on when to be thorough vs. quick
-- [ ] **Add persistent context awareness** - agents should understand their role in larger workflows
+---
 
+## TODO — Prompt Engineering & Structuring
 
+* [ ] **Prompt compiler**: render XML system prompts; minimal tag vocab (`<pinned-rules>`, `<sop>`, `<tools>`, `<task-spec>`, `<running-summary>`, `<output-format>`).
+* [ ] **Templates**: Agent 0, Coder, Tester, Critic SOPs; output JSON schemas; tool lists per role.
+* [ ] **Escaping**: CDATA/escape all untrusted content; golden tests.
+* [ ] **Caps**: enforce token caps for system message; keep outputs concise.
+* [ ] **Validation**: prompt render unit tests; “no dangling tags”; JSON schema checks on outputs.
+* [ ] **AB‑switch (later)**: keep renderer pluggable (XML vs Markdown) for experiments.
 
-**Update Policy:** After material change, update this file + role templates + CLI help. Keep backlog clean (remove shipped; no stale dupes).
+---
 
-**Status Legend:** Internal hardening stays until merged; user-visible items move to “Recently Completed” once the minimal slice is shipped & documented.
+**Update Policy:** After material change, update this file + role templates + CLI help. Remove shipped items; avoid stale duplication.
+**Status Legend:** Internal hardening stays until merged; user‑visible items move to “Recently Completed” once the minimal slice is shipped & documented.
 
-*Historical PLAN.md & FEATURES.md merged here (updated 2025-08-18).*
+*Historical PLAN.md & FEATURES.md merged here (updated 2025‑09‑06).*
