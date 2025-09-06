@@ -377,7 +377,7 @@ agentry --debug --theme dark "task"
 
 ## TODO - Prompt Engineering & Structuring
 
-### Prompt Structure Improvements
+### Prompt Structure Improvements (XML, but order the elements in this sequence where relevant)
 - [ ] **Implement structured prompt framework** following the 10-part structure:
   1. Task context
   2. Tone context  
