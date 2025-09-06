@@ -29,6 +29,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
+          name: agentry-${{ matrix.goos }}
           path: dist/*
 
   release:
@@ -38,7 +39,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
+          pattern: agentry-*
           path: dist
+          merge-multiple: true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
