@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -65,7 +64,7 @@ func isTier0Agent(agentName string) bool {
 }
 
 func buildContextMinimal(ctx context.Context, task, agentName string) string {
-	if strings.HasPrefix(task, ctxSentinel) || os.Getenv("AGENTRY_DISABLE_CONTEXT") == "1" {
+	if strings.HasPrefix(task, ctxSentinel) {
 		return task
 	}
 	tier := 1
@@ -80,11 +79,6 @@ func buildContextMinimal(ctx context.Context, task, agentName string) string {
 	var lines []string
 	lines = append(lines, strings.TrimRight(ctxSentinel, "\n"))
 	lines = append(lines, snapshot)
-	if tier == 1 {
-		if refs := extractReferencedFiles(task); len(refs) > 0 {
-			lines = append(lines, "Files: "+strings.Join(refs, " "))
-		}
-	}
 	lines = append(lines, "", "TASK:", task)
 	assembled := strings.Join(lines, "\n")
 	capTokens := workerCapTokens
@@ -203,39 +197,4 @@ func projectSummaries() (string, string) {
 	projectSummaryExpiry = time.Now().Add(projectCacheTTL)
 	projectSummaryMu.Unlock()
 	return full, lite
-}
-
-var allowedFileExt = map[string]struct{}{".go": {}, ".md": {}, ".txt": {}, ".json": {}, ".yaml": {}, ".yml": {}, ".ts": {}, ".js": {}, ".py": {}}
-
-func extractReferencedFiles(task string) []string {
-	words := strings.Fields(task)
-	seen := make(map[string]struct{})
-	var out []string
-	for _, w := range words {
-		if len(out) >= 5 {
-			break
-		}
-		if !strings.Contains(w, ".") {
-			continue
-		}
-		w = strings.Trim(w, "`'\"()[]{}<>,")
-		if len(w) > 80 {
-			continue
-		}
-		ext := filepath.Ext(w)
-		if _, ok := allowedFileExt[ext]; !ok {
-			continue
-		}
-		if strings.Count(w, "/") > 2 {
-			continue
-		}
-		if _, ok := seen[w]; ok {
-			continue
-		}
-		if _, err := os.Stat(w); err == nil {
-			seen[w] = struct{}{}
-			out = append(out, w)
-		}
-	}
-	return out
 }

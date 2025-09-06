@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	agentctx "github.com/marcodenic/agentry/internal/context"
 	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/env"
@@ -77,6 +76,119 @@ func getToolNames(reg tool.Registry) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// buildMessages creates the message chain for the agent (replaces context package)
+func (a *Agent) buildMessages(prompt, input string, history []memory.Step) []model.ChatMessage {
+	msgs := []model.ChatMessage{{Role: "system", Content: prompt}}
+
+	// Include only the most recent history step to maintain tool call context
+	// while preventing exponential growth. Most agents only need the immediate context.
+	if len(history) > 0 {
+		lastStep := history[len(history)-1]
+		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: lastStep.Output, ToolCalls: lastStep.ToolCalls})
+		for id, res := range lastStep.ToolResults {
+			// Truncate large tool results to prevent context bloat
+			truncatedRes := res
+			if len(res) > 2048 {
+				truncatedRes = res[:2048] + "...\n[TRUNCATED: originally " + fmt.Sprintf("%d", len(res)) + " bytes]"
+			}
+			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: id, Content: truncatedRes})
+		}
+	}
+
+	msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})
+	return msgs
+}
+
+// applyBudget trims messages to fit within the model's context window budget
+func (a *Agent) applyBudget(msgs []model.ChatMessage, specs []model.ToolSpec) []model.ChatMessage {
+	maxContextTokens := env.Int("AGENTRY_CONTEXT_MAX_TOKENS", 0)
+	if maxContextTokens == 0 {
+		pt := cost.NewPricingTable()
+		limit := pt.GetContextLimit(a.ModelName)
+		if limit <= 0 {
+			limit = 120000
+		}
+		headroom := int(float64(limit) * 0.85)
+		if headroom < 4000 {
+			headroom = limit - 2000
+		}
+		if headroom < 2000 {
+			headroom = limit - 1000
+		}
+		maxContextTokens = headroom
+	}
+	// Additional safeguard: for very large Anthropic windows, keep budget moderate
+	if strings.Contains(strings.ToLower(a.ModelName), "claude") && maxContextTokens > 60000 {
+		maxContextTokens = 60000
+	}
+	reserveForOutput := env.Int("AGENTRY_CONTEXT_RESERVE_OUTPUT", 1024)
+	if reserveForOutput < 256 {
+		reserveForOutput = 256
+	}
+	targetBudget := maxContextTokens - reserveForOutput
+	if targetBudget < 1000 {
+		targetBudget = maxContextTokens - 500
+	}
+
+	totalTokens := 0
+	for _, m := range msgs {
+		totalTokens += tokens.Count(m.Content, a.ModelName)
+		for _, tc := range m.ToolCalls {
+			totalTokens += tokens.Count(tc.Name, a.ModelName)
+			totalTokens += tokens.Count(string(tc.Arguments), a.ModelName)
+		}
+	}
+	// Include tool schema tokens (names, descriptions, parameter JSON) so trimming considers them
+	toolSchemaTokens := 0
+	if len(specs) > 0 {
+		for _, s := range specs {
+			toolSchemaTokens += tokens.Count(s.Name, a.ModelName)
+			toolSchemaTokens += tokens.Count(s.Description, a.ModelName)
+			// crude JSON size counting – convert map to string naïvely
+			if len(s.Parameters) > 0 {
+				// Quick approximation: join keys
+				for k, v := range s.Parameters {
+					toolSchemaTokens += tokens.Count(k, a.ModelName)
+					// parameter value structure size approximation
+					toolSchemaTokens += tokens.Count(fmt.Sprintf("%v", v), a.ModelName)
+				}
+			}
+		}
+	}
+	totalWithTools := totalTokens + toolSchemaTokens
+	if totalWithTools <= targetBudget {
+		return msgs
+	}
+
+	debug.Printf("Context trimming: initial=%d (msgs=%d + tools≈%d) budget=%d reserve=%d model=%s", totalWithTools, totalTokens, toolSchemaTokens, targetBudget, reserveForOutput, a.ModelName)
+	systemMsg := msgs[0]
+	userMsg := msgs[len(msgs)-1]
+	mid := msgs[1 : len(msgs)-1]
+	idx := 0
+	for (totalTokens+toolSchemaTokens) > targetBudget && idx < len(mid) {
+		removed := tokens.Count(mid[idx].Content, a.ModelName)
+		for _, tc := range mid[idx].ToolCalls {
+			removed += tokens.Count(tc.Name, a.ModelName)
+			removed += tokens.Count(string(tc.Arguments), a.ModelName)
+		}
+		totalTokens -= removed
+		mid[idx].Content = ""
+		mid[idx].ToolCalls = nil
+		idx++
+	}
+	newMid := make([]model.ChatMessage, 0, len(mid))
+	for _, m := range mid {
+		if strings.TrimSpace(m.Content) == "" && m.Role != "system" {
+			continue
+		}
+		newMid = append(newMid, m)
+	}
+	msgs = append([]model.ChatMessage{systemMsg}, append(newMid, userMsg)...)
+	debug.Printf("Context trimmed: finalTokens≈%d (msgs) + tools≈%d removedMessages=%d", totalTokens, toolSchemaTokens, idx)
+
+	return msgs
 }
 
 // toolNames returns cached tool names for this agent (compute once)
@@ -177,10 +289,10 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	}
 	prompt = applyVars(prompt, a.Vars)
 
-	prov := agentctx.Provider{Prompt: prompt, History: a.Mem.History()}
 	specs := tool.BuildSpecs(a.Tools)
-	// Build initial messages from provider and apply budgeting once initially
-	msgs := agentctx.Assembler{Provider: prov, Budget: agentctx.Budget{ModelName: a.ModelName}}.AssembleWithTools(input, specs)
+	// Build initial messages and apply budgeting
+	msgs := a.buildMessages(prompt, input, a.Mem.History())
+	msgs = a.applyBudget(msgs, specs)
 
 	debug.Printf("Agent.Run: Built %d messages (post-trim), %d tool specs", len(msgs), len(specs))
 	debug.Printf("Agent.Run: About to call model client with model %s", a.ModelName)
@@ -235,7 +347,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		// Note: No iteration cap; agent runs until it produces a final answer.
 		debug.Printf("Agent.Run: Starting iteration %d", i)
 		// Apply budgeting including tool schemas for accurate trimming
-		msgs = agentctx.Budget{ModelName: a.ModelName}.ApplyWithTools(msgs, specs)
+		msgs = a.applyBudget(msgs, specs)
 		debug.Printf("Agent.Run: Current message count: %d", len(msgs))
 		if i > 0 {
 			// Log recent messages to see what's causing continued iterations

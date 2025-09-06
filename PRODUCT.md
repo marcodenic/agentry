@@ -1,6 +1,11 @@
 # Agentry Product & Roadmap
 
-Single authoritative doc. Keep terse, actionable. Update after each merge/re-prioritization.
+Single authoritative doc. Keep terse, actionab* [x] **Remove Context v2 pipeline** code & configs. Delete provider-based relevance/budget assembly.
+* [x] **Remove auto "related files"/vector sweeps** from prompt assembly. Retrieval happens via tools only.
+* [x] Mark `AGENTRY_DISABLE_CONTEXT` **deprecated/no-op** (pipeline removed).
+* [ ] **Remove `parallel_agents` (or any parallel tool path)** — consolidate on single `spawn/gather`; runtime scheduler handles concurrency.
+* [ ] **Remove per-agent inbox messaging** — delete `send_message`, `inbox_read`, `inbox_clear`, `request_help`; remove "INBOX CONTEXT" injection; delete 📬/🆘 console prints; migrate signals to TODOs or workspace events.
+* [ ] **Remove pinned-rules block** from prompts/configs; move any global guidance into **role SOPs** and **runtime enforcement** (output JSON validation, echo guard).pdate after each merge/re-prioritization.
 
 FOR AGENTS, run: `./agentry <prompt>`
 
@@ -350,7 +355,7 @@ When other legacy env vars are detected, print a one-line deprecation notice and
     * Add `--set` key=value merges and **config doctor**
     * Add CLI golden tests for all examples above
     * Emit deprecation warnings for legacy env vars
-1. **Delete** Context v2 pipeline (+ providers, docs); remove auto related-files/vector sweeps.
+1. [x] **Delete** Context v2 pipeline (+ providers, docs); remove auto related-files/vector sweeps.
 2. **Delete** per-agent inbox messaging (tools + injection + prints); migrate “help/notify” flows to TODOs or workspace events.
 3. **Implement** Context-Lite Prompt Compiler (XML body; JSON outputs; CDATA/escape; golden tests).
 4. **Author** SOP prompts (Agent 0, Coder); update role configs + tool allowlists.
