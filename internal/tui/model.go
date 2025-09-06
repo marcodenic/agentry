@@ -112,6 +112,9 @@ type Model struct {
 	diags       []Diag
 	diagRunning bool
 
+	// TODO Board
+	todoBoard TodoBoard
+
 	// Dynamic input sizing and history
 	inputHeight  int
 	inputHistory []string
@@ -389,6 +392,7 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		robot:           NewRobotFace(),
 		statusBarModel:  statusBarModel,
 		pricing:         cost.NewPricingTable(),
+		todoBoard:       NewTodoBoard(),
 	}
 	return m
 }

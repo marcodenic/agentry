@@ -3,6 +3,10 @@ model:
   provider: openai
   options:
     model: gpt-5
+# Restrict orchestration tools - allow awareness but not management
+restricted_tools:
+  - agent              # No delegation to other agents
+  - assign_task        # No task assignment - focus on review work
 prompt: |
   You are **Critic**, an AI agent specialized in reviewing plans and code outputs from other agents. 
   

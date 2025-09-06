@@ -16,6 +16,7 @@ import (
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
+	"github.com/marcodenic/agentry/internal/sop"
 	"github.com/marcodenic/agentry/internal/tokens"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
@@ -35,6 +36,12 @@ type Agent struct {
 	Prompt    string
 	// Error handling configuration
 	ErrorHandling ErrorHandlingConfig
+	// JSON validation for tool args, responses, and outputs
+	JSONValidator *JSONValidator
+	// Standard Operating Procedures
+	SOPs *sop.SOPRegistry
+	// Role for SOP matching
+	Role string
 
 	// cached tool names to reduce repeated map iteration/log noise
 	cachedToolNames []string
@@ -80,6 +87,15 @@ func getToolNames(reg tool.Registry) []string {
 
 // buildMessages creates the message chain for the agent (replaces context package)
 func (a *Agent) buildMessages(prompt, input string, history []memory.Step) []model.ChatMessage {
+	// Inject SOPs into the prompt based on current context
+	context := a.buildSOPContext(input, history)
+	sopPrompt := a.SOPs.FormatSOPsAsPrompt(a.Role, context)
+	
+	// Combine original prompt with SOPs
+	if sopPrompt != "" {
+		prompt = prompt + "\n\n" + sopPrompt
+	}
+	
 	msgs := []model.ChatMessage{{Role: "system", Content: prompt}}
 
 	// Include only the most recent history step to maintain tool call context
@@ -99,6 +115,49 @@ func (a *Agent) buildMessages(prompt, input string, history []memory.Step) []mod
 
 	msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})
 	return msgs
+}
+
+// buildSOPContext creates context for SOP evaluation
+func (a *Agent) buildSOPContext(input string, history []memory.Step) map[string]string {
+	context := make(map[string]string)
+	
+	// Basic context
+	context["role"] = a.Role
+	context["iteration_count"] = fmt.Sprintf("%d", len(history))
+	
+	// Check for errors in recent history
+	errorCount := 0
+	for i := len(history) - 3; i < len(history) && i >= 0; i++ {
+		for _, result := range history[i].ToolResults {
+			if strings.Contains(strings.ToLower(result), "error") {
+				errorCount++
+			}
+		}
+	}
+	if errorCount > 0 {
+		context["error_occurred"] = "true"
+		context["recent_errors"] = fmt.Sprintf("%d", errorCount)
+	}
+	
+	// Check if JSON output is requested
+	if strings.Contains(strings.ToLower(input), "json") {
+		context["output_format"] = "json"
+	}
+	
+	// Check for testing context
+	if strings.Contains(strings.ToLower(input), "test") || 
+	   strings.Contains(strings.ToLower(a.Prompt), "test") {
+		context["testing"] = "true"
+	}
+	
+	// Check for code modification context
+	if strings.Contains(strings.ToLower(input), "code") ||
+	   strings.Contains(strings.ToLower(input), "edit") ||
+	   strings.Contains(strings.ToLower(input), "modify") {
+		context["code_modification"] = "true"
+	}
+	
+	return context
 }
 
 // applyBudget trims messages to fit within the model's context window budget
@@ -257,6 +316,10 @@ func sanitizeForLog(s string) string {
 func New(client model.Client, modelName string, reg tool.Registry, mem memory.Store, vec memory.VectorStore, tr trace.Writer) *Agent {
 	budgetTokens := env.Int("AGENTRY_BUDGET_TOKENS", 0)
 	budgetDollars := env.Float("AGENTRY_BUDGET_DOLLARS", 0)
+	
+	sopRegistry := sop.NewSOPRegistry()
+	sopRegistry.LoadDefaultSOPs()
+	
 	return &Agent{
 		ID:            uuid.New(),
 		Tools:         reg,
@@ -267,6 +330,9 @@ func New(client model.Client, modelName string, reg tool.Registry, mem memory.St
 		Tracer:        tr,
 		Cost:          cost.New(budgetTokens, budgetDollars),
 		ErrorHandling: DefaultErrorHandling(),
+		JSONValidator: NewJSONValidator(),
+		SOPs:          sopRegistry,
+		Role:          "agent", // Default role
 	}
 }
 
@@ -471,6 +537,13 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			}
 			// Default behavior: finalize
 			debug.Printf("Agent.Run: Finalizing - no tools needed, returning response")
+
+			// Validate final agent output
+			if err := a.JSONValidator.ValidateAgentOutput(res.Content); err != nil {
+				debug.Printf("Agent.Run: Agent output validation failed: %v", err)
+				return fmt.Sprintf("Agent completed task but output validation failed: %v", err), nil
+			}
+
 			a.Mem.AddStep(step)
 			_ = a.Checkpoint(ctx)
 			a.Trace(ctx, trace.EventFinal, res.Content)
@@ -530,6 +603,13 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			out := strings.TrimSpace(b.String())
 			if out != "" {
 				debug.Printf("Agent.Run: Finalizing after terminal tool calls (%d tools, %d chars output)", len(res.ToolCalls), len(out))
+
+				// Validate final agent output
+				if err := a.JSONValidator.ValidateAgentOutput(out); err != nil {
+					debug.Printf("Agent.Run: Agent output validation failed: %v", err)
+					return fmt.Sprintf("Agent completed task but output validation failed: %v", err), nil
+				}
+
 				a.Mem.AddStep(step)
 				_ = a.Checkpoint(ctx)
 				a.Trace(ctx, trace.EventFinal, out)
@@ -592,6 +672,19 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 			return msgs, hadErrors, err
 		}
 		applyVarsMap(args, a.Vars)
+
+		// Validate tool arguments
+		if err := a.JSONValidator.ValidateToolArgs(args); err != nil {
+			errorMsg := fmt.Sprintf("Error: Invalid tool arguments for '%s': %v", tc.Name, err)
+			if a.ErrorHandling.TreatErrorsAsResults {
+				step.ToolResults[tc.ID] = errorMsg
+				msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: errorMsg})
+				hadErrors = true
+				continue
+			}
+			return msgs, hadErrors, err
+		}
+
 		// Sanitize tool args before logging to avoid leaking secrets
 		if b, _ := json.Marshal(args); len(b) > 0 {
 			debug.Printf("Agent '%s' executing tool '%s' with args: %s", a.ID, tc.Name, sanitizeForLog(string(b)))
@@ -636,6 +729,18 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 			return msgs, hadErrors, err
 		}
 		debug.Printf("Agent '%s' tool '%s' succeeded, result length: %d", a.ID, tc.Name, len(r))
+
+		// Validate tool response
+		if err := a.JSONValidator.ValidateToolResponse(r); err != nil {
+			errorMsg := fmt.Sprintf("Error: Tool '%s' produced invalid response: %v", tc.Name, err)
+			if a.ErrorHandling.TreatErrorsAsResults {
+				step.ToolResults[tc.ID] = errorMsg
+				msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: errorMsg})
+				hadErrors = true
+				continue
+			}
+			return msgs, hadErrors, err
+		}
 
 		// Show successful tool execution result to user
 		if os.Getenv("AGENTRY_TUI_MODE") != "1" {

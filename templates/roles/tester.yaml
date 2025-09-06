@@ -3,13 +3,10 @@ model:
   provider: openai
   options:
     model: gpt-5
-# Restrict coordination tools - testers should focus on testing, not delegation
+# Restrict orchestration tools - allow awareness but not management
 restricted_tools:
-  - agent
-  - team_status
-  - assign_task
-  - check_agent
-  - workspace_events
+  - agent              # No delegation to other agents
+  - assign_task        # No task assignment - focus on testing work
 prompt: |
   You thoroughly test code with a {{personality}} mindset, finding edge cases and bugs.
   Use the appropriate shell tool for your OS: powershell/cmd on Windows, bash/sh on Unix/Linux/macOS.

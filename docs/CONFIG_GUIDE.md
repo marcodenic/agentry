@@ -2,13 +2,40 @@
 
 This document explains the purpose of each configuration file in the Agentry project and provides guidelines for maintaining them.
 
+## Architecture Overview
+
+Agentry now uses a **simplified architecture** focused on:
+- **Context-Lite Prompt Construction**: Direct message building without complex context providers
+- **Direct Agent-to-Agent Delegation**: Using the `agent` tool for task delegation
+- **TODO-Driven Workflow**: Built-in TODO management and tracking
+- **JSON Output Validation**: Automatic validation of tool arguments and responses
+- **Standard Operating Procedures (SOPs)**: Runtime guidance for agent behavior
+- **TUI TODO Board**: Visual TODO management in the terminal interface
+
 ## Main Configuration Files
 
 ### `.agentry.yaml` (Root)
 - Purpose: Primary configuration for production use
 - Model: Uses `gpt-5` for Agent 0 (system/orchestrator)
-- Tools: Full set of built-in tools for general use, including `lsp_diagnostics`
+- Tools: Comprehensive built-in tools including file operations, web tools, and shell commands
+- Features: Direct agent delegation, TODO management, LSP diagnostics
 - Usage: Used by default when running `agentry` command
+
+### Tool Landscape
+The current tool set focuses on:
+- **File Operations**: `view`, `create`, `edit_range`, `search_replace`, `ls`, `find`, `grep`
+- **Web Tools**: `web_search`, `read_webpage`, `fetch`, `api`, `download`  
+- **Shell Tools**: Platform-specific `bash`, `sh`, `powershell`, `cmd`
+- **Agent Coordination**: `agent` for direct delegation
+- **Development Tools**: `lsp_diagnostics`, `patch`, `project_tree`
+- **TODO Management**: Built-in TODO CRUD operations
+- **System Tools**: `sysinfo`, `ping`, `echo`
+
+**Removed Legacy Features**:
+- ❌ Inbox messaging (`send_message`, `inbox_read`, `inbox_clear`, `request_help`)
+- ❌ Parallel agents tool (`parallel_agents`)
+- ❌ Complex context pipeline (replaced with Context-Lite)
+- ❌ Auto-related-files detection
 
 ### `examples/.agentry.yaml`
 - **Purpose**: Example configuration for users to copy and modify

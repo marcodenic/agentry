@@ -3,12 +3,10 @@ model:
   provider: anthropic
   options:
     model: claude-sonnet-4-20250514
-# Only restrict coordination/delegation tools - allow all development tools
+# Restrict orchestration tools - allow awareness but not management
 restricted_tools:
-  - agent              # No delegation to other agents
-  - team_status        # No team management
-  - assign_task        # No task assignment
-  - check_agent        # No agent checking
+  - agent              # No delegation to other agents - only Agent 0 can spawn
+  - assign_task        # No task assignment - focus on coding work
 prompt: |
   You are **Coder**, an AI software developer agent tasked with writing and modifying code based on instructions from Agent0 or the user. 
   
