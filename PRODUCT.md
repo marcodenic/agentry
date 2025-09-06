@@ -1,6 +1,3 @@
-Below is an **updated `PRODUCT.md`** that integrates the decision to **remove the per‑agent inbox messaging** (i.e., `send_message`, `inbox_read`, `inbox_clear`, `request_help`, and “INBOX CONTEXT” injection). Coordination now flows via **Agent 0**, the **TODO store**, and the **workspace events** feed.
-
----
 
 # Agentry Product & Roadmap
 
@@ -16,7 +13,7 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 
 **Principles**
 
-* **Context‑Lite:** inject only SOP, TaskSpec, RunningSummary, Pinned rules. Agents fetch everything else via tools.
+* **Context‑Lite:** inject only **SOP, TaskSpec, RunningSummary**. Agents fetch everything else via tools.
 * **Agent 0 orchestrates:** one spawn path; runtime scheduler handles concurrency (no special “parallel tool”).
 * **Quality gate:** a task is *done* only when tests are green and a Critic approves (if relevant to task).
 * **Durable memory:** per‑agent disk history with short RunningSummary in prompts.
@@ -61,7 +58,7 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 
 ### Architecture
 
-* [ ] **Context‑Lite Prompt Compiler** (XML system prompt; inject SOP + TaskSpec + RunningSummary + Pinned; outputs JSON).
+* [ ] **Context‑Lite Prompt Compiler** (XML system prompt; inject **SOP + TaskSpec + RunningSummary**; outputs JSON).
 * [ ] Introduce `AgentConfig` (budgets, error handling, model name) to reduce env sprawl.
 * [x] Extract tool execution from `Agent.Run` → `executeToolCalls` (smaller CC, testable).
 * [x] Cancellation checks pre/post model call & per tool.
@@ -82,6 +79,7 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 * [ ] **Remove `parallel_agents` (or any parallel tool path)** — consolidate on single `spawn/gather`; runtime scheduler handles concurrency.
 * [ ] **Remove auto “related files”/vector sweeps** from prompt assembly. Retrieval happens via tools only.
 * [ ] **Remove per‑agent inbox messaging** — delete `send_message`, `inbox_read`, `inbox_clear`, `request_help`; remove “INBOX CONTEXT” injection; delete 📬/🆘 console prints; migrate signals to TODOs or workspace events.
+* [ ] **Remove pinned‑rules block** from prompts/configs; move any global guidance into **role SOPs** and **runtime enforcement** (output JSON validation, echo guard).
 * [ ] Mark `AGENTRY_DISABLE_CONTEXT` **deprecated/no‑op** (pipeline removed).
 
 ### Testing
@@ -89,14 +87,14 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 * [ ] Unit: tool error recovery (consecutive cap), history compaction edges, spawn inheritance deep copy.
 * [ ] Golden: **XML prompt rendering** (token cap, escaping/CDATA, tool lists, no dangling tags).
 * [ ] Integration: JSON stdout purity regression; spawn/gather with queued execution under artificial TPM.
-* [ ] Regression: ensure no inbox injection paths remain; workspace events continue to surface team signals.
+* [ ] Regression: ensure no inbox or pinned‑rules injection paths remain; workspace events continue to surface team signals.
 
 ### Docs
 
 * [ ] CONTRIBUTING: layers, adding tool/provider, test matrix, release steps.
 * [ ] Memory architecture diagram (conversation vs vector vs shared store).
 * [ ] Role authoring guide (SOPs, tool allowlists, output schemas).
-* [ ] Remove inbox references from docs; add “coordination via TODO + workspace events”.
+* [ ] Remove inbox & pinned‑rules references from docs; add “coordination via TODO + workspace events”.
 
 ---
 
@@ -147,7 +145,7 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 ### **M1 — Context‑Lite & SOPs (Now)**
 
 * [ ] Remove **Context v2** pipeline from code and docs.
-* [ ] Implement **Prompt Compiler (Context‑Lite)** → XML system message from role config + TaskSpec + RunningSummary + Pinned.
+* [ ] Implement **Prompt Compiler (Context‑Lite)** → XML system message from role config + TaskSpec + RunningSummary.
 * [ ] Author SOPs + output JSON schemas for **Agent 0** and **Coder**; update role configs & tool allowlists.
 * [ ] Golden tests: render stability, token caps, escaping/CDATA.
 
@@ -187,7 +185,7 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 
 ## Context‑Lite Prompt Compiler (Summary)
 
-* **Inject only:** SOP, TaskSpec, RunningSummary, Pinned rules.
+* **Inject only:** **SOP, TaskSpec, RunningSummary**.
 * **Prompt body:** XML tags; config remains YAML/JSON; **outputs must be JSON**.
 * **Security:** escape or wrap untrusted content in `<![CDATA[ ... ]]>`.
 * **Token cap:** target ≤ \~1–1.5k input tokens per system message.
@@ -373,14 +371,15 @@ agentry --debug --theme dark "task"
 
 1. **Delete** Context v2 pipeline (+ providers, docs); remove auto related‑files/vector sweeps.
 2. **Delete** per‑agent inbox messaging (tools + injection + prints); migrate “help/notify” flows to TODOs or workspace events.
-3. **Implement** Context‑Lite Prompt Compiler (XML body; JSON outputs; CDATA/escape; golden tests).
-4. **Author** SOP prompts (Agent 0, Coder); update role configs + tool allowlists.
-5. **Build** TODO tool + persistence + TUI board.
-6. **Add** per‑agent history + RunningSummary (thresholded).
-7. **Ship** spawn/gather & scheduler; TUI Agents panel.
-8. **Wire** QA loop (tests + LSP + critic) & enforce **DONE** gate.
-9. **Add** Auto‑LSP post‑edit with TUI panel.
-10. **Prepare** AST v1 ops (Go/TS/JS) with validation + fallback.
+3. **Delete** pinned‑rules injection; move any remaining policy lines into SOPs; add runtime **JSON output validation** and **echo guard**.
+4. **Implement** Context‑Lite Prompt Compiler (XML body; JSON outputs; CDATA/escape; golden tests).
+5. **Author** SOP prompts (Agent 0, Coder); update role configs + tool allowlists.
+6. **Build** TODO tool + persistence + TUI board.
+7. **Add** per‑agent history + RunningSummary (thresholded).
+8. **Ship** spawn/gather & scheduler; TUI Agents panel.
+9. **Wire** QA loop (tests + LSP + critic) & enforce **DONE** gate.
+10. **Add** Auto‑LSP post‑edit with TUI panel.
+11. **Prepare** AST v1 ops (Go/TS/JS) with validation + fallback.
 
 ---
 
@@ -410,12 +409,13 @@ agentry --debug --theme dark "task"
 
 ## TODO — Prompt Engineering & Structuring
 
-* [ ] **Prompt compiler**: render XML system prompts; minimal tag vocab (`<pinned-rules>`, `<sop>`, `<tools>`, `<task-spec>`, `<running-summary>`, `<output-format>`).
+* [ ] **Prompt compiler**: render XML system prompts; minimal tag vocab (`<sop>`, `<tools>`, `<task-spec>`, `<running-summary>`, `<output-format>`).
 * [ ] **Templates**: Agent 0, Coder, Tester, Critic SOPs; output JSON schemas; tool lists per role.
 * [ ] **Escaping**: CDATA/escape all untrusted content; golden tests.
 * [ ] **Caps**: enforce token caps for system message; keep outputs concise.
 * [ ] **Validation**: prompt render unit tests; “no dangling tags”; JSON schema checks on outputs.
 * [ ] **AB‑switch (later)**: keep renderer pluggable (XML vs Markdown) for experiments.
+* [ ] (Optional) **10‑part structure** experiments for Agent 0 orchestration; keep disabled by default to preserve Context‑Lite.
 
 ---
 
