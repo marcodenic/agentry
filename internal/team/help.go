@@ -12,9 +12,6 @@ import (
 // RequestHelp allows an agent to request help from other agents
 func (t *Team) RequestHelp(ctx context.Context, agentID, helpDescription string, preferredHelper string) error {
 	if !isTUI() {
-		fmt.Fprintf(os.Stderr, "🆘 HELP REQUEST from %s: %s\n", agentID, helpDescription)
-	}
-	if !isTUI() {
 		t.PublishWorkspaceEvent(agentID, "help_request", helpDescription, map[string]interface{}{
 			"preferred_helper": preferredHelper, "urgency": "normal",
 		})

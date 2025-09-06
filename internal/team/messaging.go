@@ -46,9 +46,6 @@ func (t *Team) SendMessageToAgent(ctx context.Context, fromAgentID, toAgentID, m
 	})
 	t.mutex.Unlock()
 
-	if !isTUI() {
-		fmt.Fprintf(os.Stderr, "📬 Message delivered to %s's inbox\n", toAgentID)
-	}
 	return nil
 }
 

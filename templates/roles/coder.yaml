@@ -6,9 +6,7 @@ model:
 # Only restrict coordination/delegation tools - allow all development tools
 restricted_tools:
   - agent              # No delegation to other agents
-  - parallel_agents    # No parallel coordination  
   - team_status        # No team management
-  - send_message       # No direct messaging
   - assign_task        # No task assignment
   - check_agent        # No agent checking
 prompt: |
