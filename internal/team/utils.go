@@ -1,40 +1,5 @@
 package team
 
-import (
-	"fmt"
-	"net"
-)
-
-// findAvailablePort finds an available port in the configured range
-func (t *Team) findAvailablePort() (int, error) {
-	for port := t.portRange.Start; port <= t.portRange.End; port++ {
-		if t.isPortAvailable(port) {
-			return port, nil
-		}
-	}
-	return 0, fmt.Errorf("no available ports in range %d-%d", t.portRange.Start, t.portRange.End)
-}
-
-// isPortAvailable checks if a port is available for use
-func (t *Team) isPortAvailable(port int) bool {
-	// Check if any existing agent is using this port
-	for _, agent := range t.agents {
-		if agent.Port == port {
-			return false
-		}
-	}
-
-	// Try to bind to the port to verify it's available
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		return false
-	}
-
-	// Close the listener immediately
-	listener.Close()
-	return true
-}
-
 // AddRole adds a role configuration to the team
 func (t *Team) AddRole(role *RoleConfig) {
 	t.mutex.Lock()
