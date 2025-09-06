@@ -1,3 +1,7 @@
+Below is an **updated `PRODUCT.md`** that integrates the decision to **remove the per‑agent inbox messaging** (i.e., `send_message`, `inbox_read`, `inbox_clear`, `request_help`, and “INBOX CONTEXT” injection). Coordination now flows via **Agent 0**, the **TODO store**, and the **workspace events** feed.
+
+---
+
 # Agentry Product & Roadmap
 
 Single authoritative doc. Keep terse, actionable. Update after each merge/re‑prioritization.
@@ -17,6 +21,7 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 * **Quality gate:** a task is *done* only when tests are green and a Critic approves (if relevant to task).
 * **Durable memory:** per‑agent disk history with short RunningSummary in prompts.
 * **Terminal‑first UX:** tasks, agents, events, artifacts visible as they happen.
+* **No per‑agent inbox:** coordination is via Agent 0, the TODO store, and workspace events (shared log).
 
 ---
 
@@ -27,6 +32,7 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 * **Models:** OpenAI + Anthropic via unified `model.Client` (streaming; usage tracked).
 * **Multi‑agent:** team registry + delegation; Agent 0 role = orchestrator (spawn/manage workers).
 * **Memory:** per‑agent convo history + vector store; SharedStore (mem/file); basic checkpointing.
+* **Coordination:** **workspace events** feed (shared), **TODO store** (planning memory). **Per‑agent inbox removed.**
 * **TUI:** live stream, delegation events, token/cost bar, diagnostics summary, safe autoscroll.
 * **CLI:** direct prompts (+ default TUI when no command) and `refresh-models`. Legacy commands removed.
 * **Context:** **minimal builder** in place; **Context‑Lite** compiler incoming (replacing Context v2).
@@ -36,7 +42,6 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 ## Recently Completed (Highlights)
 
 * SharedStore (mem+file) with TTL/GC; persist coordination events.
-* Inbox tools: `inbox_read`, `inbox_clear`, `request_help`, `workspace_events` (+ auto‑inject unread).
 * Delegation safety: worker agents lose `agent` tool.
 * LSP diagnostics surfaced in TUI (gopls / tsc).
 * Minimal context builder shipped; heavy hardcoded text removed.
@@ -76,6 +81,7 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 * [ ] **Remove Context v2 pipeline** code & configs. Delete provider‑based relevance/budget assembly.
 * [ ] **Remove `parallel_agents` (or any parallel tool path)** — consolidate on single `spawn/gather`; runtime scheduler handles concurrency.
 * [ ] **Remove auto “related files”/vector sweeps** from prompt assembly. Retrieval happens via tools only.
+* [ ] **Remove per‑agent inbox messaging** — delete `send_message`, `inbox_read`, `inbox_clear`, `request_help`; remove “INBOX CONTEXT” injection; delete 📬/🆘 console prints; migrate signals to TODOs or workspace events.
 * [ ] Mark `AGENTRY_DISABLE_CONTEXT` **deprecated/no‑op** (pipeline removed).
 
 ### Testing
@@ -83,12 +89,14 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 * [ ] Unit: tool error recovery (consecutive cap), history compaction edges, spawn inheritance deep copy.
 * [ ] Golden: **XML prompt rendering** (token cap, escaping/CDATA, tool lists, no dangling tags).
 * [ ] Integration: JSON stdout purity regression; spawn/gather with queued execution under artificial TPM.
+* [ ] Regression: ensure no inbox injection paths remain; workspace events continue to surface team signals.
 
 ### Docs
 
 * [ ] CONTRIBUTING: layers, adding tool/provider, test matrix, release steps.
 * [ ] Memory architecture diagram (conversation vs vector vs shared store).
 * [ ] Role authoring guide (SOPs, tool allowlists, output schemas).
+* [ ] Remove inbox references from docs; add “coordination via TODO + workspace events”.
 
 ---
 
@@ -364,14 +372,15 @@ agentry --debug --theme dark "task"
 ## Next Steps (Tight List)
 
 1. **Delete** Context v2 pipeline (+ providers, docs); remove auto related‑files/vector sweeps.
-2. **Implement** Context‑Lite Prompt Compiler (XML body; JSON outputs; CDATA/escape; golden tests).
-3. **Author** SOP prompts (Agent 0, Coder); update role configs + tool allowlists.
-4. **Build** TODO tool + persistence + TUI board.
-5. **Add** per‑agent history + RunningSummary (thresholded).
-6. **Ship** spawn/gather & scheduler; TUI Agents panel.
-7. **Wire** QA loop (tests + LSP + critic) & enforce **DONE** gate.
-8. **Add** Auto‑LSP post‑edit with TUI panel.
-9. **Prepare** AST v1 ops (Go/TS/JS) with validation + fallback.
+2. **Delete** per‑agent inbox messaging (tools + injection + prints); migrate “help/notify” flows to TODOs or workspace events.
+3. **Implement** Context‑Lite Prompt Compiler (XML body; JSON outputs; CDATA/escape; golden tests).
+4. **Author** SOP prompts (Agent 0, Coder); update role configs + tool allowlists.
+5. **Build** TODO tool + persistence + TUI board.
+6. **Add** per‑agent history + RunningSummary (thresholded).
+7. **Ship** spawn/gather & scheduler; TUI Agents panel.
+8. **Wire** QA loop (tests + LSP + critic) & enforce **DONE** gate.
+9. **Add** Auto‑LSP post‑edit with TUI panel.
+10. **Prepare** AST v1 ops (Go/TS/JS) with validation + fallback.
 
 ---
 
