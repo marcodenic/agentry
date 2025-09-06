@@ -1,3 +1,12 @@
+Here’s a **drop‑in replacement** for your `PRODUCT.md` that integrates the CLI/config changes:
+
+* **YAML‑first configuration** with clear precedence
+* **Minimal, reliable flags** (`--config`, `--set`, `--debug`, `--theme`)
+* **TUI default** (no args) and **implicit run** (`agentry <prompt>`)
+* **Robust parsing** (flags must come before prompt; non‑interspersed parsing; `--` sentinel supported)
+* **Env vars deprecated** (keep only `AGENTRY_CONFIG` for CI)
+
+---
 
 # Agentry Product & Roadmap
 
@@ -30,8 +39,7 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 * **Multi‑agent:** team registry + delegation; Agent 0 role = orchestrator (spawn/manage workers).
 * **Memory:** per‑agent convo history + vector store; SharedStore (mem/file); basic checkpointing.
 * **Coordination:** **workspace events** feed (shared), **TODO store** (planning memory). **Per‑agent inbox removed.**
-* **TUI:** live stream, delegation events, token/cost bar, diagnostics summary, safe autoscroll.
-* **CLI:** direct prompts (+ default TUI when no command) and `refresh-models`. Legacy commands removed.
+* **TUI/CLI:** TUI default when no args; **implicit run** with `agentry <prompt>`; **minimal flags**; YAML‑first config.
 * **Context:** **minimal builder** in place; **Context‑Lite** compiler incoming (replacing Context v2).
 
 ---
@@ -140,49 +148,6 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 
 ---
 
-## Roadmap (Milestones)
-
-### **M1 — Context‑Lite & SOPs (Now)**
-
-* [ ] Remove **Context v2** pipeline from code and docs.
-* [ ] Implement **Prompt Compiler (Context‑Lite)** → XML system message from role config + TaskSpec + RunningSummary.
-* [ ] Author SOPs + output JSON schemas for **Agent 0** and **Coder**; update role configs & tool allowlists.
-* [ ] Golden tests: render stability, token caps, escaping/CDATA.
-
-### **M2 — TODO Store, Memory & Scheduler**
-
-* [ ] TODO tool + persistence under `.agentry/` (CRUD, comments, attachments).
-* [ ] Per‑agent history logs + RunningSummary on threshold.
-* [ ] `spawn` + `gather` API; TPM‑aware scheduler; basic TUI Agents panel.
-
-### **M3 — QA Loop**
-
-* [ ] Coder enforces tests + LSP before returning; surfaces diffs + commit message.
-* [ ] Tester returns concise failures or “✅ Tests passing”.
-* [ ] Critic gate; Agent 0 only marks DONE when tests green + critic approve.
-* [ ] TUI panels for tests/LSP/critic.
-
-### **M4 — Auto‑LSP & Tests Integration**
-
-* [ ] Language detection; run diagnostics automatically after writes; dedupe per tick.
-* [ ] Test‑runner detection (`go test` / `npm test` / `pytest`); run after builds; feed failures.
-
-### **M5 — AST Editing v1**
-
-* [ ] tree‑sitter / native parsers (Go/TS/JS): `rename_symbol`, `replace_by_query`, `ensure_import`, `apply_patch_tree`.
-* [ ] Fallback to line edits when AST fails; validate with formatter/linter + diagnostics.
-
-### **M6 — UX Polish & Docs**
-
-* [ ] Diff preview; syntax highlighting; spinner/stream improvements.
-* [ ] CONTRIBUTING; memory architecture; examples.
-
-### **M7 — Cost Accuracy (Later)**
-
-* [ ] Accurate usage parsing; pricing loader; TUI totals; budgets (warn/stop).
-
----
-
 ## Context‑Lite Prompt Compiler (Summary)
 
 * **Inject only:** **SOP, TaskSpec, RunningSummary**.
@@ -260,110 +225,112 @@ Local‑first, observable, resilient **multi‑agent** development orchestrator.
 
 ---
 
-## CLI Usage
+## Configuration (YAML‑first)
 
-Agentry supports four main commands:
+**YAML is the source of truth.** Flags are small overrides; env vars are deprecated.
 
-### Primary Usage
+**Discovery & Precedence (highest → lowest)**
 
-```bash
-# Direct prompt execution (Agent 0 responds directly)
-agentry hello there
-agentry fix the failing tests
-agentry implement a health check endpoint
+1. **CLI flags** (`--config`, `--set`, `--debug`, `--theme`)
+2. **`--set key=value`** overrides (merge into loaded YAML; supports nested paths)
+3. **`--config /path/to/.agentry.yaml`** (explicit file)
+4. **Auto‑discover** first existing:
 
-# Use quotes when you need special characters
-agentry "analyze the codebase structure & suggest improvements"
-agentry "implement user auth with JWT tokens & refresh logic"
+   * `./.agentry.yaml`
+   * `$(git root)/.agentry.yaml`
+   * `$XDG_CONFIG_HOME/agentry/config.yaml` or `~/.config/agentry/config.yaml`
+5. **Built‑in defaults**
 
-# Start TUI interface (default when no command)
-agentry
-agentry --config custom.yaml
+**Example `.agentry.yaml`**
 
-# Update model pricing data
-agentry refresh-models
-
-# Show help
-agentry help
+```yaml
+model:
+  provider: anthropic
+  name: claude-4
+roles:
+  agent0:
+    tools: [spawn, gather, todo, tree, grep, view, run_tests, lsp_diagnostics]
+  coder:
+    tools: [tree, grep, view, patch, run_tests, lsp_diagnostics]
+scheduler:
+  max_in_flight: 2
+  tpm_guard: true
+tui:
+  theme: dark
+workspace:
+  root: .
 ```
 
-### Common Flags
+---
 
-```bash
+## CLI Usage
+
+**Grammar**
+
+```
+agentry [GLOBAL_FLAGS] [SUBCOMMAND] [SUBCOMMAND_FLAGS] [--] [PROMPT...]
+```
+
+**Behavior**
+
+* **No args** → launch **TUI**
+* **No subcommand but PROMPT present** → **implicit run** (Agent 0 with that prompt)
+* **With subcommand** → run that subcommand
+
+**Flags must come before the prompt.**
+Parsing is **non‑interspersed**: the first non‑flag token starts the prompt. Use `--` only if your prompt begins with `-`.
+
+### Minimal Global Flags
+
+```
 --config path/to/.agentry.yaml
---theme dark|light|auto
---debug
---keybinds path/to/keybinds.json
---creds path/to/creds.json
---mcp server1,server2
---save-id session1
---resume-id session1
---checkpoint-id ckpt1
---port 8080
+--set key=value             # may repeat; merges into YAML (e.g., --set tui.theme=light)
+--debug                     # debug logging
+--theme dark|light|auto     # quick TUI override
+```
+
+### Subcommands (optional)
+
+```
+agentry tui                 # force TUI
+agentry run "<prompt>"      # explicit run
+agentry refresh-models      # update model pricing/cache
+agentry config doctor       # print merged config + sources
 ```
 
 ### Examples
 
 ```bash
-agentry list all TODO comments in the codebase
+# TUI (default)
+agentry
+agentry --theme dark
+
+# Direct prompt (implicit run)
 agentry fix the failing tests
-agentry add error handling to the auth module
+agentry --debug fix the failing tests
 
-agentry --debug analyze the codebase structure
+# Flags before prompt, everything after first non-flag is the prompt
+agentry --debug add a --force flag to the CLI help
 
-agentry --resume-id my-session --theme light
+# If your prompt must start with '-', use the sentinel:
+agentry -- "--help me add --force without parsing as flags"
 
-agentry "implement user auth with JWT tokens & refresh logic"
-agentry "analyze performance bottlenecks using profiling data"
-
+# Explicit subcommands
+agentry run "add health check endpoint"
+agentry tui
 agentry refresh-models
+
+# YAML overrides without new flags:
+agentry --config ./my.yaml --set scheduler.max_in_flight=3 --set tui.theme=light "update CI"
 ```
 
-### Environment Variables (Alternative Configuration)
+### Environment Variables (Deprecated)
 
-**Core Settings**
+Env vars are deprecated; use YAML + flags. The only supported var is:
 
-* `AGENTRY_DEBUG=1` — Enable debug output (prefer `--debug`)
-* `AGENTRY_THEME=dark` — Set theme (prefer `--theme`)
-* `AGENTRY_ENV_FILE=/path/to/.env` — Load env from file
+* `AGENTRY_CONFIG=/path/to/.agentry.yaml` — config file path (CI convenience)
 
-**Advanced/Internal**
-
-* `AGENTRY_TUI_MODE=1` — Internal flag (set automatically)
-* `AGENTRY_DEFAULT_PROMPT="..."` — Default prompt override
-* `AGENTRY_AUDIT_LOG=/path/to/audit.log` — Audit logging
-* `AGENTRY_HISTORY_LIMIT=100` — Chat history limit
-* `AGENTRY_DELEGATION_TIMEOUT=300` — Delegation timeout
-* `AGENTRY_MODELS_CACHE=/path/to/cache` — Model cache location
-* `AGENTRY_STORE_GC_SEC=3600` — Memory store GC interval
-
-**Tool/Filter Controls (Deprecated — use CLI flags)**
-
-* ~~`AGENTRY_DISABLE_TOOL_FILTER=1`~~ — use `--disable-tools`
-* ~~`AGENTRY_TOOL_ALLOW_EXTRA=tool1,tool2`~~ — use `--allow-tools`
-* ~~`AGENTRY_TOOL_DENY=tool1,tool2`~~ — use `--deny-tools`
-* `AGENTRY_DISABLE_CONTEXT=1` — **deprecated/no‑op** (Context v2 removed)
-
-**Context/Memory Tuning**
-
-* `AGENTRY_CTX_CAP_AGENT0=8000` — Context cap for Agent 0
-* `AGENTRY_CTX_CAP_WORKER=4000` — Context cap for workers
-
-**Logging/Communication**
-
-* `AGENTRY_COMM_LOG=1` — Enable comm logging
-* `AGENTRY_COLLECTOR=...` — Telemetry endpoint
-* `AGENTRY_PORT=8080` — HTTP server port (prefer `--port`)
-
-### Migration from Environment Variables
-
-```bash
-# Old
-AGENTRY_DEBUG=1 AGENTRY_THEME=dark agentry "task"
-
-# New
-agentry --debug --theme dark "task"
-```
+When other legacy env vars are detected, print a one‑line deprecation notice and ignore.
 
 ---
 
@@ -380,6 +347,7 @@ agentry --debug --theme dark "task"
 9. **Wire** QA loop (tests + LSP + critic) & enforce **DONE** gate.
 10. **Add** Auto‑LSP post‑edit with TUI panel.
 11. **Prepare** AST v1 ops (Go/TS/JS) with validation + fallback.
+12. **CLI hardening**
 
 ---
 
@@ -400,10 +368,11 @@ agentry --debug --theme dark "task"
 - [ ] **Apply prompt structure to Agent 0 orchestration** - ensure planning/delegation prompts follow structured format
 - [ ] **Standardize worker agent prompts** with consistent structure across coder, tester, reviewer roles
 - [ ] **Add prompt template validation** to ensure all agent prompts follow the structured framework
-## BUGS
-
-* On window resize: “malformed char codes”.
-* No `reasoning_effort` support.
+    * Switch parser to **non‑interspersed** mode; treat first non‑flag as prompt
+    * Implement `implicit run` + `tui` default
+    * Add `--set` key=value merges and **config doctor**
+    * Add CLI golden tests for all examples above
+    * Emit deprecation warnings for legacy env vars
 
 ---
 
@@ -414,8 +383,15 @@ agentry --debug --theme dark "task"
 * [ ] **Escaping**: CDATA/escape all untrusted content; golden tests.
 * [ ] **Caps**: enforce token caps for system message; keep outputs concise.
 * [ ] **Validation**: prompt render unit tests; “no dangling tags”; JSON schema checks on outputs.
-* [ ] **AB‑switch (later)**: keep renderer pluggable (XML vs Markdown) for experiments.
+* [ ] **Renderer AB‑switch (later)**: keep XML/Markdown pluggable (experiments).
 * [ ] (Optional) **10‑part structure** experiments for Agent 0 orchestration; keep disabled by default to preserve Context‑Lite.
+
+---
+
+## BUGS
+
+* On window resize: “malformed char codes”.
+* No `reasoning_effort` support.
 
 ---
 
