@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/cost"
@@ -17,7 +18,6 @@ import (
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	promptpkg "github.com/marcodenic/agentry/internal/prompt"
-	"github.com/marcodenic/agentry/internal/sop"
 	"github.com/marcodenic/agentry/internal/tokens"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
@@ -35,13 +35,13 @@ type Agent struct {
 	Tracer    trace.Writer
 	Cost      *cost.Manager
 	Prompt    string
+	// Optional iteration cap for debugging (0 = unlimited)
+	MaxIter int
 	// Error handling configuration
 	ErrorHandling ErrorHandlingConfig
 	// JSON validation for tool args, responses, and outputs
 	JSONValidator *JSONValidator
-	// Standard Operating Procedures
-	SOPs *sop.SOPRegistry
-	// Role for SOP matching
+	// Role for display
 	Role string
 
 	// cached tool names to reduce repeated map iteration/log noise
@@ -91,12 +91,12 @@ func (a *Agent) buildMessages(prompt, input string, history []memory.Step) []mod
 	debug.Printf("=== buildMessages START ===")
 	debug.Printf("History length: %d steps", len(history))
 	for i, step := range history {
-		debug.Printf("  HISTORY[%d]: Output=%.100s..., ToolCalls=%d, ToolResults=%d", 
+		debug.Printf("  HISTORY[%d]: Output=%.100s..., ToolCalls=%d, ToolResults=%d",
 			i, step.Output, len(step.ToolCalls), len(step.ToolResults))
 	}
 	debug.Printf("=== buildMessages processing ===")
-	
-	// Always wrap the system prompt into simple sections (no SOP injection)
+
+	// Always wrap the system prompt into simple sections using sectionizer
 	// Build extras sections for the prompt envelope
 	extras := map[string]string{}
 	if a.Vars != nil {
@@ -121,6 +121,12 @@ func (a *Agent) buildMessages(prompt, input string, history []memory.Step) []mod
 	}
 	// Placeholders for optional sections users might want to see; keep minimal by default
 	// extras["output-format"] = "" // left empty unless explicitly provided by templates/config
+
+	// Use default prompt if none provided
+	if strings.TrimSpace(prompt) == "" {
+		prompt = defaultPrompt()
+	}
+
 	prompt = promptpkg.Sectionize(prompt, a.Tools, extras)
 
 	msgs := []model.ChatMessage{{Role: "system", Content: prompt}}
@@ -133,7 +139,7 @@ func (a *Agent) buildMessages(prompt, input string, history []memory.Step) []mod
 		debug.Printf("  Output: %.200s...", lastStep.Output)
 		debug.Printf("  ToolCalls: %d", len(lastStep.ToolCalls))
 		debug.Printf("  ToolResults: %d", len(lastStep.ToolResults))
-		
+
 		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: lastStep.Output, ToolCalls: lastStep.ToolCalls})
 		for id, res := range lastStep.ToolResults {
 			// Truncate large tool results to prevent context bloat
@@ -150,49 +156,6 @@ func (a *Agent) buildMessages(prompt, input string, history []memory.Step) []mod
 
 	msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})
 	return msgs
-}
-
-// buildSOPContext creates context for SOP evaluation
-func (a *Agent) buildSOPContext(input string, history []memory.Step) map[string]string {
-	context := make(map[string]string)
-
-	// Basic context
-	context["role"] = a.Role
-	context["iteration_count"] = fmt.Sprintf("%d", len(history))
-
-	// Check for errors in recent history
-	errorCount := 0
-	for i := len(history) - 3; i < len(history) && i >= 0; i++ {
-		for _, result := range history[i].ToolResults {
-			if strings.Contains(strings.ToLower(result), "error") {
-				errorCount++
-			}
-		}
-	}
-	if errorCount > 0 {
-		context["error_occurred"] = "true"
-		context["recent_errors"] = fmt.Sprintf("%d", errorCount)
-	}
-
-	// Check if JSON output is requested
-	if strings.Contains(strings.ToLower(input), "json") {
-		context["output_format"] = "json"
-	}
-
-	// Check for testing context
-	if strings.Contains(strings.ToLower(input), "test") ||
-		strings.Contains(strings.ToLower(a.Prompt), "test") {
-		context["testing"] = "true"
-	}
-
-	// Check for code modification context
-	if strings.Contains(strings.ToLower(input), "code") ||
-		strings.Contains(strings.ToLower(input), "edit") ||
-		strings.Contains(strings.ToLower(input), "modify") {
-		context["code_modification"] = "true"
-	}
-
-	return context
 }
 
 // applyBudget trims messages to fit within the model's context window budget
@@ -255,6 +218,11 @@ func (a *Agent) applyBudget(msgs []model.ChatMessage, specs []model.ToolSpec) []
 	if totalWithTools <= targetBudget {
 		return msgs
 	}
+	// Guard: need at least system + user to do mid trimming safely
+	if len(msgs) < 2 {
+		debug.Printf("applyBudget: only %d messages available; skipping mid-trim", len(msgs))
+		return msgs
+	}
 
 	debug.Printf("Context trimming: initial=%d (msgs=%d + tools≈%d) budget=%d reserve=%d model=%s", totalWithTools, totalTokens, toolSchemaTokens, targetBudget, reserveForOutput, a.ModelName)
 	systemMsg := msgs[0]
@@ -314,6 +282,24 @@ func (a *Agent) InvalidateToolCache() { //lint:ignore U1000 exported for interna
 	a.toolNamesMu.Unlock()
 }
 
+// allToolCallsTerminal returns true if every tool call corresponds to a tool
+// implementing a Terminal() bool method (avoids direct import dep on tool.TerminalAware).
+func (a *Agent) allToolCallsTerminal(calls []model.ToolCall) bool {
+	if len(calls) == 0 {
+		return false
+	}
+	for _, tc := range calls {
+		t, ok := a.Tools.Use(tc.Name)
+		if !ok {
+			return false
+		}
+		if ta, ok := t.(interface{ Terminal() bool }); !ok || !ta.Terminal() {
+			return false
+		}
+	}
+	return true
+}
+
 var redactPatterns = []*regexp.Regexp{
 	// OpenAI style keys
 	regexp.MustCompile(`sk-[A-Za-z0-9]{16,}`),
@@ -341,9 +327,6 @@ func New(client model.Client, modelName string, reg tool.Registry, mem memory.St
 	budgetTokens := env.Int("AGENTRY_BUDGET_TOKENS", 0)
 	budgetDollars := env.Float("AGENTRY_BUDGET_DOLLARS", 0)
 
-	sopRegistry := sop.NewSOPRegistry()
-	sopRegistry.LoadDefaultSOPs()
-
 	return &Agent{
 		ID:            uuid.New(),
 		Tools:         reg,
@@ -355,7 +338,6 @@ func New(client model.Client, modelName string, reg tool.Registry, mem memory.St
 		Cost:          cost.New(budgetTokens, budgetDollars),
 		ErrorHandling: DefaultErrorHandling(),
 		JSONValidator: NewJSONValidator(),
-		SOPs:          sopRegistry,
 		Role:          "agent", // Default role
 	}
 }
@@ -437,8 +419,8 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	const maxRecentCalls = 6    // Track last 6 tool calls
 	const maxIdenticalCalls = 3 // Break if we see the same call 3 times in recent history
 
-	// Iteration cap: prevent infinite loops while allowing reasonable work
-	maxIter := env.Int("AGENTRY_MAX_ITER", 50) // Default to 50 iterations max
+	// Optional iteration cap (0 = unlimited), set via CLI flag
+	maxIter := a.MaxIter
 	for i := 0; ; i++ {
 		debug.Printf("Agent.Run: *** ITERATION %d START ***", i)
 		if maxIter > 0 && i >= maxIter {
@@ -473,8 +455,10 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			debug.Printf("  MSG[%d] Role:%s ToolCalls:%d Content:%.150s...", j, msg.Role, len(msg.ToolCalls), msg.Content)
 		}
 		debug.Printf("Agent.Run: CALLING MODEL CLIENT NOW - BEFORE STREAM")
+		streamStartTime := time.Now()
 		streamCh, sErr := a.Client.Stream(ctx, msgs, specs)
-		debug.Printf("Agent.Run: MODEL CLIENT RETURNED - AFTER STREAM, err=%v", sErr)
+		streamCallDuration := time.Since(streamStartTime)
+		debug.Printf("Agent.Run: MODEL CLIENT RETURNED - AFTER STREAM, err=%v, call_duration=%v", sErr, streamCallDuration)
 		if sErr != nil {
 			return "", sErr
 		}
@@ -488,9 +472,10 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		var modelNameUsed string
 		firstTokenRecorded := false
 		var sb strings.Builder
-		
+
 		debug.Printf("Agent.Run: Starting to read from stream channel")
 		chunkCount := 0
+		streamReadStartTime := time.Now()
 		for chunk := range streamCh {
 			chunkCount++
 			debug.Printf("Agent.Run: Received chunk %d", chunkCount)
@@ -521,8 +506,8 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 				}
 			}
 		}
-		
-		debug.Printf("Agent.Run: Stream reading completed with %d chunks", chunkCount)
+
+		debug.Printf("Agent.Run: Stream reading completed with %d chunks, read_duration=%v", chunkCount, time.Since(streamReadStartTime))
 		assembled = sb.String()
 		debug.Printf("Agent.Run: Assembled response length: %d chars", len(assembled))
 
@@ -597,7 +582,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 				return fmt.Sprintf("Agent completed task but output validation failed: %v", err), nil
 			}
 
-			a.Mem.AddStep(step)
+			// Memory disabled for now: do not persist steps
 			_ = a.Checkpoint(ctx)
 			a.Trace(ctx, trace.EventFinal, res.Content)
 			return res.Content, nil
@@ -606,14 +591,13 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		// Check for repeated identical tool calls to prevent infinite loops
 		if len(res.ToolCalls) > 0 {
 			debug.Printf("Agent.Run: Processing %d tool calls for duplicate detection", len(res.ToolCalls))
-			
+
 			// Create signature for this batch of tool calls
 			for _, tc := range res.ToolCalls {
-				// Serialize args to string for comparison
-				argsBytes, _ := json.Marshal(tc.Arguments)
+				// Serialize args to string for comparison (use raw json bytes)
 				signature := toolCallSignature{
 					Name: tc.Name,
-					Args: string(argsBytes),
+					Args: string(tc.Arguments),
 				}
 				debug.Printf("Agent.Run: Tool call signature: %s(%s)", signature.Name, signature.Args)
 
@@ -646,10 +630,31 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			return "", execErr
 		}
 
+		// Structural finalization: if all executed tools are terminal and no errors
+		// occurred, finalize with their combined outputs.
+		if !hadErrors && a.allToolCallsTerminal(res.ToolCalls) && len(toolMsgs) > 0 {
+			var b strings.Builder
+			for _, m := range toolMsgs {
+				if m.Role == "tool" && strings.TrimSpace(m.Content) != "" {
+					if b.Len() > 0 {
+						b.WriteString("\n")
+					}
+					b.WriteString(m.Content)
+				}
+			}
+			out := strings.TrimSpace(b.String())
+			if out != "" {
+				debug.Printf("Agent.Run: Finalizing after terminal tool calls (%d tools, %d chars output)", len(res.ToolCalls), len(out))
+				_ = a.Checkpoint(ctx)
+				a.Trace(ctx, trace.EventFinal, out)
+				return out, nil
+			}
+		}
+
 		// Simply add tool results without completion check system messages
 		// This prevents prompt bloat from repeated system messages
 		msgs = append(msgs, toolMsgs...)
-		a.Mem.AddStep(step)
+		// Memory disabled for now: do not persist steps
 		_ = a.Checkpoint(ctx)
 
 		// DEBUG: Log the messages Agent 0 will see in the next iteration
@@ -782,7 +787,7 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 		a.Trace(ctx, trace.EventToolEnd, map[string]any{"name": tc.Name, "result": r})
 		step.ToolResults[tc.ID] = r
 		debug.Printf("Agent '%s' adding tool result to messages, role=tool, callID=%s", a.ID, tc.ID)
-		
+
 		// Fix: Ensure empty tool results are interpreted as success by the model
 		toolResult := r
 		if strings.TrimSpace(r) == "" {
@@ -802,7 +807,7 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 				toolResult = "Operation completed successfully."
 			}
 		}
-		
+
 		msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: toolResult})
 	}
 	debug.Printf("Agent.Run: executeToolCalls completed, returning %d messages, hadErrors=%v", len(msgs), hadErrors)

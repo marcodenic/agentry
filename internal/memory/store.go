@@ -32,7 +32,7 @@ func (m *InMemory) AddStep(step Step) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.steps = append(m.steps, step)
-	
+
 	// Limit history size to prevent unbounded growth
 	// Keep last 20 steps (configurable via env var)
 	maxSteps := 20

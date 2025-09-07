@@ -37,6 +37,8 @@ func runPromptWithOpts(prompt string, opts *commonOpts) {
 	if err != nil {
 		panic(err)
 	}
+	// Apply iteration cap from flags (0 = unlimited)
+	ag.MaxIter = opts.maxIter
 
 	// Debug: tool count before/after role configuration
 	debug.Printf("Before agent_0 config: agent has %d tools", len(ag.Tools))

@@ -13,8 +13,18 @@ import (
 	"time"
 
 	"github.com/marcodenic/agentry/internal/debug"
-	"github.com/marcodenic/agentry/internal/env"
 )
+
+// defaultHTTPTimeout is the global HTTP client timeout in seconds for model clients.
+// It can be overridden by CLI flags via SetHTTPTimeout.
+var defaultHTTPTimeout = 300
+
+// SetHTTPTimeout overrides the default HTTP client timeout (in seconds).
+func SetHTTPTimeout(seconds int) {
+    if seconds > 0 {
+        defaultHTTPTimeout = seconds
+    }
+}
 
 // OpenAI client implemented against /v1/responses (legacy chat completions removed).
 type OpenAI struct {
@@ -25,11 +35,11 @@ type OpenAI struct {
 }
 
 func NewOpenAI(key, model string) *OpenAI {
-	// Create HTTP client with reasonable timeout
-	client := &http.Client{
-		Timeout: time.Duration(env.Int("AGENTRY_HTTP_TIMEOUT", 300)) * time.Second, // Default 5 minutes
-	}
-	return &OpenAI{key: key, model: model, client: client}
+    // Create HTTP client with reasonable timeout
+    client := &http.Client{
+		Timeout: time.Duration(defaultHTTPTimeout) * time.Second,
+    }
+    return &OpenAI{key: key, model: model, client: client}
 }
 
 // Wire types for Responses API
@@ -128,28 +138,42 @@ func (o *OpenAI) buildRequest(ctx context.Context, msgs []ChatMessage, tools []T
 }
 
 func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (<-chan StreamChunk, error) {
-	debug.Printf("OpenAI.Stream: msgs=%d tools=%d", len(msgs), len(tools))
+	startTime := time.Now()
+	debug.Printf("OpenAI.Stream: START msgs=%d tools=%d", len(msgs), len(tools))
 
 	req, err := o.buildRequest(ctx, msgs, tools, true)
-	debug.Printf("OpenAI.Stream: buildRequest err=%v", err)
+	debug.Printf("OpenAI.Stream: buildRequest err=%v elapsed=%v", err, time.Since(startTime))
 	if err != nil {
 		debug.Printf("OpenAI.Stream: buildRequest failed: %v", err)
 		return nil, err
 	}
-	debug.Printf("OpenAI.Stream: starting HTTP request goroutine")
+
+	// Check context timeout settings
+	if deadline, ok := ctx.Deadline(); ok {
+		timeoutDur := time.Until(deadline)
+		debug.Printf("OpenAI.Stream: context timeout set to %v", timeoutDur)
+	} else {
+		debug.Printf("OpenAI.Stream: no context timeout set")
+	}
+
+	debug.Printf("OpenAI.Stream: starting HTTP request goroutine, elapsed=%v", time.Since(startTime))
 	out := make(chan StreamChunk, 32)
 	go func() {
 		defer close(out)
-		debug.Printf("OpenAI.Stream: HTTP request...")
+		reqStartTime := time.Now()
+		debug.Printf("OpenAI.Stream: HTTP request starting... elapsed=%v", time.Since(startTime))
+
 		resp, err := o.client.Do(req)
-		debug.Printf("OpenAI.Stream: HTTP response err=%v", err)
+		reqEndTime := time.Now()
+		debug.Printf("OpenAI.Stream: HTTP response received err=%v request_duration=%v total_elapsed=%v", err, reqEndTime.Sub(reqStartTime), reqEndTime.Sub(startTime))
+
 		if err != nil {
 			debug.Printf("OpenAI.Stream: HTTP request failed: %v", err)
 			out <- StreamChunk{Err: err}
 			return
 		}
 		defer resp.Body.Close()
-		debug.Printf("OpenAI.Stream: status=%d", resp.StatusCode)
+		debug.Printf("OpenAI.Stream: status=%d headers=%v", resp.StatusCode, resp.Header)
 		if resp.StatusCode >= 300 {
 			body, _ := io.ReadAll(resp.Body)
 			out <- StreamChunk{Err: errors.New(string(body))}
@@ -160,8 +184,18 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 		partials := map[int]*partial{}
 		responseCalls := map[string]*partial{} // Track Responses API function calls by item_id
 		var inTok, outTok int
+		scanStartTime := time.Now()
+		lineCount := 0
+		debug.Printf("OpenAI.Stream: starting stream scan, elapsed=%v", time.Since(startTime))
+
 		for scanner.Scan() {
+			lineCount++
+			if lineCount%100 == 0 {
+				debug.Printf("OpenAI.Stream: processed %d lines, elapsed=%v", lineCount, time.Since(startTime))
+			}
+
 			if ctx.Err() != nil {
+				debug.Printf("OpenAI.Stream: context error during scan: %v, elapsed=%v", ctx.Err(), time.Since(startTime))
 				out <- StreamChunk{Err: ctx.Err()}
 				return
 			}
@@ -172,7 +206,7 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 			payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 			// debug.Printf("OpenAI.Stream: payload=%q", payload) // Disabled: too verbose
 			if payload == "[DONE]" {
-				debug.Printf("OpenAI.Stream: [DONE], finalize (partials=%d responseCalls=%d)", len(partials), len(responseCalls))
+				debug.Printf("OpenAI.Stream: [DONE], finalize (partials=%d responseCalls=%d) scan_duration=%v total_elapsed=%v lines=%d", len(partials), len(responseCalls), time.Since(scanStartTime), time.Since(startTime), lineCount)
 				finalizeOpenAI(partials, out, inTok, outTok, o.model)
 				return
 			}
@@ -259,7 +293,7 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 					}
 				}
 			case t == "response.completed":
-				debug.Printf("OpenAI.Stream: response completed")
+				debug.Printf("OpenAI.Stream: response completed, elapsed=%v", time.Since(startTime))
 				if u, ok := env["usage"].(map[string]any); ok {
 					if iv, ok := u["input_tokens"].(float64); ok {
 						inTok = int(iv)
@@ -274,11 +308,12 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 			default: /* ignore */
 			}
 		}
+		scanEndTime := time.Now()
 		if err := scanner.Err(); err != nil {
-			debug.Printf("OpenAI.Stream: scanner error: %v", err)
+			debug.Printf("OpenAI.Stream: scanner error: %v scan_duration=%v total_elapsed=%v lines=%d", err, scanEndTime.Sub(scanStartTime), scanEndTime.Sub(startTime), lineCount)
 			out <- StreamChunk{Err: err}
 		} else {
-			debug.Printf("OpenAI.Stream: scanner ended, finalize (partials=%d responseCalls=%d)", len(partials), len(responseCalls))
+			debug.Printf("OpenAI.Stream: scanner ended normally, finalize (partials=%d responseCalls=%d) scan_duration=%v total_elapsed=%v lines=%d", len(partials), len(responseCalls), scanEndTime.Sub(scanStartTime), scanEndTime.Sub(startTime), lineCount)
 			finalizeWithResponses(partials, responseCalls, out, inTok, outTok, o.model)
 		}
 	}()
@@ -306,35 +341,35 @@ func finalizeOpenAI(partials map[int]*partial, out chan<- StreamChunk, inTok, ou
 }
 
 func finalizeWithResponses(partials map[int]*partial, responseCalls map[string]*partial, out chan<- StreamChunk, inTok, outTok int, model string) {
-    // Prefer Responses API events when present; otherwise, fall back to legacy
-    // deltas. This avoids double-emitting the same function call when servers
-    // provide both representations.
+	// Prefer Responses API events when present; otherwise, fall back to legacy
+	// deltas. This avoids double-emitting the same function call when servers
+	// provide both representations.
 
-    if len(responseCalls) > 0 {
-        final := make([]ToolCall, 0, len(responseCalls))
-        for _, p := range responseCalls {
-            final = append(final, ToolCall{ID: p.ID, Name: p.Name, Arguments: p.Arguments})
-        }
-        out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai/" + model}
-        return
-    }
+	if len(responseCalls) > 0 {
+		final := make([]ToolCall, 0, len(responseCalls))
+		for _, p := range responseCalls {
+			final = append(final, ToolCall{ID: p.ID, Name: p.Name, Arguments: p.Arguments})
+		}
+		out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai/" + model}
+		return
+	}
 
-    // Fallback: legacy partials path
-    if len(partials) == 0 {
-        out <- StreamChunk{Done: true, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai/" + model}
-        return
-    }
-    idxs := make([]int, 0, len(partials))
-    for i := range partials {
-        idxs = append(idxs, i)
-    }
-    sort.Ints(idxs)
-    final := make([]ToolCall, 0, len(partials))
-    for _, i := range idxs {
-        p := partials[i]
-        final = append(final, ToolCall{ID: p.ID, Name: p.Name, Arguments: p.Arguments})
-    }
-    out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai/" + model}
+	// Fallback: legacy partials path
+	if len(partials) == 0 {
+		out <- StreamChunk{Done: true, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai/" + model}
+		return
+	}
+	idxs := make([]int, 0, len(partials))
+	for i := range partials {
+		idxs = append(idxs, i)
+	}
+	sort.Ints(idxs)
+	final := make([]ToolCall, 0, len(partials))
+	for _, i := range idxs {
+		p := partials[i]
+		final = append(final, ToolCall{ID: p.ID, Name: p.Name, Arguments: p.Arguments})
+	}
+	out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai/" + model}
 }
 
 func (o *OpenAI) ModelName() string { return o.model }

@@ -28,6 +28,8 @@ prompt: |
   - Delegate to **writer** for: documentation, content creation, formal writing
   - Delegate to **researcher** for: research, data gathering, analysis tasks
   
+  **IMPORTANT TOOL USAGE**: Make only ONE tool call per response. When you delegate and receive a response, that response IS the final answer — return it directly to the user.
+  
   **PLANNING**: For complex tasks, gather necessary information using your tools (search, file system, etc.) and outline the approach before delegating. Provide detailed, specific instructions to agents you delegate to.
   
   **EXAMPLES**:

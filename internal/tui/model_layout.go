@@ -62,17 +62,20 @@ func (m Model) handleWindowResize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 		info.TokenProgress.Width = barWidth
 	}
 
-	// Refresh the viewport content with proper sizing - avoid expensive reformatting
+	// Refresh the viewport content with proper sizing.
+	// Previous behavior skipped re-wrapping for small width changes which could
+	// leave pre-wrapped lines that no longer match the viewport width and
+	// result in garbled/misaligned text after resize. Always re-wrap when the
+	// chatWidth changes so the content matches the new viewport dimensions.
 	if info, ok := m.infos[m.active]; ok {
-		// For normal history, only re-wrap if width changed significantly
 		if !m.showInitialLogo && info.History != "" {
-			// Only reformat if width changed by more than 10 characters to avoid constant reformatting
-			if m.lastWidth == 0 || (chatWidth != m.lastWidth && abs(chatWidth-m.lastWidth) > 10) {
+			if m.lastWidth == 0 || chatWidth != m.lastWidth {
+				// Reformat history to the new chat width so that line wrapping is correct
 				reformattedHistory := m.formatHistoryWithBars(info.History, chatWidth)
 				m.vp.SetContent(reformattedHistory)
 				m.lastWidth = chatWidth
 			} else {
-				// Width didn't change much, just update viewport size without reformatting
+				// Width didn't change, keep the existing content as-is
 				m.vp.SetContent(info.History)
 			}
 		} else {
