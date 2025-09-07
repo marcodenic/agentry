@@ -10,26 +10,26 @@ import (
 // RegisterAgentTool registers the "agent" tool with the given tool registry.
 // This must be called after creating the team to avoid import cycles.
 func (t *Team) RegisterAgentTool(registry tool.Registry) {
-	// Don't mark as terminal to allow the coordinating agent to provide a final response
-	registry["agent"] = tool.NewWithSchema(
-		"agent",
-		"Delegate work to another agent",
-		agentToolSchema(),
-		agentDelegationExec(t),
-	)
+    // Register the agent tool normally; completion remains agent-driven.
+    registry["agent"] = tool.NewWithSchema(
+        "agent",
+        "Delegate work to another agent",
+        agentToolSchema(),
+        agentDelegationExec(t),
+    )
 }
 
 // GetAgentToolSpec returns the tool specification for the agent tool
 // This can be used to register the tool without creating a team instance
 func GetAgentToolSpec() tool.Tool {
-	// Provide the same permissive schema and alias handling used by RegisterAgentTool.
-	// Requires a Team in context at execution time.
-	return tool.NewWithSchema(
-		"agent",
-		"Delegate work to another agent",
-		agentToolSchema(),
-		agentDelegationExec(nil),
-	)
+    // Provide the same permissive schema and alias handling used by RegisterAgentTool.
+    // Requires a Team in context at execution time.
+    return tool.NewWithSchema(
+        "agent",
+        "Delegate work to another agent",
+        agentToolSchema(),
+        agentDelegationExec(nil),
+    )
 }
 
 // agentToolSchema returns a permissive schema accepting common alias keys.

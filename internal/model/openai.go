@@ -303,24 +303,35 @@ func finalizeOpenAI(partials map[int]*partial, out chan<- StreamChunk, inTok, ou
 }
 
 func finalizeWithResponses(partials map[int]*partial, responseCalls map[string]*partial, out chan<- StreamChunk, inTok, outTok int, model string) {
-	final := make([]ToolCall, 0, len(partials)+len(responseCalls))
-	// Add legacy format calls
-	if len(partials) > 0 {
-		idxs := make([]int, 0, len(partials))
-		for i := range partials {
-			idxs = append(idxs, i)
-		}
-		sort.Ints(idxs)
-		for _, i := range idxs {
-			p := partials[i]
-			final = append(final, ToolCall{ID: p.ID, Name: p.Name, Arguments: p.Arguments})
-		}
-	}
-	// Add Responses API calls
-	for _, p := range responseCalls {
-		final = append(final, ToolCall{ID: p.ID, Name: p.Name, Arguments: p.Arguments})
-	}
-	out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai/" + model}
+    // Prefer Responses API events when present; otherwise, fall back to legacy
+    // deltas. This avoids double-emitting the same function call when servers
+    // provide both representations.
+
+    if len(responseCalls) > 0 {
+        final := make([]ToolCall, 0, len(responseCalls))
+        for _, p := range responseCalls {
+            final = append(final, ToolCall{ID: p.ID, Name: p.Name, Arguments: p.Arguments})
+        }
+        out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai/" + model}
+        return
+    }
+
+    // Fallback: legacy partials path
+    if len(partials) == 0 {
+        out <- StreamChunk{Done: true, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai/" + model}
+        return
+    }
+    idxs := make([]int, 0, len(partials))
+    for i := range partials {
+        idxs = append(idxs, i)
+    }
+    sort.Ints(idxs)
+    final := make([]ToolCall, 0, len(partials))
+    for _, i := range idxs {
+        p := partials[i]
+        final = append(final, ToolCall{ID: p.ID, Name: p.Name, Arguments: p.Arguments})
+    }
+    out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai/" + model}
 }
 
 func (o *OpenAI) ModelName() string { return o.model }

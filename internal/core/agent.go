@@ -1,14 +1,14 @@
 package core
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"os"
-	"regexp"
-	"sort"
-	"strings"
-	"sync"
+    "context"
+    "encoding/json"
+    "fmt"
+    "os"
+    "regexp"
+    "sort"
+    "strings"
+    "sync"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/cost"
@@ -658,7 +658,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, step memory.Step) ([]model.ChatMessage, bool, error) {
 	var msgs []model.ChatMessage
 	hadErrors := false
-	for _, tc := range calls {
+    for _, tc := range calls {
 		select { // cancellation between tools
 		case <-ctx.Done():
 			return msgs, hadErrors, ctx.Err()
