@@ -376,8 +376,8 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	prompt = applyVars(prompt, a.Vars)
 
 	specs := tool.BuildSpecs(a.Tools)
-	// Build initial messages and apply budgeting
-	msgs := a.buildMessages(prompt, input, a.Mem.History())
+	// Build initial messages without history to prevent prompt bloat
+	msgs := a.buildMessages(prompt, input, []memory.Step{})
 	msgs = a.applyBudget(msgs, specs)
 
 	debug.Printf("Agent.Run: Built %d messages (post-trim), %d tool specs", len(msgs), len(specs))
@@ -646,23 +646,8 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			return "", execErr
 		}
 
-		// Model-based completion check: if tools executed successfully, ask the model 
-		// if the task is complete rather than continuing indefinitely
-		if !hadErrors && len(toolMsgs) > 0 {
-			debug.Printf("Agent.Run: Checking for task completion after %d iterations", i+1)
-			
-			// Add tool results and ask for completion assessment
-			msgs = append(msgs, toolMsgs...)
-			completionCheck := model.ChatMessage{
-				Role: "system", 
-				Content: "TASK COMPLETION CHECK: You have successfully executed tools. The user's task appears to be complete based on the tool outputs. Unless you need to execute additional tools for missing functionality, respond with ONLY a final summary - no more tool calls. Only call tools if something is genuinely missing or failed.",
-			}
-			msgs = append(msgs, completionCheck)
-			
-			a.Mem.AddStep(step)
-			_ = a.Checkpoint(ctx)
-			continue // Let the model decide whether to finalize or continue
-		}
+		// Simply add tool results without completion check system messages
+		// This prevents prompt bloat from repeated system messages
 		msgs = append(msgs, toolMsgs...)
 		a.Mem.AddStep(step)
 		_ = a.Checkpoint(ctx)
@@ -797,7 +782,28 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 		a.Trace(ctx, trace.EventToolEnd, map[string]any{"name": tc.Name, "result": r})
 		step.ToolResults[tc.ID] = r
 		debug.Printf("Agent '%s' adding tool result to messages, role=tool, callID=%s", a.ID, tc.ID)
-		msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: r})
+		
+		// Fix: Ensure empty tool results are interpreted as success by the model
+		toolResult := r
+		if strings.TrimSpace(r) == "" {
+			// For tools that succeed with no output, provide clear success feedback
+			switch tc.Name {
+			case "bash", "sh":
+				toolResult = "Command executed successfully."
+			case "create":
+				if path, ok := args["path"].(string); ok {
+					toolResult = fmt.Sprintf("File '%s' created successfully.", path)
+				} else {
+					toolResult = "File created successfully."
+				}
+			case "edit_range", "search_replace":
+				toolResult = "File edited successfully."
+			default:
+				toolResult = "Operation completed successfully."
+			}
+		}
+		
+		msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: toolResult})
 	}
 	debug.Printf("Agent.Run: executeToolCalls completed, returning %d messages, hadErrors=%v", len(msgs), hadErrors)
 	return msgs, hadErrors, nil
