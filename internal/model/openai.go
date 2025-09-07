@@ -10,8 +10,10 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/marcodenic/agentry/internal/debug"
+	"github.com/marcodenic/agentry/internal/env"
 )
 
 // OpenAI client implemented against /v1/responses (legacy chat completions removed).
@@ -23,7 +25,11 @@ type OpenAI struct {
 }
 
 func NewOpenAI(key, model string) *OpenAI {
-	return &OpenAI{key: key, model: model, client: http.DefaultClient}
+	// Create HTTP client with reasonable timeout
+	client := &http.Client{
+		Timeout: time.Duration(env.Int("AGENTRY_HTTP_TIMEOUT", 300)) * time.Second, // Default 5 minutes
+	}
+	return &OpenAI{key: key, model: model, client: client}
 }
 
 // Wire types for Responses API
@@ -164,7 +170,7 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 				continue
 			}
 			payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-			debug.Printf("OpenAI.Stream: payload=%q", payload)
+			// debug.Printf("OpenAI.Stream: payload=%q", payload) // Disabled: too verbose
 			if payload == "[DONE]" {
 				debug.Printf("OpenAI.Stream: [DONE], finalize (partials=%d responseCalls=%d)", len(partials), len(responseCalls))
 				finalizeOpenAI(partials, out, inTok, outTok, o.model)
@@ -237,11 +243,8 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 				if itemID, _ := env["item_id"].(string); itemID != "" {
 					if p, exists := responseCalls[itemID]; exists {
 						if delta, _ := env["delta"].(string); delta != "" {
-							// Filter out whitespace-only deltas
-							trimmed := strings.TrimSpace(delta)
-							if trimmed != "" {
-								p.Arguments = append(p.Arguments, []byte(delta)...)
-							}
+							// Always include deltas - whitespace may be important for JSON formatting
+							p.Arguments = append(p.Arguments, []byte(delta)...)
 						}
 					}
 				}
@@ -252,7 +255,7 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 						if args, _ := env["arguments"].(string); args != "" {
 							p.Arguments = []byte(args)
 						}
-						debug.Printf("OpenAI.Stream: Function call args done for %s", itemID)
+						debug.Printf("OpenAI.Stream: Function call args done for %s, args length: %d", itemID, len(p.Arguments))
 					}
 				}
 			case t == "response.completed":

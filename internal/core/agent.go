@@ -88,6 +88,14 @@ func getToolNames(reg tool.Registry) []string {
 
 // buildMessages creates the message chain for the agent (replaces context package)
 func (a *Agent) buildMessages(prompt, input string, history []memory.Step) []model.ChatMessage {
+	debug.Printf("=== buildMessages START ===")
+	debug.Printf("History length: %d steps", len(history))
+	for i, step := range history {
+		debug.Printf("  HISTORY[%d]: Output=%.100s..., ToolCalls=%d, ToolResults=%d", 
+			i, step.Output, len(step.ToolCalls), len(step.ToolResults))
+	}
+	debug.Printf("=== buildMessages processing ===")
+	
 	// Always wrap the system prompt into simple sections (no SOP injection)
 	// Build extras sections for the prompt envelope
 	extras := map[string]string{}
@@ -121,15 +129,23 @@ func (a *Agent) buildMessages(prompt, input string, history []memory.Step) []mod
 	// while preventing exponential growth. Most agents only need the immediate context.
 	if len(history) > 0 {
 		lastStep := history[len(history)-1]
+		debug.Printf("Including LAST history step in messages:")
+		debug.Printf("  Output: %.200s...", lastStep.Output)
+		debug.Printf("  ToolCalls: %d", len(lastStep.ToolCalls))
+		debug.Printf("  ToolResults: %d", len(lastStep.ToolResults))
+		
 		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: lastStep.Output, ToolCalls: lastStep.ToolCalls})
 		for id, res := range lastStep.ToolResults {
 			// Truncate large tool results to prevent context bloat
 			truncatedRes := res
 			if len(res) > 2048 {
 				truncatedRes = res[:2048] + "...\n[TRUNCATED: originally " + fmt.Sprintf("%d", len(res)) + " bytes]"
+				debug.Printf("  TRUNCATED tool result %s: %d -> %d chars", id, len(res), len(truncatedRes))
 			}
 			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: id, Content: truncatedRes})
 		}
+	} else {
+		debug.Printf("No history to include in messages")
 	}
 
 	msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})
@@ -368,12 +384,27 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	debug.Printf("Agent.Run: About to call model client with model %s", a.ModelName)
 	debug.Printf("Agent.Run: ENTERING MAIN LOOP NOW - BEFORE FOR LOOP")
 
-	// DEBUG: Print the full system prompt that will be sent to the API
-	if len(msgs) > 0 && msgs[0].Role == "system" {
-		debug.Printf("=== FULL SYSTEM PROMPT (sanitized) ===")
-		debug.Printf("%s", sanitizeForLog(msgs[0].Content))
-		debug.Printf("=== END SYSTEM PROMPT ===")
+	// DEBUG: Print ALL messages that will be sent to the API
+	debug.Printf("=== FULL MESSAGE PAYLOAD TO API ===")
+	totalChars := 0
+	for i, msg := range msgs {
+		msgSize := len(msg.Content)
+		totalChars += msgSize
+		debug.Printf("[MSG %d] Role: %s, Size: %d chars, ToolCalls: %d", i, msg.Role, msgSize, len(msg.ToolCalls))
+		if msg.Role == "system" {
+			debug.Printf("  SYSTEM CONTENT (first 500 chars): %.500s...", msg.Content)
+		} else if msg.Role == "user" {
+			debug.Printf("  USER CONTENT: %s", msg.Content)
+		} else if msg.Role == "assistant" {
+			debug.Printf("  ASSISTANT CONTENT: %.200s...", msg.Content)
+			for j, tc := range msg.ToolCalls {
+				debug.Printf("    TOOL_CALL[%d]: %s(%s)", j, tc.Name, string(tc.Arguments))
+			}
+		} else if msg.Role == "tool" {
+			debug.Printf("  TOOL RESULT (ID: %s): %.200s...", msg.ToolCallID, msg.Content)
+		}
 	}
+	debug.Printf("=== TOTAL PAYLOAD: %d messages, %d total chars ===", len(msgs), totalChars)
 
 	// DEBUG: Print available tool specs
 	debug.Printf("=== AVAILABLE TOOLS ===")
@@ -457,19 +488,27 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		var modelNameUsed string
 		firstTokenRecorded := false
 		var sb strings.Builder
+		
+		debug.Printf("Agent.Run: Starting to read from stream channel")
+		chunkCount := 0
 		for chunk := range streamCh {
+			chunkCount++
+			debug.Printf("Agent.Run: Received chunk %d", chunkCount)
 			if chunk.Err != nil {
+				debug.Printf("Agent.Run: Chunk error: %v", chunk.Err)
 				return "", chunk.Err
 			}
 			if chunk.ContentDelta != "" {
 				sb.WriteString(chunk.ContentDelta)
 				if !firstTokenRecorded {
 					firstTokenRecorded = true
+					debug.Printf("Agent.Run: First token received")
 				}
 				// Emit raw delta for TUI-side smoothing
 				a.Trace(ctx, trace.EventToken, chunk.ContentDelta)
 			}
 			if chunk.Done {
+				debug.Printf("Agent.Run: Received final chunk (Done=true)")
 				finalToolCalls = chunk.ToolCalls
 				if chunk.InputTokens > 0 {
 					inputTokensUsed = chunk.InputTokens
@@ -482,7 +521,10 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 				}
 			}
 		}
+		
+		debug.Printf("Agent.Run: Stream reading completed with %d chunks", chunkCount)
 		assembled = sb.String()
+		debug.Printf("Agent.Run: Assembled response length: %d chars", len(assembled))
 
 		// After streaming, treat result as a single completion
 		res := model.Completion{Content: assembled, ToolCalls: finalToolCalls, InputTokens: inputTokensUsed, OutputTokens: outputTokensUsed, ModelName: func() string {
@@ -563,6 +605,8 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 		// Check for repeated identical tool calls to prevent infinite loops
 		if len(res.ToolCalls) > 0 {
+			debug.Printf("Agent.Run: Processing %d tool calls for duplicate detection", len(res.ToolCalls))
+			
 			// Create signature for this batch of tool calls
 			for _, tc := range res.ToolCalls {
 				// Serialize args to string for comparison
@@ -571,6 +615,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 					Name: tc.Name,
 					Args: string(argsBytes),
 				}
+				debug.Printf("Agent.Run: Tool call signature: %s(%s)", signature.Name, signature.Args)
 
 				// Add to recent calls (maintain sliding window)
 				recentToolCalls = append(recentToolCalls, signature)
@@ -580,14 +625,16 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 				// Count identical calls in recent history
 				identicalCount := 0
-				for _, recent := range recentToolCalls {
+				for j, recent := range recentToolCalls {
 					if recent.Name == signature.Name && recent.Args == signature.Args {
 						identicalCount++
+						debug.Printf("Agent.Run: Found identical call at position %d: %s(%s)", j, recent.Name, recent.Args)
 					}
 				}
+				debug.Printf("Agent.Run: Tool %s has %d identical calls in recent history (max=%d)", signature.Name, identicalCount, maxIdenticalCalls)
 
 				if identicalCount >= maxIdenticalCalls {
-					debug.Printf("Agent.Run: Detected repeated tool call (%s) %d times, breaking loop", tc.Name, identicalCount)
+					debug.Printf("Agent.Run: BREAKING LOOP - Detected repeated tool call (%s) %d times", tc.Name, identicalCount)
 					return fmt.Sprintf("Task completed. Detected repeated tool execution (%s), stopping to prevent infinite loop.", tc.Name), nil
 				}
 			}

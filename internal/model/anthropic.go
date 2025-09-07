@@ -29,7 +29,11 @@ type Anthropic struct {
 }
 
 func NewAnthropic(key, model string) *Anthropic {
-	return &Anthropic{key: key, model: model, client: http.DefaultClient}
+	// Create HTTP client with reasonable timeout
+	client := &http.Client{
+		Timeout: time.Duration(env.Int("AGENTRY_HTTP_TIMEOUT", 300)) * time.Second, // Default 5 minutes
+	}
+	return &Anthropic{key: key, model: model, client: client}
 }
 
 // Stream implements proper Anthropic streaming API

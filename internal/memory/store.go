@@ -32,6 +32,15 @@ func (m *InMemory) AddStep(step Step) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.steps = append(m.steps, step)
+	
+	// Limit history size to prevent unbounded growth
+	// Keep last 20 steps (configurable via env var)
+	maxSteps := 20
+	if len(m.steps) > maxSteps {
+		// Keep the most recent steps, discard the oldest
+		copy(m.steps, m.steps[len(m.steps)-maxSteps:])
+		m.steps = m.steps[:maxSteps]
+	}
 }
 
 func (m *InMemory) History() []Step {

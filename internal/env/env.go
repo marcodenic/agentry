@@ -1,6 +1,7 @@
 package env
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -73,4 +74,28 @@ func Float(key string, def float64) float64 {
 		}
 	}
 	return def
+}
+
+// WarnDeprecatedEnvVars checks for deprecated AGENTRY_* environment variables
+// and prints deprecation warnings to stderr. Returns a slice of warned variable names.
+func WarnDeprecatedEnvVars() []string {
+	var warned []string
+	
+	for _, env := range os.Environ() {
+		// Split on first '=' to get key=value
+		parts := strings.SplitN(env, "=", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		
+		key := parts[0]
+		
+		// Check if it starts with AGENTRY_ but is not exactly AGENTRY_CONFIG
+		if strings.HasPrefix(key, "AGENTRY_") && key != "AGENTRY_CONFIG" {
+			fmt.Fprintf(os.Stderr, "Deprecation: environment variable %s is deprecated and ignored. Use YAML config; AGENTRY_CONFIG is the only supported env var.\n", key)
+			warned = append(warned, key)
+		}
+	}
+	
+	return warned
 }
