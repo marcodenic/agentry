@@ -271,16 +271,23 @@ func (a *Agent) applyBudget(msgs []model.ChatMessage, specs []model.ToolSpec) []
 
 // toolNames returns cached tool names for this agent (compute once)
 func (a *Agent) toolNames() []string {
+	debug.Printf("toolNames: Attempting RLock")
 	a.toolNamesMu.RLock()
+	debug.Printf("toolNames: Acquired RLock")
 	cached := a.cachedToolNames
 	a.toolNamesMu.RUnlock()
+	debug.Printf("toolNames: Released RLock, cached=%v", cached != nil)
 	if cached != nil {
 		return cached
 	}
+	debug.Printf("toolNames: Cache miss, calling getToolNames")
 	names := getToolNames(a.Tools)
+	debug.Printf("toolNames: getToolNames returned %d names, attempting Lock", len(names))
 	a.toolNamesMu.Lock()
+	debug.Printf("toolNames: Acquired Lock")
 	a.cachedToolNames = names
 	a.toolNamesMu.Unlock()
+	debug.Printf("toolNames: Released Lock, returning %d names", len(names))
 	return names
 }
 
@@ -359,6 +366,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 	debug.Printf("Agent.Run: Built %d messages (post-trim), %d tool specs", len(msgs), len(specs))
 	debug.Printf("Agent.Run: About to call model client with model %s", a.ModelName)
+	debug.Printf("Agent.Run: ENTERING MAIN LOOP NOW - BEFORE FOR LOOP")
 
 	// DEBUG: Print the full system prompt that will be sent to the API
 	if len(msgs) > 0 && msgs[0].Role == "system" {
@@ -376,7 +384,10 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 	// DEBUG: Print available tool names from registry
 	debug.Printf("=== AVAILABLE TOOL NAMES ===")
-	for _, name := range a.toolNames() {
+	debug.Printf("About to call a.toolNames() - BEFORE MUTEX")
+	toolNames := a.toolNames()
+	debug.Printf("Returned from a.toolNames() - AFTER MUTEX, got %d names", len(toolNames))
+	for _, name := range toolNames {
 		debug.Printf("Tool: %s", name)
 	}
 	debug.Printf("=== END TOOL NAMES ===")
@@ -398,6 +409,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	// Iteration cap: prevent infinite loops while allowing reasonable work
 	maxIter := env.Int("AGENTRY_MAX_ITER", 50) // Default to 50 iterations max
 	for i := 0; ; i++ {
+		debug.Printf("Agent.Run: *** ITERATION %d START ***", i)
 		if maxIter > 0 && i >= maxIter {
 			return "", fmt.Errorf("iteration cap reached (%d)", maxIter)
 		}
@@ -429,7 +441,9 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		for j, msg := range msgs {
 			debug.Printf("  MSG[%d] Role:%s ToolCalls:%d Content:%.150s...", j, msg.Role, len(msg.ToolCalls), msg.Content)
 		}
+		debug.Printf("Agent.Run: CALLING MODEL CLIENT NOW - BEFORE STREAM")
 		streamCh, sErr := a.Client.Stream(ctx, msgs, specs)
+		debug.Printf("Agent.Run: MODEL CLIENT RETURNED - AFTER STREAM, err=%v", sErr)
 		if sErr != nil {
 			return "", sErr
 		}
@@ -594,7 +608,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			msgs = append(msgs, toolMsgs...)
 			completionCheck := model.ChatMessage{
 				Role: "system", 
-				Content: "You have executed the requested tools successfully. Based on the results, is the user's task now complete? If yes, respond with just the final result or summary. If no, continue with additional tool calls as needed.",
+				Content: "TASK COMPLETION CHECK: You have successfully executed tools. The user's task appears to be complete based on the tool outputs. Unless you need to execute additional tools for missing functionality, respond with ONLY a final summary - no more tool calls. Only call tools if something is genuinely missing or failed.",
 			}
 			msgs = append(msgs, completionCheck)
 			
