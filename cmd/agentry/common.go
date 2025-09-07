@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/marcodenic/agentry/internal/config"
+	"github.com/marcodenic/agentry/internal/debug"
 )
 
 type commonOpts struct {
@@ -99,9 +100,9 @@ func parseCommon(name string, args []string) (*commonOpts, []string) {
 }
 
 func applyOverrides(cfg *config.File, o *commonOpts) {
-	// Handle debug flag by setting environment variable
+	// Handle debug flag by enabling debug output dynamically
 	if o.debug {
-		os.Setenv("AGENTRY_DEBUG", "1")
+		debug.EnableDebug()
 	}
 
 	// Handle tool filtering flags by modifying config directly

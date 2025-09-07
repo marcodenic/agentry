@@ -64,6 +64,15 @@ func IsCommLogEnabled() bool {
 	return debugLevel == "trace" || os.Getenv("AGENTRY_COMM_LOG") == "1"
 }
 
+// EnableDebug dynamically enables debug output at runtime
+func EnableDebug() {
+	DebugEnabled = true
+	debugLevel = "debug"
+	if DebugLogger == nil || DebugLogger.Writer() == io.Discard {
+		DebugLogger = log.New(os.Stderr, "[DEBUG] ", log.LstdFlags)
+	}
+}
+
 // SetTUIMode disables debug output to avoid interfering with TUI
 func SetTUIMode(enabled bool) {
 	if enabled && DebugEnabled {

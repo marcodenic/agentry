@@ -10,13 +10,13 @@ import (
 // RegisterAgentTool registers the "agent" tool with the given tool registry.
 // This must be called after creating the team to avoid import cycles.
 func (t *Team) RegisterAgentTool(registry tool.Registry) {
-	// Wrap delegation tool as terminal: its result is typically the final answer.
-	registry["agent"] = tool.MarkTerminal(tool.NewWithSchema(
+	// Don't mark as terminal to allow the coordinating agent to provide a final response
+	registry["agent"] = tool.NewWithSchema(
 		"agent",
 		"Delegate work to another agent",
 		agentToolSchema(),
 		agentDelegationExec(t),
-	))
+	)
 }
 
 // GetAgentToolSpec returns the tool specification for the agent tool
@@ -24,12 +24,12 @@ func (t *Team) RegisterAgentTool(registry tool.Registry) {
 func GetAgentToolSpec() tool.Tool {
 	// Provide the same permissive schema and alias handling used by RegisterAgentTool.
 	// Requires a Team in context at execution time.
-	return tool.MarkTerminal(tool.NewWithSchema(
+	return tool.NewWithSchema(
 		"agent",
 		"Delegate work to another agent",
 		agentToolSchema(),
 		agentDelegationExec(nil),
-	))
+	)
 }
 
 // agentToolSchema returns a permissive schema accepting common alias keys.
@@ -46,8 +46,8 @@ func agentToolSchema() map[string]any {
 			"query":        map[string]any{"type": "string", "description": "Alias for input"},
 			"instructions": map[string]any{"type": "string", "description": "Alias for input"},
 		},
-		// Keep schema permissive; runtime resolves aliases
-		"required": []string{},
+		// Only require one agent name and one input field - let runtime resolve aliases
+		"required": []string{"agent", "input"},
 	}
 }
 

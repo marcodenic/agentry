@@ -100,6 +100,8 @@ func (o *OpenAI) buildRequest(ctx context.Context, msgs []ChatMessage, tools []T
 	body := map[string]any{"model": o.model, "input": buildOAInput(msgs)}
 	if len(tools) > 0 {
 		body["tools"] = buildOATools(tools)
+		// Set tool_choice to "auto" to allow model to choose between tools and text responses
+		body["tool_choice"] = "auto"
 	}
 	if stream {
 		body["stream"] = true
