@@ -1,14 +1,14 @@
 package core
 
 import (
-    "context"
-    "encoding/json"
-    "fmt"
-    "os"
-    "regexp"
-    "sort"
-    "strings"
-    "sync"
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"regexp"
+	"sort"
+	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/cost"
@@ -16,7 +16,7 @@ import (
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-    promptpkg "github.com/marcodenic/agentry/internal/prompt"
+	promptpkg "github.com/marcodenic/agentry/internal/prompt"
 	"github.com/marcodenic/agentry/internal/sop"
 	"github.com/marcodenic/agentry/internal/tokens"
 	"github.com/marcodenic/agentry/internal/tool"
@@ -88,33 +88,33 @@ func getToolNames(reg tool.Registry) []string {
 
 // buildMessages creates the message chain for the agent (replaces context package)
 func (a *Agent) buildMessages(prompt, input string, history []memory.Step) []model.ChatMessage {
-    // Always wrap the system prompt into simple sections (no SOP injection)
-    // Build extras sections for the prompt envelope
-    extras := map[string]string{}
-    if a.Vars != nil {
-        if s, ok := a.Vars["AGENTS_SECTION"]; ok {
-            extras["agents"] = s
-        }
-    }
+	// Always wrap the system prompt into simple sections (no SOP injection)
+	// Build extras sections for the prompt envelope
+	extras := map[string]string{}
+	if a.Vars != nil {
+		if s, ok := a.Vars["AGENTS_SECTION"]; ok {
+			extras["agents"] = s
+		}
+	}
 
-    // Add OS/platform guidance as part of tools section
-    // Compose allowedBuiltins from registry and a standard set of command examples.
-    {
-        names := make([]string, 0, len(a.Tools))
-        for n := range a.Tools {
-            names = append(names, n)
-        }
-        sort.Strings(names)
-        allowedCommands := []string{"list", "view", "write", "run", "search", "find", "cwd", "env"}
-        guidance := GetPlatformContext(allowedCommands, names)
-        if strings.TrimSpace(guidance) != "" {
-            extras["tool_guidance"] = guidance
-        }
-    }
-    // Placeholders for optional sections users might want to see; keep minimal by default
-    // extras["output-format"] = "" // left empty unless explicitly provided by templates/config
-    prompt = promptpkg.Sectionize(prompt, a.Tools, extras)
-	
+	// Add OS/platform guidance as part of tools section
+	// Compose allowedBuiltins from registry and a standard set of command examples.
+	{
+		names := make([]string, 0, len(a.Tools))
+		for n := range a.Tools {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		allowedCommands := []string{"list", "view", "write", "run", "search", "find", "cwd", "env"}
+		guidance := GetPlatformContext(allowedCommands, names)
+		if strings.TrimSpace(guidance) != "" {
+			extras["tool_guidance"] = guidance
+		}
+	}
+	// Placeholders for optional sections users might want to see; keep minimal by default
+	// extras["output-format"] = "" // left empty unless explicitly provided by templates/config
+	prompt = promptpkg.Sectionize(prompt, a.Tools, extras)
+
 	msgs := []model.ChatMessage{{Role: "system", Content: prompt}}
 
 	// Include only the most recent history step to maintain tool call context
@@ -139,11 +139,11 @@ func (a *Agent) buildMessages(prompt, input string, history []memory.Step) []mod
 // buildSOPContext creates context for SOP evaluation
 func (a *Agent) buildSOPContext(input string, history []memory.Step) map[string]string {
 	context := make(map[string]string)
-	
+
 	// Basic context
 	context["role"] = a.Role
 	context["iteration_count"] = fmt.Sprintf("%d", len(history))
-	
+
 	// Check for errors in recent history
 	errorCount := 0
 	for i := len(history) - 3; i < len(history) && i >= 0; i++ {
@@ -157,25 +157,25 @@ func (a *Agent) buildSOPContext(input string, history []memory.Step) map[string]
 		context["error_occurred"] = "true"
 		context["recent_errors"] = fmt.Sprintf("%d", errorCount)
 	}
-	
+
 	// Check if JSON output is requested
 	if strings.Contains(strings.ToLower(input), "json") {
 		context["output_format"] = "json"
 	}
-	
+
 	// Check for testing context
-	if strings.Contains(strings.ToLower(input), "test") || 
-	   strings.Contains(strings.ToLower(a.Prompt), "test") {
+	if strings.Contains(strings.ToLower(input), "test") ||
+		strings.Contains(strings.ToLower(a.Prompt), "test") {
 		context["testing"] = "true"
 	}
-	
+
 	// Check for code modification context
 	if strings.Contains(strings.ToLower(input), "code") ||
-	   strings.Contains(strings.ToLower(input), "edit") ||
-	   strings.Contains(strings.ToLower(input), "modify") {
+		strings.Contains(strings.ToLower(input), "edit") ||
+		strings.Contains(strings.ToLower(input), "modify") {
 		context["code_modification"] = "true"
 	}
-	
+
 	return context
 }
 
@@ -291,24 +291,6 @@ func (a *Agent) InvalidateToolCache() { //lint:ignore U1000 exported for interna
 	a.toolNamesMu.Unlock()
 }
 
-// allToolCallsTerminal returns true if every tool call corresponds to a tool
-// implementing a Terminal() bool method (avoids direct import dep on tool.TerminalAware).
-func (a *Agent) allToolCallsTerminal(calls []model.ToolCall) bool {
-	if len(calls) == 0 {
-		return false
-	}
-	for _, tc := range calls {
-		t, ok := a.Tools.Use(tc.Name)
-		if !ok {
-			return false
-		}
-		if ta, ok := t.(interface{ Terminal() bool }); !ok || !ta.Terminal() {
-			return false
-		}
-	}
-	return true
-}
-
 var redactPatterns = []*regexp.Regexp{
 	// OpenAI style keys
 	regexp.MustCompile(`sk-[A-Za-z0-9]{16,}`),
@@ -335,10 +317,10 @@ func sanitizeForLog(s string) string {
 func New(client model.Client, modelName string, reg tool.Registry, mem memory.Store, vec memory.VectorStore, tr trace.Writer) *Agent {
 	budgetTokens := env.Int("AGENTRY_BUDGET_TOKENS", 0)
 	budgetDollars := env.Float("AGENTRY_BUDGET_DOLLARS", 0)
-	
+
 	sopRegistry := sop.NewSOPRegistry()
 	sopRegistry.LoadDefaultSOPs()
-	
+
 	return &Agent{
 		ID:            uuid.New(),
 		Tools:         reg,
@@ -367,7 +349,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	if prompt == "" {
 		prompt = defaultPrompt()
 	}
-    // Skip legacy platform/tool guidance injection to avoid duplication.
+	// Skip legacy platform/tool guidance injection to avoid duplication.
 	prompt = applyVars(prompt, a.Vars)
 
 	specs := tool.BuildSpecs(a.Tools)
@@ -603,33 +585,22 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			return "", execErr
 		}
 
-		// Structural finalization: if all executed tools are terminal and no errors
-		// occurred, finalize with their combined outputs.
-		if !hadErrors && a.allToolCallsTerminal(res.ToolCalls) && len(toolMsgs) > 0 {
-			var b strings.Builder
-			for _, m := range toolMsgs {
-				if m.Role == "tool" && strings.TrimSpace(m.Content) != "" {
-					if b.Len() > 0 {
-						b.WriteString("\n")
-					}
-					b.WriteString(m.Content)
-				}
+		// Model-based completion check: if tools executed successfully, ask the model 
+		// if the task is complete rather than continuing indefinitely
+		if !hadErrors && len(toolMsgs) > 0 {
+			debug.Printf("Agent.Run: Checking for task completion after %d iterations", i+1)
+			
+			// Add tool results and ask for completion assessment
+			msgs = append(msgs, toolMsgs...)
+			completionCheck := model.ChatMessage{
+				Role: "system", 
+				Content: "You have executed the requested tools successfully. Based on the results, is the user's task now complete? If yes, respond with just the final result or summary. If no, continue with additional tool calls as needed.",
 			}
-			out := strings.TrimSpace(b.String())
-			if out != "" {
-				debug.Printf("Agent.Run: Finalizing after terminal tool calls (%d tools, %d chars output)", len(res.ToolCalls), len(out))
-
-				// Validate final agent output
-				if err := a.JSONValidator.ValidateAgentOutput(out); err != nil {
-					debug.Printf("Agent.Run: Agent output validation failed: %v", err)
-					return fmt.Sprintf("Agent completed task but output validation failed: %v", err), nil
-				}
-
-				a.Mem.AddStep(step)
-				_ = a.Checkpoint(ctx)
-				a.Trace(ctx, trace.EventFinal, out)
-				return out, nil
-			}
+			msgs = append(msgs, completionCheck)
+			
+			a.Mem.AddStep(step)
+			_ = a.Checkpoint(ctx)
+			continue // Let the model decide whether to finalize or continue
 		}
 		msgs = append(msgs, toolMsgs...)
 		a.Mem.AddStep(step)
@@ -658,7 +629,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, step memory.Step) ([]model.ChatMessage, bool, error) {
 	var msgs []model.ChatMessage
 	hadErrors := false
-    for _, tc := range calls {
+	for _, tc := range calls {
 		select { // cancellation between tools
 		case <-ctx.Done():
 			return msgs, hadErrors, ctx.Err()
