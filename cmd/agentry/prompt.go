@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/marcodenic/agentry/internal/config"
-	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/trace"
@@ -62,12 +62,25 @@ func runPromptWithOpts(prompt string, opts *commonOpts) {
 			debug.Printf("Failed to load Agent 0 role from %s: %v", agent0RolePath, err)
 		}
 
-		// CRITICAL: Enhance Agent0 prompt with available roles information
-		if ag.Prompt != "" {
-			availableRoles := teamCtx.AvailableRoleNames()
-			ag.Prompt = core.InjectAvailableRoles(ag.Prompt, availableRoles)
-			debug.Printf("Agent 0 enhanced with %d available roles", len(availableRoles))
-		}
+        // Provide available roles to the sectionized prompt as a dedicated <agents> section
+        if ag.Prompt != "" {
+            availableRoles := teamCtx.AvailableRoleNames()
+            // Deterministic order
+            sort.Strings(availableRoles)
+            var sb strings.Builder
+            sb.WriteString("AVAILABLE AGENTS: You can delegate tasks to these specialized agents using the 'agent' tool:\n\n")
+            for _, role := range availableRoles {
+                if role == "agent_0" { // don't list ourselves
+                    continue
+                }
+                sb.WriteString(role)
+                sb.WriteString("\n")
+            }
+            sb.WriteString("\nExample delegation: {\"agent\": \"coder\", \"input\": \"create a hello world program\"}")
+            if ag.Vars == nil { ag.Vars = map[string]string{} }
+            ag.Vars["AGENTS_SECTION"] = sb.String()
+            debug.Printf("Agent 0 agents section populated with %d roles", len(availableRoles))
+        }
 
 		// Register the agent delegation tool to replace the placeholder
 		teamCtx.RegisterAgentTool(ag.Tools)

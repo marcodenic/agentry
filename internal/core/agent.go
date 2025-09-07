@@ -16,6 +16,7 @@ import (
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
+    promptpkg "github.com/marcodenic/agentry/internal/prompt"
 	"github.com/marcodenic/agentry/internal/sop"
 	"github.com/marcodenic/agentry/internal/tokens"
 	"github.com/marcodenic/agentry/internal/tool"
@@ -87,14 +88,32 @@ func getToolNames(reg tool.Registry) []string {
 
 // buildMessages creates the message chain for the agent (replaces context package)
 func (a *Agent) buildMessages(prompt, input string, history []memory.Step) []model.ChatMessage {
-	// Inject SOPs into the prompt based on current context
-	context := a.buildSOPContext(input, history)
-	sopPrompt := a.SOPs.FormatSOPsAsPrompt(a.Role, context)
-	
-	// Combine original prompt with SOPs
-	if sopPrompt != "" {
-		prompt = prompt + "\n\n" + sopPrompt
-	}
+    // Always wrap the system prompt into simple sections (no SOP injection)
+    // Build extras sections for the prompt envelope
+    extras := map[string]string{}
+    if a.Vars != nil {
+        if s, ok := a.Vars["AGENTS_SECTION"]; ok {
+            extras["agents"] = s
+        }
+    }
+
+    // Add OS/platform guidance as part of tools section
+    // Compose allowedBuiltins from registry and a standard set of command examples.
+    {
+        names := make([]string, 0, len(a.Tools))
+        for n := range a.Tools {
+            names = append(names, n)
+        }
+        sort.Strings(names)
+        allowedCommands := []string{"list", "view", "write", "run", "search", "find", "cwd", "env"}
+        guidance := GetPlatformContext(allowedCommands, names)
+        if strings.TrimSpace(guidance) != "" {
+            extras["tool_guidance"] = guidance
+        }
+    }
+    // Placeholders for optional sections users might want to see; keep minimal by default
+    // extras["output-format"] = "" // left empty unless explicitly provided by templates/config
+    prompt = promptpkg.Sectionize(prompt, a.Tools, extras)
 	
 	msgs := []model.ChatMessage{{Role: "system", Content: prompt}}
 
@@ -348,11 +367,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	if prompt == "" {
 		prompt = defaultPrompt()
 	}
-	// Inject platform/tool guidance only once per agent (persist into Agent.Prompt)
-	if !strings.Contains(prompt, "<!-- PLATFORM_CONTEXT_START -->") {
-		prompt = InjectPlatformContextFromRegistry(prompt, a.Tools)
-		a.Prompt = prompt
-	}
+    // Skip legacy platform/tool guidance injection to avoid duplication.
 	prompt = applyVars(prompt, a.Vars)
 
 	specs := tool.BuildSpecs(a.Tools)
