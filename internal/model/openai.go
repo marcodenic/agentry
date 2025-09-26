@@ -212,6 +212,9 @@ func (o *OpenAI) buildRequest(ctx context.Context, msgs []ChatMessage, tools []T
 func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (<-chan StreamChunk, error) {
 	startTime := time.Now()
 	debug.Printf("OpenAI.Stream: START msgs=%d tools=%d", len(msgs), len(tools))
+	
+	// Log detailed model interaction start
+	debug.LogModelInteraction("openai", o.model, len(msgs), map[string]int{"input_estimated": estimateTokens(msgs)}, 0)
 
 	// Always use the create endpoint; when continuing, buildRequest will include previous_response_id
 	var req *http.Request
@@ -220,6 +223,11 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 	debug.Printf("OpenAI.Stream: buildRequest err=%v elapsed=%v", err, time.Since(startTime))
 	if err != nil {
 		debug.Printf("OpenAI.Stream: buildRequest failed: %v", err)
+		debug.LogEvent("MODEL", "request_build_failed", map[string]interface{}{
+			"provider": "openai",
+			"model": o.model,
+			"error": err.Error(),
+		})
 		return nil, err
 	}
 
@@ -244,6 +252,12 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 
 		if err != nil {
 			debug.Printf("OpenAI.Stream: HTTP request failed: %v", err)
+			debug.LogEvent("MODEL", "http_request_failed", map[string]interface{}{
+				"provider": "openai",
+				"model": o.model,
+				"error": err.Error(),
+				"duration": reqEndTime.Sub(reqStartTime).String(),
+			})
 			out <- StreamChunk{Err: err}
 			return
 		}
@@ -251,6 +265,12 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 		debug.Printf("OpenAI.Stream: status=%d headers=%v", resp.StatusCode, resp.Header)
 		if resp.StatusCode >= 300 {
 			body, _ := io.ReadAll(resp.Body)
+			debug.LogEvent("MODEL", "api_error", map[string]interface{}{
+				"provider": "openai",
+				"model": o.model,
+				"status": resp.StatusCode,
+				"response": string(body),
+			})
 			out <- StreamChunk{Err: errors.New(string(body))}
 			return
 		}
@@ -272,6 +292,12 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 
 			if ctx.Err() != nil {
 				debug.Printf("OpenAI.Stream: context error during scan: %v, elapsed=%v", ctx.Err(), time.Since(startTime))
+				debug.LogEvent("MODEL", "context_error", map[string]interface{}{
+					"provider": "openai",
+					"model": o.model,
+					"error": ctx.Err().Error(),
+					"lines_processed": lineCount,
+				})
 				out <- StreamChunk{Err: ctx.Err()}
 				return
 			}
@@ -287,6 +313,11 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 					o.previousResponseID = responseID
 					debug.Printf("OpenAI.Stream: Persisting response ID for next request: %s", responseID)
 				}
+				// Log successful completion
+				debug.LogModelInteraction("openai", o.model, len(msgs), map[string]int{
+					"input_tokens": inTok,
+					"output_tokens": outTok,
+				}, time.Since(startTime))
 				finalizeOpenAI(partials, out, inTok, outTok, o.model, responseID)
 				return
 			}
@@ -359,6 +390,13 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 								p := &partial{ToolCall: ToolCall{ID: callID, Name: name}, index: 0}
 								responseCalls[itemID] = p
 								debug.Printf("OpenAI.Stream: Added function call %s/%s", itemID, name)
+								debug.LogEvent("MODEL", "tool_call_start", map[string]interface{}{
+									"provider": "openai",
+									"model": o.model,
+									"item_id": itemID,
+									"call_id": callID,
+									"tool_name": name,
+								})
 							}
 						}
 					}
@@ -381,6 +419,13 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 							p.Arguments = []byte(args)
 						}
 						debug.Printf("OpenAI.Stream: Function call args done for %s, args length: %d", itemID, len(p.Arguments))
+						debug.LogEvent("MODEL", "tool_call_complete", map[string]interface{}{
+							"provider": "openai",
+							"model": o.model,
+							"item_id": itemID,
+							"tool_name": p.Name,
+							"args_length": len(p.Arguments),
+						})
 					}
 				}
 			case t == "response.completed":
@@ -398,6 +443,11 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 					o.previousResponseID = responseID
 					debug.Printf("OpenAI.Stream: Persisting response ID for next request: %s", responseID)
 				}
+				// Log successful completion
+				debug.LogModelInteraction("openai", o.model, len(msgs), map[string]int{
+					"input_tokens": inTok,
+					"output_tokens": outTok,
+				}, time.Since(startTime))
 				finalizeWithResponses(partials, responseCalls, out, inTok, outTok, o.model, responseID)
 				return
 			default: /* ignore */
@@ -406,6 +456,12 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 		scanEndTime := time.Now()
 		if err := scanner.Err(); err != nil {
 			debug.Printf("OpenAI.Stream: scanner error: %v scan_duration=%v total_elapsed=%v lines=%d", err, scanEndTime.Sub(scanStartTime), scanEndTime.Sub(startTime), lineCount)
+			debug.LogEvent("MODEL", "scanner_error", map[string]interface{}{
+				"provider": "openai",
+				"model": o.model,
+				"error": err.Error(),
+				"lines_processed": lineCount,
+			})
 			out <- StreamChunk{Err: err}
 		} else {
 			debug.Printf("OpenAI.Stream: scanner ended normally, finalize (partials=%d responseCalls=%d) scan_duration=%v total_elapsed=%v lines=%d", len(partials), len(responseCalls), scanEndTime.Sub(scanStartTime), scanEndTime.Sub(startTime), lineCount)
@@ -417,6 +473,16 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 		}
 	}()
 	return out, nil
+}
+
+// estimateTokens provides a rough token count estimate for logging
+func estimateTokens(msgs []ChatMessage) int {
+	total := 0
+	for _, msg := range msgs {
+		// Rough estimate: ~4 characters per token
+		total += len(msg.Content) / 4
+	}
+	return total
 }
 
 func finalizeOpenAI(partials map[int]*partial, out chan<- StreamChunk, inTok, outTok int, model string, responseID string) {

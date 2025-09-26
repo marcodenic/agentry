@@ -14,8 +14,12 @@ func isDebug() bool {
 	return d == "1" || d == "true"
 }
 
-// logToFile logs the message to a file (only if explicitly enabled and not in TUI mode)
+// logToFile logs the message to a file (always log important team events)
 func logToFile(message string) {
+	// Always log team communications to the debug system
+	debug.LogToFile("TEAM", "%s", message)
+	
+	// Legacy file logging for backward compatibility
 	if isTUI() {
 		return
 	}

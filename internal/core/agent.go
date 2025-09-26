@@ -751,6 +751,14 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 		} else {
 			debug.Printf("Agent '%s' executing tool '%s'", a.ID, tc.Name)
 		}
+
+		// Log tool call start with comprehensive details
+		debug.LogToolCall(tc.Name, args, "", nil) // Start - no result yet
+		debug.LogAgentAction(a.ID.String(), "tool_execution_start", map[string]interface{}{
+			"tool_name":    tc.Name,
+			"tool_call_id": tc.ID,
+			"args_count":   len(args),
+		})
 		a.Trace(ctx, trace.EventToolStart, map[string]any{"name": tc.Name, "args": args})
 
 		// Show tool execution to user (not just debug mode)
@@ -766,6 +774,17 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 
 		r, err := t.Execute(ctx, args)
 		debug.Printf("Agent '%s' tool '%s' execute completed, err=%v, result_length=%d", a.ID, tc.Name, err, len(r))
+		
+		// Log detailed tool execution result
+		debug.LogToolCall(tc.Name, args, r, err)
+		debug.LogAgentAction(a.ID.String(), "tool_execution_complete", map[string]interface{}{
+			"tool_name":       tc.Name,
+			"tool_call_id":    tc.ID,
+			"success":         err == nil,
+			"result_length":   len(r),
+			"has_error":       err != nil,
+		})
+		
 		if err != nil {
 			debug.Printf("Agent '%s' tool '%s' failed: %v", a.ID, tc.Name, err)
 
