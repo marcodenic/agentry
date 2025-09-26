@@ -35,7 +35,7 @@ func NewPerformanceWriter(w io.Writer) *PerformanceWriter {
 	// In Go 1.25, JSON encoding is significantly faster
 	// Pre-configure encoder for optimal performance
 	pw.encoder.SetEscapeHTML(false) // Faster when HTML escaping not needed
-	
+
 	return pw
 }
 
@@ -70,10 +70,10 @@ func (pw *PerformanceWriter) GetMetrics() map[string]interface{} {
 	totalEncodeTime := pw.writeMetrics["total_encode_time_ns"]
 
 	metrics := map[string]interface{}{
-		"total_writes":        totalWrites,
-		"total_encode_time":   time.Duration(totalEncodeTime),
-		"go_version":          runtime.Version(),
-		"go125_improvements":  "JSON encoding performance enhanced",
+		"total_writes":       totalWrites,
+		"total_encode_time":  time.Duration(totalEncodeTime),
+		"go_version":         runtime.Version(),
+		"go125_improvements": "JSON encoding performance enhanced",
 	}
 
 	if totalWrites > 0 {
@@ -115,7 +115,7 @@ type ContainerAwareWriter struct {
 func NewContainerAwareWriter(w Writer) *ContainerAwareWriter {
 	// Go 1.25: GOMAXPROCS is now container-aware by default
 	maxProcs := runtime.GOMAXPROCS(0)
-	
+
 	return &ContainerAwareWriter{
 		Writer:        w,
 		maxProcs:      maxProcs,
@@ -129,13 +129,13 @@ func (caw *ContainerAwareWriter) Write(ctx context.Context, e Event) {
 	if enhancedEvent.Data == nil {
 		enhancedEvent.Data = make(map[string]interface{})
 	}
-	
+
 	// Add Go 1.25 container awareness metadata
 	if dataMap, ok := enhancedEvent.Data.(map[string]interface{}); ok {
 		dataMap["go125_gomaxprocs"] = caw.maxProcs
 		dataMap["container_aware"] = true
 	}
-	
+
 	caw.Writer.Write(ctx, enhancedEvent)
 }
 

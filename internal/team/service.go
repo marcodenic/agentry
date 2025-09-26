@@ -30,7 +30,7 @@ func (t *Team) AvailableRoleNames() []string { return t.ListRoleNames() }
 
 // DelegateTask delegates a task to a role (spawning if needed)
 func (t *Team) DelegateTask(ctx context.Context, role, task string) (string, error) {
-    return t.Call(ctx, role, task)
+	return t.Call(ctx, role, task)
 }
 
 // GetCoordinationHistory returns coordination event history

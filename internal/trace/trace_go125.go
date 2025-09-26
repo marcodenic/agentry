@@ -17,24 +17,24 @@ type JSONLWriterV2 struct {
 	w  io.Writer
 }
 
-func NewJSONLV2(w io.Writer) *JSONLWriterV2 { 
-	return &JSONLWriterV2{w: w} 
+func NewJSONLV2(w io.Writer) *JSONLWriterV2 {
+	return &JSONLWriterV2{w: w}
 }
 
 func (j *JSONLWriterV2) Write(_ context.Context, e Event) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	
+
 	// Go 1.25: When GOEXPERIMENT=jsonv2 is enabled, encoding/json uses the new
 	// implementation which provides substantially better performance
 	enc := json.NewEncoder(j.w)
-	
+
 	// For high-frequency trace events, use the optimized JSON encoder
 	if err := enc.Encode(e); err != nil {
 		log.Printf("trace encode error: %v", err)
 		return
 	}
-	
+
 	if fl, ok := j.w.(http.Flusher); ok {
 		fl.Flush()
 	}
@@ -55,19 +55,19 @@ func NewBatchJSONL(w io.Writer, batchSize int, flushInterval time.Duration) *Bat
 		events: make([]Event, 0, batchSize),
 		size:   batchSize,
 	}
-	
+
 	// Flush periodically
 	b.timer = time.AfterFunc(flushInterval, b.flushBatch)
-	
+
 	return b
 }
 
 func (b *BatchJSONLWriter) Write(_ context.Context, e Event) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	b.events = append(b.events, e)
-	
+
 	if len(b.events) >= b.size {
 		b.flushBatchLocked()
 	}
@@ -83,7 +83,7 @@ func (b *BatchJSONLWriter) flushBatchLocked() {
 	if len(b.events) == 0 {
 		return
 	}
-	
+
 	// Go 1.25: Batch encoding benefits significantly from the new JSON implementation
 	enc := json.NewEncoder(b.w)
 	for _, event := range b.events {
@@ -91,14 +91,14 @@ func (b *BatchJSONLWriter) flushBatchLocked() {
 			log.Printf("batch trace encode error: %v", err)
 		}
 	}
-	
+
 	if fl, ok := b.w.(http.Flusher); ok {
 		fl.Flush()
 	}
-	
+
 	// Reset batch
 	b.events = b.events[:0]
-	
+
 	// Reset timer
 	b.timer.Reset(time.Minute)
 }
@@ -106,11 +106,11 @@ func (b *BatchJSONLWriter) flushBatchLocked() {
 func (b *BatchJSONLWriter) Close() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	if b.timer != nil {
 		b.timer.Stop()
 	}
-	
+
 	b.flushBatchLocked()
 }
 
@@ -137,18 +137,18 @@ func (s *HighPerformanceSSEWriter) Write(_ context.Context, e Event) {
 		log.Printf("trace marshal error: %v", err)
 		return
 	}
-	
+
 	// Reuse buffer to avoid allocations
 	s.buffer = s.buffer[:0]
 	s.buffer = append(s.buffer, "data: "...)
 	s.buffer = append(s.buffer, b...)
 	s.buffer = append(s.buffer, "\n\n"...)
-	
+
 	if _, err := s.w.Write(s.buffer); err != nil {
 		log.Printf("trace write error: %v", err)
 		return
 	}
-	
+
 	if s.fl != nil {
 		s.fl.Flush()
 	}
