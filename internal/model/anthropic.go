@@ -36,6 +36,22 @@ func NewAnthropic(key, model string) *Anthropic {
 	return &Anthropic{key: key, model: model, client: client}
 }
 
+// Clone returns a fresh Anthropic client with shared credentials but
+// isolated HTTP state.
+func (a *Anthropic) Clone() Client {
+	if a == nil {
+		return nil
+	}
+	return &Anthropic{
+		key:         a.key,
+		model:       a.model,
+		temperature: a.temperature,
+		client: &http.Client{
+			Timeout: time.Duration(defaultHTTPTimeout) * time.Second,
+		},
+	}
+}
+
 // Stream implements proper Anthropic streaming API
 func (a *Anthropic) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (<-chan StreamChunk, error) {
 	if a.key == "" {

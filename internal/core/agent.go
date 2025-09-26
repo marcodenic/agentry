@@ -255,23 +255,22 @@ func (a *Agent) applyBudget(msgs []model.ChatMessage, specs []model.ToolSpec) []
 
 // toolNames returns cached tool names for this agent (compute once)
 func (a *Agent) toolNames() []string {
-	debug.Printf("toolNames: Attempting RLock")
 	a.toolNamesMu.RLock()
-	debug.Printf("toolNames: Acquired RLock")
 	cached := a.cachedToolNames
 	a.toolNamesMu.RUnlock()
-	debug.Printf("toolNames: Released RLock, cached=%v", cached != nil)
 	if cached != nil {
+		if debug.IsTraceEnabled() {
+			debug.Printf("toolNames: cache hit with %d names", len(cached))
+		}
 		return cached
 	}
-	debug.Printf("toolNames: Cache miss, calling getToolNames")
 	names := getToolNames(a.Tools)
-	debug.Printf("toolNames: getToolNames returned %d names, attempting Lock", len(names))
 	a.toolNamesMu.Lock()
-	debug.Printf("toolNames: Acquired Lock")
 	a.cachedToolNames = names
 	a.toolNamesMu.Unlock()
-	debug.Printf("toolNames: Released Lock, returning %d names", len(names))
+	if debug.IsTraceEnabled() {
+		debug.Printf("toolNames: cache populated with %d names", len(names))
+	}
 	return names
 }
 
@@ -370,44 +369,42 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	debug.Printf("Agent.Run: About to call model client with model %s", a.ModelName)
 	debug.Printf("Agent.Run: ENTERING MAIN LOOP NOW - BEFORE FOR LOOP")
 
-	// DEBUG: Print ALL messages that will be sent to the API
-	debug.Printf("=== FULL MESSAGE PAYLOAD TO API ===")
-	totalChars := 0
-	for i, msg := range msgs {
-		msgSize := len(msg.Content)
-		totalChars += msgSize
-		debug.Printf("[MSG %d] Role: %s, Size: %d chars, ToolCalls: %d", i, msg.Role, msgSize, len(msg.ToolCalls))
-		if msg.Role == "system" {
-			debug.Printf("  SYSTEM CONTENT (first 500 chars): %.500s...", msg.Content)
-		} else if msg.Role == "user" {
-			debug.Printf("  USER CONTENT: %s", msg.Content)
-		} else if msg.Role == "assistant" {
-			debug.Printf("  ASSISTANT CONTENT: %.200s...", msg.Content)
-			for j, tc := range msg.ToolCalls {
-				debug.Printf("    TOOL_CALL[%d]: %s(%s)", j, tc.Name, string(tc.Arguments))
+	if debug.IsTraceEnabled() {
+		debug.Printf("=== FULL MESSAGE PAYLOAD TO API ===")
+		totalChars := 0
+		for i, msg := range msgs {
+			msgSize := len(msg.Content)
+			totalChars += msgSize
+			debug.Printf("[MSG %d] Role: %s, Size: %d chars, ToolCalls: %d", i, msg.Role, msgSize, len(msg.ToolCalls))
+			if msg.Role == "system" {
+				debug.Printf("  SYSTEM CONTENT (first 500 chars): %.500s...", msg.Content)
+			} else if msg.Role == "user" {
+				debug.Printf("  USER CONTENT: %s", msg.Content)
+			} else if msg.Role == "assistant" {
+				debug.Printf("  ASSISTANT CONTENT: %.200s...", msg.Content)
+				for j, tc := range msg.ToolCalls {
+					debug.Printf("    TOOL_CALL[%d]: %s(%s)", j, tc.Name, string(tc.Arguments))
+				}
+			} else if msg.Role == "tool" {
+				debug.Printf("  TOOL RESULT (ID: %s): %.200s...", msg.ToolCallID, msg.Content)
 			}
-		} else if msg.Role == "tool" {
-			debug.Printf("  TOOL RESULT (ID: %s): %.200s...", msg.ToolCallID, msg.Content)
 		}
-	}
-	debug.Printf("=== TOTAL PAYLOAD: %d messages, %d total chars ===", len(msgs), totalChars)
+		debug.Printf("=== TOTAL PAYLOAD: %d messages, %d total chars ===", len(msgs), totalChars)
 
-	// DEBUG: Print available tool specs
-	debug.Printf("=== AVAILABLE TOOLS ===")
-	for _, spec := range specs {
-		debug.Printf("Tool: %s", spec.Name)
-	}
-	debug.Printf("=== END TOOLS ===")
+		debug.Printf("=== AVAILABLE TOOLS ===")
+		for _, spec := range specs {
+			debug.Printf("Tool: %s", spec.Name)
+		}
+		debug.Printf("=== END TOOLS ===")
 
-	// DEBUG: Print available tool names from registry
-	debug.Printf("=== AVAILABLE TOOL NAMES ===")
-	debug.Printf("About to call a.toolNames() - BEFORE MUTEX")
-	toolNames := a.toolNames()
-	debug.Printf("Returned from a.toolNames() - AFTER MUTEX, got %d names", len(toolNames))
-	for _, name := range toolNames {
-		debug.Printf("Tool: %s", name)
+		debug.Printf("=== AVAILABLE TOOL NAMES ===")
+		toolNames := a.toolNames()
+		debug.Printf("Returned from a.toolNames(), got %d names", len(toolNames))
+		for _, name := range toolNames {
+			debug.Printf("Tool: %s", name)
+		}
+		debug.Printf("=== END TOOL NAMES ===")
 	}
-	debug.Printf("=== END TOOL NAMES ===")
 
 	// Do not estimate tokens here; rely on actual counts from responses
 

@@ -133,15 +133,30 @@ func (o *OpenAI) buildRequest(ctx context.Context, msgs []ChatMessage, tools []T
 	hasPrev := o.previousResponseID != ""
 	var fnOutputs []map[string]any
 	if hasPrev {
-		for _, m := range msgs {
-			if m.Role == "tool" && strings.TrimSpace(m.ToolCallID) != "" && strings.TrimSpace(m.Content) != "" {
-				// IMPORTANT: Responses API expects "call_id", not "tool_call_id"
-				fnOutputs = append(fnOutputs, map[string]any{
-					"type":    "function_call_output",
-					"call_id": m.ToolCallID,
-					"output":  m.Content,
-				})
+		// Only include the most recent block of tool messages. Older tool
+		// outputs belong to earlier responses and must not be resent, or
+		// the API will reject the duplicate call_ids.
+		pending := make([]ChatMessage, 0)
+		for i := len(msgs) - 1; i >= 0; i-- {
+			m := msgs[i]
+			if m.Role != "tool" {
+				break
 			}
+			pending = append(pending, m)
+		}
+		for i := 0; i < len(pending)/2; i++ {
+			j := len(pending) - 1 - i
+			pending[i], pending[j] = pending[j], pending[i]
+		}
+		for _, m := range pending {
+			if strings.TrimSpace(m.ToolCallID) == "" || strings.TrimSpace(m.Content) == "" {
+				continue
+			}
+			fnOutputs = append(fnOutputs, map[string]any{
+				"type":    "function_call_output",
+				"call_id": m.ToolCallID,
+				"output":  m.Content,
+			})
 		}
 	}
 
@@ -460,6 +475,26 @@ func finalizeWithResponses(partials map[int]*partial, responseCalls map[string]*
 		final = append(final, ToolCall{ID: p.ID, Name: p.Name, Arguments: p.Arguments})
 	}
 	out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai/" + model, ResponseID: responseID}
+}
+
+// Clone returns a fresh OpenAI client that shares credentials but not
+// request state with the original.
+func (o *OpenAI) Clone() Client {
+	if o == nil {
+		return nil
+	}
+	clone := &OpenAI{
+		key:   o.key,
+		model: o.model,
+		client: &http.Client{
+			Timeout: time.Duration(defaultHTTPTimeout) * time.Second,
+		},
+	}
+	if o.Temperature != nil {
+		v := *o.Temperature
+		clone.Temperature = &v
+	}
+	return clone
 }
 
 // ResetConversation clears any stored response linkage so the next request starts fresh.

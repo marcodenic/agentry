@@ -100,11 +100,22 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 			}
 		}
 	} else {
-		// Fallback to parent's client when no role config is found
-		client = t.parent.Client
+		// Fallback to parent's configuration while ensuring each agent has an
+		// isolated model client so conversation state is not shared.
 		modelName = t.parent.ModelName
+		if cloneable, ok := t.parent.Client.(interface{ Clone() model.Client }); ok {
+			client = cloneable.Clone()
+		} else {
+			client = nil
+		}
+		if client == nil {
+			client = model.NewMock()
+			if modelName == "" {
+				modelName = "mock"
+			}
+		}
 		if !isTUI() {
-			fmt.Fprintf(os.Stderr, "⚠️  SpawnAgent: No model config for role %s, using parent's client (%s)\n", role, modelName)
+			fmt.Fprintf(os.Stderr, "⚠️  SpawnAgent: No model config for role %s, using isolated client (%s)\n", role, modelName)
 		}
 	}
 

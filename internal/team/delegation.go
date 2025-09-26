@@ -156,7 +156,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 			if !isTUI() {
 				t.PublishWorkspaceEvent("agent_0", "delegation_timeout", msg, map[string]interface{}{"agent": agentID})
 			}
-			return msg, nil
+			return "", errors.New(msg)
 		}
 	}
 
@@ -170,7 +170,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 		t.LogCoordinationEvent("delegation_failed", agentID, "agent_0", err.Error(), map[string]interface{}{"error": err.Error()})
 		// Return as feedback instead of propagating error
 		errorFeedback := fmt.Sprintf("❌ Agent '%s' encountered an error: %v\n\nSuggestions:\n- Try a different approach\n- Simplify the request\n- Use alternative tools\n- Break the task into smaller steps", agentID, err)
-		return errorFeedback, nil
+		return "", errors.New(errorFeedback)
 	}
 
 	agent.SetStatus("ready")

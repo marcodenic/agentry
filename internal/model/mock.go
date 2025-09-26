@@ -12,6 +12,8 @@ type Mock struct {
 
 func NewMock() *Mock { return &Mock{} }
 
+func (m *Mock) Clone() Client { return NewMock() }
+
 func (m *Mock) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (<-chan StreamChunk, error) {
 	out := make(chan StreamChunk, 1)
 	go func() {
