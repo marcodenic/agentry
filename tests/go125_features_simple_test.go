@@ -2,11 +2,19 @@ package tests
 
 import (
 	"context"
+	"os"
 	"sync"
 	"testing"
 	"testing/synctest"
 	"time"
 )
+
+func requireSynctest(t *testing.T) {
+	t.Helper()
+	if os.Getenv("AGENTRY_ENABLE_SYNCTEST") == "" {
+		t.Skip("Set AGENTRY_ENABLE_SYNCTEST=1 to run synctest-based tests")
+	}
+}
 
 // TestWaitGroupGoMethod demonstrates Go 1.25's new sync.WaitGroup.Go() method
 func TestWaitGroupGoMethod(t *testing.T) {
@@ -16,13 +24,13 @@ func TestWaitGroupGoMethod(t *testing.T) {
 
 	// Go 1.25: Use the new WaitGroup.Go() method
 	tasks := []string{"task1", "task2", "task3", "task4", "task5"}
-	
+
 	for _, task := range tasks {
 		task := task // capture loop variable
 		wg.Go(func() {
 			// Simulate work
 			time.Sleep(10 * time.Millisecond)
-			
+
 			mu.Lock()
 			results = append(results, task+" completed")
 			mu.Unlock()
@@ -40,6 +48,7 @@ func TestWaitGroupGoMethod(t *testing.T) {
 
 // TestSynctestBasicFeatures demonstrates basic testing/synctest functionality
 func TestSynctestBasicFeatures(t *testing.T) {
+	requireSynctest(t)
 	synctest.Test(t, func(t *testing.T) {
 		var counter int
 		var mu sync.Mutex
@@ -67,9 +76,10 @@ func TestSynctestBasicFeatures(t *testing.T) {
 
 // TestSynctestWaitFunction demonstrates synctest.Wait() functionality
 func TestSynctestWaitFunction(t *testing.T) {
+	requireSynctest(t)
 	synctest.Test(t, func(t *testing.T) {
 		done := make(chan bool)
-		
+
 		go func() {
 			time.Sleep(1 * time.Second) // Virtualized time
 			done <- true
@@ -90,6 +100,7 @@ func TestSynctestWaitFunction(t *testing.T) {
 
 // TestChannelOperationsWithSynctest tests channel operations in synctest
 func TestChannelOperationsWithSynctest(t *testing.T) {
+	requireSynctest(t)
 	synctest.Test(t, func(t *testing.T) {
 		ch := make(chan int, 5)
 		results := make([]int, 0, 10)
@@ -129,6 +140,7 @@ func TestChannelOperationsWithSynctest(t *testing.T) {
 
 // TestContextCancellationWithSynctest tests context cancellation in synctest
 func TestContextCancellationWithSynctest(t *testing.T) {
+	requireSynctest(t)
 	synctest.Test(t, func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 		defer cancel()

@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -80,6 +81,7 @@ func Float(key string, def float64) float64 {
 // and prints deprecation warnings to stderr. Returns a slice of warned variable names.
 func WarnDeprecatedEnvVars() []string {
 	var warned []string
+	var deprecatedKeys []string
 
 	for _, env := range os.Environ() {
 		// Split on first '=' to get key=value
@@ -92,9 +94,15 @@ func WarnDeprecatedEnvVars() []string {
 
 		// Check if it starts with AGENTRY_ but is not exactly AGENTRY_CONFIG
 		if strings.HasPrefix(key, "AGENTRY_") && key != "AGENTRY_CONFIG" {
-			fmt.Fprintf(os.Stderr, "Deprecation: environment variable %s is deprecated and ignored. Use YAML config; AGENTRY_CONFIG is the only supported env var.\n", key)
-			warned = append(warned, key)
+			deprecatedKeys = append(deprecatedKeys, key)
 		}
+	}
+
+	sort.Strings(deprecatedKeys)
+
+	for _, key := range deprecatedKeys {
+		fmt.Fprintf(os.Stderr, "Deprecation: environment variable %s is deprecated and ignored. Use YAML config; AGENTRY_CONFIG is the only supported env var.\n", key)
+		warned = append(warned, key)
 	}
 
 	return warned

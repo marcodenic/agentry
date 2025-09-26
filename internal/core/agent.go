@@ -470,6 +470,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		var finalToolCalls []model.ToolCall
 		var inputTokensUsed, outputTokensUsed int
 		var modelNameUsed string
+		var responseIDUsed string
 		firstTokenRecorded := false
 		var sb strings.Builder
 
@@ -504,6 +505,9 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 				if chunk.ModelName != "" {
 					modelNameUsed = chunk.ModelName
 				}
+				if chunk.ResponseID != "" {
+					responseIDUsed = chunk.ResponseID
+				}
 			}
 		}
 
@@ -527,6 +531,12 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			}
 		}
 		a.Trace(ctx, trace.EventStepStart, res)
+		if responseIDUsed != "" {
+			// Emit a summary trace with response linkage identifier (for debugging/observability)
+			a.Trace(ctx, trace.EventSummary, map[string]any{
+				"response_id": responseIDUsed,
+			})
+		}
 
 		// Approximate output tokens & update cost
 		// Prefer API-provided counts else fallback to estimation
@@ -557,8 +567,14 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			}
 		}
 
-		// Append assistant message
-		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
+		// Only append assistant message to local context if NOT using conversation linking
+		// When responseIDUsed is set, OpenAI maintains conversation state server-side
+		if responseIDUsed == "" {
+			debug.Printf("Agent.Run: Appending assistant message to local context (no conversation linking)")
+			msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: res.Content, ToolCalls: res.ToolCalls})
+		} else {
+			debug.Printf("Agent.Run: Conversation linking active (responseID: %s), not appending to local context", responseIDUsed)
+		}
 		step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
 
 		if len(res.ToolCalls) == 0 {
@@ -651,9 +667,15 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			}
 		}
 
-		// Simply add tool results without completion check system messages
-		// This prevents prompt bloat from repeated system messages
-		msgs = append(msgs, toolMsgs...)
+		// When using conversation linking, we still need to provide tool results
+		// for the function calls OpenAI made, even though it maintains conversation state
+		if responseIDUsed == "" {
+			debug.Printf("Agent.Run: Appending %d tool results to local context (no conversation linking)", len(toolMsgs))
+			msgs = append(msgs, toolMsgs...)
+		} else {
+			debug.Printf("Agent.Run: Conversation linking active (responseID: %s), appending %d tool results for function calls", responseIDUsed, len(toolMsgs))
+			msgs = append(msgs, toolMsgs...)
+		}
 		// Memory disabled for now: do not persist steps
 		_ = a.Checkpoint(ctx)
 

@@ -3,8 +3,8 @@ package tests
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -13,11 +13,20 @@ import (
 )
 
 func TestFetchCanceledContext(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("Skipping fetch cancel test; unable to open local listener: %v", err)
+	}
+
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second)
-		w.Write([]byte("ok"))
-	}))
-	defer srv.Close()
+		_, _ = w.Write([]byte("ok"))
+	})}
+	go func() {
+		_ = server.Serve(listener)
+	}()
+	defer server.Shutdown(context.Background())
+	url := "http://" + listener.Addr().String()
 
 	tl, ok := tool.DefaultRegistry().Use("fetch")
 	if !ok {
@@ -27,7 +36,7 @@ func TestFetchCanceledContext(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	_, err := tl.Execute(ctx, map[string]any{"url": srv.URL})
+	_, err = tl.Execute(ctx, map[string]any{"url": url})
 	if err == nil {
 		t.Fatal("expected error")
 	}
