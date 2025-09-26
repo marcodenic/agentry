@@ -344,26 +344,28 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		debug.Printf("Warning: No default prompt found. Set AGENTRY_DEFAULT_PROMPT or install templates (see docs). Proceeding without a system prompt.")
 	}
 
-    // Provide available roles via dedicated <agents> section (do not alter base prompt)
-    if ag.Prompt != "" {
-        availableRoles := tm.AvailableRoleNames()
-        sort.Strings(availableRoles)
-        var sb strings.Builder
-        sb.WriteString("AVAILABLE AGENTS: You can delegate tasks to these specialized agents using the 'agent' tool:\n\n")
-        for _, role := range availableRoles {
-            if role == "agent_0" {
-                continue
-            }
-            sb.WriteString(role)
-            sb.WriteString("\n")
-        }
-        sb.WriteString("\nExample delegation: {\"agent\": \"coder\", \"input\": \"create a hello world program\"}")
-        if ag.Vars == nil { ag.Vars = map[string]string{} }
-        ag.Vars["AGENTS_SECTION"] = sb.String()
-        if os.Getenv("AGENTRY_TUI_MODE") != "1" {
-            debug.Printf("🔧 Agent0 agents section populated with %d available roles", len(availableRoles))
-        }
-    }
+	// Provide available roles via dedicated <agents> section (do not alter base prompt)
+	if ag.Prompt != "" {
+		availableRoles := tm.AvailableRoleNames()
+		sort.Strings(availableRoles)
+		var sb strings.Builder
+		sb.WriteString("AVAILABLE AGENTS: You can delegate tasks to these specialized agents using the 'agent' tool:\n\n")
+		for _, role := range availableRoles {
+			if role == "agent_0" {
+				continue
+			}
+			sb.WriteString(role)
+			sb.WriteString("\n")
+		}
+		sb.WriteString("\nExample delegation: {\"agent\": \"coder\", \"input\": \"create a hello world program\"}")
+		if ag.Vars == nil {
+			ag.Vars = map[string]string{}
+		}
+		ag.Vars["AGENTS_SECTION"] = sb.String()
+		if os.Getenv("AGENTRY_TUI_MODE") != "1" {
+			debug.Printf("🔧 Agent0 agents section populated with %d available roles", len(availableRoles))
+		}
+	}
 
 	tm.RegisterAgentTool(ag.Tools)
 

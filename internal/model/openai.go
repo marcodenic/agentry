@@ -462,6 +462,11 @@ func finalizeWithResponses(partials map[int]*partial, responseCalls map[string]*
 	out <- StreamChunk{Done: true, ToolCalls: final, InputTokens: inTok, OutputTokens: outTok, ModelName: "openai/" + model, ResponseID: responseID}
 }
 
+// ResetConversation clears any stored response linkage so the next request starts fresh.
+func (o *OpenAI) ResetConversation() {
+	o.previousResponseID = ""
+}
+
 func (o *OpenAI) ModelName() string { return o.model }
 func supportsTemperature(model string) bool {
 	m := strings.ToLower(model)

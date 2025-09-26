@@ -87,15 +87,6 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 		}
 	}
 
-	clients := map[string]model.Client{}
-	for _, m := range cfg.Models {
-		c, err := model.FromManifest(m)
-		if err != nil {
-			return nil, err
-		}
-		clients[m.Name] = c
-	}
-
 	// Use the first configured model, or mock if none configured
 	var client model.Client
 	var modelName string
@@ -126,10 +117,9 @@ func buildAgent(cfg *config.File) (*core.Agent, error) {
 	} else if len(cfg.Models) > 0 {
 		// Fall back to global model configuration
 		primaryModel := cfg.Models[0]
-
-		c, ok := clients[primaryModel.Name]
-		if !ok {
-			return nil, fmt.Errorf("primary model %s not found", primaryModel.Name)
+		c, err := model.FromManifest(primaryModel)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create primary model client: %w", err)
 		}
 		client = c
 

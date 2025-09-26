@@ -348,6 +348,10 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	safeInputPreview := sanitizeForLog(input[:min(300, len(input))])
 	debug.Printf("Agent.Run: Input: %s", safeInputPreview)
 
+	if resetter, ok := a.Client.(interface{ ResetConversation() }); ok {
+		resetter.ResetConversation()
+	}
+
 	a.Trace(ctx, trace.EventModelStart, a.ModelName)
 
 	prompt := a.Prompt

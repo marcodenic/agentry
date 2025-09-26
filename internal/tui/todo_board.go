@@ -50,7 +50,7 @@ type todoMsg struct {
 // NewTodoBoard creates a new TODO board component
 func NewTodoBoard() TodoBoard {
 	items := []list.Item{}
-	
+
 	l := list.New(items, todoItemDelegate{}, 0, 0)
 	l.Title = "📋 TODO Board"
 	l.SetShowStatusBar(true)
@@ -68,8 +68,8 @@ func NewTodoBoard() TodoBoard {
 // todoItemDelegate defines how TODO items are rendered
 type todoItemDelegate struct{}
 
-func (d todoItemDelegate) Height() int                             { return 3 }
-func (d todoItemDelegate) Spacing() int                            { return 1 }
+func (d todoItemDelegate) Height() int                               { return 3 }
+func (d todoItemDelegate) Spacing() int                              { return 1 }
 func (d todoItemDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd { return nil }
 func (d todoItemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
 	item, ok := listItem.(TodoItem)
@@ -82,7 +82,7 @@ func (d todoItemDelegate) Render(w io.Writer, m list.Model, index int, listItem 
 	switch item.Status {
 	case "todo":
 		statusGlyph = glyphs.RedCrossmark()
-		statusColor = "9"  // Red
+		statusColor = "9" // Red
 	case "in_progress":
 		statusGlyph = glyphs.YellowStar()
 		statusColor = "11" // Yellow
@@ -139,9 +139,9 @@ func (d todoItemDelegate) Render(w io.Writer, m list.Model, index int, listItem 
 		tagStr = fmt.Sprintf(" #%s", strings.Join(item.Tags, " #"))
 	}
 
-	meta := fmt.Sprintf("ID: %s | Updated: %s%s", 
-		item.ID[:8], 
-		item.UpdatedAt.Format("15:04"), 
+	meta := fmt.Sprintf("ID: %s | Updated: %s%s",
+		item.ID[:8],
+		item.UpdatedAt.Format("15:04"),
 		tagStr)
 
 	content := fmt.Sprintf("%s\n%s\n%s",
@@ -163,7 +163,7 @@ func (tb TodoBoard) Update(msg tea.Msg) (TodoBoard, tea.Cmd) {
 			items[i] = todo
 		}
 		tb.list.SetItems(items)
-		
+
 	case tea.WindowSizeMsg:
 		tb.width = msg.Width
 		tb.height = msg.Height
@@ -194,7 +194,7 @@ func LoadTodos() tea.Cmd {
 	return func() tea.Msg {
 		// Get TODO namespace (same logic as in todo_builtins.go)
 		ns := todoNamespace()
-		
+
 		// List all TODO items
 		keys, err := memstore.Get().Keys(ns)
 		if err != nil {

@@ -130,7 +130,7 @@ func TestEventStreamingWithSynctest(t *testing.T) {
 		// Test trace event streaming with concurrent writers
 		events := make([]trace.Event, 0, 100)
 		var mu sync.Mutex
-		
+
 		writer := &testTraceWriter{
 			write: func(ctx context.Context, e trace.Event) {
 				mu.Lock()
@@ -155,7 +155,7 @@ func TestEventStreamingWithSynctest(t *testing.T) {
 						Data:      map[string]interface{}{"step": j},
 					}
 					writer.write(context.Background(), event)
-					
+
 					// Small delay to simulate processing
 					time.Sleep(10 * time.Millisecond)
 				}
@@ -197,10 +197,10 @@ type parallelTestClient struct {
 
 func (p *parallelTestClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
 	out := make(chan model.StreamChunk, 1)
-	
+
 	go func() {
 		defer close(out)
-		
+
 		// Simulate processing time
 		select {
 		case <-time.After(p.delay):
@@ -213,7 +213,7 @@ func (p *parallelTestClient) Stream(ctx context.Context, msgs []model.ChatMessag
 			return
 		}
 	}()
-	
+
 	return out, nil
 }
 
