@@ -68,32 +68,7 @@ func (t *Team) ListTasks() []*Task {
 	return tasks
 }
 
-// SendMessage sends a message from one agent to another
-func (t *Team) SendMessage(ctx context.Context, from, to, content string) error {
-	// Single messaging path
-	return t.SendMessageToAgent(ctx, from, to, content)
-}
-
-// GetMessages returns messages with optional filtering
-func (t *Team) GetMessages(agentID string) []Message {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-
-	if agentID == "" {
-		// Return all messages
-		return append([]Message{}, t.messages...)
-	}
-
-	// Filter messages for specific agent
-	filtered := make([]Message, 0)
-	for _, msg := range t.messages {
-		if msg.From == agentID || msg.To == agentID || msg.To == "*" {
-			filtered = append(filtered, msg)
-		}
-	}
-
-	return filtered
-}
+// (inbox messaging removed)
 
 // CoordinateTask coordinates a complex task across multiple agents
 func (t *Team) CoordinateTask(ctx context.Context, description string) (*Task, error) {

@@ -22,9 +22,7 @@ type Team struct {
 	agents       map[string]*Agent // Changed to use Agent type
 	agentsByName map[string]*Agent // Changed to use Agent type
 	tasks        map[string]*Task
-	messages     []Message
 	roles        map[string]*RoleConfig
-	portRange    PortRange
 	name         string
 	maxTurns     int
 	mutex        sync.RWMutex
@@ -43,9 +41,7 @@ func NewTeam(parent *core.Agent, maxTurns int, name string) (*Team, error) {
 		agents:       make(map[string]*Agent),
 		agentsByName: make(map[string]*Agent),
 		tasks:        make(map[string]*Task),
-		messages:     make([]Message, 0),
 		roles:        make(map[string]*RoleConfig),
-		portRange:    PortRange{Start: 9000, End: 9099}, // ENHANCED: Initialize shared memory and coordination tracking
 		sharedMemory: make(map[string]interface{}),
 		store:        memstore.Get(),
 		coordination: make([]CoordinationEvent, 0),

@@ -75,38 +75,43 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	logToFile(logMessage)
 	timer.Checkpoint("logging completed")
 
-	// Collect unread inbox messages without mutating the agent prompt (thread-safe approach)
-	inbox := t.GetAgentInbox(agentID)
-	unread := make([]map[string]interface{}, 0, len(inbox))
-	for _, m := range inbox {
-		if read, ok := m["read"].(bool); !ok || !read {
-			unread = append(unread, m)
-		}
-	}
-	var inboxContext string
-	if len(unread) > 0 {
+	// Collect workspace events for context (inbox removed)
+	events := t.GetWorkspaceEvents(5)
+	timer.Checkpoint("inbox processing completed")
+
+	// Prepare workspace events but removed INBOX CONTEXT injection
+	var workspaceContext string
+	if len(events) > 0 {
 		var sb strings.Builder
-		sb.WriteString("\n\nINBOX CONTEXT (Unread Messages):\n")
-		for _, m := range unread {
-			from, _ := m["from"].(string)
-			msg, _ := m["message"].(string)
+		sb.WriteString("\n\nRECENT WORKSPACE EVENTS:\n")
+		for _, e := range events {
 			ts := ""
-			if tv, ok := m["timestamp"].(time.Time); ok {
-				ts = tv.Format("15:04:05")
+			if !e.Timestamp.IsZero() {
+				ts = e.Timestamp.Format("15:04:05")
 			}
 			sb.WriteString("- ")
 			if ts != "" {
 				sb.WriteString("[" + ts + "] ")
 			}
-			if from != "" {
-				sb.WriteString(from + ": ")
+			if e.AgentID != "" {
+				sb.WriteString(e.AgentID + " | ")
 			}
-			sb.WriteString(msg)
+			sb.WriteString(e.Type)
+			if e.Description != "" {
+				sb.WriteString(": " + e.Description)
+			}
 			sb.WriteString("\n")
 		}
-		inboxContext = sb.String()
+		workspaceContext = sb.String()
 	}
-	timer.Checkpoint("inbox processing completed")
+	timer.Checkpoint("context and events prepared")
+
+	debugPrintf("🔧 Call: About to call runAgent for %s", agentID)
+	startTime := time.Now()
+	augmentedInput := input
+	if workspaceContext != "" {
+		augmentedInput = input + workspaceContext
+	}
 
 	// Execute the input on the core agent with a reasonable timeout for complex development tasks
 	timeout := 15 * time.Minute
@@ -123,14 +128,7 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 	if !isTUI() {
 		t.PublishWorkspaceEvent("agent_0", "delegation_started", fmt.Sprintf("Delegated to %s", agentID), map[string]interface{}{"agent": agentID, "timeout": timeout.String()})
 	}
-	timer.Checkpoint("context and events prepared")
 
-	debugPrintf("🔧 Call: About to call runAgent for %s", agentID)
-	startTime := time.Now()
-	augmentedInput := input
-	if inboxContext != "" {
-		augmentedInput = input + inboxContext + "\n(Consider the above unread messages in your response.)"
-	}
 	result, err := runAgent(dctx, agent.Agent, augmentedInput, agentID, t.GetAgents())
 	duration := time.Since(startTime)
 	timer.Checkpoint("runAgent completed")
@@ -162,10 +160,6 @@ func (t *Team) Call(ctx context.Context, agentID, input string) (string, error) 
 		}
 	}
 
-	// Mark inbox messages as read after processing
-	if len(unread) > 0 {
-		t.MarkMessagesAsRead(agentID)
-	}
 	timer.Checkpoint("cleanup completed")
 
 	// Update agent status and handle errors gracefully

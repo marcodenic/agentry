@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/marcodenic/agentry/internal/config"
+	"github.com/marcodenic/agentry/internal/debug"
+	"github.com/marcodenic/agentry/internal/model"
 )
 
 type commonOpts struct {
@@ -27,6 +29,10 @@ type commonOpts struct {
 	denyTools      string
 	disableContext bool
 	auditLog       string
+
+	// New flags (prefer flags over env vars)
+	maxIter     int // 0 = unlimited
+	httpTimeout int // seconds
 }
 
 func parseCommon(name string, args []string) (*commonOpts, []string) {
@@ -47,7 +53,11 @@ func parseCommon(name string, args []string) (*commonOpts, []string) {
 	fs.StringVar(&opts.denyTools, "deny-tools", "", "comma-separated list of tools to exclude")
 	fs.BoolVar(&opts.disableContext, "disable-context", false, "disable context pipeline")
 	fs.StringVar(&opts.auditLog, "audit-log", "", "path to audit log file")
-	// max-iter removed: agents run until completion
+	// Debug/diagnostic flags
+	fs.IntVar(&opts.maxIter, "max_iter", 0, "limit agent iterations (0=unlimited)")
+	fs.IntVar(&opts.maxIter, "max-iter", 0, "limit agent iterations (0=unlimited)")
+	fs.IntVar(&opts.httpTimeout, "http_timeout", 300, "HTTP client timeout in seconds")
+	fs.IntVar(&opts.httpTimeout, "http-timeout", 300, "HTTP client timeout in seconds")
 	_ = fs.Parse(args)
 
 	// Only set config path from first non-flag argument for commands that expect a config file
@@ -99,9 +109,9 @@ func parseCommon(name string, args []string) (*commonOpts, []string) {
 }
 
 func applyOverrides(cfg *config.File, o *commonOpts) {
-	// Handle debug flag by setting environment variable
+	// Handle debug flag by enabling debug output dynamically
 	if o.debug {
-		os.Setenv("AGENTRY_DEBUG", "1")
+		debug.EnableDebug()
 	}
 
 	// Handle tool filtering flags by modifying config directly
@@ -194,5 +204,10 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 		for i, p := range parts {
 			cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = strings.TrimSpace(p)
 		}
+	}
+
+	// Apply model HTTP timeout (flags take precedence over env)
+	if o.httpTimeout > 0 {
+		model.SetHTTPTimeout(o.httpTimeout)
 	}
 }

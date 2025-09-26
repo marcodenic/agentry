@@ -12,6 +12,8 @@ type StreamChunk struct {
 	OutputTokens int
 	ToolCalls    []ToolCall
 	ModelName    string // provider/model identifier for accurate cost tracking
+	// Response linking (Responses API): present on final chunk when available
+	ResponseID string
 }
 
 // StreamingClient provides incremental output chunks.

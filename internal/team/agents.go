@@ -114,19 +114,12 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 	agent.InvalidateToolCache()
 	agent.Prompt = roleConfig.Prompt
 
-	// Find available port
-	port, err := t.findAvailablePort()
-	if err != nil {
-		return nil, fmt.Errorf("no available ports: %w", err)
-	}
-
 	id := uuid.New().String()
 	teamAgent := &Agent{
 		ID:        id,
 		Name:      name,
 		Role:      role,
 		Agent:     agent,
-		Port:      port,
 		Status:    "starting",
 		StartedAt: time.Now(),
 		LastSeen:  time.Now(),

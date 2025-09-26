@@ -4,6 +4,9 @@ model:
   provider: openai
   options:
     model: gpt-5
+restricted_tools:
+  - agent              # No delegation to other agents
+  - assign_task        # No task assignment - focus on research work
 prompt: |
   You are a research specialist with a {{personality}} approach to information gathering.
 
@@ -18,14 +21,5 @@ prompt: |
   - Highlight key insights
   - Note any limitations or gaps in available information
 
-  Use the allowed commands to search and examine files systematically.
-
-commands:
-  - list # Directory exploration
-  - view # Read documents
-  - search # Text search across files
-  - find # Locate specific files
-
-builtins:
-  - agent # Delegate specialized tasks
-  - fetch # Download external content
+  Use file exploration tools (ls, find, view, grep) and web tools (web_search, fetch, read_webpage) 
+  to gather comprehensive information. You can delegate specialized tasks to other agents when needed.

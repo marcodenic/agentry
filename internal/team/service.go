@@ -33,12 +33,6 @@ func (t *Team) DelegateTask(ctx context.Context, role, task string) (string, err
 	return t.Call(ctx, role, task)
 }
 
-// GetInbox returns an agent's inbox messages
-func (t *Team) GetInbox(agentID string) []map[string]interface{} { return t.GetAgentInbox(agentID) }
-
-// MarkInboxRead marks an agent's messages as read
-func (t *Team) MarkInboxRead(agentID string) { t.MarkMessagesAsRead(agentID) }
-
 // GetCoordinationHistory returns coordination event history
 func (t *Team) GetCoordinationHistory(limit int) []string { return t.CoordinationHistoryStrings(limit) }
 

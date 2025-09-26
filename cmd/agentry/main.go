@@ -95,6 +95,8 @@ FLAGS:
   --config PATH          Path to .agentry.yaml config file
   --theme THEME          Theme override (dark|light|auto)  
   --debug                Enable debug output
+  --max_iter N           Limit agent iterations (0=unlimited)
+  --http_timeout SEC     HTTP timeout in seconds (default 300)
   --keybinds PATH        Path to custom keybindings JSON file
   --creds PATH           Path to credentials JSON file
   --mcp SERVERS          Comma-separated MCP server list

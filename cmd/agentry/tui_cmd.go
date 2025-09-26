@@ -67,6 +67,8 @@ func runTui(args []string) {
 	if err != nil {
 		panic(err)
 	}
+	// Apply iteration cap from flags (0 = unlimited)
+	ag.MaxIter = opts.maxIter
 
 	// No iteration cap
 	if opts.ckptID != "" {

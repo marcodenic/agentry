@@ -115,9 +115,6 @@ tools:
   - name: team_status
     type: builtin
     description: Get current status of all team agents
-  - name: send_message
-    type: builtin
-    description: Send messages to other agents for coordination
   - name: assign_task
     type: builtin
     description: Formally assign tasks with priority levels

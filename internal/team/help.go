@@ -9,40 +9,22 @@ import (
 	"time"
 )
 
-// RequestHelp allows an agent to request help from other agents
-func (t *Team) RequestHelp(ctx context.Context, agentID, helpDescription string, preferredHelper string) error {
-	if !isTUI() {
-		fmt.Fprintf(os.Stderr, "🆘 HELP REQUEST from %s: %s\n", agentID, helpDescription)
-	}
-	if !isTUI() {
-		t.PublishWorkspaceEvent(agentID, "help_request", helpDescription, map[string]interface{}{
-			"preferred_helper": preferredHelper, "urgency": "normal",
-		})
-	}
-	if preferredHelper != "" && preferredHelper != "*" {
-		message := fmt.Sprintf("Help requested: %s", helpDescription)
-		return t.SendMessageToAgent(ctx, agentID, preferredHelper, message)
-	}
-	message := fmt.Sprintf("Help requested: %s", helpDescription)
-	return t.BroadcastToAllAgents(ctx, agentID, message)
-}
-
-// ProposeCollaboration allows agents to propose working together
+// ProposeCollaboration allows agents to propose working together without inbox messaging
 func (t *Team) ProposeCollaboration(ctx context.Context, proposerID, targetAgentID, proposal string) error {
-	fmt.Fprintf(os.Stderr, "🤝 COLLABORATION PROPOSAL: %s → %s\n", proposerID, targetAgentID)
-	fmt.Fprintf(os.Stderr, "📝 Proposal: %s\n", proposal)
+	// Persist proposal metadata in shared store and publish a workspace event
 	proposalKey := fmt.Sprintf("proposal_%s_to_%s_%d", proposerID, targetAgentID, time.Now().Unix())
 	proposalData := map[string]interface{}{
 		"from": proposerID, "to": targetAgentID, "proposal": proposal, "status": "pending", "timestamp": time.Now(),
 	}
 	t.SetSharedData(proposalKey, proposalData)
-	if !isTUI() {
-		t.PublishWorkspaceEvent(proposerID, "collaboration_proposal", fmt.Sprintf("Proposed collaboration with %s", targetAgentID), map[string]interface{}{
-			"target_agent": targetAgentID, "proposal": proposal,
-		})
-	}
-	message := fmt.Sprintf("Collaboration proposal: %s. Please respond with your thoughts.", proposal)
-	return t.SendMessageToAgent(ctx, proposerID, targetAgentID, message)
+
+	t.PublishWorkspaceEvent(proposerID, "collaboration_proposal", fmt.Sprintf("Proposed collaboration with %s", targetAgentID), map[string]interface{}{
+		"target_agent": targetAgentID, "proposal": proposal,
+	})
+
+	// Also log a coordination event for observability
+	t.LogCoordinationEvent("collab_proposal", proposerID, targetAgentID, proposal, map[string]interface{}{})
+	return nil
 }
 
 // checkWorkCompleted attempts to detect if an agent completed meaningful work

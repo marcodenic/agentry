@@ -8,10 +8,19 @@ go install github.com/marcodenic/agentry/cmd/agentry@latest
 
 The `examples/.agentry.yaml` file contains a ready-to-use configuration for these commands.
 
-Core subcommands:
+## Simplified Architecture
 
+Agentry now uses a streamlined architecture focused on:
 
-Use `--port 9090` or set `AGENTRY_PORT` to change the HTTP server port. Set
+- **Direct Agent Delegation**: Use the `agent` tool to delegate tasks to specialized agents
+- **TODO-Driven Workflow**: Built-in TODO management with CRUD operations
+- **Context-Lite Prompts**: Simplified message construction without complex context providers
+- **JSON Validation**: Automatic validation of tool inputs/outputs and echo pattern detection
+- **Standard Operating Procedures**: Runtime guidance that replaces hard-coded prompt rules
+
+## Core Commands
+
+Use `--port 9090` or set `AGENTRY_PORT` to change the HTTP server port.
 Agents run until they produce a final answer; there is no built-in iteration cap.
  
 Examples:
@@ -20,13 +29,13 @@ Examples:
 # one-shot, run Agent 0
 agentry invoke "summarize README"
 
-# delegate directly to a role by name
+# delegate directly to a role by name  
 agentry invoke --agent coder "add a Makefile target"
 
 # trace to a JSONL file
 agentry invoke --trace trace.jsonl "explain the code"
 
-# team ops
+# team operations
 agentry team roles
 agentry team spawn --name coder --role coder
 agentry team call --agent coder --input "print hello world"
@@ -39,7 +48,7 @@ agentry memory import --in mem.json
 Pass `--resume-id name` to load a saved session and `--save-id name` to persist after each run.
 Use `--checkpoint-id name` to continuously snapshot the run loop and resume after a crash.
 
-### Terminal UI
+### Terminal UI with TODO Board
 
 Start the interactive interface:
 
@@ -47,7 +56,10 @@ Start the interactive interface:
 agentry tui --config examples/.agentry.yaml
 ```
 
-There is no `--team` flag. From inside the chat you can spawn additional agents at any time:
+The TUI now includes a **TODO Board** that shows active tasks, their status, and assigned agents.
+Navigate between chat, tools, and TODO views using the tab keys.
+
+From inside the chat you can:
 
 ```bash
 /spawn coder "handle all build tasks"
@@ -65,6 +77,32 @@ Inside the chat input you can control running agents:
 - `/switch <prefix>` – focus an agent by ID prefix
 - `/stop <prefix>` – halt an agent and keep its history
 - `/converse <n> <topic>` – open a side conversation between `n` new agents
+
+### New Features
+
+#### TODO Management
+Agentry includes built-in TODO management with CRUD operations:
+- Create, read, update, and delete TODO items
+- Assign TODOs to specific agents
+- Track status (todo, in_progress, done, blocked)
+- Set priorities (high, medium, low)
+- Add tags for organization
+- View all TODOs in the TUI TODO Board
+
+#### JSON Output Validation
+Automatic validation prevents issues:
+- Tool arguments are validated for size and format
+- Tool responses are checked for malformed JSON
+- Agent outputs are scanned for echo patterns
+- Configurable size limits prevent memory issues
+
+#### Standard Operating Procedures (SOPs)
+Runtime guidance replaces hard-coded rules:
+- Context-aware procedures based on agent role and situation
+- Error handling guidelines
+- JSON output requirements
+- Testing and code modification best practices
+- Automatically injected into agent prompts when applicable
 
 ### TUI Themes & Keybinds
 

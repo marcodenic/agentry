@@ -14,7 +14,6 @@ type Agent struct {
 	Name      string            `json:"name"`
 	Role      string            `json:"role,omitempty"`
 	Agent     *core.Agent       `json:"-"`
-	Port      int               `json:"port,omitempty"`
 	Status    string            `json:"status"`
 	StartedAt time.Time         `json:"started_at"`
 	LastSeen  time.Time         `json:"last_seen"`
@@ -50,18 +49,6 @@ type Task struct {
 	Metadata  map[string]string `json:"metadata,omitempty"`
 }
 
-// Message represents a message between agents
-type Message struct {
-	ID        string            `json:"id"`
-	From      string            `json:"from"`
-	To        string            `json:"to"`
-	Content   string            `json:"content"`
-	Type      string            `json:"type"`
-	Timestamp time.Time         `json:"timestamp"`
-	Read      bool              `json:"read"`
-	Metadata  map[string]string `json:"metadata,omitempty"`
-}
-
 // RoleConfig represents configuration for an agent role
 type RoleConfig struct {
 	Name            string                `json:"name" yaml:"name"`
@@ -71,12 +58,6 @@ type RoleConfig struct {
 	RestrictedTools []string              `json:"restricted_tools,omitempty" yaml:"restricted_tools,omitempty"`
 	Capabilities    []string              `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
 	Metadata        map[string]string     `json:"metadata,omitempty" yaml:"metadata,omitempty"`
-}
-
-// PortRange defines a range of ports for agent communication
-type PortRange struct {
-	Start int `json:"start"`
-	End   int `json:"end"`
 }
 
 // CoordinationEvent represents an event in agent coordination
