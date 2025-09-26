@@ -23,7 +23,7 @@ func (t *Team) ExecuteParallelTasks(ctx context.Context, tasks []TaskRequest) ([
 	// Use Go 1.25's new WaitGroup.Go() method for cleaner concurrent patterns
 	for i, taskReq := range tasks {
 		i, taskReq := i, taskReq // capture loop variables
-		
+
 		// Go 1.25: WaitGroup.Go() method combines Add(1) + go func() pattern
 		wg.Go(func() {
 			agent := t.GetAgent(taskReq.AgentID)

@@ -36,7 +36,7 @@ func (r *SOPRegistry) AddSOP(sop SOP) {
 // GetApplicableSOPs returns SOPs that match the given context
 func (r *SOPRegistry) GetApplicableSOPs(role string, context map[string]string) []SOP {
 	var applicable []SOP
-	
+
 	for _, sop := range r.sops {
 		// Check if SOP applies to this role
 		if len(sop.Roles) > 0 {
@@ -51,13 +51,13 @@ func (r *SOPRegistry) GetApplicableSOPs(role string, context map[string]string) 
 				continue
 			}
 		}
-		
+
 		// Check if conditions are met
 		if r.conditionsMatch(sop.Conditions, context) {
 			applicable = append(applicable, sop)
 		}
 	}
-	
+
 	return applicable
 }
 
@@ -82,7 +82,7 @@ func (r *SOPRegistry) evaluateCondition(condition string, context map[string]str
 			return context[key] == value
 		}
 	}
-	
+
 	if strings.Contains(condition, "contains") {
 		parts := strings.SplitN(condition, " contains ", 2)
 		if len(parts) == 2 {
@@ -91,7 +91,7 @@ func (r *SOPRegistry) evaluateCondition(condition string, context map[string]str
 			return strings.Contains(context[key], value)
 		}
 	}
-	
+
 	// Default: check if the condition key exists in context
 	return context[condition] != ""
 }
@@ -102,17 +102,17 @@ func (r *SOPRegistry) FormatSOPsAsPrompt(role string, context map[string]string)
 	if len(sops) == 0 {
 		return ""
 	}
-	
+
 	var sb strings.Builder
 	sb.WriteString("## Standard Operating Procedures\n\n")
 	sb.WriteString("The following procedures apply to your current role and context:\n\n")
-	
+
 	for _, sop := range sops {
 		sb.WriteString(fmt.Sprintf("### %s\n", sop.Title))
 		if sop.Description != "" {
 			sb.WriteString(fmt.Sprintf("%s\n\n", sop.Description))
 		}
-		
+
 		if len(sop.Actions) > 0 {
 			sb.WriteString("**Required actions:**\n")
 			for _, action := range sop.Actions {
@@ -121,7 +121,7 @@ func (r *SOPRegistry) FormatSOPsAsPrompt(role string, context map[string]string)
 			sb.WriteString("\n")
 		}
 	}
-	
+
 	return sb.String()
 }
 
@@ -143,7 +143,7 @@ func (r *SOPRegistry) LoadDefaultSOPs() {
 		Priority: 10,
 		Roles:    []string{"*"},
 	})
-	
+
 	// JSON output validation SOP
 	r.AddSOP(SOP{
 		ID:          "json-output",
@@ -160,7 +160,7 @@ func (r *SOPRegistry) LoadDefaultSOPs() {
 		Priority: 8,
 		Roles:    []string{"*"},
 	})
-	
+
 	// Echo prevention SOP
 	r.AddSOP(SOP{
 		ID:          "echo-prevention",
@@ -176,7 +176,7 @@ func (r *SOPRegistry) LoadDefaultSOPs() {
 		Priority: 9,
 		Roles:    []string{"*"},
 	})
-	
+
 	// Testing SOP
 	r.AddSOP(SOP{
 		ID:          "testing-procedure",
@@ -193,7 +193,7 @@ func (r *SOPRegistry) LoadDefaultSOPs() {
 		Priority: 7,
 		Roles:    []string{"tester", "coder"},
 	})
-	
+
 	// Code modification SOP
 	r.AddSOP(SOP{
 		ID:          "code-modification",
@@ -210,7 +210,7 @@ func (r *SOPRegistry) LoadDefaultSOPs() {
 		Priority: 6,
 		Roles:    []string{"coder", "editor"},
 	})
-	
+
 	// Tool usage SOP
 	r.AddSOP(SOP{
 		ID:          "tool-usage",

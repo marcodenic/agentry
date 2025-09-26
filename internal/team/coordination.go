@@ -1,11 +1,11 @@
 package team
 
 import (
-    "context"
-    "fmt"
-    "time"
+	"context"
+	"fmt"
+	"time"
 
-    "github.com/google/uuid"
+	"github.com/google/uuid"
 )
 
 // AssignTask assigns a task to a specific agent

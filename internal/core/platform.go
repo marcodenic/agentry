@@ -1,9 +1,9 @@
 package core
 
 import (
-    "runtime"
-    "sort"
-    "strings"
+	"runtime"
+	"sort"
+	"strings"
 )
 
 // GetPlatformContext returns OS-specific guidance for agents with tiered tool hierarchy
@@ -200,19 +200,19 @@ func InjectAvailableRoles(prompt string, availableRoles []string) string {
 		return prompt
 	}
 
-    // Ensure deterministic order for display
-    names := append([]string(nil), availableRoles...)
-    sort.Strings(names)
+	// Ensure deterministic order for display
+	names := append([]string(nil), availableRoles...)
+	sort.Strings(names)
 
-    var roleInfo strings.Builder
-    roleInfo.WriteString("\n\nAVAILABLE AGENTS: You can delegate tasks to these specialized agents using the 'agent' tool:\n")
-    for _, role := range names {
-        if role != "agent_0" { // Don't list ourselves
-            roleInfo.WriteString("- ")
-            roleInfo.WriteString(role)
-            roleInfo.WriteString("\n")
-        }
-    }
+	var roleInfo strings.Builder
+	roleInfo.WriteString("\n\nAVAILABLE AGENTS: You can delegate tasks to these specialized agents using the 'agent' tool:\n")
+	for _, role := range names {
+		if role != "agent_0" { // Don't list ourselves
+			roleInfo.WriteString("- ")
+			roleInfo.WriteString(role)
+			roleInfo.WriteString("\n")
+		}
+	}
 	roleInfo.WriteString("\nExample delegation: {\"agent\": \"coder\", \"input\": \"create a hello world program\"}")
 
 	return prompt + roleInfo.String()

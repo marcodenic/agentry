@@ -48,7 +48,7 @@ func (opt *Go125JSONOptimizer) OptimizedToolCallUnmarshal(data []byte) ([]ToolCa
 func (opt *Go125JSONOptimizer) StreamOptimizedMarshal(ctx context.Context, chunks []StreamChunk) ([]byte, error) {
 	// Pre-allocate slice to avoid reallocations
 	result := make([]byte, 0, len(chunks)*128) // Estimate 128 bytes per chunk
-	
+
 	for _, chunk := range chunks {
 		// Check context cancellation
 		select {
@@ -56,17 +56,17 @@ func (opt *Go125JSONOptimizer) StreamOptimizedMarshal(ctx context.Context, chunk
 			return nil, ctx.Err()
 		default:
 		}
-		
+
 		// Go 1.25: Improved JSON marshaling performance
 		chunkJSON, err := json.Marshal(chunk)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		result = append(result, chunkJSON...)
 		result = append(result, '\n') // Line separator
 	}
-	
+
 	return result, nil
 }
 
@@ -75,21 +75,21 @@ func (opt *Go125JSONOptimizer) ParallelJSONProcess(ctx context.Context, messages
 	if workers <= 0 {
 		workers = 4 // Default
 	}
-	
+
 	results := make([][]byte, len(messages))
 	errors := make([]error, len(messages))
-	
+
 	// Use Go 1.25's WaitGroup.Go() for cleaner concurrent patterns
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, workers) // Limit concurrency
-	
+
 	for i, msg := range messages {
 		i, msg := i, msg // Capture loop variables
-		
+
 		wg.Go(func() {
-			semaphore <- struct{}{} // Acquire
+			semaphore <- struct{}{}        // Acquire
 			defer func() { <-semaphore }() // Release
-			
+
 			// Check context
 			select {
 			case <-ctx.Done():
@@ -97,27 +97,27 @@ func (opt *Go125JSONOptimizer) ParallelJSONProcess(ctx context.Context, messages
 				return
 			default:
 			}
-			
+
 			// Go 1.25: Improved JSON marshaling performance
 			data, err := json.Marshal(msg)
 			if err != nil {
 				errors[i] = err
 				return
 			}
-			
+
 			results[i] = data
 		})
 	}
-	
+
 	wg.Wait()
-	
+
 	// Check for errors
 	for _, err := range errors {
 		if err != nil {
 			return nil, err
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -125,7 +125,7 @@ func (opt *Go125JSONOptimizer) ParallelJSONProcess(ctx context.Context, messages
 func (opt *Go125JSONOptimizer) BenchmarkJSONPerformance(iterations int) map[string]interface{} {
 	// Create test data
 	testMessage := ChatMessage{
-		Role:    "user",
+		Role: "user",
 		Content: "This is a test message for benchmarking JSON performance in Go 1.25. " +
 			"The new JSON implementation should provide significantly better performance for both " +
 			"encoding and decoding operations, especially with complex nested structures.",
@@ -137,14 +137,14 @@ func (opt *Go125JSONOptimizer) BenchmarkJSONPerformance(iterations int) map[stri
 			},
 		},
 	}
-	
+
 	// Benchmark marshaling
 	start := time.Now()
 	for i := 0; i < iterations; i++ {
 		_, _ = json.Marshal(testMessage)
 	}
 	marshalDuration := time.Since(start)
-	
+
 	// Benchmark unmarshaling
 	data, _ := json.Marshal(testMessage)
 	start = time.Now()
@@ -153,7 +153,7 @@ func (opt *Go125JSONOptimizer) BenchmarkJSONPerformance(iterations int) map[stri
 		_ = json.Unmarshal(data, &msg)
 	}
 	unmarshalDuration := time.Since(start)
-	
+
 	return map[string]interface{}{
 		"iterations":         iterations,
 		"marshal_duration":   marshalDuration,
