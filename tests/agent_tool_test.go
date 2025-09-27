@@ -14,6 +14,8 @@ import (
 // staticClient returns a fixed response.
 type staticClient struct{ out string }
 
+func (s staticClient) Clone() model.Client { return staticClient{out: s.out} }
+
 func (s staticClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
 	ch := make(chan model.StreamChunk, 1)
 	ch <- model.StreamChunk{ContentDelta: s.out, Done: true}

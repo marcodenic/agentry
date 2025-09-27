@@ -14,18 +14,6 @@ import (
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
-func runPrompt(prompt string, args []string) {
-	// Parse any flags that might be passed with the prompt
-	opts, remainingArgs := parseCommon("agentry", args)
-
-	// If there are remaining args, append them to the prompt
-	if len(remainingArgs) > 0 {
-		prompt = prompt + " " + strings.Join(remainingArgs, " ")
-	}
-
-	runPromptWithOpts(prompt, opts)
-}
-
 func runPromptWithOpts(prompt string, opts *commonOpts) {
 	cfg, err := config.Load(opts.configPath)
 	if err != nil {

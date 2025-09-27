@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/marcodenic/agentry/internal/tool"
@@ -11,6 +12,9 @@ import (
 func TestMcpBuiltin(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
+		if strings.Contains(err.Error(), "not permitted") {
+			t.Skipf("skipping MCP test: %v", err)
+		}
 		t.Fatal(err)
 	}
 	defer ln.Close()

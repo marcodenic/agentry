@@ -19,7 +19,7 @@ require (
 	github.com/pkoukk/tiktoken-go v0.1.7
 	github.com/sourcegraph/go-diff v0.7.0
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/sync v0.14.0
+	golang.org/x/sync v0.14.0 // indirect
 )
 
 require (

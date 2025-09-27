@@ -41,6 +41,9 @@ func TestConcurrentAgentsWithSynctest(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create team: %v", err)
 		}
+		if err := tm.AddExistingAgent("agent_0", agents[0]); err != nil {
+			t.Fatalf("Failed to register agent_0: %v", err)
+		}
 
 		// Add the other agents to the team
 		for i := 1; i < len(agents); i++ {
@@ -193,6 +196,10 @@ type parallelTestClient struct {
 	response string
 	delay    time.Duration
 	t        *testing.T
+}
+
+func (p *parallelTestClient) Clone() model.Client {
+	return &parallelTestClient{response: p.response, delay: p.delay, t: p.t}
 }
 
 func (p *parallelTestClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {

@@ -75,6 +75,8 @@ func TestAgentryMultiAgentOrchestration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create team: %v", err)
 		}
+		writerAgent := core.New(&orchestrationWriterClient{t: t}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), memory.NewInMemoryVector(), nil)
+		tm.AddExistingAgent("writer", writerAgent)
 		tm.RegisterAgentTool(ag.Tools)
 		ctx := team.WithContext(context.Background(), tm)
 
@@ -109,6 +111,8 @@ func TestAgentryMultiAgentOrchestration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create team: %v", err)
 		}
+		coderAgent := core.New(&fixedCoderClient{t: t}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), memory.NewInMemoryVector(), nil)
+		tm.AddExistingAgent("coder", coderAgent)
 		tm.RegisterAgentTool(ag.Tools)
 		ctx := team.WithContext(context.Background(), tm)
 
@@ -198,6 +202,10 @@ type simpleResponseClient struct {
 	t        *testing.T
 }
 
+func (s *simpleResponseClient) Clone() model.Client {
+	return &simpleResponseClient{response: s.response, t: s.t}
+}
+
 func (s *simpleResponseClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
 	out := make(chan model.StreamChunk, 1)
 	go func() {
@@ -220,6 +228,16 @@ type delegationMockClient struct {
 	finalResponse      string
 	callCount          int
 	t                  *testing.T
+}
+
+func (d *delegationMockClient) Clone() model.Client {
+	return &delegationMockClient{
+		delegationResponse: d.delegationResponse,
+		toolCallAgent:      d.toolCallAgent,
+		toolCallInput:      d.toolCallInput,
+		finalResponse:      d.finalResponse,
+		t:                  d.t,
+	}
 }
 
 func (d *delegationMockClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
@@ -253,9 +271,36 @@ func (d *delegationMockClient) Stream(ctx context.Context, msgs []model.ChatMess
 	return out, nil
 }
 
+type orchestrationWriterClient struct {
+	t *testing.T
+}
+
+func (w *orchestrationWriterClient) Clone() model.Client {
+	return &orchestrationWriterClient{t: w.t}
+}
+
+func (w *orchestrationWriterClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
+	out := make(chan model.StreamChunk, 1)
+	go func() {
+		defer close(out)
+		if w != nil && w.t != nil {
+			w.t.Logf("Writer agent responding with canned greeting")
+		}
+		out <- model.StreamChunk{
+			ContentDelta: "Hello!",
+			Done:         true,
+		}
+	}()
+	return out, nil
+}
+
 type fixedCoderClient struct {
 	callCount int
 	t         *testing.T
+}
+
+func (f *fixedCoderClient) Clone() model.Client {
+	return &fixedCoderClient{t: f.t}
 }
 
 func (f *fixedCoderClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {

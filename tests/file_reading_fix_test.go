@@ -102,6 +102,10 @@ type realCoderMockClient struct {
 	t         *testing.T
 }
 
+func (c *realCoderMockClient) Clone() model.Client {
+	return &realCoderMockClient{t: c.t}
+}
+
 func (c *realCoderMockClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
 	out := make(chan model.StreamChunk, 1)
 	go func() {
@@ -191,6 +195,8 @@ func TestCompleteCoderDelegationFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create team: %v", err)
 	}
+	coderAgent := core.New(&realCoderMockClient{t: t}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), memory.NewInMemoryVector(), nil)
+	tm.AddExistingAgent("coder", coderAgent)
 	tm.RegisterAgentTool(ag.Tools)
 	ctx := team.WithContext(context.Background(), tm)
 
@@ -201,9 +207,9 @@ func TestCompleteCoderDelegationFlow(t *testing.T) {
 	}
 
 	t.Logf("Delegation result: %s", result)
-	// The result should indicate successful delegation occurred
-	if !strings.Contains(strings.ToLower(result), "coder") {
-		t.Errorf("Expected mention of coder in result: %s", result)
+	// The result should indicate successful file read from coder agent
+	if !strings.Contains(result, "Successfully read PRODUCT.md") {
+		t.Errorf("Expected coder summary in result: %s", result)
 	}
 }
 
@@ -211,6 +217,10 @@ func TestCompleteCoderDelegationFlow(t *testing.T) {
 type delegatingAgent0Client struct {
 	t         *testing.T
 	callCount int
+}
+
+func (d *delegatingAgent0Client) Clone() model.Client {
+	return &delegatingAgent0Client{t: d.t}
 }
 
 func (d *delegatingAgent0Client) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {

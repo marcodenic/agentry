@@ -3,14 +3,29 @@ package tests
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/marcodenic/agentry/internal/memory"
 )
 
+func requireLoopback(t *testing.T) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		if strings.Contains(err.Error(), "not permitted") {
+			t.Skipf("skipping vector backend test: %v", err)
+		}
+		t.Fatalf("listen failed: %v", err)
+	}
+	ln.Close()
+}
+
 func TestQdrantAdapter(t *testing.T) {
+	requireLoopback(t)
 	stored := map[string]string{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -64,6 +79,7 @@ func TestQdrantAdapter(t *testing.T) {
 }
 
 func TestFaissAdapter(t *testing.T) {
+	requireLoopback(t)
 	stored := map[string]string{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {

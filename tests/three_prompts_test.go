@@ -21,6 +21,12 @@ type cannedResponseClient struct {
 	t         *testing.T
 }
 
+func (c *cannedResponseClient) Clone() model.Client {
+	cp := make([]model.StreamChunk, len(c.responses))
+	copy(cp, c.responses)
+	return &cannedResponseClient{responses: cp, t: c.t}
+}
+
 func (c *cannedResponseClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
 	out := make(chan model.StreamChunk, len(c.responses))
 	go func() {
@@ -76,6 +82,8 @@ func TestThreePrompts_SimpleGreeting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create team: %v", err)
 	}
+	writerAgent := core.New(&writerMockClient{t: t}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), memory.NewInMemoryVector(), nil)
+	tm.AddExistingAgent("writer", writerAgent)
 	tm.RegisterAgentTool(ag.Tools)
 	ctx := team.WithContext(context.Background(), tm)
 
@@ -136,6 +144,8 @@ func TestThreePrompts_WriterDelegation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create team: %v", err)
 	}
+	coderAgent := core.New(&coderMockClient{t: t}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), memory.NewInMemoryVector(), nil)
+	tm.AddExistingAgent("coder", coderAgent)
 	tm.RegisterAgentTool(ag.Tools)
 	ctx := team.WithContext(context.Background(), tm)
 
@@ -153,6 +163,10 @@ func TestThreePrompts_WriterDelegation(t *testing.T) {
 // Mock writer client for spawned agents
 type writerMockClient struct {
 	t *testing.T
+}
+
+func (w *writerMockClient) Clone() model.Client {
+	return &writerMockClient{t: w.t}
 }
 
 func (w *writerMockClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
@@ -238,6 +252,10 @@ type coderMockClient struct {
 	t *testing.T
 }
 
+func (c *coderMockClient) Clone() model.Client {
+	return &coderMockClient{t: c.t}
+}
+
 func (c *coderMockClient) Stream(ctx context.Context, msgs []model.ChatMessage, tools []model.ToolSpec) (<-chan model.StreamChunk, error) {
 	out := make(chan model.StreamChunk, 3)
 	go func() {
@@ -303,6 +321,8 @@ func TestThreePrompts_FullIntegration(t *testing.T) {
 		registry := tool.DefaultRegistry()
 		ag := core.New(client, "mock", registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 		tm, _ := team.NewTeam(ag, 1, "test")
+		writerAgent := core.New(&writerMockClient{t: t}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), memory.NewInMemoryVector(), nil)
+		tm.AddExistingAgent("writer", writerAgent)
 		tm.RegisterAgentTool(ag.Tools)
 		ctx := team.WithContext(context.Background(), tm)
 
@@ -321,6 +341,8 @@ func TestThreePrompts_FullIntegration(t *testing.T) {
 		registry := tool.DefaultRegistry()
 		ag := core.New(client, "mock", registry, memory.NewInMemory(), memory.NewInMemoryVector(), nil)
 		tm, _ := team.NewTeam(ag, 1, "test")
+		coderAgent := core.New(&coderMockClient{t: t}, "mock", tool.DefaultRegistry(), memory.NewInMemory(), memory.NewInMemoryVector(), nil)
+		tm.AddExistingAgent("coder", coderAgent)
 		tm.RegisterAgentTool(ag.Tools)
 		ctx := team.WithContext(context.Background(), tm)
 

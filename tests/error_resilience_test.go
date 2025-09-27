@@ -79,6 +79,7 @@ func TestErrorHandlingWithNonResilientAgent(t *testing.T) {
 
 	// Disable error handling to test old behavior
 	agent.ErrorHandling.TreatErrorsAsResults = false
+	agent.ErrorHandling.MaxErrorRetries = 0
 
 	_, err := agent.Run(context.Background(), "test task")
 
@@ -87,8 +88,8 @@ func TestErrorHandlingWithNonResilientAgent(t *testing.T) {
 		t.Fatal("Expected error when calling non-existent tool without error handling")
 	}
 
-	if !strings.Contains(err.Error(), "unknown tool") {
-		t.Fatalf("Expected 'unknown tool' error, got: %v", err)
+	if !strings.Contains(err.Error(), "unknown tool") && !strings.Contains(err.Error(), "too many consecutive errors") {
+		t.Fatalf("Expected 'unknown tool' or retry limit error, got: %v", err)
 	}
 }
 
