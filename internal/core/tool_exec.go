@@ -45,15 +45,16 @@ func (e *toolExecutor) execute(ctx context.Context, calls []model.ToolCall, step
 			continue
 		}
 
-		res, err := e.runTool(ctx, tc, toolInstance, args)
+		res, softFailure, err := e.runTool(ctx, tc, toolInstance, args)
 		if err != nil {
 			hadErrors = true
-			if e.agent.ErrorHandling.TreatErrorsAsResults {
-				msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: res})
-				step.ToolResults[tc.ID] = res
-				continue
-			}
 			return msgs, hadErrors, err
+		}
+		if softFailure {
+			hadErrors = true
+			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: res})
+			step.ToolResults[tc.ID] = res
+			continue
 		}
 
 		step.ToolResults[tc.ID] = res
@@ -83,7 +84,7 @@ func (e *toolExecutor) prepareCall(tc model.ToolCall) (tool.Tool, map[string]any
 	return toolInstance, args, nil
 }
 
-func (e *toolExecutor) runTool(ctx context.Context, tc model.ToolCall, toolInstance tool.Tool, args map[string]any) (string, error) {
+func (e *toolExecutor) runTool(ctx context.Context, tc model.ToolCall, toolInstance tool.Tool, args map[string]any) (string, bool, error) {
 	if b, _ := json.Marshal(args); len(b) > 0 {
 		debug.Printf("Agent '%s' executing tool '%s' with args: %s", e.agent.ID, tc.Name, sanitizeForLog(string(b)))
 	} else {
@@ -110,18 +111,18 @@ func (e *toolExecutor) runTool(ctx context.Context, tc model.ToolCall, toolInsta
 
 		errorMsg := e.formatError(tc.Name, args, err)
 		if e.agent.ErrorHandling.TreatErrorsAsResults {
-			return errorMsg, nil
+			return errorMsg, true, nil
 		}
-		return "", errors.New(errorMsg)
+		return "", true, errors.New(errorMsg)
 	}
 
 	e.note.Success(e.agent.ID.String(), tc.Name)
 
 	if err := e.agent.JSONValidator.ValidateToolResponse(result); err != nil {
-		return "", fmt.Errorf("Error: Tool '%s' produced invalid response: %v", tc.Name, err)
+		return "", false, fmt.Errorf("Error: Tool '%s' produced invalid response: %v", tc.Name, err)
 	}
 
-	return e.normalizeResult(tc.Name, args, result), nil
+	return e.normalizeResult(tc.Name, args, result), false, nil
 }
 
 func (e *toolExecutor) logToolStart(tc model.ToolCall, args map[string]any) {

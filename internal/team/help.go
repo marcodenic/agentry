@@ -1,31 +1,11 @@
 package team
 
 import (
-	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 )
-
-// ProposeCollaboration allows agents to propose working together without inbox messaging
-func (t *Team) ProposeCollaboration(ctx context.Context, proposerID, targetAgentID, proposal string) error {
-	// Persist proposal metadata in shared store and publish a workspace event
-	proposalKey := fmt.Sprintf("proposal_%s_to_%s_%d", proposerID, targetAgentID, time.Now().Unix())
-	proposalData := map[string]interface{}{
-		"from": proposerID, "to": targetAgentID, "proposal": proposal, "status": "pending", "timestamp": time.Now(),
-	}
-	t.SetSharedData(proposalKey, proposalData)
-
-	t.PublishWorkspaceEvent(proposerID, "collaboration_proposal", fmt.Sprintf("Proposed collaboration with %s", targetAgentID), map[string]interface{}{
-		"target_agent": targetAgentID, "proposal": proposal,
-	})
-
-	// Also log a coordination event for observability
-	t.LogCoordinationEvent("collab_proposal", proposerID, targetAgentID, proposal, map[string]interface{}{})
-	return nil
-}
 
 // checkWorkCompleted attempts to detect if an agent completed meaningful work
 // even if the response generation timed out

@@ -37,8 +37,8 @@ func TestToolExecutorTreatsErrorsAsResults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if hadErrors {
-		t.Fatalf("did not expect hadErrors when TreatErrorsAsResults is true")
+	if !hadErrors {
+		t.Fatalf("expected hadErrors to be true to signal soft failure")
 	}
 	if len(msgs) != 1 {
 		t.Fatalf("expected a single tool message, got %d", len(msgs))

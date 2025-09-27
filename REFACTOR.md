@@ -14,5 +14,4 @@
 - [x] Clarify expectations for coordination helpers (`PublishWorkspaceEvent`, history trimming, `checkWorkCompleted`) and test the heuristics.
 
 ## Dead / Disconnected Code Candidates
-- `internal/team/help.go:ProposeCollaboration` is exported but unused—either wire it up or delete it.
-- `internal/core/tool_exec.go` keeps `hadErrors` false when `TreatErrorsAsResults` captures soft failures; rename or flip the flag for clarity.
+- (none outstanding)
