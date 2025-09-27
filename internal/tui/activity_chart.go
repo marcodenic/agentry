@@ -82,21 +82,26 @@ func (m Model) renderActivityChart(info *AgentInfo, panelWidth int) string {
 		chartWidth = 50 // Maximum chart width for readability
 	}
 
-	availableWidth := chartWidth + 1 // Match token bar sizing
+	labelWidth := 3                               // width of "out"/"in" labels (already padded to 3 chars)
+	sparklineWidth := chartWidth - labelWidth - 1 // account for label and separating space
+	if sparklineWidth < 4 {
+		sparklineWidth = 4
+	}
+	effectiveWidth := sparklineWidth + 1 // ntcharts appends a trailing space we trim later
 	spacePattern := regexp.MustCompile(` \x1b\[0m$`)
 
 	renderSeries := func(label string, data []float64, style lipgloss.Style) string {
-		chart := sparkline.New(availableWidth, 1,
+		chart := sparkline.New(effectiveWidth, 1,
 			sparkline.WithMaxValue(1.0),
 			sparkline.WithStyle(style),
 		)
 
 		series := data
-		if len(series) > availableWidth {
-			series = series[len(series)-availableWidth:]
+		if len(series) > effectiveWidth {
+			series = series[len(series)-effectiveWidth:]
 		}
-		if len(series) < availableWidth {
-			padding := availableWidth - len(series)
+		if len(series) < effectiveWidth {
+			padding := effectiveWidth - len(series)
 			for i := 0; i < padding; i++ {
 				chart.Push(0.0)
 			}
