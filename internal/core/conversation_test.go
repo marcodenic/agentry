@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/marcodenic/agentry/internal/cost"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
 	"github.com/marcodenic/agentry/internal/tool"
@@ -120,6 +121,23 @@ func TestTrackRecentToolCallsStopsAfterThreshold(t *testing.T) {
 	}
 	if !recorded {
 		t.Fatalf("expected recordStep callback to run when guard trips")
+	}
+}
+
+func TestHandleCompletionRespectsBudgetStop(t *testing.T) {
+	t.Setenv("AGENTRY_STOP_ON_BUDGET", "true")
+
+	mem := memory.NewInMemory()
+	agent := New(model.NewMock(), "openai/gpt-4", tool.Registry{}, mem, nil, trace.NewJSONL(io.Discard))
+	agent.Cost = cost.New(1, 0)
+
+	session := newConversationSession(agent, context.Background(), "task")
+	session.msgs = []model.ChatMessage{{Role: "user", Content: "work"}}
+
+	completion := model.Completion{Content: "done", InputTokens: 2, OutputTokens: 0}
+
+	if _, _, err := session.handleCompletion(completion, ""); err == nil {
+		t.Fatalf("expected budget error when token usage exceeds limit")
 	}
 }
 
