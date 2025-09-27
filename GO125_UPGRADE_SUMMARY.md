@@ -60,7 +60,7 @@ wg.Go(func() {
 - `internal/trace/trace_go125.go` - Enhanced trace writing
 - `internal/trace/performance_go125.go` - Performance monitoring
 - `internal/model/json_go125.go` - Optimized JSON handling
-- `cmd/benchmark/main.go` - Performance benchmarking tool
+- ~~`cmd/benchmark/main.go` - Performance benchmarking tool~~ *(removed; built-in instrumentation suffices)*
 
 ### 4. New Vet Analyzers
 - **waitgroup analyzer:** Detects misplaced `sync.WaitGroup.Add` calls
@@ -77,8 +77,6 @@ wg.Go(func() {
 
 ### Performance Benchmarks
 ```bash
-# Run JSON performance benchmark
-go run ./cmd/benchmark 5000
 
 # Results with JSON v2:
 # Marshal: 557,942 ops/sec (1,792 ns/op)
@@ -96,7 +94,7 @@ go run ./cmd/benchmark 5000
 - `internal/trace/trace_go125.go` - Enhanced trace writing
 - `internal/trace/performance_go125.go` - Performance monitoring
 - `internal/model/json_go125.go` - JSON optimizations
-- `cmd/benchmark/main.go` - Performance benchmarking
+- ~~`cmd/benchmark/main.go` - Performance benchmarking~~
 - `tests/go125_features_simple_test.go` - Feature tests
 - `tests/go125_synctest_test.go` - Advanced concurrent tests
 - `test_go125_features.sh` - Comprehensive test script
@@ -153,7 +151,7 @@ go run ./cmd/benchmark 5000
 - ✅ New vet analyzers (no issues found)
 
 ### Performance Verification
-- ✅ JSON benchmarks show improvement
+- ✅ JSON benchmarks (legacy helper) showed improvement
 - ✅ Binary size reduction confirmed
 - ✅ Container awareness working
 - ✅ All existing functionality preserved
@@ -168,7 +166,6 @@ go run ./cmd/benchmark 5000
 
 2. **Monitor performance** in your environment:
    ```bash
-   go run ./cmd/benchmark 10000
    ```
 
 3. **Update CI/CD** to use Go 1.25.1

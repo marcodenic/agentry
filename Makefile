@@ -1,4 +1,4 @@
-.PHONY: build test install clean run benchmark lint info
+.PHONY: build test install clean run lint info
 
 GO ?= go
 BIN_DIR ?= bin
@@ -23,9 +23,6 @@ install: ## Install the binary into GOPATH/bin
 
 test: ## Run the full unit test suite with experiments enabled
 	$(GOENV) $(GO) test ./...
-
-benchmark: ## Run the benchmark helper
-	$(GOENV) $(GO) run ./cmd/benchmark 5000
 
 run: build ## Build and run the TUI
 	$(BINARY) tui
