@@ -1,10 +1,9 @@
-package main
+package prompt
 
 import (
 	"context"
 	"testing"
 
-	"github.com/marcodenic/agentry/internal/prompt"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
@@ -20,7 +19,7 @@ func TestSectionizeProducesStableEnvelope(t *testing.T) {
 		"output_format": "json",
 	}
 
-	out := prompt.Sectionize("Be helpful", reg, extras)
+	out := Sectionize("Be helpful", reg, extras)
 
 	const expected = `<agentry>
 <prompt>

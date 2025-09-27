@@ -97,7 +97,7 @@ wg.Go(func() {
 - ~~`cmd/benchmark/main.go` - Performance benchmarking~~
 - `tests/go125_features_simple_test.go` - Feature tests
 - `tests/go125_synctest_test.go` - Advanced concurrent tests
-- `test_go125_features.sh` - Comprehensive test script
+- `scripts/test_go125_features.sh` - Comprehensive test script
 
 ## 🎯 Benefits for Agentry Specifically
 

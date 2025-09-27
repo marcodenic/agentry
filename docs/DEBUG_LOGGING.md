@@ -17,11 +17,11 @@ The enhanced debug logging system provides comprehensive, structured logging of 
 ### Method 1: Debug Wrapper Script (Recommended)
 ```bash
 # Use the debug wrapper for comprehensive logging
-./debug-agentry.sh
+./scripts/debug-agentry.sh
 
 # Or with specific commands
-./debug-agentry.sh "create a hello world program"
-./debug-agentry.sh tui
+./scripts/debug-agentry.sh "create a hello world program"
+./scripts/debug-agentry.sh tui
 ```
 
 ### Method 2: Environment Variables
@@ -36,7 +36,7 @@ export AGENTRY_DEBUG_LEVEL=trace
 ### Method 3: Test Script
 ```bash
 # Run the test script to verify logging works
-./test_debug_logging.sh
+./scripts/test_debug_logging.sh
 ```
 
 ## Log File Location
@@ -105,7 +105,7 @@ The new debug system is fully backward compatible with existing logging:
 
 1. Start TUI with debug logging:
    ```bash
-   ./debug-agentry.sh tui
+   ./scripts/debug-agentry.sh tui
    ```
 
 2. In another terminal, monitor logs:
@@ -156,9 +156,9 @@ grep -i 'api_error\|http_request_failed' debug/agentry-debug-*.log
 ## Files Added/Modified
 
 ### New Files:
-- `debug-agentry.sh` - Debug wrapper script
-- `test_debug_logging.sh` - Test script for verification
-- `DEBUG_LOGGING.md` - This documentation
+- `scripts/debug-agentry.sh` - Debug wrapper script
+- `scripts/test_debug_logging.sh` - Test script for verification
+- `docs/DEBUG_LOGGING.md` - This documentation
 
 ### Enhanced Files:
 - `internal/debug/debug.go` - Rolling logger and structured events
