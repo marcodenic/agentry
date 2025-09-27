@@ -14,13 +14,13 @@ import (
 func (m Model) getAdvancedStatusDot(status AgentStatus) string {
 	switch status {
 	case StatusIdle:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.IdleColor)).Bold(true).Render(glyphs.CircleFilled)
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(uiColorIdleHex)).Bold(true).Render(glyphs.CircleFilled)
 	case StatusRunning:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.RunningColor)).Bold(true).Render(glyphs.CircleFilled)
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(uiColorRunningHex)).Bold(true).Render(glyphs.CircleFilled)
 	case StatusError:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.ErrorColor)).Bold(true).Render(glyphs.Crossmark)
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(uiColorErrorHex)).Bold(true).Render(glyphs.Crossmark)
 	case StatusStopped:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.StoppedColor)).Bold(true).Render(glyphs.CircleEmpty)
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(uiColorStoppedHex)).Bold(true).Render(glyphs.CircleEmpty)
 	default:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#888888")).Bold(true).Render(glyphs.CircleEmpty)
 	}

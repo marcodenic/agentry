@@ -18,7 +18,7 @@ func (m Model) View() string {
 			if info, ok := m.infos[m.active]; ok {
 				// Apply centering to the logo content
 				logoStyle := lipgloss.NewStyle().
-					Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+					Foreground(lipgloss.Color(uiColorForegroundHex)).
 					Width(m.vp.Width).
 					Height(m.vp.Height).
 					Align(lipgloss.Center, lipgloss.Center)
@@ -38,7 +38,7 @@ func (m Model) View() string {
 	}
 
 	base := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.theme.Palette.Foreground))
+		Foreground(lipgloss.Color(uiColorForegroundHex))
 
 	// Create top section with chat (left) and agents (right)
 	// Don't apply extra width constraints to chatContent - let viewport handle it
@@ -122,8 +122,13 @@ func (m Model) View() string {
 		m.debugVp.Height = viewportHeight
 	}
 
-	// Render input as-is to avoid double-wrapping/cropping by lipgloss
-	inputSection := m.input.View()
+	// Render input and scrub any ANSI sequences that force a black background/foreground
+	rawInput := sanitizeInputANSI(m.input.View())
+	// Wrap the input with a style that removes any background coloring
+	inputStyle := lipgloss.NewStyle().
+		UnsetBackground().
+		Foreground(lipgloss.Color(uiColorForegroundHex))
+	inputSection := inputStyle.Render(rawInput)
 
 	// Stack everything vertically
 	content := lipgloss.JoinVertical(lipgloss.Left, topSection, horizontalLine, inputSection)

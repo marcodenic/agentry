@@ -6,11 +6,11 @@ import (
 )
 
 func (m Model) userBar() string {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.UserBarColor)).Bold(true).Render("┃")
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(uiColorUserAccentHex)).Bold(true).Render("┃")
 }
 
 func (m Model) aiBar() string {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor)).Bold(true).Render("┃")
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(uiColorAIAccentHex)).Bold(true).Render("┃")
 }
 
 // statusBar returns orange horizontal bar for in-progress status updates

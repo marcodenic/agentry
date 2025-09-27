@@ -24,7 +24,7 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	info.StreamingResponse = "" // Reset streaming response
 	// Don't recreate the spinner - keep the configured one
 	info.Spinner.Spinner = spinner.Dot
-	info.Spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
+	info.Spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(uiColorAIAccentHex))
 
 	// Clear initial logo on first user input
 	if m.showInitialLogo {

@@ -37,7 +37,7 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 				// Found a new agent that's not in our tracking - add it
 				sp := spinner.New()
 				sp.Spinner = spinner.Dot
-				sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.AIBarColor))
+				sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(uiColorAIAccentHex))
 				agentNumber := len(m.infos) // This gives us the next agent number
 				displayName := fmt.Sprintf("Agent %d", agentNumber)
 

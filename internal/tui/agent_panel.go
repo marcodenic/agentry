@@ -20,7 +20,7 @@ func (m Model) agentPanel(panelWidth int) string {
 	}
 
 	title := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.theme.PanelTitleColor)).
+		Foreground(lipgloss.Color(uiColorPanelTitleHex)).
 		Bold(true).
 		Render(titleGlyph + " AGENTS")
 	lines = append(lines, title)
@@ -38,7 +38,7 @@ func (m Model) agentPanel(panelWidth int) string {
 	}
 	statsLine := fmt.Sprintf("Total: %d | Running: %d", len(m.infos), runningCount)
 	lines = append(lines, lipgloss.NewStyle().
-		Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+		Foreground(lipgloss.Color(uiColorForegroundHex)).
 		Faint(true).
 		Render(statsLine))
 	lines = append(lines, "")
@@ -57,7 +57,7 @@ func (m Model) agentPanel(panelWidth int) string {
 		if id == m.active {
 			// Use orange triangle for active agent (including Agent 0)
 			nameLine = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(m.theme.UserBarColor)).
+				Foreground(lipgloss.Color(uiColorUserAccentHex)).
 				Bold(true).
 				Render(glyphs.OrangeTriangle() + " " + nameLine)
 		}
@@ -66,7 +66,7 @@ func (m Model) agentPanel(panelWidth int) string {
 		if ag.Role != "" {
 			roleLine := fmt.Sprintf("  role: %s", ag.Role)
 			roleLine = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(m.theme.RoleColor)).
+				Foreground(lipgloss.Color(uiColorRoleAccentHex)).
 				Italic(true).
 				Render(roleLine)
 			lines = append(lines, roleLine)
@@ -75,7 +75,7 @@ func (m Model) agentPanel(panelWidth int) string {
 		if ag.CurrentTool != "" {
 			toolLine := fmt.Sprintf("  %s %s", glyphs.YellowStar(), ag.CurrentTool)
 			toolLine = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(m.theme.ToolColor)).
+				Foreground(lipgloss.Color(uiColorToolAccentHex)).
 				Render(toolLine)
 			lines = append(lines, toolLine)
 		}
@@ -83,7 +83,7 @@ func (m Model) agentPanel(panelWidth int) string {
 		if ag.ModelName != "" {
 			modelLine := fmt.Sprintf("  model: %s", ag.ModelName)
 			modelLine = lipgloss.NewStyle().
-				Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+				Foreground(lipgloss.Color(uiColorForegroundHex)).
 				Faint(true).
 				Render(modelLine)
 			lines = append(lines, modelLine)
@@ -114,7 +114,7 @@ func (m Model) agentPanel(panelWidth int) string {
 		activityChart := m.renderActivityChart(ag.ActivityData, panelWidth)
 		if activityChart != "" {
 			activityLabel := lipgloss.NewStyle().
-				Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+				Foreground(lipgloss.Color(uiColorForegroundHex)).
 				Faint(true).
 				Render("  activity:")
 			lines = append(lines, activityLabel)
@@ -128,7 +128,7 @@ func (m Model) agentPanel(panelWidth int) string {
 			if individualCost > 0 {
 				costLine := fmt.Sprintf("  cost: $%.6f", individualCost)
 				costLine = lipgloss.NewStyle().
-					Foreground(lipgloss.Color(m.theme.AIBarColor)).
+					Foreground(lipgloss.Color(uiColorAIAccentHex)).
 					Render(costLine)
 				lines = append(lines, costLine)
 			}
@@ -140,7 +140,7 @@ func (m Model) agentPanel(panelWidth int) string {
 	// Diagnostics summary block
 	if len(m.diags) > 0 || m.diagRunning {
 		title := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(m.theme.PanelTitleColor)).
+			Foreground(lipgloss.Color(uiColorPanelTitleHex)).
 			Bold(true).
 			Render("🩺 DIAGNOSTICS")
 		lines = append(lines, title)
@@ -181,15 +181,15 @@ func (m Model) agentPanel(panelWidth int) string {
 
 	if len(m.infos) > 0 {
 		lines = append(lines, lipgloss.NewStyle().
-			Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+			Foreground(lipgloss.Color(uiColorForegroundHex)).
 			Faint(true).
 			Render("Controls:"))
 		lines = append(lines, lipgloss.NewStyle().
-			Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+			Foreground(lipgloss.Color(uiColorForegroundHex)).
 			Faint(true).
 			Render("  "+glyphs.ArrowLeft+glyphs.ArrowRight+" cycle agents"))
 		lines = append(lines, lipgloss.NewStyle().
-			Foreground(lipgloss.Color(m.theme.Palette.Foreground)).
+			Foreground(lipgloss.Color(uiColorForegroundHex)).
 			Faint(true).
 			Render("  Tab switch view"))
 	}

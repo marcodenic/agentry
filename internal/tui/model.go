@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -106,8 +107,7 @@ type Model struct {
 
 	err error
 
-	theme Theme
-	keys  Keybinds
+	keys Keybinds
 
 	// Diagnostics
 	diags       []Diag
@@ -199,7 +199,6 @@ func New(ag *core.Agent) Model {
 
 // NewWithConfig creates a new TUI model bound to an Agent with optional config.
 func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Model {
-	th := LoadTheme()
 	items := []list.Item{}
 	for name, tl := range ag.Tools {
 		items = append(items, listItem{name: name, desc: tl.Description()})
@@ -234,10 +233,30 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	// Remove the default prompt (which renders a vertical bar) and any padding
 	ti.Prompt = ""
 	ti.Placeholder = "Type your message... (Press Enter to send, Up for previous)"
-	// Prevent left padding from shifting the first row
-	if styler, ok := interface{}(&ti).(interface{ SetBaseStyle(lipgloss.Style) }); ok {
-		styler.SetBaseStyle(lipgloss.NewStyle().Padding(0))
-	}
+
+	// COMPLETELY REMOVE ALL BACKGROUND COLORS - use NoColor which should be truly transparent
+	noColor := lipgloss.NoColor{}
+	clearStyle := lipgloss.NewStyle().Background(noColor)
+	textStyle := lipgloss.NewStyle().Background(noColor).Foreground(lipgloss.Color(uiColorForegroundHex))
+	numberStyle := lipgloss.NewStyle().Background(noColor).Foreground(lipgloss.Color("#6B7280")).Faint(true)
+
+	// Clear ALL possible background styling from textarea
+	ti.BlurredStyle.Base = clearStyle
+	ti.FocusedStyle.Base = clearStyle
+	ti.BlurredStyle.Text = textStyle
+	ti.FocusedStyle.Text = textStyle
+	ti.FocusedStyle.CursorLine = textStyle
+	ti.BlurredStyle.CursorLine = textStyle
+	ti.FocusedStyle.Placeholder = textStyle
+	ti.BlurredStyle.Placeholder = textStyle
+	ti.FocusedStyle.EndOfBuffer = textStyle
+	ti.BlurredStyle.EndOfBuffer = textStyle
+	ti.FocusedStyle.LineNumber = numberStyle
+	ti.BlurredStyle.LineNumber = numberStyle
+	ti.FocusedStyle.CursorLineNumber = numberStyle
+	ti.BlurredStyle.CursorLineNumber = numberStyle
+	ti.FocusedStyle.Prompt = textStyle
+	ti.BlurredStyle.Prompt = textStyle
 	ti.Focus()
 	// Initialize viewport with reasonable default dimensions
 	// This prevents text wrapping issues before the first window resize event
@@ -279,7 +298,7 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	// Configure spinner with dot style and proper coloring
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(th.AIBarColor))
+	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(uiColorAIAccentHex))
 
 	info := &AgentInfo{
 		Agent:               ag,
@@ -401,8 +420,7 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		input:           ti,
 		tools:           l,
 		cwd:             cwd,
-		theme:           th,
-		keys:            th.Keybinds,
+		keys:            DefaultKeybinds(),
 		showInitialLogo: true,
 		robot:           NewRobotFace(),
 		statusBarModel:  statusBarModel,
@@ -410,6 +428,12 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		todoBoard:       NewTodoBoard(),
 	}
 	return m
+}
+
+var ansiEscapeRegexp = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+func sanitizeInputANSI(s string) string {
+	return ansiEscapeRegexp.ReplaceAllString(s, "")
 }
 
 type listItem struct{ name, desc string }

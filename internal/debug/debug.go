@@ -125,6 +125,11 @@ func init() {
 		}
 	}
 
+	// Force debug logging in TUI mode for better debugging capabilities
+	if os.Getenv("AGENTRY_TUI_MODE") == "1" && debugLevel == "" {
+		debugLevel = "trace"
+	}
+
 	// Set debug enabled based on level
 	DebugEnabled = debugLevel == "debug" || debugLevel == "trace"
 
@@ -132,8 +137,13 @@ func init() {
 	initFileLogger()
 
 	if DebugEnabled {
-		// In debug mode, output to stderr AND file
-		DebugLogger = log.New(os.Stderr, "[DEBUG] ", log.LstdFlags)
+		// In TUI mode, always disable stderr to avoid interference with TUI display
+		if os.Getenv("AGENTRY_TUI_MODE") == "1" {
+			DebugLogger = log.New(io.Discard, "", 0)
+		} else {
+			// In debug mode and not TUI, output to stderr AND file
+			DebugLogger = log.New(os.Stderr, "[DEBUG] ", log.LstdFlags)
+		}
 	} else {
 		// In non-debug mode, discard stderr output but still log to file
 		DebugLogger = log.New(io.Discard, "", 0)
