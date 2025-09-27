@@ -131,18 +131,22 @@ func (a *Agent) buildMessages(prompt, input string, history []memory.Step) []mod
 
 	msgs := []model.ChatMessage{{Role: "system", Content: prompt}}
 
-	// Include only the most recent history step to maintain tool call context
-	// while preventing exponential growth. Most agents only need the immediate context.
+	// Include only the most recent history step to maintain context
 	if len(history) > 0 {
 		lastStep := history[len(history)-1]
 		debug.Printf("Including LAST history step in messages:")
+		debug.Printf("  Input: %.200s...", lastStep.Input)
 		debug.Printf("  Output: %.200s...", lastStep.Output)
 		debug.Printf("  ToolCalls: %d", len(lastStep.ToolCalls))
 		debug.Printf("  ToolResults: %d", len(lastStep.ToolResults))
 
-		msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: lastStep.Output, ToolCalls: lastStep.ToolCalls})
+		if strings.TrimSpace(lastStep.Input) != "" {
+			msgs = append(msgs, model.ChatMessage{Role: "user", Content: lastStep.Input})
+		}
+		if strings.TrimSpace(lastStep.Output) != "" || len(lastStep.ToolCalls) > 0 {
+			msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: lastStep.Output, ToolCalls: lastStep.ToolCalls})
+		}
 		for id, res := range lastStep.ToolResults {
-			// Truncate large tool results to prevent context bloat
 			truncatedRes := res
 			if len(res) > 2048 {
 				truncatedRes = res[:2048] + "...\n[TRUNCATED: originally " + fmt.Sprintf("%d", len(res)) + " bytes]"
@@ -347,10 +351,6 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 	safeInputPreview := sanitizeForLog(input[:min(300, len(input))])
 	debug.Printf("Agent.Run: Input: %s", safeInputPreview)
 
-	if resetter, ok := a.Client.(interface{ ResetConversation() }); ok {
-		resetter.ResetConversation()
-	}
-
 	a.Trace(ctx, trace.EventModelStart, a.ModelName)
 
 	prompt := a.Prompt
@@ -362,7 +362,11 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 
 	specs := tool.BuildSpecs(a.Tools)
 	// Build initial messages without history to prevent prompt bloat
-	msgs := a.buildMessages(prompt, input, []memory.Step{})
+	history := a.Mem.History()
+	if debug.IsTraceEnabled() {
+		debug.Printf("Agent.Run: memory store=%p (history len %d)", a.Mem, len(history))
+	}
+	msgs := a.buildMessages(prompt, input, history)
 	msgs = a.applyBudget(msgs, specs)
 
 	debug.Printf("Agent.Run: Built %d messages (post-trim), %d tool specs", len(msgs), len(specs))
@@ -576,7 +580,18 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 		} else {
 			debug.Printf("Agent.Run: Conversation linking active (responseID: %s), not appending to local context", responseIDUsed)
 		}
-		step := memory.Step{Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
+		step := memory.Step{Input: input, Output: res.Content, ToolCalls: res.ToolCalls, ToolResults: map[string]string{}}
+		stepRecorded := false
+		recordStep := func() {
+			if !stepRecorded {
+				a.Mem.AddStep(step)
+				if debug.IsTraceEnabled() {
+					h := a.Mem.History()
+					debug.Printf("Agent.Run: Recorded step (history len now %d)", len(h))
+				}
+				stepRecorded = true
+			}
+		}
 
 		if len(res.ToolCalls) == 0 {
 			// Previously we injected a follow-up prompt when the model produced a planning-style response.
@@ -584,6 +599,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			// Now we return immediately like the non-streaming path, unless explicitly enabled via env.
 			debug.Printf("Agent.Run: No tool calls in response, checking for completion")
 			debug.Printf("Agent.Run: Response content snippet: '%.200s...'", res.Content)
+			recordStep()
 			if env.Bool("AGENTRY_PLAN_HEURISTIC", false) && len(specs) > 0 && (strings.Contains(strings.ToLower(res.Content), "plan") || strings.Contains(res.Content, "I'll ") || strings.Contains(strings.ToLower(res.Content), "i will")) {
 				debug.Printf("Agent.Run: Plan heuristic enabled; injecting follow-up to trigger tools")
 				follow := "You provided a plan. Now execute the necessary steps using the available tools. For each data collection action, call the appropriate tool (e.g., sysinfo). Then produce the consolidated final report. Respond only with tool calls until data is gathered."
@@ -599,7 +615,6 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 				return fmt.Sprintf("Agent completed task but output validation failed: %v", err), nil
 			}
 
-			// Memory disabled for now: do not persist steps
 			_ = a.Checkpoint(ctx)
 			a.Trace(ctx, trace.EventFinal, res.Content)
 			return res.Content, nil
@@ -635,6 +650,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 				debug.Printf("Agent.Run: Tool %s has %d identical calls in recent history (max=%d)", signature.Name, identicalCount, maxIdenticalCalls)
 
 				if identicalCount >= maxIdenticalCalls {
+					recordStep()
 					debug.Printf("Agent.Run: BREAKING LOOP - Detected repeated tool call (%s) %d times", tc.Name, identicalCount)
 					return fmt.Sprintf("Task completed. Detected repeated tool execution (%s), stopping to prevent infinite loop.", tc.Name), nil
 				}
@@ -662,6 +678,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			out := strings.TrimSpace(b.String())
 			if out != "" {
 				debug.Printf("Agent.Run: Finalizing after terminal tool calls (%d tools, %d chars output)", len(res.ToolCalls), len(out))
+				recordStep()
 				_ = a.Checkpoint(ctx)
 				a.Trace(ctx, trace.EventFinal, out)
 				return out, nil
@@ -677,7 +694,7 @@ func (a *Agent) Run(ctx context.Context, input string) (string, error) {
 			debug.Printf("Agent.Run: Conversation linking active (responseID: %s), appending %d tool results for function calls", responseIDUsed, len(toolMsgs))
 			msgs = append(msgs, toolMsgs...)
 		}
-		// Memory disabled for now: do not persist steps
+		recordStep()
 		_ = a.Checkpoint(ctx)
 
 		// DEBUG: Log the messages Agent 0 will see in the next iteration
@@ -774,17 +791,17 @@ func (a *Agent) executeToolCalls(ctx context.Context, calls []model.ToolCall, st
 
 		r, err := t.Execute(ctx, args)
 		debug.Printf("Agent '%s' tool '%s' execute completed, err=%v, result_length=%d", a.ID, tc.Name, err, len(r))
-		
+
 		// Log detailed tool execution result
 		debug.LogToolCall(tc.Name, args, r, err)
 		debug.LogAgentAction(a.ID.String(), "tool_execution_complete", map[string]interface{}{
-			"tool_name":       tc.Name,
-			"tool_call_id":    tc.ID,
-			"success":         err == nil,
-			"result_length":   len(r),
-			"has_error":       err != nil,
+			"tool_name":     tc.Name,
+			"tool_call_id":  tc.ID,
+			"success":       err == nil,
+			"result_length": len(r),
+			"has_error":     err != nil,
 		})
-		
+
 		if err != nil {
 			debug.Printf("Agent '%s' tool '%s' failed: %v", a.ID, tc.Name, err)
 

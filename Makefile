@@ -2,18 +2,16 @@
 
 GO ?= go
 BIN_DIR ?= bin
-BINARY ?= $(BIN_DIR)/agentry
+BINARY ?= agentry
 GOEXPERIMENT ?= jsonv2,greenteagc
 GOENV := GOEXPERIMENT=$(GOEXPERIMENT)
 
 build: ## Build the TUI binary with Go experiments enabled
-	@mkdir -p $(BIN_DIR)
 	@echo "🚀 building agentry ($(GOEXPERIMENT))"
 	$(GOENV) $(GO) build -o $(BINARY) ./cmd/agentry
 	@echo "✅ output: $(BINARY)"
 
 build-release: ## Build stripped release binary
-	@mkdir -p $(BIN_DIR)
 	@echo "📦 building release binary"
 	$(GOENV) $(GO) build -ldflags='-w -s' -trimpath -o $(BINARY) ./cmd/agentry
 
