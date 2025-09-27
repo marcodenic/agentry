@@ -29,6 +29,7 @@ Overview
 - Minimal Go binary with fast startup and no heavy dependencies
 - Built-in TUI for day-to-day coding and debugging
 - Pluggable, permission-gated tools defined in `.agentry.yaml`
+- Team/delegation helpers so Agent 0 can spawn and coordinate specialists
 - Structured tracing plus live token/cost accounting
 
 Install

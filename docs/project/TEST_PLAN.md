@@ -1,4 +1,6 @@
-# Agentry Bandwidth Monitor Test
+# (Archived) Agentry Bandwidth Monitor Test
+
+> **Status:** Archived scenario. The bandwidth monitor project is no longer an active objective; keep these notes only if you revisit multi-agent experimentation.
 
 > **⚠️ CRITICAL:** Before running ANY tests, read [./CRITICAL_INSTRUCTIONS.md](./CRITICAL_INSTRUCTIONS.md) for mandatory safety protocols and sandbox setup requirements.
 
