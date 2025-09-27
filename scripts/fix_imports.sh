@@ -3,11 +3,6 @@
 # Script to fix converse imports across the project
 
 files_with_converse=(
-    "./examples/test-programs/test-programs/test_delegation_debug.go"
-    "./examples/test-programs/test-programs/test_final_verification.go"
-    "./examples/test-programs/test_final_verification.go"
-    "./examples/test-programs/test_full_workflow.go"
-    "./examples/test_delegation_scenario.go"
     "./tests/builtin_cross_test.go"
     # cleaned: removed obsolete user_prompt_debug_test, debug helpers
     "./tests/agent_tool_context_test.go"

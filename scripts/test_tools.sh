@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-AGENTRY_CONFIG="config/smart-config.yaml"
+AGENTRY_CONFIG=".agentry.yaml"
 TEST_DIR="tests/tool_tests"
 RESULTS_DIR="tests/results"
 LOG_FILE="tests/tool_test_results.log"

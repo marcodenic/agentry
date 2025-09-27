@@ -19,7 +19,6 @@
 > - `docs/` for documentation
 > - `tests/` for test files
 > - `debug/` for debug scripts
-> - `examples/` for examples
 >
 > **THIS RULE IS NON-NEGOTIABLE. VIOLATION BREAKS THE PROJECT.**
 
@@ -43,10 +42,9 @@ Follow Go project best practices and keep the repository organized:
 - `pkg/` - Library code that's ok to use by external applications
 - `api/` - Protocol definition files (e.g., OpenAPI/Swagger specs, protocol buffers)
 
-#### **Documentation & Examples**
+#### **Documentation & Samples**
 
 - `docs/` - Documentation files
-- `examples/` - Example configurations and use cases
 - `templates/` - Template files for agents, teams, and roles
 
 #### **Testing & Development**
@@ -79,7 +77,6 @@ Follow Go project best practices and keep the repository organized:
 
 - `tests/` - for all test-related files
 - `debug/` - for debug and troubleshooting scripts
-- `examples/` - for example configurations and demos
 - `test-programs/` - for test programs and scenarios
 - `scripts/` - for build and utility scripts
 
@@ -89,7 +86,7 @@ Follow Go project best practices and keep the repository organized:
 
 - **Unit tests**: Place `*_test.go` files next to the code they test
 - **Integration tests**: Use `tests/` directory with descriptive subdirectories
-- **Test configurations**: Use `tests/configs/` or `examples/`
+- **Test configurations**: Use `tests/` with descriptive subdirectories
 - **Test programs**: Use `test-programs/` with clear naming
 
 ### 📝 **File Naming Conventions**
@@ -102,7 +99,7 @@ Follow Go project best practices and keep the repository organized:
 ### 🧹 **Repository Cleanup Guidelines**
 
 - **Test files**: Always place test files in appropriate directories (`tests/`, `test-programs/`)
-- **Configurations**: Store test configurations in `tests/configs/` or `examples/`
+- **Configurations**: Store reusable configurations alongside the code that consumes them (for example under `tests/`)
 - **Debug artifacts**: Remove debug files immediately after use
 - **Temporary files**: Never commit temporary or experimental files to the repository
 

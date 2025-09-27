@@ -5,7 +5,7 @@
 
 set -e
 
-AGENTRY_CONFIG="config/smart-config.yaml"
+AGENTRY_CONFIG=".agentry.yaml"
 TEST_DIR="tests/tool_tests"
 
 # Colors

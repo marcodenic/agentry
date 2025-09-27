@@ -38,7 +38,7 @@ make dev
 
 ## End-to-End Scenarios
 
-- Try the TUI: `agentry tui --config examples/.agentry.yaml`
+- Try the TUI: `agentry tui --config .agentry.yaml`
 - Team ops: `agentry team roles`, `agentry team spawn --name coder --role coder`, `agentry team call --agent coder --input "hi"`
 - One-shot: `agentry invoke "say hi"`, `agentry invoke --agent coder "write hello.go"`
 
@@ -47,7 +47,7 @@ make dev
 ## Built-in Tools & Plugins
 
 - Validate all built-in tools (see README for full list)
-- Test OpenAPI/MCP tool generation: see `examples/echo-openapi.yaml`, `examples/ping-mcp.json`
+- Test OpenAPI/MCP tool generation with your project-specific OpenAPI spec or MCP manifest
 
 ---
 

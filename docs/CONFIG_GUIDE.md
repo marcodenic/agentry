@@ -37,49 +37,9 @@ The current tool set focuses on:
 - ❌ Complex context pipeline (replaced with Context-Lite)
 - ❌ Auto-related-files detection
 
-### `examples/.agentry.yaml`
-- **Purpose**: Example configuration for users to copy and modify
-- **Model**: Includes both mock and OpenAI models for flexibility
-- **Tools**: Standard set of tools with good documentation
-- **Usage**: Reference for new users setting up Agentry
-
-## Testing Configurations (`/config`)
-
-### `test-config.yaml`
-- **Purpose**: General testing with full tool set
-- **Model**: `gpt-4.1-nano` (ultra cost-effective for testing)
-- **Tools**: Comprehensive tool set for testing all functionality
-- **Usage**: Used by integration tests and general testing
-
-### `test-delegation-config.yaml`
-- **Purpose**: Specifically tests agent delegation functionality
-- **Model**: Mock model (no API costs)
-- **Tools**: Minimal set focusing on delegation (`agent`, `echo`, `ping`)
-- **Usage**: Unit tests for agent delegation
-
-### `persistent-config.yaml`
-- **Purpose**: Tests legacy persistent agent functionality
-- **Model**: Claude Opus (for advanced testing)
-- **Tools**: Core tools plus agent delegation
-- **Features**: Legacy persistent-agent knobs (port settings now removed in runtime)
-- **Usage**: Tests for persistent agent sessions
-
-### `smart-config.yaml`
-- **Purpose**: Advanced configuration with enhanced tools
-- **Model**: Multiple models (OpenAI + Anthropic)
-- **Tools**: Enhanced tool set with advanced file operations
-- **Usage**: Testing advanced features and capabilities
-
-### Session Testing Configs
-- **`session-test-config.yaml`**: Tests persistent agents with GPT-4
-- **`simple-session-config.yaml`**: Minimal session testing with no tools
-
 ## Specialized Test Configurations (`/tests`)
 
-### `tests/bash-tool/`
-- **`bash-test-config.yaml`**: Tests shell tools across platforms
-- **`windows-test-config.yaml`**: Windows-specific tool testing
-- **`direct-test.yaml`**: Direct tool execution testing
+- **`tests/tool_test_prompts.yaml`**: Scenario prompts consumed by the integration test suite
 
 ## Template Configurations (`/templates`)
 
@@ -91,7 +51,7 @@ The current tool set focuses on:
 - **Other roles**: Various specialized agent roles
 
 ### Team Templates
-<!-- Removed old team YAML examples (dev_team.yaml, docs_team.yaml, website_team.yaml) during cleanup; refer to role-based includes in smart-config instead. -->
+<!-- Legacy team YAML examples were removed; rely on role-based includes from templates/roles instead. -->
 
 ## Configuration Standards
 

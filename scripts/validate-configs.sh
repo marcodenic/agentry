@@ -5,6 +5,9 @@
 
 echo "🔍 Validating Agentry configuration files..."
 
+shopt -s nullglob
+shopt -s globstar
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -63,15 +66,14 @@ check_config() {
 # Main config files
 echo -e "\n📂 Main Configuration Files:"
 check_config ".agentry.yaml"
-check_config "examples/.agentry.yaml"
 
 # Test config files
-echo -e "\n📂 Test Configuration Files:"
-for config in config/*.yaml; do
-    if [[ -f "$config" ]]; then
+if [[ -d config ]]; then
+    echo -e "\n📂 Test Configuration Files:"
+    for config in config/*.yaml; do
         check_config "$config"
-    fi
-done
+    done
+fi
 
 # Specialized test configs
 echo -e "\n📂 Specialized Test Configurations:"

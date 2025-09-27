@@ -6,7 +6,7 @@
 go install github.com/marcodenic/agentry/cmd/agentry@latest
 ```
 
-The `examples/.agentry.yaml` file contains a ready-to-use configuration for these commands.
+The repository ships with a ready-to-use `.agentry.yaml` configuration in the root directory.
 
 ## Simplified Architecture
 
@@ -49,7 +49,7 @@ agentry memory import --in mem.json
 Start the interactive interface:
 
 ```bash
-agentry tui --config examples/.agentry.yaml
+agentry tui --config .agentry.yaml
 ```
 
 The TUI now includes a **TODO Board** that shows active tasks, their status, and assigned agents.
@@ -249,7 +249,7 @@ A fundamental concept in `agentry` is the lifecycle of an agent. You can run age
 
 ### 1. Session-Based Mode (Default)
 
-When you use a configuration like `smart-config.yaml`, agents are created for a single session. They have **conversation memory** for the duration of the task, allowing them to handle follow-up instructions and maintain context. Once the task is complete, the agents and their memory are discarded.
+When you run with the default `.agentry.yaml`, agents are created for a single session. They have **conversation memory** for the duration of the task, allowing them to handle follow-up instructions and maintain context. Once the task is complete, the agents and their memory are discarded.
 
 - **Use Case:** Ideal for one-off tasks, development, and testing. It's like hiring a consultant for a specific project.
 

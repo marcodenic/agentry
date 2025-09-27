@@ -433,7 +433,7 @@ Agentry aims to become a best-in-class platform for multi-agent AI by anticipati
 | 3.1 | Sequencing guidelines       | Orchestration patterns| Agent 0 prompts + config    | —    | ✅  |
 | 3.2 | Team APIs improvements      | Execute sequences     | Core/Team API enhancements  | 3.1  | ✅  |
 | 3.3 | CLI support                 | DX                    | `invoke`/`team` UX polish   | 3.2  | ✅  |
-| 3.4 | Examples                    | Showcase              | 3 demos under `examples/`   | 3.2  | ✅  |
+| 3.4 | Examples                    | Showcase              | (retired; use root `.agentry.yaml` + templates) | 3.2  | ✅  |
 
 ## ❹ Distributed Scheduling & Cluster Mode (cloud)
 

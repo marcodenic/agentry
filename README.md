@@ -42,7 +42,7 @@ Quick Start
 - Show version: `agentry --version`
 
 Configuration
-- Project config: `.agentry.yaml` (an example lives in `examples/.agentry.yaml`)
+- Project config: `.agentry.yaml` (shipped in the repo root)
 - Env vars: copy `.env.example` to `.env.local` and set keys (e.g., `OPENAI_API_KEY`)
 - Flags you may care about:
   - `--config PATH`: select config file
