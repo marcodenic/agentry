@@ -13,18 +13,12 @@ Welcome to the Agentry documentation! This directory contains comprehensive docu
 
 ### Development Documentation
 - [`dev/`](dev/) - Development-related documentation
-  - [`AGENTS.md`](dev/AGENTS.md) - Agent system documentation
-  - [`CLEANUP_SUMMARY.md`](dev/CLEANUP_SUMMARY.md) - Cleanup and refactoring notes
-  - [`COST_JUMP_FIX_SUMMARY.md`](dev/COST_JUMP_FIX_SUMMARY.md) - Cost optimization fixes
-  - [`COST_SYSTEM_OVERHAUL.md`](dev/COST_SYSTEM_OVERHAUL.md) - Cost system architecture
-  - [`TUI_COST_FIX_SUMMARY.md`](dev/TUI_COST_FIX_SUMMARY.md) - TUI cost fixes
-  - [`TUI_MARKDOWN_SUPPORT.md`](dev/TUI_MARKDOWN_SUPPORT.md) - TUI markdown implementation
+  - [`AGENTS.md`](dev/AGENTS.md) - Root hygiene and entrypoints
 
 ### Project Documentation
 - [`project/`](project/) - Project planning and management
   - [`PLAN.md`](project/PLAN.md) - Project plan
   - [`ROADMAP.md`](project/ROADMAP.md) - Project roadmap
-  - [`TEST_PLAN.md`](project/TEST_PLAN.md) - Test planning
   - [`TODO.md`](project/TODO.md) - Todo items
   - [`ISSUES.md`](project/ISSUES.md) - Known issues
 

@@ -8,9 +8,8 @@
 ## High-Risk Package Charters
 
 **internal/config**
-- Exercise `AGENTRY_CONFIG_HOME` fallback to `$HOME/.config/agentry`, including unreadable global configs and empty overlays.
-- Add matrix of include/merge scenarios: project-level include list appended vs. overridden, vector store partial updates, zero-value budgets.
-- Validate env-driven overrides once implemented (currently only TODO comment) to lock expected precedence before wiring code.
+- [ ] Write coverage for config layering: missing/ unreadable global config vs. repo-level overrides so load order stays stable.
+- [ ] Document and assert include/merge semantics (current behaviour overwrites when lists are provided) to avoid accidental changes later.
 
 **internal/core**
 - [ ] Add zero-token fallback coverage to the streaming aggregator tests.
