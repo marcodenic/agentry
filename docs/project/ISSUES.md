@@ -134,7 +134,7 @@ The agentry executable has been successfully built with all TUI fixes applied:
 **Technical Details**:
 - Modified `WindowSizeMsg` handler in `model.go`
 - Viewport height = total height - input line - footer line (exactly 2 lines)
-- Updated theme snapshots to reflect improved layout
+- Removed obsolete theme snapshot references after palette simplification
 - All tests pass with tighter layout
 
 ## UI/UX Improvements ✅ COMPLETED

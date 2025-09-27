@@ -221,44 +221,7 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	l.KeyMap.AcceptWhileFiltering = NoNavKeyMap.AcceptWhileFiltering
 	l.KeyMap.ShowFullHelp = NoNavKeyMap.ShowFullHelp
 	l.KeyMap.CloseFullHelp = NoNavKeyMap.CloseFullHelp
-	ti := textarea.New()
-	// Hide the default line number gutter (avoids the leading "1 │")
-	// Newer bubbles exposes SetShowLineNumbers; fall back to field if needed.
-	// Use both patterns to be safe across versions.
-	if setter, ok := interface{}(&ti).(interface{ SetShowLineNumbers(bool) }); ok {
-		setter.SetShowLineNumbers(false)
-	} else {
-		ti.ShowLineNumbers = false
-	}
-	// Remove the default prompt (which renders a vertical bar) and any padding
-	ti.Prompt = ""
-	ti.Placeholder = "Type your message... (Press Enter to send, Up for previous)"
-
-	// COMPLETELY REMOVE ALL BACKGROUND COLORS - use NoColor which should be truly transparent
-	noColor := lipgloss.NoColor{}
-	clearStyle := lipgloss.NewStyle().Background(noColor)
-	textStyle := lipgloss.NewStyle().Background(noColor).Foreground(lipgloss.Color(uiColorForegroundHex))
-	placeholderStyle := lipgloss.NewStyle().Background(noColor).Foreground(lipgloss.Color(uiColorPlaceholderHex)).Faint(true)
-	numberStyle := lipgloss.NewStyle().Background(noColor).Foreground(lipgloss.Color("#6B7280")).Faint(true)
-
-	// Clear ALL possible background styling from textarea
-	ti.BlurredStyle.Base = clearStyle
-	ti.FocusedStyle.Base = clearStyle
-	ti.BlurredStyle.Text = textStyle
-	ti.FocusedStyle.Text = textStyle
-	ti.FocusedStyle.CursorLine = textStyle
-	ti.BlurredStyle.CursorLine = textStyle
-	ti.FocusedStyle.Placeholder = placeholderStyle
-	ti.BlurredStyle.Placeholder = placeholderStyle
-	ti.FocusedStyle.EndOfBuffer = textStyle
-	ti.BlurredStyle.EndOfBuffer = textStyle
-	ti.FocusedStyle.LineNumber = numberStyle
-	ti.BlurredStyle.LineNumber = numberStyle
-	ti.FocusedStyle.CursorLineNumber = numberStyle
-	ti.BlurredStyle.CursorLineNumber = numberStyle
-	ti.FocusedStyle.Prompt = textStyle
-	ti.BlurredStyle.Prompt = textStyle
-	ti.Focus()
+	ti := newTextareaModel()
 	// Initialize viewport with reasonable default dimensions
 	// This prevents text wrapping issues before the first window resize event
 	defaultWidth := 90  // 75% of assumed 120 char window width
@@ -296,64 +259,15 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	// Apply beautiful gradient coloring to the logo
 	logoContent := applyGradientToLogo(rawLogoContent)
 
-	// Configure spinner with dot style and proper coloring
-	sp := spinner.New()
-	sp.Spinner = spinner.Dot
-	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(uiColorAIAccentHex))
-
-	info := &AgentInfo{
-		Agent:               ag,
-		Status:              StatusIdle,
-		LastContentType:     ContentTypeLogo, // Start with logo content
-		PendingStatusUpdate: "",              // No pending status update initially
-		Spinner:             sp,
-		TokenProgress:       createTokenProgressBar(),
-		Name:                "Agent 0", // Agent 0 gets the base name
-		Role:                "System",  // Keep the original System role
-		History:             logoContent,
-		ActivityData:        make([]float64, 0),
-		ActivityTimes:       make([]time.Time, 0),
-		CurrentActivity:     0,
-		LastActivity:        time.Time{}, // Start with zero time so first tick will initialize properly
-		// Initialize with empty activity for real-time chart
-		TokenHistory:           []int{},
-		TokensStarted:          false,
-		StreamingResponse:      "",
-		StreamingTokenCount:    0,                          // Initialize live token count
-		DebugTrace:             make([]DebugTraceEvent, 0), // Initialize debug trace
-		CurrentStep:            0,
-		DebugStreamingResponse: "", // Initialize debug streaming response
-	}
-
-	// Get the model name from Agent 0
-	info.ModelName = ag.ModelName
-	if info.ModelName == "" {
-		info.ModelName = "unknown"
-	}
-
 	// Set initial progress bar width (will be updated on first window resize event)
 	// Assume a reasonable default window width of 120 characters
-	defaultWindowWidth := 120
-	panelWidth := int(float64(defaultWindowWidth) * 0.25)
-	barWidth := panelWidth - 8
-	if barWidth < 10 {
-		barWidth = 10
-	}
-	if barWidth > 50 {
-		barWidth = 50
-	}
-	info.TokenProgress.Width = barWidth
+	const defaultWindowWidth = 120
+	info := newAgentInfo(ag, logoContent, defaultWindowWidth)
 
 	infos := map[uuid.UUID]*AgentInfo{ag.ID: info}
 
 	// Create team context with role loading support
-	var tm *team.Team
-	var err error
-	if len(includePaths) > 0 {
-		tm, err = team.NewTeamWithRoles(ag, 10, "", includePaths, configDir)
-	} else {
-		tm, err = team.NewTeam(ag, 10, "")
-	}
+	tm, err := buildTeam(ag, includePaths, configDir)
 	if err != nil {
 		panic(fmt.Sprintf("failed to initialize team: %v", err))
 	}
@@ -389,26 +303,7 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 
 	tm.RegisterAgentTool(ag.Tools)
 
-	// Initialize status bar with gradient colors from the agentry logo
-	// Using the beautiful purple to teal gradient for a modern, cohesive look
-	agentsColors := statusbar.ColorConfig{
-		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
-		Background: lipgloss.AdaptiveColor{Light: "#8B5FBF", Dark: "#8B5FBF"}, // Soft purple
-	}
-	cwdColors := statusbar.ColorConfig{
-		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
-		Background: lipgloss.AdaptiveColor{Light: "#5B82D7", Dark: "#5B82D7"}, // Medium blue
-	}
-	tokensColors := statusbar.ColorConfig{
-		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
-		Background: lipgloss.AdaptiveColor{Light: "#2BA6EF", Dark: "#2BA6EF"}, // Bright blue
-	}
-	costColors := statusbar.ColorConfig{
-		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
-		Background: lipgloss.AdaptiveColor{Light: "#00D6EF", Dark: "#00D6EF"}, // Soft teal
-	}
-	// Put agents first, CWD in the expandable middle, then tokens and cost
-	statusBarModel := statusbar.New(agentsColors, cwdColors, tokensColors, costColors)
+	statusBarModel := newStatusBarModel()
 
 	m := Model{
 		agents:          []*core.Agent{ag},
@@ -435,6 +330,109 @@ var sanitizeBlackANSIPattern = regexp.MustCompile(`\x1b\[(?:\d{1,3};)*(?:3[0]|4[
 
 func sanitizeInputANSI(s string) string {
 	return sanitizeBlackANSIPattern.ReplaceAllString(s, "")
+}
+
+func newTextareaModel() textarea.Model {
+	ti := textarea.New()
+	if setter, ok := interface{}(&ti).(interface{ SetShowLineNumbers(bool) }); ok {
+		setter.SetShowLineNumbers(false)
+	} else {
+		ti.ShowLineNumbers = false
+	}
+	ti.Prompt = ""
+	ti.Placeholder = "Type your message... (Press Enter to send, Up for previous)"
+
+	noColor := lipgloss.NoColor{}
+	clearStyle := lipgloss.NewStyle().Background(noColor)
+	textStyle := lipgloss.NewStyle().Background(noColor).Foreground(lipgloss.Color(uiColorForegroundHex))
+	placeholderStyle := lipgloss.NewStyle().Background(noColor).Foreground(lipgloss.Color(uiColorPlaceholderHex)).Faint(true)
+	numberStyle := lipgloss.NewStyle().Background(noColor).Foreground(lipgloss.Color("#6B7280")).Faint(true)
+
+	ti.BlurredStyle.Base = clearStyle
+	ti.FocusedStyle.Base = clearStyle
+	ti.BlurredStyle.Text = textStyle
+	ti.FocusedStyle.Text = textStyle
+	ti.FocusedStyle.CursorLine = textStyle
+	ti.BlurredStyle.CursorLine = textStyle
+	ti.FocusedStyle.Placeholder = placeholderStyle
+	ti.BlurredStyle.Placeholder = placeholderStyle
+	ti.FocusedStyle.EndOfBuffer = textStyle
+	ti.BlurredStyle.EndOfBuffer = textStyle
+	ti.FocusedStyle.LineNumber = numberStyle
+	ti.BlurredStyle.LineNumber = numberStyle
+	ti.FocusedStyle.CursorLineNumber = numberStyle
+	ti.BlurredStyle.CursorLineNumber = numberStyle
+	ti.FocusedStyle.Prompt = textStyle
+	ti.BlurredStyle.Prompt = textStyle
+	ti.Focus()
+
+	return ti
+}
+
+func buildTeam(ag *core.Agent, includePaths []string, configDir string) (*team.Team, error) {
+	if len(includePaths) > 0 {
+		return team.NewTeamWithRoles(ag, 10, "", includePaths, configDir)
+	}
+	return team.NewTeam(ag, 10, "")
+}
+
+func newStatusBarModel() statusbar.Model {
+	agentsColors := statusbar.ColorConfig{
+		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#8B5FBF", Dark: "#8B5FBF"},
+	}
+	cwdColors := statusbar.ColorConfig{
+		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#5B82D7", Dark: "#5B82D7"},
+	}
+	tokensColors := statusbar.ColorConfig{
+		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#2BA6EF", Dark: "#2BA6EF"},
+	}
+	costColors := statusbar.ColorConfig{
+		Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
+		Background: lipgloss.AdaptiveColor{Light: "#00D6EF", Dark: "#00D6EF"},
+	}
+	return statusbar.New(agentsColors, cwdColors, tokensColors, costColors)
+}
+
+func newAgentInfo(ag *core.Agent, history string, defaultWindowWidth int) *AgentInfo {
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(uiColorAIAccentHex))
+
+	info := &AgentInfo{
+		Agent:               ag,
+		Status:              StatusIdle,
+		LastContentType:     ContentTypeLogo,
+		PendingStatusUpdate: "",
+		Spinner:             sp,
+		TokenProgress:       createTokenProgressBar(),
+		Name:                "Agent 0",
+		Role:                "System",
+		History:             history,
+		ActivityData:        make([]float64, 0),
+		ActivityTimes:       make([]time.Time, 0),
+		TokenHistory:        []int{},
+		DebugTrace:          make([]DebugTraceEvent, 0),
+	}
+
+	info.ModelName = ag.ModelName
+	if info.ModelName == "" {
+		info.ModelName = "unknown"
+	}
+
+	panelWidth := int(float64(defaultWindowWidth) * 0.25)
+	barWidth := panelWidth - 8
+	if barWidth < 10 {
+		barWidth = 10
+	}
+	if barWidth > 50 {
+		barWidth = 50
+	}
+	info.TokenProgress.Width = barWidth
+
+	return info
 }
 
 type listItem struct{ name, desc string }

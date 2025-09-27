@@ -104,25 +104,24 @@ Runtime guidance replaces hard-coded rules:
 - Testing and code modification best practices
 - Automatically injected into agent prompts when applicable
 
-### TUI Themes & Keybinds
+### TUI Styling & Keybinds
 
-Create a `theme.json` file to customise colours and keyboard shortcuts. Agentry looks for the file in the current directory and its parents, falling back to `$HOME/.config/agentry/theme.json`.
+The TUI now ships with an internal palette that mirrors the CLI logo. External
+`theme.json` files are no longer loaded, which keeps rendering consistent across
+platforms. The default keybinds remain:
 
-```json
-{
-  "userBarColor": "#00FF00",
-  "aiBarColor": "#FF00FF",
-  "idleColor": "#22C55E",
-  "runningColor": "#FBBF24",
-  "errorColor": "#EF4444",
-  "stoppedColor": "#6B7280",
-  "keybinds": {
-    "quit": "ctrl+c",
-    "toggleTab": "tab",
-    "submit": "enter"
-  }
-}
-```
+| Action         | Shortcut |
+| -------------- | -------- |
+| Quit           | `ctrl+c` |
+| Toggle tab     | `tab`    |
+| Submit message | `enter`  |
+| Next pane      | `ctrl+n` |
+| Previous pane  | `ctrl+p` |
+| Pause agent    | `ctrl+s` |
+| Diagnostics    | `ctrl+d` |
+
+Keybinds are currently static; customise them by editing `internal/tui/theme.go`
+before building if you need alternate shortcuts.
 
 ## Agent Delegation
 
