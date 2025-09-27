@@ -28,51 +28,6 @@ import (
 	"github.com/marcodenic/agentry/internal/team"
 )
 
-// applyGradientToLogo applies a beautiful gradient effect to the ASCII logo
-func applyGradientToLogo(logo string) string {
-	lines := strings.Split(logo, "\n")
-	var styledLines []string
-
-	// Define gradient colors - subtle purple to blue to teal (matching the image style)
-	colors := []string{
-		"#8B5FBF", // Soft purple
-		"#8B5FBF", // Purple-blue
-		"#6B76CF", // Lavender blue
-		"#5B82D7", // Medium blue
-		"#4B8EDF", // Light blue
-		"#3B9AE7", // Sky blue
-		"#2BA6EF", // Bright blue
-		"#1BB2F7", // Cyan blue
-		"#0BBEFF", // Light cyan
-		"#00CAF7", // Teal cyan
-		"#00D6EF", // Soft teal
-		"#00E2E7", // Light teal
-	}
-
-	totalLines := len(lines)
-
-	for i, line := range lines {
-		if strings.TrimSpace(line) == "" {
-			styledLines = append(styledLines, line)
-			continue
-		}
-
-		// Calculate which color to use based on line position
-		colorIndex := (i * len(colors)) / totalLines
-		if colorIndex >= len(colors) {
-			colorIndex = len(colors) - 1
-		}
-
-		// Apply the color to the line with subtle styling
-		style := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(colors[colorIndex]))
-
-		styledLines = append(styledLines, style.Render(line))
-	}
-
-	return strings.Join(styledLines, "\n")
-}
-
 // Model is the root TUI model.
 type Model struct {
 	agents []*core.Agent
@@ -84,7 +39,7 @@ type Model struct {
 
 	vp      viewport.Model
 	debugVp viewport.Model // Separate viewport for debug/memory view
-	input   textarea.Model
+	input   inputManager
 	tools   list.Model
 
 	cwd string
@@ -115,11 +70,6 @@ type Model struct {
 
 	// TODO Board
 	todoBoard TodoBoard
-
-	// Dynamic input sizing and history
-	inputHeight  int
-	inputHistory []string
-	historyIndex int // -1 when not navigating history
 }
 
 type AgentStatus int
@@ -221,7 +171,7 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	l.KeyMap.AcceptWhileFiltering = NoNavKeyMap.AcceptWhileFiltering
 	l.KeyMap.ShowFullHelp = NoNavKeyMap.ShowFullHelp
 	l.KeyMap.CloseFullHelp = NoNavKeyMap.CloseFullHelp
-	ti := newTextareaModel()
+	inputMgr := newInputManager()
 	// Initialize viewport with reasonable default dimensions
 	// This prevents text wrapping issues before the first window resize event
 	defaultWidth := 90  // 75% of assumed 120 char window width
@@ -313,7 +263,7 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		team:            tm,
 		vp:              vp,
 		debugVp:         debugVp,
-		input:           ti,
+		input:           inputMgr,
 		tools:           l,
 		cwd:             cwd,
 		keys:            DefaultKeybinds(),

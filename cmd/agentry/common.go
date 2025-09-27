@@ -37,75 +37,67 @@ type commonOpts struct {
 
 func parseCommon(name string, args []string) (*commonOpts, []string) {
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
-	opts := &commonOpts{}
-	fs.StringVar(&opts.configPath, "config", "", "path to .agentry.yaml")
-	fs.StringVar(&opts.theme, "theme", "", "theme name override")
-	fs.StringVar(&opts.keybindsPath, "keybinds", "", "path to keybinds json")
-	fs.StringVar(&opts.credsPath, "creds", "", "path to credentials json")
-	fs.StringVar(&opts.mcpFlag, "mcp", "", "comma-separated MCP servers")
-	fs.StringVar(&opts.saveID, "save-id", "", "save conversation state to this ID")
-	fs.StringVar(&opts.resumeID, "resume-id", "", "load conversation state from this ID")
-	fs.StringVar(&opts.ckptID, "checkpoint-id", "", "checkpoint session id")
-	fs.StringVar(&opts.port, "port", "", "HTTP server port")
-	fs.BoolVar(&opts.debug, "debug", false, "enable debug output")
-	fs.BoolVar(&opts.disableTools, "disable-tools", false, "disable tool filtering entirely")
-	fs.StringVar(&opts.allowTools, "allow-tools", "", "comma-separated list of additional tools to include")
-	fs.StringVar(&opts.denyTools, "deny-tools", "", "comma-separated list of tools to exclude")
-	fs.BoolVar(&opts.disableContext, "disable-context", false, "disable context pipeline")
-	fs.StringVar(&opts.auditLog, "audit-log", "", "path to audit log file")
-	// Debug/diagnostic flags
-	fs.IntVar(&opts.maxIter, "max_iter", 0, "limit agent iterations (0=unlimited)")
-	fs.IntVar(&opts.maxIter, "max-iter", 0, "limit agent iterations (0=unlimited)")
-	fs.IntVar(&opts.httpTimeout, "http_timeout", 300, "HTTP client timeout in seconds")
-	fs.IntVar(&opts.httpTimeout, "http-timeout", 300, "HTTP client timeout in seconds")
+	opts := newCommonOpts()
+	opts.bindFlags(fs)
 	_ = fs.Parse(args)
+	opts.configPath = resolveConfigPath(name, opts.configPath, fs)
+	return opts, fs.Args()
+}
 
-	// Only set config path from first non-flag argument for commands that expect a config file
-	if opts.configPath == "" && name == "tui" {
-		if fs.NArg() > 0 {
-			opts.configPath = fs.Arg(0)
-		} else {
-			// Look for .agentry.yaml in current directory first
-			if _, err := os.Stat(".agentry.yaml"); err == nil {
-				opts.configPath = ".agentry.yaml"
-			} else {
-				// Fall back to config next to executable
-				if exe, err := os.Executable(); err == nil {
-					if exeDir := filepath.Dir(exe); exeDir != "" {
-						executableConfig := filepath.Join(exeDir, ".agentry.yaml")
-						if _, err := os.Stat(executableConfig); err == nil {
-							opts.configPath = executableConfig
-						} else {
-							opts.configPath = ".agentry.yaml" // Default fallback
-						}
-					}
-				} else {
-					opts.configPath = ".agentry.yaml" // Default fallback
-				}
-			}
-		}
-	} else if opts.configPath == "" {
-		// For non-TUI commands, use default config resolution without assuming first arg is config
-		// Look for .agentry.yaml in current directory first
-		if _, err := os.Stat(".agentry.yaml"); err == nil {
-			opts.configPath = ".agentry.yaml"
-		} else {
-			// Fall back to config next to executable
-			if exe, err := os.Executable(); err == nil {
-				if exeDir := filepath.Dir(exe); exeDir != "" {
-					executableConfig := filepath.Join(exeDir, ".agentry.yaml")
-					if _, err := os.Stat(executableConfig); err == nil {
-						opts.configPath = executableConfig
-					} else {
-						opts.configPath = ".agentry.yaml" // Default fallback
-					}
-				}
-			} else {
-				opts.configPath = ".agentry.yaml" // Default fallback
-			}
+func newCommonOpts() *commonOpts {
+	return &commonOpts{}
+}
+
+func (o *commonOpts) bindFlags(fs *flag.FlagSet) {
+	fs.StringVar(&o.configPath, "config", "", "path to .agentry.yaml")
+	fs.StringVar(&o.theme, "theme", "", "theme name override")
+	fs.StringVar(&o.keybindsPath, "keybinds", "", "path to keybinds json")
+	fs.StringVar(&o.credsPath, "creds", "", "path to credentials json")
+	fs.StringVar(&o.mcpFlag, "mcp", "", "comma-separated MCP servers")
+	fs.StringVar(&o.saveID, "save-id", "", "save conversation state to this ID")
+	fs.StringVar(&o.resumeID, "resume-id", "", "load conversation state from this ID")
+	fs.StringVar(&o.ckptID, "checkpoint-id", "", "checkpoint session id")
+	fs.StringVar(&o.port, "port", "", "HTTP server port")
+	fs.BoolVar(&o.debug, "debug", false, "enable debug output")
+	fs.BoolVar(&o.disableTools, "disable-tools", false, "disable tool filtering entirely")
+	fs.StringVar(&o.allowTools, "allow-tools", "", "comma-separated list of additional tools to include")
+	fs.StringVar(&o.denyTools, "deny-tools", "", "comma-separated list of tools to exclude")
+	fs.BoolVar(&o.disableContext, "disable-context", false, "disable context pipeline")
+	fs.StringVar(&o.auditLog, "audit-log", "", "path to audit log file")
+	fs.IntVar(&o.maxIter, "max_iter", 0, "limit agent iterations (0=unlimited)")
+	fs.IntVar(&o.maxIter, "max-iter", 0, "limit agent iterations (0=unlimited)")
+	fs.IntVar(&o.httpTimeout, "http_timeout", 300, "HTTP client timeout in seconds")
+	fs.IntVar(&o.httpTimeout, "http-timeout", 300, "HTTP client timeout in seconds")
+}
+
+func resolveConfigPath(cmd string, explicit string, fs *flag.FlagSet) string {
+	if explicit != "" {
+		return explicit
+	}
+	if cmd == "tui" && fs.NArg() > 0 {
+		return fs.Arg(0)
+	}
+	if path, ok := discoverConfigPath(".agentry.yaml"); ok {
+		return path
+	}
+	return ".agentry.yaml"
+}
+
+func discoverConfigPath(candidate string) (string, bool) {
+	if _, err := os.Stat(candidate); err == nil {
+		return candidate, true
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return "", false
+	}
+	if exeDir := filepath.Dir(exe); exeDir != "" {
+		path := filepath.Join(exeDir, candidate)
+		if _, err := os.Stat(path); err == nil {
+			return path, true
 		}
 	}
-	return opts, fs.Args()
+	return "", false
 }
 
 func applyOverrides(cfg *config.File, o *commonOpts) {
@@ -119,53 +111,11 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 		// Clear tool permissions to allow all tools
 		cfg.Permissions.Tools = nil
 	}
-	if o.allowTools != "" {
-		// Replace tools list with only the specified tools (restrictive)
-		allowList := strings.Split(o.allowTools, ",")
-		allowSet := make(map[string]bool)
-		for _, tool := range allowList {
-			allowSet[strings.TrimSpace(tool)] = true
-		}
-
-		// Filter tools to only include allowed ones
-		var filteredTools []config.ToolManifest
-		for _, tool := range cfg.Tools {
-			if allowSet[tool.Name] {
-				filteredTools = append(filteredTools, tool)
-			}
-		}
-		cfg.Tools = filteredTools
-
-		// Also set permissions to the allow list
-		cfg.Permissions.Tools = allowList
+	if allow := parseCSV(o.allowTools); len(allow) > 0 {
+		applyToolAllowList(cfg, allow)
 	}
-	if o.denyTools != "" {
-		// Remove specified tools from config
-		denyList := strings.Split(o.denyTools, ",")
-		denySet := make(map[string]bool)
-		for _, tool := range denyList {
-			denySet[strings.TrimSpace(tool)] = true
-		}
-
-		// Filter out denied tools from the tools list
-		var filteredTools []config.ToolManifest
-		for _, tool := range cfg.Tools {
-			if !denySet[tool.Name] {
-				filteredTools = append(filteredTools, tool)
-			}
-		}
-		cfg.Tools = filteredTools
-
-		// Also remove from permissions if present
-		if cfg.Permissions.Tools != nil {
-			var filteredPerms []string
-			for _, tool := range cfg.Permissions.Tools {
-				if !denySet[tool] {
-					filteredPerms = append(filteredPerms, tool)
-				}
-			}
-			cfg.Permissions.Tools = filteredPerms
-		}
+	if deny := parseCSV(o.denyTools); len(deny) > 0 {
+		applyToolDenyList(cfg, deny)
 	}
 
 	// Handle context and audit flags
@@ -200,9 +150,9 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 		if cfg.MCPServers == nil {
 			cfg.MCPServers = map[string]string{}
 		}
-		parts := strings.Split(o.mcpFlag, ",")
+		parts := parseCSV(o.mcpFlag)
 		for i, p := range parts {
-			cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = strings.TrimSpace(p)
+			cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = p
 		}
 	}
 
@@ -210,4 +160,58 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 	if o.httpTimeout > 0 {
 		model.SetHTTPTimeout(o.httpTimeout)
 	}
+}
+
+func parseCSV(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+func applyToolAllowList(cfg *config.File, allow []string) {
+	allowSet := make(map[string]struct{}, len(allow))
+	for _, name := range allow {
+		allowSet[name] = struct{}{}
+	}
+	filtered := make([]config.ToolManifest, 0, len(cfg.Tools))
+	for _, tool := range cfg.Tools {
+		if _, ok := allowSet[tool.Name]; ok {
+			filtered = append(filtered, tool)
+		}
+	}
+	cfg.Tools = filtered
+	cfg.Permissions.Tools = allow
+}
+
+func applyToolDenyList(cfg *config.File, deny []string) {
+	denySet := make(map[string]struct{}, len(deny))
+	for _, name := range deny {
+		denySet[name] = struct{}{}
+	}
+	filtered := make([]config.ToolManifest, 0, len(cfg.Tools))
+	for _, tool := range cfg.Tools {
+		if _, blocked := denySet[tool.Name]; !blocked {
+			filtered = append(filtered, tool)
+		}
+	}
+	cfg.Tools = filtered
+
+	if cfg.Permissions.Tools == nil {
+		return
+	}
+	perms := cfg.Permissions.Tools[:0]
+	for _, name := range cfg.Permissions.Tools {
+		if _, blocked := denySet[name]; !blocked {
+			perms = append(perms, name)
+		}
+	}
+	cfg.Permissions.Tools = perms
 }

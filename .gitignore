@@ -10,6 +10,8 @@ node_modules/
 *.exe~
 agentry
 agentry.exe
+agentry-optimized
+agentry-optimized.exe
 main.exe
 main
 bin/
@@ -26,6 +28,7 @@ ts-sdk/dist/
 # Log files
 *.log
 agent_communication.log
+debug/*.log
 
 # Archive files
 *.tar.gz

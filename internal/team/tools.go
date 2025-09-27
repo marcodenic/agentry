@@ -3,6 +3,7 @@ package team
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/marcodenic/agentry/internal/tool"
 )
@@ -18,8 +19,6 @@ func (t *Team) RegisterAgentTool(registry tool.Registry) {
 		agentDelegationExec(t),
 	))
 
-	// Add parallel agent tool via shared helper
-	registry["parallel_agents"] = parallelAgentsToolSpec(t)
 }
 
 // GetAgentToolSpec returns the tool specification for the agent tool
@@ -58,25 +57,12 @@ func agentToolSchema() map[string]any {
 // If t is nil, the function requires a Team present in the context.
 func agentDelegationExec(t *Team) func(ctx context.Context, args map[string]any) (string, error) {
 	return func(ctx context.Context, args map[string]any) (string, error) {
-		// Resolve aliases for agent name
-		var name string
-		if v, ok := args["agent"].(string); ok && v != "" {
-			name = v
-		} else if v, ok := args["role"].(string); ok && v != "" {
-			name = v
-		}
+		name := resolveStringArg(args, "agent", "role")
 		if name == "" {
 			return "", errors.New("agent name is required (use 'agent' or 'role')")
 		}
 
-		// Resolve aliases for input text
-		var input string
-		for _, k := range []string{"input", "task", "message", "query", "instructions"} {
-			if v, ok := args[k].(string); ok && v != "" {
-				input = v
-				break
-			}
-		}
+		input := resolveStringArg(args, "input", "task", "message", "query", "instructions")
 		if input == "" {
 			return "", errors.New("input is required (use 'input', 'task', 'message', 'query', or 'instructions')")
 		}
@@ -95,64 +81,17 @@ func agentDelegationExec(t *Team) func(ctx context.Context, args map[string]any)
 	}
 }
 
-// parallelAgentsToolSpec defines a reusable spec for executing multiple agents in parallel.
-func parallelAgentsToolSpec(t *Team) tool.Tool {
-	schema := map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"tasks": map[string]any{
-				"type":        "array",
-				"description": "Array of agent tasks to execute in parallel",
-				"items": map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"agent": map[string]any{"type": "string", "description": "Name of the agent to delegate to"},
-						"input": map[string]any{"type": "string", "description": "Task description or input for the agent"},
-						"role":  map[string]any{"type": "string", "description": "Alias for agent"},
-						"task":  map[string]any{"type": "string", "description": "Alias for input"},
-					},
-					"required": []string{},
-				},
-			},
-		},
-		"required": []string{"tasks"},
+// resolveStringArg returns the first non-empty string value for the provided keys.
+func resolveStringArg(args map[string]any, primary string, aliases ...string) string {
+	keys := append([]string{primary}, aliases...)
+	for _, key := range keys {
+		if v, ok := args[key]; ok {
+			if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+				return s
+			}
+		}
 	}
-	return tool.NewWithSchema("parallel_agents", "Execute multiple agent tasks in parallel for efficiency", schema, func(ctx context.Context, args map[string]any) (string, error) {
-		tasksInterface, ok := args["tasks"]
-		if !ok {
-			return "", errors.New("tasks array is required")
-		}
-		raw, ok := tasksInterface.([]interface{})
-		if !ok {
-			return "", errors.New("tasks must be an array")
-		}
-		// Normalize aliases
-		for i, item := range raw {
-			m, ok := item.(map[string]any)
-			if !ok {
-				continue
-			}
-			if _, has := m["agent"]; !has {
-				if v, ok := m["role"].(string); ok && v != "" {
-					m["agent"] = v
-				}
-			}
-			if _, has := m["input"]; !has {
-				if v, ok := m["task"].(string); ok && v != "" {
-					m["input"] = v
-				}
-			}
-			raw[i] = m
-		}
-		var teamInstance *Team
-		if contextTeam := TeamFromContext(ctx); contextTeam != nil {
-			teamInstance = contextTeam
-		} else {
-			teamInstance = t
-		}
-		if teamInstance == nil {
-			return "", errors.New("no team in context")
-		}
-		return teamInstance.CallParallel(ctx, raw)
-	})
+	return ""
 }
+
+// parallelAgentsToolSpec defines a reusable spec for executing multiple agents in parallel.

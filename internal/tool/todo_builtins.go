@@ -20,13 +20,13 @@ type todoItem struct {
 	ID          string    `json:"id"`
 	Title       string    `json:"title"`
 	Description string    `json:"description,omitempty"`
-	Priority    string    `json:"priority,omitempty"` // low|med|high
+	Priority    string    `json:"priority,omitempty"`
 	Tags        []string  `json:"tags,omitempty"`
 	AgentID     string    `json:"agent_id,omitempty"`
-	Status      string    `json:"status"` // pending|done
+	Status      string    `json:"status"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
-	Source      string    `json:"source,omitempty"` // optional file:line link
+	Source      string    `json:"source,omitempty"`
 }
 
 func todoNamespace() string {
@@ -81,9 +81,22 @@ func listTodos(ns string) ([]todoItem, error) {
 	return items, nil
 }
 
-func init() {
-	// Add
-	builtinMap["todo_add"] = builtinSpec{
+func todoTools() map[string]builtinSpec {
+	return map[string]builtinSpec{
+		"todo_add":    todoAddSpec(),
+		"todo_list":   todoListSpec(),
+		"todo_get":    todoGetSpec(),
+		"todo_update": todoUpdateSpec(),
+		"todo_delete": todoDeleteSpec(),
+	}
+}
+
+func getTodoBuiltins() map[string]builtinSpec {
+	return todoTools()
+}
+
+func todoAddSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Add a TODO item to the project planning list",
 		Schema: map[string]any{
 			"type": "object",
@@ -97,36 +110,38 @@ func init() {
 			},
 			"required": []string{"title"},
 		},
-		Exec: func(ctx context.Context, args map[string]any) (string, error) {
-			title, _ := args["title"].(string)
-			if strings.TrimSpace(title) == "" {
-				return "", errors.New("title is required")
-			}
-			now := time.Now()
-			// Generate simple sortable ID
-			id := fmt.Sprintf("%d", now.UnixNano())
-			it := todoItem{
-				ID:          id,
-				Title:       title,
-				Description: strArg(args, "description"),
-				Priority:    strArg(args, "priority"),
-				Tags:        strSlice(args, "tags"),
-				AgentID:     strArg(args, "agent_id"),
-				Status:      "pending",
-				CreatedAt:   now,
-				UpdatedAt:   now,
-				Source:      strArg(args, "source"),
-			}
-			ns := todoNamespace()
-			if err := putTodo(ns, it); err != nil {
-				return "", err
-			}
-			return marshal(map[string]any{"ok": true, "id": it.ID, "item": it})
-		},
+		Exec: todoAddExec,
 	}
+}
 
-	// List
-	builtinMap["todo_list"] = builtinSpec{
+func todoAddExec(ctx context.Context, args map[string]any) (string, error) {
+	title := stringArg(args, "title")
+	if strings.TrimSpace(title) == "" {
+		return "", errors.New("title is required")
+	}
+	now := time.Now()
+	id := fmt.Sprintf("%d", now.UnixNano())
+	it := todoItem{
+		ID:          id,
+		Title:       title,
+		Description: strArg(args, "description"),
+		Priority:    strArg(args, "priority"),
+		Tags:        strSlice(args, "tags"),
+		AgentID:     strArg(args, "agent_id"),
+		Status:      "pending",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		Source:      strArg(args, "source"),
+	}
+	ns := todoNamespace()
+	if err := putTodo(ns, it); err != nil {
+		return "", err
+	}
+	return marshal(map[string]any{"ok": true, "id": it.ID, "item": it})
+}
+
+func todoListSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "List TODO items (filters: status, priority, tags)",
 		Schema: map[string]any{
 			"type": "object",
@@ -136,58 +151,66 @@ func init() {
 				"tags":     map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 			},
 		},
-		Exec: func(ctx context.Context, args map[string]any) (string, error) {
-			ns := todoNamespace()
-			items, err := listTodos(ns)
-			if err != nil {
-				return "", err
-			}
-			status := strings.TrimSpace(strArg(args, "status"))
-			priority := strings.TrimSpace(strArg(args, "priority"))
-			tags := strSlice(args, "tags")
-			var out []todoItem
-		next:
-			for _, it := range items {
-				if status != "" && it.Status != status {
-					continue next
-				}
-				if priority != "" && it.Priority != priority {
-					continue next
-				}
-				if len(tags) > 0 {
-					if !hasAllTags(it.Tags, tags) {
-						continue next
-					}
-				}
-				out = append(out, it)
-			}
-			return marshal(map[string]any{"ok": true, "count": len(out), "items": out})
-		},
+		Exec: todoListExec,
 	}
+}
 
-	// Get
-	builtinMap["todo_get"] = builtinSpec{
-		Desc:   "Get a TODO item by id",
-		Schema: map[string]any{"type": "object", "properties": map[string]any{"id": map[string]any{"type": "string"}}, "required": []string{"id"}},
-		Exec: func(ctx context.Context, args map[string]any) (string, error) {
-			id := strArg(args, "id")
-			if id == "" {
-				return "", errors.New("id is required")
-			}
-			ns := todoNamespace()
-			it, ok, err := getTodo(ns, id)
-			if err != nil {
-				return "", err
-			}
-			if !ok {
-				return marshal(map[string]any{"ok": false, "error": "not found"})
-			}
-			return marshal(map[string]any{"ok": true, "item": it})
-		},
+func todoListExec(ctx context.Context, args map[string]any) (string, error) {
+	ns := todoNamespace()
+	items, err := listTodos(ns)
+	if err != nil {
+		return "", err
 	}
+	status := strings.TrimSpace(strArg(args, "status"))
+	priority := strings.TrimSpace(strArg(args, "priority"))
+	tags := strSlice(args, "tags")
+	var out []todoItem
+next:
+	for _, it := range items {
+		if status != "" && it.Status != status {
+			continue next
+		}
+		if priority != "" && it.Priority != priority {
+			continue next
+		}
+		if len(tags) > 0 && !hasAllTags(it.Tags, tags) {
+			continue next
+		}
+		out = append(out, it)
+	}
+	return marshal(map[string]any{"ok": true, "count": len(out), "items": out})
+}
 
-	// Update
-	builtinMap["todo_update"] = builtinSpec{
+func todoGetSpec() builtinSpec {
+	return builtinSpec{
+		Desc: "Get a TODO item by id",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"id": map[string]any{"type": "string"}},
+			"required":   []string{"id"},
+		},
+		Exec: todoGetExec,
+	}
+}
+
+func todoGetExec(ctx context.Context, args map[string]any) (string, error) {
+	id := strArg(args, "id")
+	if id == "" {
+		return "", errors.New("id is required")
+	}
+	ns := todoNamespace()
+	it, ok, err := getTodo(ns, id)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return marshal(map[string]any{"ok": false, "error": "not found"})
+	}
+	return marshal(map[string]any{"ok": true, "item": it})
+}
+
+func todoUpdateSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Update a TODO item (any field)",
 		Schema: map[string]any{
 			"type": "object",
@@ -202,69 +225,74 @@ func init() {
 			},
 			"required": []string{"id"},
 		},
-		Exec: func(ctx context.Context, args map[string]any) (string, error) {
-			id := strArg(args, "id")
-			if id == "" {
-				return "", errors.New("id is required")
-			}
-			ns := todoNamespace()
-			it, ok, err := getTodo(ns, id)
-			if err != nil {
-				return "", err
-			}
-			if !ok {
-				return "", errors.New("todo not found")
-			}
-			// Apply updates
-			if v := strArg(args, "title"); v != "" {
-				it.Title = v
-			}
-			if v := strArg(args, "description"); v != "" {
-				it.Description = v
-			}
-			if v := strArg(args, "priority"); v != "" {
-				it.Priority = v
-			}
-			if v := strArg(args, "agent_id"); v != "" {
-				it.AgentID = v
-			}
-			if v := strArg(args, "status"); v != "" {
-				it.Status = v
-			}
-			if _, ok := args["tags"].([]any); ok {
-				it.Tags = strSlice(args, "tags")
-			}
-			it.UpdatedAt = time.Now()
-			if err := putTodo(ns, it); err != nil {
-				return "", err
-			}
-			return marshal(map[string]any{"ok": true, "item": it})
-		},
-	}
-
-	// Delete
-	builtinMap["todo_delete"] = builtinSpec{
-		Desc:   "Delete a TODO item by id",
-		Schema: map[string]any{"type": "object", "properties": map[string]any{"id": map[string]any{"type": "string"}}, "required": []string{"id"}},
-		Exec: func(ctx context.Context, args map[string]any) (string, error) {
-			id := strArg(args, "id")
-			if id == "" {
-				return "", errors.New("id is required")
-			}
-			ns := todoNamespace()
-			if err := memstore.Get().Delete(ns, todoKey(id)); err != nil {
-				return "", err
-			}
-			return marshal(map[string]any{"ok": true, "deleted": id})
-		},
+		Exec: todoUpdateExec,
 	}
 }
 
-func strArg(args map[string]any, key string) string {
-	if v, ok := args[key].(string); ok {
-		return v
+func todoUpdateExec(ctx context.Context, args map[string]any) (string, error) {
+	id := strArg(args, "id")
+	if id == "" {
+		return "", errors.New("id is required")
 	}
-	return ""
+	ns := todoNamespace()
+	it, ok, err := getTodo(ns, id)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", errors.New("todo not found")
+	}
+	if v := strArg(args, "title"); v != "" {
+		it.Title = v
+	}
+	if v := strArg(args, "description"); v != "" {
+		it.Description = v
+	}
+	if v := strArg(args, "priority"); v != "" {
+		it.Priority = v
+	}
+	if v := strArg(args, "agent_id"); v != "" {
+		it.AgentID = v
+	}
+	if v := strArg(args, "status"); v != "" {
+		it.Status = v
+	}
+	if _, ok := args["tags"].([]any); ok {
+		it.Tags = strSlice(args, "tags")
+	}
+	it.UpdatedAt = time.Now()
+	if err := putTodo(ns, it); err != nil {
+		return "", err
+	}
+	return marshal(map[string]any{"ok": true, "item": it})
+}
+
+func todoDeleteSpec() builtinSpec {
+	return builtinSpec{
+		Desc: "Delete a TODO item by id",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"id": map[string]any{"type": "string"}},
+			"required":   []string{"id"},
+		},
+		Exec: todoDeleteExec,
+	}
+}
+
+func todoDeleteExec(ctx context.Context, args map[string]any) (string, error) {
+	id := strArg(args, "id")
+	if id == "" {
+		return "", errors.New("id is required")
+	}
+	ns := todoNamespace()
+	if err := memstore.Get().Delete(ns, todoKey(id)); err != nil {
+		return "", err
+	}
+	return marshal(map[string]any{"ok": true, "deleted": id})
+}
+
+func strArg(args map[string]any, key string) string {
+	return stringArg(args, key)
 }
 
 func strSlice(args map[string]any, key string) []string {

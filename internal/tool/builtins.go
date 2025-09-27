@@ -40,4 +40,7 @@ func init() {
 	for name, spec := range getFileDiscoveryBuiltins() {
 		builtinMap[name] = spec
 	}
+	for name, spec := range getTodoBuiltins() {
+		builtinMap[name] = spec
+	}
 }

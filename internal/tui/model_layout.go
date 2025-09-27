@@ -24,7 +24,7 @@ func (m Model) handleWindowResize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 
 	// Calculate viewport height using dynamic input rows with spacer and status bar pinned at bottom:
 	// Total height - horizontal separator (1) - input section height (dynamic) - spacer line (1) - status bar (1)
-	inputRows := m.inputHeight
+	inputRows := m.input.Height()
 	if inputRows < 1 {
 		inputRows = 1
 	}

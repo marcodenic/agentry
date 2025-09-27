@@ -24,30 +24,11 @@ func (m Model) handleKeyMessages(msg tea.KeyMsg) (Model, tea.Cmd) {
 	if m.input.Focused() {
 		switch msg.String() {
 		case "up":
-			if len(m.inputHistory) > 0 {
-				if m.historyIndex == -1 {
-					m.historyIndex = len(m.inputHistory) - 1
-				} else if m.historyIndex > 0 {
-					m.historyIndex--
-				}
-				if m.historyIndex >= 0 && m.historyIndex < len(m.inputHistory) {
-					m.input.SetValue(m.inputHistory[m.historyIndex])
-					m.input.CursorEnd()
-				}
-				return m, nil
-			}
+			m.input.HistoryUp()
+			return m, nil
 		case "down":
-			if m.historyIndex >= 0 {
-				if m.historyIndex < len(m.inputHistory)-1 {
-					m.historyIndex++
-					m.input.SetValue(m.inputHistory[m.historyIndex])
-				} else {
-					m.historyIndex = -1
-					m.input.SetValue("")
-				}
-				m.input.CursorEnd()
-				return m, nil
-			}
+			m.input.HistoryDown()
+			return m, nil
 		}
 	}
 
@@ -134,16 +115,12 @@ func (m Model) handleSubmit() (Model, tea.Cmd) {
 			return m, nil
 		}
 
-		txt := m.input.Value()
-		// Store in input history for up/down navigation
-		if strings.TrimSpace(txt) != "" {
-			m.inputHistory = append(m.inputHistory, txt)
-			m.historyIndex = -1
+		txt := strings.TrimSpace(m.input.Value())
+		if txt == "" {
+			return m, nil
 		}
-		m.input.SetValue("")
-		// Reset input height after submission
-		m.inputHeight = 1
-		m.input.SetHeight(1)
+		m.input.PushHistory(txt)
+		m.input.ResetAfterSend()
 		// ALL input goes through Agent 0's natural language processing
 		// No slash commands - everything is handled by delegation
 		return m.startAgent(m.active, txt)

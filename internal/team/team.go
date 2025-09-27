@@ -104,9 +104,6 @@ func (t *Team) GetRoles() map[string]*RoleConfig {
 // It delegates work to the named agent with enhanced communication logging.
 // Call moved to delegation.go
 
-// CallParallel executes multiple agent tasks in parallel for improved efficiency
-// CallParallel moved to delegation.go
-
 // runAgent and minimal context builder moved to runtime.go
 
 // Service wrappers moved to service.go

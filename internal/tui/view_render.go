@@ -97,8 +97,7 @@ func (m Model) View() string {
 	}
 
 	// Keep input height exactly equal to calculated row count (no cushion) to avoid blank lines
-	if rows != m.inputHeight {
-		m.inputHeight = rows
+	if rows != m.input.Height() {
 		m.input.SetHeight(rows)
 	}
 

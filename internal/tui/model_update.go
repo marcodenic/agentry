@@ -80,7 +80,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// This allows users to scroll through debug history without being forced to bottom
 	}
 
-	m.input, _ = m.input.Update(msg)
+	if cmd := m.input.Update(msg); cmd != nil {
+		cmds = append(cmds, cmd)
+	}
 	m.tools, _ = m.tools.Update(msg)
 	m.statusBarModel, _ = m.statusBarModel.Update(msg)
 
