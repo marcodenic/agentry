@@ -30,13 +30,13 @@ Local-first, observable, resilient **multi-agent** development orchestrator. Ope
 
 ## Current Foundations (What Exists)
 
-* **Core loop:** tool calling, streaming, tracing, error-as-data, retry caps.
+* **Core loop:** streaming responses, tool execution, tracing, retries, budget enforcement.
 * **Tools:** 30+ built-ins (atomic file ops, search/replace, web/network, OpenAPI/MCP, audit/patch, delegation/spawn).
-* **Models:** OpenAI + Anthropic via unified `model.Client` (streaming; usage tracked).
-* **Multi-agent:** team registry + delegation; Agent 0 role = orchestrator (spawn/manage workers).
-* **Memory:** per-agent convo history + vector store; SharedStore (mem/file); basic checkpointing.
+* **Models:** OpenAI Responses API (response ID linking + tool outputs) and Anthropic streaming behind the same `model.Client`.
+* **Multi-agent:** team registry + delegation; Agent 0 orchestrates spawns and aggregates answers.
+* **Memory:** per-agent short-term history stored locally and replayed each turn; vector store + shared memstore; checkpoints.
 * **Coordination:** **workspace events** feed (shared), **TODO store** (planning memory). **Per-agent inbox removed.**
-* **TUI/CLI:** TUI default when no args; **implicit run** with `agentry <prompt>`; **minimal flags**; YAML-first config.
+* **TUI/CLI:** TUI default when no args; `make build` writes binaries to `./bin`; `agentry <prompt>` runs one-off turns; YAML-first config.
 * **Context:** **minimal builder** in place; **Context-Lite** compiler incoming (replacing Context v2).
 
 ---
@@ -139,6 +139,7 @@ Local-first, observable, resilient **multi-agent** development orchestrator. Ope
 ### Deferred / Later
 
 * **Cost Accuracy Pass** (usage parsing, pricing loader, TUI totals/budgets).
+* Long-lived session memory (persist/replay beyond last turn; running summary writer & resume UX).
 * Advanced checkpointing; resumable workflows UX.
 * Multi-provider plugins; remote/cluster spawn; event bus; distributed teams.
 * Guardrail frameworks; sandbox hardening.
@@ -229,7 +230,7 @@ Local-first, observable, resilient **multi-agent** development orchestrator. Ope
 
 **Discovery & Precedence (highest → lowest)**
 
-1. **CLI flags** (`--config`, `--set`, `--debug`, `--theme`)
+1. **CLI flags** (`--config`, `--set`, `--debug`)
 2. **`--set key=value`** overrides (merge into loaded YAML; supports nested paths)
 3. **`--config /path/to/.agentry.yaml`** (explicit file)
 4. **Auto-discover** first existing:
@@ -254,7 +255,6 @@ scheduler:
   max_in_flight: 2
   tpm_guard: true
 tui:
-  theme: dark
 workspace:
   root: .
 ```
@@ -282,9 +282,8 @@ Parsing is **non-interspersed**: the first non-flag token starts the prompt. Use
 
 ```
 --config path/to/.agentry.yaml
---set key=value             # may repeat; merges into YAML (e.g., --set tui.theme=light)
+--set key=value             # may repeat; merges into YAML (e.g., --set scheduler.max_in_flight=4)
 --debug                     # debug logging
---theme dark|light|auto     # quick TUI override
 ```
 
 ### Subcommands (optional)
@@ -301,7 +300,6 @@ agentry config doctor       # print merged config + sources
 ```bash
 # TUI (default)
 agentry
-agentry --theme dark
 
 # Direct prompt (implicit run)
 agentry fix the failing tests
