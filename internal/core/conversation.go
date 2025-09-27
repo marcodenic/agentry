@@ -141,8 +141,21 @@ func (s *conversationSession) handleCompletion(res model.Completion, responseID 
 			modelForCost = agent.ModelName
 		}
 		agent.Cost.AddModelUsage(modelForCost, inTok, outTok)
+		totalInputTokens := agent.Cost.TotalInputTokens()
+		totalOutputTokens := agent.Cost.TotalOutputTokens()
+		totalTokens := totalInputTokens + totalOutputTokens
+		totalCost := agent.Cost.TotalCost()
+		agent.Trace(s.ctx, trace.EventUsage, map[string]any{
+			"model":               modelForCost,
+			"input_tokens":        inTok,
+			"output_tokens":       outTok,
+			"total_input_tokens":  totalInputTokens,
+			"total_output_tokens": totalOutputTokens,
+			"total_tokens":        totalTokens,
+			"total_cost":          totalCost,
+		})
 		if agent.Cost.OverBudget() && env.Bool("AGENTRY_STOP_ON_BUDGET", false) {
-			return "", false, fmt.Errorf("cost or token budget exceeded (tokens=%d cost=$%.4f)", agent.Cost.TotalTokens(), agent.Cost.TotalCost())
+			return "", false, fmt.Errorf("cost or token budget exceeded (tokens=%d cost=$%.4f)", totalTokens, totalCost)
 		}
 	}
 

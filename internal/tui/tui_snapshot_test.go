@@ -24,7 +24,7 @@ func TestStatusBarShowsTokenBudgetWarnings(t *testing.T) {
 	m = nm.(Model)
 	view := stripANSISnapshot(m.View())
 
-	if !strings.Contains(view, "tokens: 45") {
+	if !strings.Contains(view, "tokens: 45 in / 0 out (45 total)") {
 		t.Fatalf("expected rendered view to list token usage, got: %s", view)
 	}
 	if !strings.Contains(view, "⚠") {

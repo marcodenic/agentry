@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/marcodenic/agentry/internal/glyphs"
@@ -25,13 +26,8 @@ func (m Model) agentPanel(panelWidth int) string {
 		Render(titleGlyph + " AGENTS")
 	lines = append(lines, title)
 
-	totalTokens := 0
 	runningCount := 0
 	for _, ag := range m.infos {
-		// Get token count from agent's cost manager for accuracy
-		if ag.Agent != nil && ag.Agent.Cost != nil {
-			totalTokens += ag.Agent.Cost.TotalTokens()
-		}
 		if ag.Status == StatusRunning {
 			runningCount++
 		}
@@ -95,30 +91,24 @@ func (m Model) agentPanel(panelWidth int) string {
 			maxTokens = m.pricing.GetContextLimit(ag.ModelName)
 		}
 
-		// Get token count - use streaming count during active streaming, real count otherwise
-		actualTokens := 0
-		if ag.Agent != nil && ag.Agent.Cost != nil {
-			if ag.TokensStarted && ag.StreamingResponse != "" {
-				actualTokens = ag.StreamingTokenCount
-			} else {
-				actualTokens = ag.Agent.Cost.TotalTokens()
-			}
-		}
+		inputTokens, outputTokens, totalTokens := ag.TokenBreakdown()
 
-		tokenLine := fmt.Sprintf("  tokens: %d/%d", actualTokens, maxTokens)
+		tokenLine := fmt.Sprintf("  tokens: %d in / %d out (%d/%d)", inputTokens, outputTokens, totalTokens, maxTokens)
 		lines = append(lines, tokenLine)
 
 		// The progress bar percentage is computed inside renderTokenBar
 		bar := m.renderTokenBar(ag, panelWidth)
 		lines = append(lines, "  "+bar)
-		activityChart := m.renderActivityChart(ag.ActivityData, panelWidth)
+		activityChart := m.renderActivityChart(ag, panelWidth)
 		if activityChart != "" {
 			activityLabel := lipgloss.NewStyle().
 				Foreground(lipgloss.Color(uiColorForegroundHex)).
 				Faint(true).
 				Render("  activity:")
 			lines = append(lines, activityLabel)
-			lines = append(lines, "  "+activityChart)
+			for _, chartLine := range strings.Split(activityChart, "\n") {
+				lines = append(lines, "  "+chartLine)
+			}
 		}
 
 		if ag.Agent != nil && ag.Agent.Cost != nil {

@@ -95,22 +95,27 @@ type AgentInfo struct {
 	PendingStatusUpdate string      // Track ongoing status update for progressive completion
 	CurrentTool         string
 	// TokenCount removed - use Agent.Cost.TotalTokens() for accurate token counts
-	TokenHistory        []int
-	ActivityData        []float64   // Activity level per second (0.0 to 1.0)
-	ActivityTimes       []time.Time // Timestamp for each activity data point
-	LastToken           time.Time
-	LastActivity        time.Time
-	CurrentActivity     int // Tokens processed in current second
-	ModelName           string
-	Scanner             *bufio.Scanner
-	Cancel              context.CancelFunc
-	Spinner             spinner.Model
-	TokenProgress       progress.Model // Animated progress bar for token usage
-	Name                string
-	Role                string // Agent role for display (e.g., "System", "Research", "DevOps")
-	TokensStarted       bool   // Flag to stop thinking animation when tokens start
-	StreamingResponse   string // Current AI response being streamed (unformatted)
-	StreamingTokenCount int    // Live token count during streaming (reconciled on completion)
+	TokenHistory          []int
+	OutputActivityData    []float64   // Output activity level per second (0.0 to 1.0)
+	InputActivityData     []float64   // Input activity level per second (0.0 to 1.0)
+	ActivityTimes         []time.Time // Timestamp for each activity data point
+	LastToken             time.Time
+	LastActivity          time.Time
+	CurrentOutputActivity int // Output tokens processed in current second
+	CurrentInputActivity  int // Input tokens processed in current second
+	ModelName             string
+	Scanner               *bufio.Scanner
+	Cancel                context.CancelFunc
+	Spinner               spinner.Model
+	TokenProgress         progress.Model // Animated progress bar for token usage
+	Name                  string
+	Role                  string // Agent role for display (e.g., "System", "Research", "DevOps")
+	TokensStarted         bool   // Flag to stop thinking animation when tokens start
+	StreamingResponse     string // Current AI response being streamed (unformatted)
+	StreamingTokenCount   int    // Live token count during streaming (reconciled on completion)
+	InputTokensTotal      int
+	OutputTokensTotal     int
+	HasUsageTotals        bool
 
 	// Debug and trace fields
 	DebugTrace             []DebugTraceEvent // Debug trace events
@@ -340,7 +345,8 @@ func newAgentInfo(ag *core.Agent, history string, defaultWindowWidth int) *Agent
 		Name:                "Agent 0",
 		Role:                "System",
 		History:             history,
-		ActivityData:        make([]float64, 0),
+		OutputActivityData:  make([]float64, 0),
+		InputActivityData:   make([]float64, 0),
 		ActivityTimes:       make([]time.Time, 0),
 		TokenHistory:        []int{},
 		DebugTrace:          make([]DebugTraceEvent, 0),
@@ -362,6 +368,44 @@ func newAgentInfo(ag *core.Agent, history string, defaultWindowWidth int) *Agent
 	info.TokenProgress.Width = barWidth
 
 	return info
+}
+
+func (info *AgentInfo) TokenBreakdown() (input, output, total int) {
+	if info.HasUsageTotals {
+		input = info.InputTokensTotal
+		output = info.OutputTokensTotal
+	} else if info.Agent != nil && info.Agent.Cost != nil {
+		input = info.Agent.Cost.TotalInputTokens()
+		output = info.Agent.Cost.TotalOutputTokens()
+	}
+	total = input + output
+	if info.TokensStarted && info.StreamingResponse != "" {
+		liveTotal := info.StreamingTokenCount
+		if liveTotal > 0 {
+			total = liveTotal
+			delta := liveTotal - (input + output)
+			if delta < 0 {
+				delta = 0
+			}
+			output += delta
+		}
+	}
+	return
+}
+
+func (info *AgentInfo) LiveTokenCount() int {
+	_, _, total := info.TokenBreakdown()
+	return total
+}
+
+func (info *AgentInfo) TotalInputTokens() int {
+	input, _, _ := info.TokenBreakdown()
+	return input
+}
+
+func (info *AgentInfo) TotalOutputTokens() int {
+	_, output, _ := info.TokenBreakdown()
+	return output
 }
 
 type listItem struct{ name, desc string }

@@ -26,6 +26,8 @@ const (
 	EventYield EventType = "yield"
 	// EventSummary indicates a run summary with token and cost statistics.
 	EventSummary EventType = "summary"
+	// EventUsage reports token/cost usage snapshots for a model invocation.
+	EventUsage EventType = "usage"
 )
 
 type Event struct {

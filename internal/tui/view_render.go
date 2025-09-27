@@ -131,7 +131,8 @@ func (m Model) View() string {
 	content := lipgloss.JoinVertical(lipgloss.Left, topSection, horizontalLine, inputSection)
 
 	// Calculate total tokens and cost across all agents
-	totalTokens := 0
+	totalInputTokens := 0
+	totalOutputTokens := 0
 	totalCost := 0.0
 	// Track session-level budgets (assume shared across agents; take max)
 	var budgetTokens int
@@ -140,12 +141,9 @@ func (m Model) View() string {
 	// Sum up tokens and costs, using live streaming counts when available
 	for _, info := range m.infos {
 		if info.Agent != nil && info.Agent.Cost != nil {
-			// Use streaming token count during active streaming, real count otherwise
-			if info.TokensStarted && info.StreamingResponse != "" {
-				totalTokens += info.StreamingTokenCount
-			} else {
-				totalTokens += info.Agent.Cost.TotalTokens()
-			}
+			inputTokens, outputTokens, _ := info.TokenBreakdown()
+			totalInputTokens += inputTokens
+			totalOutputTokens += outputTokens
 			totalCost += info.Agent.Cost.TotalCost()
 			if info.Agent.Cost.BudgetTokens > budgetTokens {
 				budgetTokens = info.Agent.Cost.BudgetTokens
@@ -155,11 +153,12 @@ func (m Model) View() string {
 			}
 		}
 	}
+	totalTokens := totalInputTokens + totalOutputTokens
 
 	// Only show agent/cost/cwd/tokens info in the status bar, not workspace events
 	agentsDisplay := fmt.Sprintf("◆ agents: %d", len(m.infos))
 	cwdDisplay := fmt.Sprintf("⌂ cwd: %s", m.cwd)
-	tokensDisplay := fmt.Sprintf("◈ tokens: %d", totalTokens)
+	tokensDisplay := fmt.Sprintf("◈ tokens: %d in / %d out (%d total)", totalInputTokens, totalOutputTokens, totalTokens)
 	costDisplay := fmt.Sprintf("◎ cost: $%.6f", totalCost)
 
 	// Append budget warnings (soft at 80%, hard at 100%)

@@ -28,6 +28,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleTokenStream(msg)
 	case tokenStreamTick:
 		return m.handleTokenStreamTick(msg)
+	case tokenUsageMsg:
+		return m.handleTokenUsageMessage(msg)
 	case finalMsg:
 		return m.handleFinalMessage(msg)
 	case toolUseMsg:

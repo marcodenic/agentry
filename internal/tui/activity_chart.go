@@ -50,17 +50,10 @@ func (m Model) renderTokenBar(info *AgentInfo, panelWidth int) string {
 	if info.ModelName != "" {
 		maxTokens = m.pricing.GetContextLimit(info.ModelName)
 	}
-	actualTokens := 0
-	if info.Agent != nil && info.Agent.Cost != nil {
-		if info.TokensStarted && info.StreamingResponse != "" {
-			actualTokens = info.StreamingTokenCount
-		} else {
-			actualTokens = info.Agent.Cost.TotalTokens()
-		}
-	}
+	liveTokens := info.LiveTokenCount()
 	var tokenPct float64
 	if maxTokens > 0 {
-		tokenPct = float64(actualTokens) / float64(maxTokens) * 100
+		tokenPct = float64(liveTokens) / float64(maxTokens) * 100
 	}
 	// Add our own styled percentage to match the activity chart
 	pctText := fmt.Sprintf(" %2.0f%%", tokenPct)
@@ -72,14 +65,15 @@ func (m Model) renderTokenBar(info *AgentInfo, panelWidth int) string {
 	return barStr + pctStyled
 }
 
-// renderActivityChart shows recent activity levels as a scrolling chart using ntcharts sparkline.
-func (m Model) renderActivityChart(activityData []float64, panelWidth int) string {
-	if len(activityData) == 0 {
+// renderActivityChart shows recent activity levels for both output and input tokens.
+func (m Model) renderActivityChart(info *AgentInfo, panelWidth int) string {
+	outputData := info.OutputActivityData
+	inputData := info.InputActivityData
+	if len(outputData) == 0 && len(inputData) == 0 {
 		return ""
 	}
 
 	// Calculate available width for the chart:
-	// panelWidth - "  " prefix (2 chars) - " XX%" suffix (4 chars) - padding (2 chars) = available width
 	chartWidth := panelWidth - 8
 	if chartWidth < 10 {
 		chartWidth = 10 // Minimum chart width
@@ -88,61 +82,59 @@ func (m Model) renderActivityChart(activityData []float64, panelWidth int) strin
 		chartWidth = 50 // Maximum chart width for readability
 	}
 
-	// Since token bar no longer includes percentage automatically,
-	// both bars now use the same width for their main content
-	// Sparkline always adds a trailing space, so use width+1 then remove the space
-	availableWidth := chartWidth + 1
-
-	// Create sparkline chart with height 1 for a single row
-	chart := sparkline.New(availableWidth, 1,
-		sparkline.WithMaxValue(1.0), // Activity is normalized 0-1
-		sparkline.WithStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("#22C55E"))),
-	)
-
-	// Push the most recent data points to the sparkline
-	// Take the last 'availableWidth' data points
-	startIdx := len(activityData) - availableWidth
-	if startIdx < 0 {
-		// If we don't have enough data, pad with zeros at the beginning
-		for i := 0; i < availableWidth-len(activityData); i++ {
-			chart.Push(0.0)
-		}
-		startIdx = 0
-	}
-
-	// Add the actual data points
-	for i := startIdx; i < len(activityData); i++ {
-		chart.Push(activityData[i])
-	}
-
-	// Draw the Braille sparkline (for smooth, high-resolution appearance)
-	chart.DrawBraille()
-
-	// Get the rendered sparkline and remove the trailing space that sparkline always adds
-	sparklineStr := chart.View()
-	// Remove the pattern: space followed by ANSI reset code at the end
+	availableWidth := chartWidth + 1 // Match token bar sizing
 	spacePattern := regexp.MustCompile(` \x1b\[0m$`)
-	sparklineStr = spacePattern.ReplaceAllString(sparklineStr, "\x1b[0m")
 
-	// Add percentage indicator
-	var result strings.Builder
-	result.WriteString(sparklineStr)
+	renderSeries := func(label string, data []float64, style lipgloss.Style) string {
+		chart := sparkline.New(availableWidth, 1,
+			sparkline.WithMaxValue(1.0),
+			sparkline.WithStyle(style),
+		)
 
-	if len(activityData) > 0 {
-		currentActivity := activityData[len(activityData)-1]
-		pctText := fmt.Sprintf(" %2.0f%%", currentActivity*100) // Removed extra spaces to match token bar
+		series := data
+		if len(series) > availableWidth {
+			series = series[len(series)-availableWidth:]
+		}
+		if len(series) < availableWidth {
+			padding := availableWidth - len(series)
+			for i := 0; i < padding; i++ {
+				chart.Push(0.0)
+			}
+		}
+		for _, v := range series {
+			chart.Push(v)
+		}
+
+		chart.DrawBraille()
+		sparklineStr := chart.View()
+		sparklineStr = spacePattern.ReplaceAllString(sparklineStr, "\x1b[0m")
+
+		currentValue := 0.0
+		if len(data) > 0 {
+			currentValue = data[len(data)-1]
+		}
+		pctText := fmt.Sprintf(" %2.0f%%", currentValue*100)
 		pctStyled := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#6B7280")).
 			Faint(true).
 			Render(pctText)
-		result.WriteString(pctStyled)
-	} else {
-		pctStyled := lipgloss.NewStyle().
+
+		labelStyled := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#6B7280")).
 			Faint(true).
-			Render("  0%") // Removed extra spaces to match token bar
-		result.WriteString(pctStyled)
+			Render(fmt.Sprintf("%-3s", label))
+
+		var builder strings.Builder
+		builder.WriteString(labelStyled)
+		builder.WriteString(" ")
+		builder.WriteString(sparklineStr)
+		builder.WriteString(pctStyled)
+		return builder.String()
 	}
 
-	return result.String()
+	lines := []string{}
+	lines = append(lines, renderSeries("out", outputData, lipgloss.NewStyle().Foreground(lipgloss.Color("#22C55E"))))
+	lines = append(lines, renderSeries("in", inputData, lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6"))))
+
+	return strings.Join(lines, "\n")
 }

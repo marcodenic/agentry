@@ -334,6 +334,8 @@ func (m *Model) addDebugTraceEvent(id uuid.UUID, ev trace.Event) {
 		details = "Agent yielded"
 	case trace.EventSummary:
 		details = "Summary with token and cost statistics"
+	case trace.EventUsage:
+		details = "Token usage updated"
 	default:
 		details = fmt.Sprintf("Event type: %s", string(ev.Type))
 	}

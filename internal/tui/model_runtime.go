@@ -13,6 +13,17 @@ type tokenMsg struct {
 	token string
 }
 
+type tokenUsageMsg struct {
+	id           uuid.UUID
+	model        string
+	inputTokens  int
+	outputTokens int
+	totalInput   int
+	totalOutput  int
+	totalTokens  int
+	totalCost    float64
+}
+
 // internal aggregated token flush message
 // tokenFlushMsg removed – tokens are forwarded immediately for zero buffering.
 
@@ -129,6 +140,19 @@ func (m *Model) readEvent(id uuid.UUID) tea.Msg {
 					return toolUseMsg{id: id, name: name, args: args}
 				}
 			}
+		case trace.EventUsage:
+			if m2, ok := ev.Data.(map[string]any); ok {
+				return tokenUsageMsg{
+					id:           id,
+					model:        strFromAny(m2["model"]),
+					inputTokens:  intFromAny(m2["input_tokens"]),
+					outputTokens: intFromAny(m2["output_tokens"]),
+					totalInput:   intFromAny(m2["total_input_tokens"]),
+					totalOutput:  intFromAny(m2["total_output_tokens"]),
+					totalTokens:  intFromAny(m2["total_tokens"]),
+					totalCost:    floatFromAny(m2["total_cost"]),
+				}
+			}
 		default:
 			continue
 		}
@@ -137,3 +161,38 @@ func (m *Model) readEvent(id uuid.UUID) tea.Msg {
 
 // scheduleStreamFlush returns a command that triggers after a short interval to force a flush.
 // scheduleStreamFlush removed (timed flush no longer used)
+
+func intFromAny(v any) int {
+	switch t := v.(type) {
+	case float64:
+		return int(t)
+	case int:
+		return t
+	case int64:
+		return int(t)
+	default:
+		return 0
+	}
+}
+
+func floatFromAny(v any) float64 {
+	switch t := v.(type) {
+	case float64:
+		return t
+	case float32:
+		return float64(t)
+	case int:
+		return float64(t)
+	case int64:
+		return float64(t)
+	default:
+		return 0
+	}
+}
+
+func strFromAny(v any) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
+}

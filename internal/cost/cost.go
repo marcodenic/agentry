@@ -52,6 +52,36 @@ func (m *Manager) totalTokensLocked() int {
 	return total
 }
 
+func (m *Manager) totalInputTokensLocked() int {
+	total := 0
+	for _, usage := range m.ModelUsage {
+		total += usage.InputTokens
+	}
+	return total
+}
+
+func (m *Manager) totalOutputTokensLocked() int {
+	total := 0
+	for _, usage := range m.ModelUsage {
+		total += usage.OutputTokens
+	}
+	return total
+}
+
+// TotalInputTokens returns the total number of input tokens consumed across models.
+func (m *Manager) TotalInputTokens() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.totalInputTokensLocked()
+}
+
+// TotalOutputTokens returns the total number of output tokens produced across models.
+func (m *Manager) TotalOutputTokens() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.totalOutputTokensLocked()
+}
+
 // TotalCost calculates the total cost using accurate model-specific pricing
 func (m *Manager) TotalCost() float64 {
 	m.mu.Lock()

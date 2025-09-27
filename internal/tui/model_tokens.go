@@ -36,7 +36,7 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 	info.StreamingResponse += msg.token
 	// Count tokens live during streaming for responsive UI
 	info.StreamingTokenCount++
-	info.CurrentActivity++ // Just increment counter, let activityTickMsg handle data points
+	info.CurrentOutputActivity++ // Track output-side activity for sparkline updates
 
 	// Save updated info back to map
 	m.infos[msg.id] = info
@@ -44,40 +44,7 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 	// Update progress bar to match the percentage that will be shown on tokens line
 	var progressCmd tea.Cmd
 	if info.StreamingTokenCount%5 == 0 { // Update every 5 tokens for performance
-		// Use SAME calculation that agent_panel.go uses for the tokens line
-		maxTokens := 8000
-		if info.ModelName != "" {
-			// Use pricing data to get the actual context limit
-			maxTokens = m.pricing.GetContextLimit(info.ModelName)
-		}
-
-		actualTokens := 0
-		if info.Agent != nil && info.Agent.Cost != nil {
-			if info.TokensStarted && info.StreamingResponse != "" {
-				actualTokens = info.StreamingTokenCount
-			} else {
-				actualTokens = info.Agent.Cost.TotalTokens()
-			}
-		}
-
-		// Same exact calculation as agent_panel.go
-		tokenPct := float64(actualTokens) / float64(maxTokens) * 100
-		pct := tokenPct / 100.0
-		if pct < 0 {
-			pct = 0
-		}
-		if pct > 1 {
-			pct = 1
-		}
-
-		// Don't show any filled area until we reach 5% to avoid showing wrong colors
-		// The bubbles/progress library shows yellow/orange at very low percentages
-		// instead of the expected green, so better to show empty until 5%
-		if pct < 0.05 {
-			pct = 0
-		}
-
-		progressCmd = info.TokenProgress.SetPercent(pct)
+		progressCmd = m.updateTokenProgress(info, info.LiveTokenCount())
 	}
 
 	// Update viewport with streaming content - OPTIMIZED for performance
@@ -130,6 +97,7 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 	}
 
 	now := time.Now()
+	info.LastActivity = now
 
 	// Token history update for activity monitoring
 	if info.LastToken.IsZero() || now.Sub(info.LastToken) > time.Second {
@@ -225,10 +193,60 @@ func (m Model) handleFinalMessage(msg finalMsg) (Model, tea.Cmd) {
 		info.StreamingTokenCount = info.Agent.Cost.TotalTokens()
 	}
 
+	progressCmd := m.updateTokenProgress(info, info.LiveTokenCount())
+
 	if msg.id == m.active {
 		m.view.Chat.Main.SetContent(info.History)
 		m.view.Chat.Main.GotoBottom()
 	}
 	m.infos[msg.id] = info
-	return m, nil
+
+	var cmds []tea.Cmd
+	if progressCmd != nil {
+		cmds = append(cmds, progressCmd)
+	}
+	return m, tea.Batch(cmds...)
+}
+
+func (m Model) handleTokenUsageMessage(msg tokenUsageMsg) (Model, tea.Cmd) {
+	info := m.infos[msg.id]
+	info.InputTokensTotal = msg.totalInput
+	info.OutputTokensTotal = msg.totalOutput
+	info.HasUsageTotals = true
+	info.StreamingTokenCount = msg.totalTokens
+	if msg.inputTokens > 0 {
+		info.CurrentInputActivity += msg.inputTokens
+	}
+	info.LastActivity = time.Now()
+
+	progressCmd := m.updateTokenProgress(info, info.LiveTokenCount())
+
+	m.infos[msg.id] = info
+
+	cmds := []tea.Cmd{m.runtime.ReadCmd(&m, msg.id)}
+	if progressCmd != nil {
+		cmds = append(cmds, progressCmd)
+	}
+	return m, tea.Batch(cmds...)
+}
+
+func (m Model) updateTokenProgress(info *AgentInfo, totalTokens int) tea.Cmd {
+	maxTokens := 8000
+	if info.ModelName != "" {
+		maxTokens = m.pricing.GetContextLimit(info.ModelName)
+	}
+	if maxTokens <= 0 {
+		return nil
+	}
+	pct := float64(totalTokens) / float64(maxTokens)
+	if pct < 0 {
+		pct = 0
+	}
+	if pct > 1 {
+		pct = 1
+	}
+	if pct < 0.05 {
+		pct = 0
+	}
+	return info.TokenProgress.SetPercent(pct)
 }

@@ -51,9 +51,11 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 					TokenProgress:          createTokenProgressBar(),
 					Name:                   displayName, // Sequential name like "Agent 1"
 					Role:                   role,        // Role from team agent (correct role!)
-					ActivityData:           make([]float64, 0),
+					OutputActivityData:     make([]float64, 0),
+					InputActivityData:      make([]float64, 0),
 					ActivityTimes:          make([]time.Time, 0),
-					CurrentActivity:        0,
+					CurrentOutputActivity:  0,
+					CurrentInputActivity:   0,
 					LastActivity:           time.Time{},
 					TokenHistory:           []int{},
 					TokensStarted:          false,
@@ -127,7 +129,7 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 	// Only process agents that have recent activity to avoid unnecessary work
 	for id, info := range m.infos {
 		// Skip inactive agents to improve performance
-		if info.Status == StatusIdle && info.CurrentActivity == 0 &&
+		if info.Status == StatusIdle && info.CurrentOutputActivity == 0 && info.CurrentInputActivity == 0 &&
 			!info.LastActivity.IsZero() && now.Sub(info.LastActivity) > 10*time.Second {
 			continue
 		}
@@ -146,22 +148,30 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 		}
 
 		if shouldAddDataPoint {
-			// Add activity level (either current activity or 0.0 for idle)
-			activityLevel := 0.0
-			if info.CurrentActivity > 0 {
-				// Normalize current activity (10 tokens/sec = 100%)
-				activityLevel = float64(info.CurrentActivity) / 10.0
-				if activityLevel > 1.0 {
-					activityLevel = 1.0
+			outputLevel := 0.0
+			if info.CurrentOutputActivity > 0 {
+				outputLevel = float64(info.CurrentOutputActivity) / 10.0
+				if outputLevel > 1.0 {
+					outputLevel = 1.0
 				}
-				info.CurrentActivity = 0 // Reset for next second
 			}
 
-			info.ActivityData = append(info.ActivityData, activityLevel)
+			inputLevel := 0.0
+			if info.CurrentInputActivity > 0 {
+				inputLevel = float64(info.CurrentInputActivity) / 10.0
+				if inputLevel > 1.0 {
+					inputLevel = 1.0
+				}
+			}
+
+			info.OutputActivityData = append(info.OutputActivityData, outputLevel)
+			info.InputActivityData = append(info.InputActivityData, inputLevel)
 			info.ActivityTimes = append(info.ActivityTimes, now)
+			info.CurrentOutputActivity = 0
+			info.CurrentInputActivity = 0
 
 			// Only clean up activity data every 5 seconds to reduce overhead
-			if len(info.ActivityData)%5 == 0 {
+			if len(info.ActivityTimes)%5 == 0 {
 				// Keep only last 5 minutes of data to show longer time period in sparkline
 				cutoffTime := now.Add(-5 * time.Minute)
 
@@ -176,7 +186,8 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 
 				if cutoffIndex >= 0 {
 					// Remove old data efficiently using slicing
-					info.ActivityData = info.ActivityData[cutoffIndex+1:]
+					info.OutputActivityData = info.OutputActivityData[cutoffIndex+1:]
+					info.InputActivityData = info.InputActivityData[cutoffIndex+1:]
 					info.ActivityTimes = info.ActivityTimes[cutoffIndex+1:]
 				}
 			}
