@@ -26,11 +26,10 @@
 ![Demo](agentry.gif)
 
 Overview
-- Minimal core in Go with fast startup and no heavy deps
+- Minimal Go binary with fast startup and no heavy dependencies
 - Built-in TUI for day-to-day coding and debugging
-- Pluggable tools via simple manifests; safe permission gating
-- Team/delegation helpers to spawn and coordinate sub-agents
-- Structured tracing and live token/cost accounting
+- Pluggable, permission-gated tools defined in `.agentry.yaml`
+- Structured tracing plus live token/cost accounting
 
 Install
 - Prereq: Go 1.23+
@@ -56,9 +55,9 @@ Usage Notes
 - The TUI supports spawning additional agents and shows live token/cost usage
 
 Built-in Tools
-- Tools are enabled by listing them in your `.agentry.yaml` and permissions
-- Common tools include: `echo`, `ping`, `view`, `write`, `edit`, `patch`, `grep`, `ls`, `agent`, `mcp`
-- Permissions allow you to strictly gate what the agent can use
+- Tools are enabled by listing them in your `.agentry.yaml`
+- Core categories: file editing (`view`, `create`, `edit_range`, `search_replace`), search (`ls`, `find`, `grep`, `glob`), shell (`bash`, `sh`, `cmd`, `powershell`), networking (`fetch`, `api`, `download`), delegation (`agent`), diagnostics (`lsp_diagnostics`, `sysinfo`, `ping`)
+- Use the allow/deny flags or the config `permissions` block to gate usage for a repository
 
 Tracing & Costs
 - Every run can emit structured trace events

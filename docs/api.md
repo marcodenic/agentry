@@ -1,61 +1,92 @@
-# API
+# API Overview
 
-## Built-in Tools
-
-Agentry ships with a collection of safe builtin tools. They become available when listed in your `.agentry.yaml` file:
+Agentry ships with a curated set of builtin tools. Tools are only available when listed in `.agentry.yaml` and permitted by the `permissions` block or runtime flags.
 
 ```yaml
 tools:
-  - name: echo
+  - name: view
     type: builtin
-  - name: ping
+  - name: create
     type: builtin
-  - name: bash
+  - name: edit_range
     type: builtin
-  - name: branch-tidy
-    type: builtin
-  - name: fetch
-    type: builtin
-  - name: glob
-    type: builtin
-  - name: grep
+  - name: search_replace
     type: builtin
   - name: ls
     type: builtin
-  - name: view
+  - name: find
     type: builtin
-  - name: write
+  - name: grep
     type: builtin
-  - name: edit
+  - name: glob
     type: builtin
-  - name: patch
+  - name: fetch
     type: builtin
-  - name: sourcegraph
+  - name: api
+    type: builtin
+  - name: download
+    type: builtin
+  - name: bash
+    type: builtin
+  - name: sh
+    type: builtin
+  - name: powershell
+    type: builtin
+  - name: cmd
+    type: builtin
+  - name: lsp_diagnostics
     type: builtin
   - name: agent
     type: builtin
-  - name: mcp
-    type: builtin
 ```
 
-The example configuration already lists these tools so they appear in the TUI's "Tools" panel.
+### Tool Categories
 
-### Environment Configuration
+| Category         | Tools (examples)                              |
+| ---------------- | ---------------------------------------------- |
+| File operations  | `view`, `create`, `edit_range`, `search_replace` |
+| Search           | `ls`, `find`, `grep`, `glob`                   |
+| Networking       | `fetch`, `api`, `download`                     |
+| Shell            | `bash`, `sh`, `powershell`, `cmd`              |
+| Diagnostics      | `lsp_diagnostics`, `sysinfo`, `ping`           |
+| Delegation       | `agent`                                        |
 
-Copy `.env.example` to `.env.local` and fill in `OPENAI_API_KEY` to enable real OpenAI calls. The file is loaded automatically on startup and during tests.
+Include only the tools you trust for a repository. Use runtime flags (`--allow-tools`, `--deny-tools`, `--disable-tools`) for temporary overrides during a session.
 
-To run evaluation with the real model:
+### Environment
 
-```bash
-OPENAI_API_KEY=your-key agentry eval --config my.agentry.yaml
-```
+Copy `.env.example` to `.env.local` and set relevant keys:
 
-If no key is present, the built-in mock model is used.
+- `OPENAI_API_KEY` for OpenAI-backed models (required for non-mock runs)
+- `ANTHROPIC_API_KEY` if you opt into Anthropic models
 
-## CLI Surface (JSON-first)
+`.env.local` is loaded automatically at startup.
 
-Prefer the CLI for automation. All commands return machine-readable output:
+## CLI Surface
 
-- `agentry invoke` – run a one-shot task (optionally `--agent`)
-- `agentry team` – manage agents: `roles`, `list`, `spawn`, `call`, `stop`
-- `agentry memory` – `export` and `import` memory snapshots
+The CLI is intentionally small:
+
+| Command                  | Description                              |
+| ------------------------ | ---------------------------------------- |
+| `agentry`                | Launch the TUI (default)                 |
+| `agentry "prompt"`       | Run a direct one-shot prompt             |
+| `agentry refresh-models` | Refresh cached pricing data              |
+| `agentry --help`         | Print usage information                  |
+
+All output is JSON-safe (no extra shell colour codes). Combine commands with `--trace` when you need structured logs.
+
+## Tracing & Costs
+
+- `--trace trace.jsonl` writes streaming events compatible with JSONL tooling
+- The runtime prints a token/cost summary after each invocation
+- Pricing data comes from the on-disk cache populated by `refresh-models`
+
+## Debugging Helpers
+
+- `AGENTRY_DEBUG_LEVEL=trace` – verbose logging
+- `scripts/debug-agentry.sh` – convenient wrapper with debug defaults
+- `scripts/test_debug_logging.sh` – smoke test for the logging pipeline
+
+## Extending Agentry
+
+Builtin tools live under `internal/tool/`. Add new Go-based tools beside the existing ones or register external executables by filling out a `ToolManifest` entry in `.agentry.yaml`. Keep permissions strict and document new capabilities in the configuration guide.

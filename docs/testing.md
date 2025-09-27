@@ -1,111 +1,53 @@
 # Testing & Validation Guide
 
-For the canonical, up-to-date test checklist, see [../TEST.md](../TEST.md).
+For the canonical, up-to-date checklist, see [../TEST.md](../TEST.md).
 
-This guide explains how to set up your environment, run all tests, and validate Agentry functionality. It is intended for human users and new contributors.
-
----
-
-## Quick Start
-
-1. **Clone the repository**
-2. **Install prerequisites:**
-   - Go (>=1.23)
-   - (Optional) Docker (for sandboxing, plugins)
-3. **Copy `.env.example` to `.env.local`** and set your `OPENAI_API_KEY` if you have one.
-4. **Install dependencies:** `go mod tidy`
+This guide explains how to run the suite locally and what additional scripts exist for manual validation.
 
 ---
 
-## Running Tests
+## Prerequisites
 
-### Go Tests
+- Go 1.23+
+- Optional: `.env.local` with `OPENAI_API_KEY` if you want to hit real models during ad-hoc runs
+
+```bash
+cp .env.example .env.local
+# export OPENAI_API_KEY=...
+```
+
+Run `go mod tidy` after cloning to ensure dependencies are downloaded.
+
+## Core Test Suite
 
 ```bash
 go test ./...
 ```
 
-### (Legacy SDK / Extension)
-Historical TS SDK and VS Code extension have been removed; focus is now Go runtime.
+That command executes all unit and integration tests. If you only want the fast subset, pass `-short`.
 
-### All-in-One (Makefile)
+## Helper Scripts
 
-```bash
-make dev
-```
+- `scripts/test_go125_features.sh` – exercises the Go 1.25 feature demos (WaitGroup.Go etc.)
+- `scripts/test_debug_logging.sh` – verifies the rolling debug logger end to end
+- `scripts/debug-agentry.sh` – wraps `agentry` with verbose logging enabled
 
----
+## Manual Verification Checklist
 
-## End-to-End Scenarios
+1. Start the TUI: `agentry --config .agentry.yaml`
+2. Run a direct prompt: `agentry "summarize README"`
+3. Refresh model pricing: `agentry refresh-models`
+4. Confirm traces: `agentry --trace trace.jsonl "hello"`
+5. Inspect logs in `debug/` (or via `scripts/debug-agentry.sh`)
 
-- Try the TUI: `agentry tui --config .agentry.yaml`
-- Team ops: `agentry team roles`, `agentry team spawn --name coder --role coder`, `agentry team call --agent coder --input "hi"`
-- One-shot: `agentry invoke "say hi"`, `agentry invoke --agent coder "write hello.go"`
+## CI Expectations
 
----
-
-## Built-in Tools & Plugins
-
-- Validate all built-in tools (see README for full list)
-- Test OpenAPI/MCP tool generation with your project-specific OpenAPI spec or MCP manifest
-
----
-
-## Memory & Vector Store
-
-- Test memory backends: SQLite, file, in-memory
-- Test vector store integrations: qdrant, faiss, in-memory
-
----
-
-## SDK / Extension
-
-Removed for now; future client bindings may return.
-
----
-
-## Distributed/Server Testing
-
-- Install on Linux server (see README)
-- Run flows and scenarios at scale
-- Validate performance, memory, and vector store integrations
-
----
-
-## CI/CD
-
-- All tests are run in GitHub Actions
-- Review test coverage and add missing tests as needed
-
----
+GitHub Actions runs `go test ./...` on every PR. Keep the suite fast (<2 minutes on a laptop). If you add new helper scripts, wire them into CI explicitly.
 
 ## Troubleshooting
 
-- If you encounter errors, check your environment variables and dependencies
-- For Windows users, ensure PowerShell is available
-- For Docker-related issues, verify Docker is running and accessible
-- For more help, see the README or open an issue
+- Ensure `$PATH` includes the directory where `go install` places binaries (`$GOPATH/bin` or `$HOME/go/bin`)
+- Delete the Go build cache (`go clean -cache`) if you encounter stale errors
+- Set `AGENTRY_DEBUG_LEVEL=trace` when reproducing issues locally
 
----
-
-## 🪟 Windows Setup & NATS Server
-
-Some tests and features require a running NATS server. On Windows:
-
-1. Download and extract the latest NATS server zip from the [official releases](https://github.com/nats-io/nats-server/releases).
-2. Start the server in PowerShell (adjust path as needed):
-   ```powershell
-   & "C:\Users\marco\Downloads\nats-server-v2.11.4-windows-amd64\nats-server-v2.11.4-windows-amd64\nats-server.exe" -p 4222
-   ```
-
-**Run Go tests (excluding integration):**
-
-```powershell
-go test ./... -v -short
-```
-
-**Run all tests, including integration:**
-
-```powershell
-go test ./... -v -tags=integration
-```
+If problems persist, open an issue with the failing command, output, and environment details.

@@ -1,136 +1,43 @@
-# Agentry Multi-Agent Platform Development Plan
+# Agentry Project Plan
 
-**Status**: Advanced Multi-Agent Collaboration ✅ | Advanced Scenarios & Testing 🔄  
-**Last Updated**: December 2024  
-**Current Focus**: Advanced collaborative testing and scenario validation
+_Last updated: September 2025_
 
----
+Agentry is now focused on a lean, local-first runtime. The near-term plan concentrates on hardening the core loop, tightening the developer experience, and improving test/documentation coverage.
 
-## 🎉 **BREAKTHROUGH: TRUE MULTI-AGENT COLLABORATION ACHIEVED!**
+## 1. Core Runtime
 
-### **✅ COMPLETED PHASES**
+| Task | Notes |
+| ---- | ----- |
+| Context-Lite prompt compiler | Finalise the simplified system prompt builder and add golden tests |
+| Error-handling polish | Exercise consecutive tool error limits and improve messaging |
+| Cost manager consistency | Normalise `provider/model` naming and ensure refresh cache is honoured everywhere |
 
-**✅ FOUNDATION COMPLETE**
-- Agent 0 coordination system with tool restrictions (12 coordination tools)
-- Team context unified across all modes (CLI, chat, TUI) 
-- Safe sandbox testing environment
-- Cross-platform compatibility
+## 2. Tooling & TUI
 
-**✅ INFRASTRUCTURE COMPLETE**
-- Session management and persistent agents
-- Agent registry with TCP localhost communication
-- File-based state persistence and recovery
-- HTTP API endpoints for agent communication
+| Task | Notes |
+| ---- | ----- |
+| TODO board refinements | Surface status changes and filters inside the TUI |
+| Tool UX | Review tool help output and ensure common flags/fields are documented |
+| Debug logging ergonomics | Ship slimmer presets for `scripts/debug-agentry.sh` (trace vs. info modes) |
 
-**✅ TOOL INHERITANCE FIX COMPLETE**
-- **CRITICAL BUG FIXED**: Spawned agents now get full tool access
-- File operations working: agents can create, edit, and manage files
-- Enhanced debugging with tool usage logging
+## 3. Test & Docs
 
-**✅ TRUE MULTI-AGENT COLLABORATION COMPLETE**
-- **Real agent-to-agent communication** (direct messaging between agents)
-- **Collaborative tool system**: `collaborate` tool with `get_team_status`, `send_message`, `update_status`, `request_help`
-- **Shared workspace awareness**: Agents can see what others are doing
-- **Event-driven coordination**: Agents notify each other when tasks are ready
-- **Status broadcasting**: Real-time progress tracking and team coordination
+| Task | Notes |
+| ---- | ----- |
+| Internal/core charters | Continue converting charters in `REFACTOR.md` into real tests |
+| Configuration docs | Keep `.agentry.yaml` examples aligned with the trimmed feature set |
+| Contributor flow | Refresh CONTRIBUTING.md and developer doc pointers |
 
-### **🏆 VERIFIED COLLABORATION FEATURES**
-- ✅ Direct agent-to-agent communication (not just delegation)
-- ✅ Shared workspace awareness and status tracking
-- ✅ Agent‑led coordination of multi‑step tasks
-- ✅ Event-driven task handoffs between agents
-- ✅ Multi-agent file creation and coordination
+## Recently Completed
 
----
+- Removed legacy persistent mode, NATS queueing, and Kubernetes deployment artefacts
+- Simplified CLI to `tui`, direct prompt, and `refresh-models`
+- Relocated stray scripts/documentation into dedicated directories
+- Added regression tests for streaming aggregator and tool error paths
 
-## 🔄 **CURRENT PHASE: ADVANCED COLLABORATIVE SCENARIOS**
+## Out of Scope / Archived
 
-### **🎯 IMMEDIATE PRIORITIES**
+- Cloud orchestration, autoscalers, and long-lived session daemons
+- Parallel tool runners and inbox-style messaging
 
-**🔄 Advanced Scenario Testing**
-- Validate the new advanced collaborative Go HTTP server scenario
-- Ensure scenarios require real multi-agent collaboration (10+ minutes)
-- Test iterative development, testing, and refinement sequences
-- Verify agents communicate directly and coordinate effectively
-
-**🔄 Agent_0 Enhancement**  
-- Task complexity assessment and multi-coder assignment working
-- Coordination capabilities enhanced (no separate workflow engine)
-- Need to validate dynamic coder assignment and load balancing
-
-**📅 PENDING GOALS**
-
-**📋 Advanced Testing Scenarios**
-- Complex multi-endpoint Go HTTP server development
-- Distributed system architecture and implementation
-- Real-time collaborative debugging and optimization
-- Cross-platform deployment and testing sequences
-
-**🚀 Future Enhancements**
-- Dynamic role negotiation between agents
-- Conflict resolution for concurrent file editing
-- Real-time collaboration visualization
-- Event-driven task automation
-- Advanced performance monitoring and optimization
-
----
-
-## 🧪 **TESTING & VALIDATION**
-
-### **✅ CONFIRMED WORKING**
-```bash
-# Multi-agent collaboration verified
-✅ Agent-to-agent communication: Direct messaging working
-✅ Collaborative tools: get_team_status, send_message, update_status, request_help
-✅ File operations: Agents can create, edit, and coordinate file changes
-✅ Agent 0 coordination: Complex task sequences successful
-✅ Status tracking: Real-time progress monitoring functional
-```
-
-### **🔄 CURRENT TESTING**
-- Advanced collaborative Go HTTP server scenario
-- Extended duration testing (10+ minute sequences)
-- Iterative development and refinement processes
-- Multi-agent coordination under complex requirements
-
-### **📊 SUCCESS METRICS**
-- **Collaboration Tools**: 7+ tool calls per complex scenario
-- **Agent Communication**: Direct messaging between specialized agents
-- **File Coordination**: Multi-agent file creation and editing
-- **Sequence Duration**: 10+ minutes of sustained collaboration
-- **Task Complexity**: Multi-endpoint server with quality requirements
-
----
-
-## 📁 **KEY IMPLEMENTATION FILES**
-
-**Core Collaboration System:**
-- `internal/team/team.go` - Multi-agent coordination and communication
-- `internal/team/collaborative_features.go` - Collaboration tools and messaging
- - `internal/team/team.go` - Team status, shared memory, and coordination logic
-- `templates/roles/agent_0.yaml` - Enhanced agent_0 prompt with complexity assessment
-
-**Advanced Testing:**
-- `test_advanced_collaborative_scenario.sh` - New collaborative Go HTTP server scenario
-- `COLLABORATION_SUCCESS.md` - Executive summary of collaboration breakthrough
-- `cleanup/` - Moved test scripts and status docs for clean root directory
-
-**Architecture:**
-- Agent registry with TCP localhost communication
-- File-based session persistence and recovery  
-- HTTP API endpoints for agent coordination
-- Event-driven task handoffs and status updates
-
----
-
-## 🎯 **NEXT MILESTONES**
-
-1. **Complete Advanced Scenario Validation** - Verify 10+ minute collaborative sequences
-2. **Enhance Agent_0 Coordination** - Improve dynamic task assignment and load balancing  
-3. **Expand Scenario Complexity** - Add distributed systems and more sophisticated requirements
-4. **Implement Advanced Features** - Conflict resolution, real-time visualization, event automation
-5. **Production Readiness** - Performance optimization, monitoring, and deployment sequences
-
----
-
-**The foundation for true multi-agent collaboration is complete and working. Now focusing on advanced scenarios and enhanced coordination capabilities. 🚀**
+Update this document when priorities shift so the team stays aligned.

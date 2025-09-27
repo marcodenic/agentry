@@ -1,28 +1,22 @@
 # Agentry
 
-Agentry is a minimal, extensible agent runtime written in Go.
+Agentry is a lean agent runtime and TUI focused on local-first automation.
 
-| Pillar            | v1.0 Features                                            |
-| ----------------- | -------------------------------------------------------- |
-| **Minimal core**  | ~200 LOC run loop, zero heavy deps                       |
-| **Plugins**       | JSON/YAML tool manifests; Go or external processes       |
-| **Sub-agents**    | `Spawn()` + `RunParallel()` helper                       |
-| **Model routing** | Rule-based selector, multi-LLM support                   |
-| **Memory**        | Conversation + VectorStore interface (RAG-ready)         |
-| **Tracing**       | Structured events, JSONL dump, SSE stream                |
-| **Config**        | `.agentry.yaml` bootstraps agent, models, tools          |
-| **Evaluation**    | YAML test suites, CLI `agentry eval`                     |
-| **Costs**         | Live token & pricing accounting                          |
-| **Registry**      | (Pluggable tool loading)                                 |
-| **Delegation**    | `agent` tool lets planners assign tasks to agents        |
+| Pillar            | Current Focus                                              |
+| ----------------- | ---------------------------------------------------------- |
+| **Runtime**       | Streaming run loop, tool execution, structured tracing     |
+| **Configuration** | Single `.agentry.yaml` describing models, tools, roles      |
+| **Tooling**       | Built-in file, shell, web, and delegation tools with gating |
+| **Experience**    | Terminal UI by default, direct CLI prompts when needed      |
+| **Costs**         | Built-in token accounting and model pricing cache           |
 
-For the upcoming cloud deployment model, see [README-cloud.md](../README-cloud.md).
+Quick links:
 
-Check out the [installation guide](install.md) to get started.
-
+- [Installation](install.md)
+- [Usage guide](usage.md)
+- [API / tooling overview](api.md)
 ---
 
 ## 🧪 Testing & Validation
 
-- [TEST.md](../TEST.md): Machine-readable checklist for agents and automation.
-- [Testing Guide](testing.md): Human-friendly instructions for contributors and users.
+- [Testing Guide](testing.md): how we run the suite locally and in CI.

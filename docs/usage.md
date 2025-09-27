@@ -6,255 +6,94 @@
 go install github.com/marcodenic/agentry/cmd/agentry@latest
 ```
 
-The repository ships with a ready-to-use `.agentry.yaml` configuration in the root directory.
+A ready-to-use `.agentry.yaml` ships in the repository root. Copy it (or create a project-specific variant) and list any additional tools/roles you need.
 
-## Simplified Architecture
+## Running Agentry
 
-Agentry now uses a streamlined architecture focused on:
-
-- **Direct Agent Delegation**: Use the `agent` tool to delegate tasks to specialized agents
-- **TODO-Driven Workflow**: Built-in TODO management with CRUD operations
-- **Context-Lite Prompts**: Simplified message construction without complex context providers
-- **JSON Validation**: Automatic validation of tool inputs/outputs and echo pattern detection
-- **Standard Operating Procedures**: Runtime guidance that replaces hard-coded prompt rules
-
-## Core Commands
-
-Agents run until they produce a final answer; there is no built-in iteration cap.
- 
-Examples:
+Agentry defaults to the terminal UI when no subcommand is provided:
 
 ```bash
-# one-shot, run Agent 0
-agentry invoke "summarize README"
-
-# delegate directly to a role by name  
-agentry invoke --agent coder "add a Makefile target"
-
-# trace to a JSONL file
-agentry invoke --trace trace.jsonl "explain the code"
-
-# team operations
-agentry team roles
-agentry team spawn --name coder --role coder
-agentry team call --agent coder --input "print hello world"
-
-# memory export/import (stub)
-agentry memory export --out mem.json
-agentry memory import --in mem.json
+agentry                 # start the TUI
+agentry "summarize README"  # run a one-shot prompt
+agentry refresh-models      # refresh cached pricing data
 ```
 
-### Terminal UI with TODO Board
+Useful flags:
 
-Start the interactive interface:
+- `--config PATH` – choose a different `.agentry.yaml`
+- `--debug` – enable verbose stdout logging
+- `--trace trace.jsonl` – write structured events to a JSONL file
+- `--allow-tools/--deny-tools/--disable-tools` – override tool permissions at runtime
+- `--max-iter N` – cap iterations (default: unlimited unless budget exceeded)
 
-```bash
-agentry tui --config .agentry.yaml
-```
+## Terminal UI Highlights
 
-The TUI now includes a **TODO Board** that shows active tasks, their status, and assigned agents.
-Navigate between chat, tools, and TODO views using the tab keys.
+- Chat pane for Agent 0
+- Tool output pane showing recent invocations
+- Status footer with token usage and elapsed time
+- TODO board fed by the built-in TODO store
 
-From inside the chat you can:
+Use `tab` to switch panes. Type `/help` inside the chat for the latest keybinds and slash commands.
 
-```bash
-/spawn coder "handle all build tasks"
-```
+## Configuring Tools & Permissions
 
-Spawned agents appear in their own panes and may run on remote nodes if your Agentry cluster is configured.
-
-Each pane includes a real-time dashboard showing a token usage bar and a sparkline of recent activity for that agent.
-
-#### TUI Commands
-
-Inside the chat input you can control running agents:
-
-- `/spawn <name>` – create another agent pane
-- `/switch <prefix>` – focus an agent by ID prefix
-- `/stop <prefix>` – halt an agent and keep its history
-- `/converse <n> <topic>` – open a side conversation between `n` new agents
-
-### New Features
-
-#### TODO Management
-Agentry includes built-in TODO management with CRUD operations:
-- Create, read, update, and delete TODO items
-- Assign TODOs to specific agents
-- Track status (todo, in_progress, done, blocked)
-- Set priorities (high, medium, low)
-- Add tags for organization
-- View all TODOs in the TUI TODO Board
-
-#### JSON Output Validation
-Automatic validation prevents issues:
-- Tool arguments are validated for size and format
-- Tool responses are checked for malformed JSON
-- Agent outputs are scanned for echo patterns
-- Configurable size limits prevent memory issues
-
-#### Standard Operating Procedures (SOPs)
-Runtime guidance replaces hard-coded rules:
-- Context-aware procedures based on agent role and situation
-- Error handling guidelines
-- JSON output requirements
-- Testing and code modification best practices
-- Automatically injected into agent prompts when applicable
-
-### TUI Styling & Keybinds
-
-The TUI now ships with an internal palette that mirrors the CLI logo. External
-`theme.json` files are no longer loaded, which keeps rendering consistent across
-platforms. The default keybinds remain:
-
-| Action         | Shortcut |
-| -------------- | -------- |
-| Quit           | `ctrl+c` |
-| Toggle tab     | `tab`    |
-| Submit message | `enter`  |
-| Next pane      | `ctrl+n` |
-| Previous pane  | `ctrl+p` |
-| Pause agent    | `ctrl+s` |
-| Diagnostics    | `ctrl+d` |
-
-Keybinds are currently static; customise them by editing `internal/tui/theme.go`
-before building if you need alternate shortcuts.
-
-## Agent Delegation
-
-Planners can offload work to another agent using the `agent` tool. Add it to
-your configuration:
+Tools are enabled by listing them in `.agentry.yaml`. Example:
 
 ```yaml
 tools:
+  - name: view
+    type: builtin
+  - name: create
+    type: builtin
   - name: agent
     type: builtin
-```
 
-Invoke the tool with the target agent and task:
-
-```bash
-agent --agent coder --task "draft documentation"
-```
-
-## Git Branch Management
-
-The `branch-tidy` tool helps clean up local Git repositories by removing old branches:
-
-```yaml
-tools:
-  - name: branch-tidy
-    type: builtin
-```
-
-The tool provides several options:
-
-- `dry-run`: Preview which branches would be deleted without actually deleting them
-- `force`: Use Git's `-D` flag instead of `-d` for force deletion
-
-The tool automatically protects common branches (`main`, `master`, `develop`, `development`) and the current working branch.
-
-Example usage:
-
-```bash
-# Preview what would be deleted
-branch-tidy --dry-run true
-
-# Delete branches with confirmation (safe delete)
-branch-tidy --force false
-
-# Force delete all eligible branches
-branch-tidy --force true
-```
-
-## Security
-
-Define a `permissions` section in `.agentry.yaml` to restrict which builtin tools may run:
-
-```yaml
 permissions:
   tools:
-    - echo
-    - ls
+    - view
+    - create
+    - agent
 ```
 
-Individual tools can include their own permissions block. Setting `allow: false` disables that tool:
+You can additionally gate tools per-entry:
 
 ```yaml
 tools:
-  - name: echo
+  - name: bash
     type: builtin
     permissions:
       allow: false
 ```
 
-Set `AGENTRY_CONFIRM=1` to require confirmation before overwriting files. Tool executions can be logged by setting `AGENTRY_AUDIT_LOG=path/to/audit.jsonl`.
+At runtime, combine the config with CLI flags for final allow/deny behaviour.
 
-## Observability
+## Tracing & Debugging
 
-Tracing is enabled via the CLI `--trace` flag to write JSONL events. The
-older `metrics` / `collector` configuration knobs were removed during the
-cleanup; new observability wiring will land alongside the updated trace
-pipeline.
+- Pass `--trace trace.jsonl` to capture structured events for later analysis
+- Set `AGENTRY_DEBUG_LEVEL=trace` for verbose output (works with the TUI)
+- `scripts/debug-agentry.sh` wraps `agentry` with trace-friendly defaults
+- `scripts/test_debug_logging.sh` runs a quick smoke test against the logging stack
 
-### Cost Analysis
+## Model Pricing Cache
 
-Use `agentry cost` to summarize token usage and estimated cost from a
-JSONL trace log:
+`agentry refresh-models` downloads current pricing information (via models.dev) and stores it in the user cache directory. The runtime uses this cache when calculating usage costs during a session.
 
-```bash
-agentry cost --input "original prompt" trace.jsonl
-```
+## Environment Variables
 
-The command prints the total tokens processed and approximate dollar cost.
+Copy `.env.example` to `.env.local` and set:
 
-## Plugin Management
+- `OPENAI_API_KEY` – required for OpenAI-backed models
+- `ANTHROPIC_API_KEY` (optional) – enable Anthropic models when configured
 
-Agentry includes tooling to fetch and install external plugins:
+`.env.local` is loaded automatically at startup.
 
-```bash
-agentry plugin fetch docs/registry/plugins.json agentry-shell
-agentry plugin install https://github.com/marcodenic/agentry-shell
-```
+## Observability & Costs
 
-Set `AGENTRY_REGISTRY_GPG_KEYRING` to the exported public key to enable
-signature verification:
+Every run prints a summary of input/output tokens and the estimated dollar amount. Combine trace logs with the pricing cache to audit multi-step workflows.
 
-```bash
-export AGENTRY_REGISTRY_GPG_KEYRING=docs/registry/registry.pub
-```
+## Related Documents
 
-Create new tools with `agentry tool init <name>`. Downloaded plugins are verified against the registry's signature before installation.
-
-## Trace Log Analysis
-
-If tracing is enabled via `AGENTRY_TRACE_FILE`, analyze the resulting log after a run:
-
-```bash
-agentry analyze path/to/trace.jsonl
-```
-
-## Profiling
-
-Use `agentry pprof` to explore profiling data in your browser:
-
-```bash
-agentry pprof cpu.out
-```
-
-The command launches `go tool pprof -http` on the given profile file and blocks until you exit.
-
-## Agent Lifecycle: Persistent vs. Session-Based
-
-A fundamental concept in `agentry` is the lifecycle of an agent. You can run agents in two primary modes:
-
-### 1. Session-Based Mode (Default)
-
-When you run with the default `.agentry.yaml`, agents are created for a single session. They have **conversation memory** for the duration of the task, allowing them to handle follow-up instructions and maintain context. Once the task is complete, the agents and their memory are discarded.
-
-- **Use Case:** Ideal for one-off tasks, development, and testing. It's like hiring a consultant for a specific project.
-
-### 2. Persistent Mode
-
-Enabled by `persistent-config.yaml`, this mode transforms agents into **long-running, stateful services**. They are not discarded after a task. Instead, they maintain their state and memory indefinitely, listening on network ports for new instructions.
-
-- **Use Case:** Essential for building systems where agents need to be "always-on." For example, an agent that continuously monitors a system, manages a long-term project, or needs to be available for asynchronous communication from other services. It's like having a full-time employee who is always available.
+- [Configuration Guide](CONFIG_GUIDE.md)
+- [API / tool catalogue](api.md)
+- [Debug logging](DEBUG_LOGGING.md)
+- [Testing guide](testing.md)
