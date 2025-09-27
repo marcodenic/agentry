@@ -48,16 +48,14 @@ func (t *Team) ExecuteParallelTasks(ctx context.Context, tasks []TaskRequest) ([
 			t.mutex.Unlock()
 
 			// Execute the task
+			t.markTaskRunning(task.ID)
 			result, err := t.Call(ctx, taskReq.AgentID, taskReq.Input)
 			if err != nil {
-				task.Status = "failed"
-				task.Result = err.Error()
+				t.markTaskFailed(task.ID, err.Error())
 				errors[i] = err
 			} else {
-				task.Status = "completed"
-				task.Result = result
+				t.markTaskCompleted(task.ID, result)
 			}
-			task.UpdatedAt = time.Now()
 
 			results[i] = task
 		})

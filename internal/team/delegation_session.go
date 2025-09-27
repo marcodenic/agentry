@@ -63,7 +63,7 @@ func (s *delegationSession) Run(ctx context.Context) (string, error) {
 
 	s.startTime = time.Now()
 	s.telemetry.RunAgentStart()
-	result, err := runAgent(s.runCtx, s.agent.Agent, s.augmentedInput(), s.agentID, s.team.GetAgents())
+	result, err := runAgentFn(s.runCtx, s.agent.Agent, s.augmentedInput(), s.agentID, s.team.GetAgents())
 	duration := time.Since(s.startTime)
 	s.timer.Checkpoint("runAgent completed")
 	s.telemetry.RunAgentComplete(duration)

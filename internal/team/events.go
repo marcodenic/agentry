@@ -9,6 +9,8 @@ import (
 	teamruntime "github.com/marcodenic/agentry/internal/teamruntime"
 )
 
+const maxWorkspaceEvents = 50
+
 // LogCoordinationEvent adds a coordination event to the log and persists it.
 func (t *Team) LogCoordinationEvent(eventType, from, to, content string, metadata map[string]interface{}) {
 	t.mutex.Lock()
@@ -142,8 +144,12 @@ func (t *Team) PublishWorkspaceEvent(agentID, eventType, description string, dat
 	}
 
 	// Limit to last 50 events
-	if len(eventList) > 50 {
-		eventList = eventList[len(eventList)-50:]
+	if len(eventList) >= maxWorkspaceEvents {
+		start := len(eventList) - maxWorkspaceEvents + 1
+		if start < 0 {
+			start = 0
+		}
+		eventList = eventList[start:]
 	}
 	eventList = append(eventList, event)
 	t.SetSharedData(eventsKey, eventList)

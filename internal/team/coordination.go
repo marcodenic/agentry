@@ -3,6 +3,7 @@ package team
 import (
 	"context"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,28 +32,25 @@ func (t *Team) AssignTask(ctx context.Context, agentID, taskType, input string) 
 
 	// Execute the task asynchronously using the unified Call path
 	go func() {
-		task.Status = "running"
-		task.UpdatedAt = time.Now()
+		t.markTaskRunning(task.ID)
 
 		result, err := t.Call(ctx, agentID, input)
 		if err != nil {
-			task.Status = "failed"
-			task.Result = err.Error()
-		} else {
-			task.Status = "completed"
-			task.Result = result
+			t.markTaskFailed(task.ID, err.Error())
+			return
 		}
-		task.UpdatedAt = time.Now()
+
+		t.markTaskCompleted(task.ID, result)
 	}()
 
-	return task, nil
+	return cloneTask(task), nil
 }
 
 // GetTask returns a task by ID
 func (t *Team) GetTask(taskID string) *Task {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	return t.tasks[taskID]
+	return cloneTask(t.tasks[taskID])
 }
 
 // ListTasks returns all tasks
@@ -62,7 +60,7 @@ func (t *Team) ListTasks() []*Task {
 
 	tasks := make([]*Task, 0, len(t.tasks))
 	for _, task := range t.tasks {
-		tasks = append(tasks, task)
+		tasks = append(tasks, cloneTask(task))
 	}
 
 	return tasks
@@ -119,4 +117,44 @@ func (t *Team) WaitForTask(ctx context.Context, taskID string, timeout time.Dura
 	}
 
 	return nil, fmt.Errorf("task %s did not complete within timeout", taskID)
+}
+
+func (t *Team) markTaskRunning(taskID string) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	if task := t.tasks[taskID]; task != nil {
+		task.Status = "running"
+		task.UpdatedAt = time.Now()
+	}
+}
+
+func (t *Team) markTaskCompleted(taskID, result string) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	if task := t.tasks[taskID]; task != nil {
+		task.Status = "completed"
+		task.Result = result
+		task.UpdatedAt = time.Now()
+	}
+}
+
+func (t *Team) markTaskFailed(taskID, message string) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	if task := t.tasks[taskID]; task != nil {
+		task.Status = "failed"
+		task.Result = message
+		task.UpdatedAt = time.Now()
+	}
+}
+
+func cloneTask(task *Task) *Task {
+	if task == nil {
+		return nil
+	}
+	clone := *task
+	if task.Metadata != nil {
+		clone.Metadata = maps.Clone(task.Metadata)
+	}
+	return &clone
 }

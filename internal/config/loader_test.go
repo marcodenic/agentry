@@ -16,7 +16,7 @@ func writeTestFile(t *testing.T, path string, contents string) {
 	}
 }
 
-func TestLoadMergesConfigLayers(t *testing.T) {
+func TestLoadLayerPrecedence(t *testing.T) {
 	root := t.TempDir()
 
 	globalDir := filepath.Join(root, "global")
@@ -75,6 +75,39 @@ vector_store:
 	}
 	if cfg.Vector.Type != "qdrant" || cfg.Vector.URL != "http://example" {
 		t.Fatalf("unexpected vector store: %#v", cfg.Vector)
+	}
+}
+
+func TestLoadIgnoresUnreadableGlobalConfig(t *testing.T) {
+	root := t.TempDir()
+
+	globalDir := filepath.Join(root, "global")
+	globalPath := filepath.Join(globalDir, "config.yaml")
+	writeTestFile(t, globalPath, "memory: should-not-win\n")
+	if err := os.Chmod(globalPath, 0); err != nil {
+		t.Skipf("chmod unsupported: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(globalPath, 0o644)
+	})
+	t.Setenv("AGENTRY_CONFIG_HOME", globalDir)
+
+	projectDir := filepath.Join(root, "project")
+	writeTestFile(t, filepath.Join(projectDir, "agentry.yaml"), "store: bolt://project\n")
+
+	mainPath := filepath.Join(projectDir, "agent.yaml")
+	writeTestFile(t, mainPath, "memory: main\n")
+
+	cfg, err := Load(mainPath)
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+
+	if cfg.Memory != "main" {
+		t.Fatalf("expected main config to win despite unreadable global config, got %q", cfg.Memory)
+	}
+	if cfg.Store != "bolt://project" {
+		t.Fatalf("expected project config still applied, got %q", cfg.Store)
 	}
 }
 

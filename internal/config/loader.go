@@ -42,7 +42,7 @@ type VectorManifest struct {
 type File struct {
 	Models      []ModelManifest `yaml:"models"`
 	Tools       []ToolManifest  `yaml:"tools"`
-	Include     []string        `yaml:"include"` // Add include support for role files
+	Include     []string        `yaml:"include"`
 	Memory      string          `yaml:"memory"`
 	Store       string          `yaml:"store"`
 	Vector      VectorManifest  `yaml:"vector_store"`
@@ -71,6 +71,9 @@ func (f *File) Validate() error {
 }
 
 func merge(dst *File, src File) {
+	// Lists and structs are intentionally replaced by the most specific layer so
+	// that base configs do not leak entries into agent-specific configs. See
+	// loader_test.go: TestLoadLayerPrecedence.
 	if len(src.Models) > 0 {
 		dst.Models = src.Models
 	}
@@ -142,7 +145,5 @@ func Load(path string) (*File, error) {
 		return nil, err
 	}
 	merge(&out, yamlFile)
-
-	// Apply environment variable overrides
 	return &out, nil
 }

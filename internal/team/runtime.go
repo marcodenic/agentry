@@ -9,6 +9,8 @@ import (
 	teamruntime "github.com/marcodenic/agentry/internal/teamruntime"
 )
 
+var runAgentFn = runAgent
+
 // runAgent executes an agent with the given input, similar to converse.runAgent
 func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []string) (string, error) {
 	timer := StartTimer(fmt.Sprintf("runAgent(%s)", name))

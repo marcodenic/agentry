@@ -1,27 +1,18 @@
-# Test Coverage Roadmap
+# Refactor & Coverage TODOs
 
-## Tracking & Next Steps
-- [ ] Schedule incremental PRs to land coverage, updating this roadmap after each batch ships
-- [ ] Introduce reusable test agent factories so delegated roles don't fall back to `model.NewMock` and require manual injection
-- [ ] Establish coverage targets (package-level percentages and critical-path scenarios) once initial suites exist
+## internal/config
+- [x] Add tests that cover config layering (global fallback vs. repo vs. explicit file) including unreadable/missing global configs.
+- [x] Document and assert include/merge behaviour so list overwrites don’t regress.
 
-## High-Risk Package Charters
+## internal/core
+- [x] Add streaming aggregator coverage for the zero-token fallback path.
+- [x] Exercise tool executor branches: notifier selection, JSON validation failures, terminal-only tool exits.
 
-**internal/config**
-- [ ] Write coverage for config layering: missing/ unreadable global config vs. repo-level overrides so load order stays stable.
-- [ ] Document and assert include/merge semantics (current behaviour overwrites when lists are provided) to avoid accidental changes later.
-
-**internal/core**
-- [ ] Add zero-token fallback coverage to the streaming aggregator tests.
-- [ ] Verify notifier selection, JSON validation failure handling, and terminal tool exit short-circuit paths.
-
-**internal/team**
-- Run integration-style delegation session coverage: spawning missing agent, timeout override via `AGENTRY_DELEGATION_TIMEOUT`, workspace context injection, and shared-memory bookkeeping on success vs. timeout-with-work.
-- Add concurrency tests for task orchestration (`AssignTask`, `ExecuteParallelTasks`) to surface current unsynchronized status updates; decide between locks or channel handoff.
-- Codify expectations for coordination helpers (history trim, `PublishWorkspaceEvent`) and coverage around `checkWorkCompleted` heuristics to avoid filesystem thrash.
+## internal/team
+- [x] Write integration coverage for delegation sessions (missing agent spawn, `AGENTRY_DELEGATION_TIMEOUT`, workspace context injection, shared-memory updates).
+- [x] Add concurrency tests for task orchestration (`AssignTask`, `ExecuteParallelTasks`) and decide on locking vs. channel handoff.
+- [x] Clarify expectations for coordination helpers (`PublishWorkspaceEvent`, history trimming, `checkWorkCompleted`) and test the heuristics.
 
 ## Dead / Disconnected Code Candidates
-- `internal/team/help.go:ProposeCollaboration` is exported yet unreferenced; either wire into tooling or drop from surface area.
-- `internal/team/coordination.go` and `coordination_go125.go` mutate `Task` fields in goroutines without synchronization, inviting data races during `ListTasks` / `GetTask`; consider centralizing task lifecycle updates behind a lock or message queue.
-- `internal/config/Load` still advertises environment overrides but never applies them; clarify intent (implement or remove comment) to avoid false confidence during audits.
-- `internal/core/tool_exec.go` leaves `hadErrors` false when `TreatErrorsAsResults` is enabled; callers relying on that flag may miss soft failures—decide whether to increment or rename for clarity.
+- `internal/team/help.go:ProposeCollaboration` is exported but unused—either wire it up or delete it.
+- `internal/core/tool_exec.go` keeps `hadErrors` false when `TreatErrorsAsResults` captures soft failures; rename or flip the flag for clarity.

@@ -63,3 +63,35 @@ func TestChunkAggregatorPropagatesChunkError(t *testing.T) {
 		t.Fatalf("expected original error, got %v", err)
 	}
 }
+
+func TestChunkAggregatorFallsBackToAgentDefaults(t *testing.T) {
+	ag := &Agent{ModelName: "fallback-model"}
+	s := &conversationSession{agent: ag, ctx: context.Background(), tracer: noopConversationTracer{}}
+
+	aggregator := newChunkAggregator(s)
+	stream := make(chan model.StreamChunk, 1)
+	stream <- model.StreamChunk{
+		ContentDelta: "ok",
+		Done:         true,
+		// Intentionally omit token counts and model metadata to exercise fallbacks.
+	}
+	close(stream)
+
+	if err := aggregator.Collect(stream); err != nil {
+		t.Fatalf("Collect returned error: %v", err)
+	}
+	completion, responseID := aggregator.Result()
+
+	if completion.ModelName != "fallback-model" {
+		t.Fatalf("expected agent model fallback, got %q", completion.ModelName)
+	}
+	if completion.InputTokens != 0 || completion.OutputTokens != 0 {
+		t.Fatalf("expected zero token usage, got input=%d output=%d", completion.InputTokens, completion.OutputTokens)
+	}
+	if responseID != "" {
+		t.Fatalf("expected empty response ID, got %q", responseID)
+	}
+	if completion.Content != "ok" {
+		t.Fatalf("unexpected content: %q", completion.Content)
+	}
+}
