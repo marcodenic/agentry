@@ -28,12 +28,13 @@ func DefaultKeybinds() Keybinds {
 
 // Hex colour constants used throughout the interface.
 const (
-	uiColorForegroundHex = "#FFFFFF"
-	uiColorPanelTitleHex = "#9CA3AF"
-	uiColorUserAccentHex = "#8B5CF6"
-	uiColorRoleAccentHex = "#10B981"
-	uiColorToolAccentHex = "#8B5CF6"
-	uiColorAIAccentHex   = "#9CA3AF"
+	uiColorForegroundHex  = "#FFFFFF"
+	uiColorPanelTitleHex  = "#9CA3AF"
+	uiColorUserAccentHex  = "#8B5CF6"
+	uiColorRoleAccentHex  = "#10B981"
+	uiColorToolAccentHex  = "#8B5CF6"
+	uiColorAIAccentHex    = "#9CA3AF"
+	uiColorPlaceholderHex = "#9CA3AF"
 
 	uiColorIdleHex    = "#22C55E"
 	uiColorRunningHex = "#FBBF24"

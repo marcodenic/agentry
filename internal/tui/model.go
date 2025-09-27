@@ -238,6 +238,7 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	noColor := lipgloss.NoColor{}
 	clearStyle := lipgloss.NewStyle().Background(noColor)
 	textStyle := lipgloss.NewStyle().Background(noColor).Foreground(lipgloss.Color(uiColorForegroundHex))
+	placeholderStyle := lipgloss.NewStyle().Background(noColor).Foreground(lipgloss.Color(uiColorPlaceholderHex)).Faint(true)
 	numberStyle := lipgloss.NewStyle().Background(noColor).Foreground(lipgloss.Color("#6B7280")).Faint(true)
 
 	// Clear ALL possible background styling from textarea
@@ -247,8 +248,8 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	ti.FocusedStyle.Text = textStyle
 	ti.FocusedStyle.CursorLine = textStyle
 	ti.BlurredStyle.CursorLine = textStyle
-	ti.FocusedStyle.Placeholder = textStyle
-	ti.BlurredStyle.Placeholder = textStyle
+	ti.FocusedStyle.Placeholder = placeholderStyle
+	ti.BlurredStyle.Placeholder = placeholderStyle
 	ti.FocusedStyle.EndOfBuffer = textStyle
 	ti.BlurredStyle.EndOfBuffer = textStyle
 	ti.FocusedStyle.LineNumber = numberStyle
@@ -430,10 +431,10 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	return m
 }
 
-var ansiEscapeRegexp = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+var sanitizeBlackANSIPattern = regexp.MustCompile(`\x1b\[(?:\d{1,3};)*(?:3[0]|4[0]|38;5;0|48;5;0)(?:;\d{1,3})*m`)
 
 func sanitizeInputANSI(s string) string {
-	return ansiEscapeRegexp.ReplaceAllString(s, "")
+	return sanitizeBlackANSIPattern.ReplaceAllString(s, "")
 }
 
 type listItem struct{ name, desc string }

@@ -124,10 +124,8 @@ func (m Model) View() string {
 
 	// Render input and scrub any ANSI sequences that force a black background/foreground
 	rawInput := sanitizeInputANSI(m.input.View())
-	// Wrap the input with a style that removes any background coloring
-	inputStyle := lipgloss.NewStyle().
-		UnsetBackground().
-		Foreground(lipgloss.Color(uiColorForegroundHex))
+	// Wrap the input with a neutral style so placeholder colouring remains intact
+	inputStyle := lipgloss.NewStyle().UnsetBackground()
 	inputSection := inputStyle.Render(rawInput)
 
 	// Stack everything vertically
