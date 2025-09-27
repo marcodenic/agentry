@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -25,6 +27,7 @@ type oaStreamResult struct {
 	outputTokens  int
 	responseID    string
 	mode          oaFinalizeMode
+	model         string
 }
 
 type openAIStreamReader struct {
@@ -37,7 +40,7 @@ func newOpenAIStreamReader(model string, msgCount int, start time.Time) *openAIS
 	return &openAIStreamReader{model: model, msgCount: msgCount, startTime: start}
 }
 
-func (r *openAIStreamReader) Read(ctx context.Context, src io.Reader, emit func(StreamChunk)) (oaStreamResult, error) {
+func (r *openAIStreamReader) Read(ctx context.Context, src io.Reader, emit func(StreamChunk)) (streamState, error) {
 	scanner := bufio.NewScanner(src)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	partials := make(map[int]*partial)
@@ -63,7 +66,7 @@ func (r *openAIStreamReader) Read(ctx context.Context, src io.Reader, emit func(
 				"lines_processed": lineCount,
 			})
 			emit(StreamChunk{Err: ctx.Err()})
-			return oaStreamResult{}, ctx.Err()
+			return nil, ctx.Err()
 		}
 		line := scanner.Text()
 		if !strings.HasPrefix(line, "data:") {
@@ -76,13 +79,14 @@ func (r *openAIStreamReader) Read(ctx context.Context, src io.Reader, emit func(
 				"input_tokens":  inTok,
 				"output_tokens": outTok,
 			}, time.Since(r.startTime))
-			return oaStreamResult{
+			return &oaStreamResult{
 				partials:      partials,
 				responseCalls: responseCalls,
 				inputTokens:   inTok,
 				outputTokens:  outTok,
 				responseID:    responseID,
 				mode:          finalizeModeLegacy,
+				model:         r.model,
 			}, nil
 		}
 		if payload == "" {
@@ -199,14 +203,24 @@ func (r *openAIStreamReader) Read(ctx context.Context, src io.Reader, emit func(
 				"input_tokens":  inTok,
 				"output_tokens": outTok,
 			}, time.Since(r.startTime))
-			return oaStreamResult{
+			return &oaStreamResult{
 				partials:      partials,
 				responseCalls: responseCalls,
 				inputTokens:   inTok,
 				outputTokens:  outTok,
 				responseID:    responseID,
 				mode:          finalizeModeResponses,
+				model:         r.model,
 			}, nil
+		case t == "response.error":
+			errVal, metadata := parseResponseError(env)
+			metadata["provider"] = "openai"
+			metadata["model"] = r.model
+			metadata["error"] = errVal.Error()
+			debug.Printf("OpenAI.Stream: response error event: %v", errVal)
+			debug.LogEvent("MODEL", "response_error", metadata)
+			emit(StreamChunk{Err: errVal})
+			return nil, errVal
 		default:
 			// ignore other events
 		}
@@ -221,19 +235,67 @@ func (r *openAIStreamReader) Read(ctx context.Context, src io.Reader, emit func(
 			"lines_processed": lineCount,
 		})
 		emit(StreamChunk{Err: err})
-		return oaStreamResult{}, err
+		return nil, err
 	}
 	debug.Printf("OpenAI.Stream: scanner ended normally, finalize (partials=%d responseCalls=%d) scan_duration=%v total_elapsed=%v lines=%d", len(partials), len(responseCalls), scanEndTime.Sub(scanStartTime), scanEndTime.Sub(r.startTime), lineCount)
 	debug.LogModelInteraction("openai", r.model, r.msgCount, map[string]int{
 		"input_tokens":  inTok,
 		"output_tokens": outTok,
 	}, time.Since(r.startTime))
-	return oaStreamResult{
+	return &oaStreamResult{
 		partials:      partials,
 		responseCalls: responseCalls,
 		inputTokens:   inTok,
 		outputTokens:  outTok,
 		responseID:    responseID,
 		mode:          finalizeModeResponses,
+		model:         r.model,
 	}, nil
+}
+
+func (r *oaStreamResult) Finalize(out chan<- StreamChunk) {
+	if r == nil {
+		return
+	}
+	switch r.mode {
+	case finalizeModeLegacy:
+		finalizeOpenAI(r.partials, out, r.inputTokens, r.outputTokens, r.model, r.responseID)
+	default:
+		finalizeWithResponses(r.partials, r.responseCalls, out, r.inputTokens, r.outputTokens, r.model, r.responseID)
+	}
+}
+
+func (r *oaStreamResult) ResponseID() string {
+	if r == nil {
+		return ""
+	}
+	return r.responseID
+}
+
+func parseResponseError(env map[string]any) (error, map[string]interface{}) {
+	meta := map[string]interface{}{}
+	if errObj, ok := env["error"].(map[string]any); ok {
+		code, _ := errObj["code"].(string)
+		message, _ := errObj["message"].(string)
+		if code != "" {
+			meta["code"] = code
+		}
+		if message != "" {
+			meta["message"] = message
+		}
+		if code != "" && message != "" {
+			return fmt.Errorf("%s: %s", code, message), meta
+		}
+		if message != "" {
+			return errors.New(message), meta
+		}
+		if code != "" {
+			return fmt.Errorf("response_error code=%s", code), meta
+		}
+	}
+	if msg, ok := env["error"].(string); ok && msg != "" {
+		meta["message"] = msg
+		return errors.New(msg), meta
+	}
+	return errors.New("unknown response error"), meta
 }

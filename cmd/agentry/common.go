@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,21 +12,11 @@ import (
 )
 
 type commonOpts struct {
-	configPath     string
-	theme          string
-	keybindsPath   string
-	credsPath      string
-	mcpFlag        string
-	saveID         string
-	resumeID       string
-	ckptID         string
-	port           string
-	debug          bool
-	disableTools   bool
-	allowTools     string
-	denyTools      string
-	disableContext bool
-	auditLog       string
+	configPath   string
+	debug        bool
+	disableTools bool
+	allowTools   string
+	denyTools    string
 
 	// New flags (prefer flags over env vars)
 	maxIter     int // 0 = unlimited
@@ -50,22 +38,12 @@ func newCommonOpts() *commonOpts {
 
 func (o *commonOpts) bindFlags(fs *flag.FlagSet) {
 	fs.StringVar(&o.configPath, "config", "", "path to .agentry.yaml")
-	fs.StringVar(&o.theme, "theme", "", "theme name override")
-	fs.StringVar(&o.keybindsPath, "keybinds", "", "path to keybinds json")
-	fs.StringVar(&o.credsPath, "creds", "", "path to credentials json")
-	fs.StringVar(&o.mcpFlag, "mcp", "", "comma-separated MCP servers")
-	fs.StringVar(&o.saveID, "save-id", "", "save conversation state to this ID")
-	fs.StringVar(&o.resumeID, "resume-id", "", "load conversation state from this ID")
-	fs.StringVar(&o.ckptID, "checkpoint-id", "", "checkpoint session id")
-	fs.StringVar(&o.port, "port", "", "HTTP server port")
 	fs.BoolVar(&o.debug, "debug", false, "enable debug output")
 	fs.BoolVar(&o.disableTools, "disable-tools", false, "disable tool filtering entirely")
 	fs.StringVar(&o.allowTools, "allow-tools", "", "comma-separated list of additional tools to include")
 	fs.StringVar(&o.denyTools, "deny-tools", "", "comma-separated list of tools to exclude")
-	fs.BoolVar(&o.disableContext, "disable-context", false, "disable context pipeline")
-	fs.StringVar(&o.auditLog, "audit-log", "", "path to audit log file")
-	bindIntWithAliases(fs, &o.maxIter, 0, "limit agent iterations (0=unlimited)", "max-iter", "max_iter")
-	bindIntWithAliases(fs, &o.httpTimeout, 300, "HTTP client timeout in seconds", "http-timeout", "http_timeout")
+	fs.IntVar(&o.maxIter, "max-iter", 0, "limit agent iterations (0=unlimited)")
+	fs.IntVar(&o.httpTimeout, "http-timeout", 300, "HTTP client timeout in seconds")
 }
 
 func resolveConfigPath(cmd string, explicit string, fs *flag.FlagSet) string {
@@ -99,10 +77,6 @@ func discoverConfigPath(candidate string) (string, bool) {
 }
 
 func applyOverrides(cfg *config.File, o *commonOpts) {
-	applyOverridesWithEnv(cfg, o, config.OSEnv())
-}
-
-func applyOverridesWithEnv(cfg *config.File, o *commonOpts, env config.RuntimeEnv) {
 	if o.debug {
 		debug.EnableDebug()
 	}
@@ -117,82 +91,9 @@ func applyOverridesWithEnv(cfg *config.File, o *commonOpts, env config.RuntimeEn
 		applyToolDenyList(cfg, deny)
 	}
 
-	mutator := config.NewRuntimeMutator(env)
-	envProvider := mutator.Env()
-
-	finalTheme := strings.TrimSpace(cfg.Theme)
-	if envTheme := strings.TrimSpace(envProvider.Getenv("AGENTRY_THEME")); envTheme != "" {
-		finalTheme = envTheme
-	}
-	if o.theme != "" {
-		finalTheme = o.theme
-	}
-	if finalTheme != "" {
-		if cfg.Themes == nil {
-			cfg.Themes = map[string]string{}
-		}
-		cfg.Themes["active"] = finalTheme
-		cfg.Theme = finalTheme
-	}
-
-	auditLog := strings.TrimSpace(envProvider.Getenv("AGENTRY_AUDIT_LOG"))
-	if o.auditLog != "" {
-		auditLog = o.auditLog
-	}
-
-	disableContext, disableWasSet := parseEnvBool(envProvider.Getenv("AGENTRY_DISABLE_CONTEXT"))
-	if !disableWasSet {
-		disableContext = false
-	}
-	if o.disableContext {
-		disableContext = true
-	}
-
-	if err := mutator.Apply(config.RuntimeSettings{
-		Theme:          cfg.Theme,
-		AuditLogPath:   auditLog,
-		DisableContext: disableContext,
-	}); err != nil {
-		debug.Printf("applyOverrides: failed to apply runtime overrides: %v", err)
-	}
-
-	if o.keybindsPath != "" {
-		if b, err := os.ReadFile(o.keybindsPath); err == nil {
-			_ = json.Unmarshal(b, &cfg.Keybinds)
-		}
-	}
-	if o.credsPath != "" {
-		if b, err := os.ReadFile(o.credsPath); err == nil {
-			_ = json.Unmarshal(b, &cfg.Credentials)
-		}
-	}
-	if o.mcpFlag != "" {
-		if cfg.MCPServers == nil {
-			cfg.MCPServers = map[string]string{}
-		}
-		parts := parseCSV(o.mcpFlag)
-		for i, p := range parts {
-			cfg.MCPServers[fmt.Sprintf("srv%d", i+1)] = p
-		}
-	}
-
 	if o.httpTimeout > 0 {
 		model.SetHTTPTimeout(o.httpTimeout)
 	}
-}
-
-func parseEnvBool(raw string) (bool, bool) {
-	trimmed := strings.TrimSpace(strings.ToLower(raw))
-	if trimmed == "" {
-		return false, false
-	}
-	switch trimmed {
-	case "1", "true", "yes", "y", "on":
-		return true, true
-	case "0", "false", "no", "n", "off":
-		return false, true
-	}
-	return true, true
 }
 
 func parseCSV(raw string) []string {

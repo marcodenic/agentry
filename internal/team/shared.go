@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	runtime "github.com/marcodenic/agentry/internal/team/runtime"
+	teamruntime "github.com/marcodenic/agentry/internal/teamruntime"
 )
 
 // SetSharedData stores data in shared memory accessible to all agents
@@ -37,7 +37,7 @@ func (t *Team) SetSharedData(key string, value interface{}) {
 	t.mutex.Lock()
 	t.coordination = append(t.coordination, event)
 	t.mutex.Unlock()
-	runtime.DebugPrintf("📊 Shared memory updated: %s\n", key)
+	teamruntime.Debugf("📊 Shared memory updated: %s\n", key)
 }
 
 // GetSharedData retrieves data from shared memory

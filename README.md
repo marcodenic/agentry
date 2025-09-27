@@ -48,7 +48,7 @@ Configuration
   - `--config PATH`: select config file
   - `--debug`: verbose diagnostics
   - `--allow-tools a,b` / `--deny-tools a,b` / `--disable-tools`
-  - `--resume-id` / `--save-id` / `--checkpoint-id` for session state
+  - `--max-iter N` and `--http-timeout SEC` for runtime tuning
 
 Usage Notes
 - TUI launches when no command is provided: just run `agentry`

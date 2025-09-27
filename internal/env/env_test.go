@@ -1,150 +1,143 @@
 package env
 
 import (
-	"bytes"
 	"os"
-	"strings"
+	"path/filepath"
 	"testing"
 )
 
-func TestWarnDeprecatedEnvVars(t *testing.T) {
-	tests := []struct {
-		name     string
-		envVars  map[string]string
-		expected []string
-	}{
-		{
-			name:     "no AGENTRY vars",
-			envVars:  map[string]string{"OTHER_VAR": "value"},
-			expected: nil,
-		},
-		{
-			name:     "only AGENTRY_CONFIG",
-			envVars:  map[string]string{"AGENTRY_CONFIG": "/path/to/config.yaml"},
-			expected: nil,
-		},
-		{
-			name:     "single deprecated var",
-			envVars:  map[string]string{"AGENTRY_FOO": "value"},
-			expected: []string{"AGENTRY_FOO"},
-		},
-		{
-			name: "multiple deprecated vars",
-			envVars: map[string]string{
-				"AGENTRY_FOO": "value1",
-				"AGENTRY_BAR": "value2",
-			},
-			expected: []string{"AGENTRY_BAR", "AGENTRY_FOO"}, // sorted
-		},
-		{
-			name: "mixed valid and deprecated",
-			envVars: map[string]string{
-				"AGENTRY_CONFIG": "/path/to/config.yaml",
-				"AGENTRY_FOO":    "value1",
-				"AGENTRY_BAR":    "value2",
-				"OTHER_VAR":      "value3",
-			},
-			expected: []string{"AGENTRY_BAR", "AGENTRY_FOO"}, // sorted, no AGENTRY_CONFIG
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Clear all AGENTRY_* env vars first
-			for _, env := range os.Environ() {
-				if strings.HasPrefix(env, "AGENTRY_") {
-					key := strings.SplitN(env, "=", 2)[0]
-					os.Unsetenv(key)
-				}
-			}
-
-			// Set test env vars
-			for key, value := range tt.envVars {
-				t.Setenv(key, value)
-			}
-
-			// Capture stderr
-			oldStderr := os.Stderr
-			r, w, _ := os.Pipe()
-			os.Stderr = w
-
-			// Call function
-			warned := WarnDeprecatedEnvVars()
-
-			// Restore stderr and read output
-			w.Close()
-			os.Stderr = oldStderr
-			var buf bytes.Buffer
-			buf.ReadFrom(r)
-			output := buf.String()
-
-			// Check returned slice
-			if len(warned) != len(tt.expected) {
-				t.Errorf("expected %d warned vars, got %d: %v", len(tt.expected), len(warned), warned)
-			}
-			for i, expected := range tt.expected {
-				if i >= len(warned) || warned[i] != expected {
-					t.Errorf("expected warned[%d] = %s, got %v", i, expected, warned)
-				}
-			}
-
-			// Check stderr output
-			lines := strings.Split(strings.TrimSpace(output), "\n")
-			if len(tt.expected) == 0 {
-				if output != "" {
-					t.Errorf("expected no output, got: %s", output)
-				}
-			} else {
-				if len(lines) != len(tt.expected) {
-					t.Errorf("expected %d output lines, got %d: %v", len(tt.expected), len(lines), lines)
-				}
-				for i, expectedVar := range tt.expected {
-					if i >= len(lines) {
-						t.Errorf("missing output line for %s", expectedVar)
-						continue
-					}
-					expectedLine := "Deprecation: environment variable " + expectedVar + " is deprecated and ignored. Use YAML config; AGENTRY_CONFIG is the only supported env var."
-					if lines[i] != expectedLine {
-						t.Errorf("expected line: %s\ngot: %s", expectedLine, lines[i])
-					}
-				}
-			}
+func unsetEnvForTest(t *testing.T, key string) {
+	prev, had := os.LookupEnv(key)
+	if had {
+		if err := os.Unsetenv(key); err != nil {
+			t.Fatalf("unset %s: %v", key, err)
+		}
+		t.Cleanup(func() {
+			_ = os.Setenv(key, prev)
+		})
+	} else {
+		if err := os.Unsetenv(key); err != nil {
+			t.Fatalf("ensure unset %s: %v", key, err)
+		}
+		t.Cleanup(func() {
+			_ = os.Unsetenv(key)
 		})
 	}
 }
 
-func TestWarnDeprecatedEnvVars_EdgeCases(t *testing.T) {
-	t.Run("AGENTRY_ prefix but empty suffix", func(t *testing.T) {
-		// Clear all AGENTRY_* env vars first
-		for _, env := range os.Environ() {
-			if strings.HasPrefix(env, "AGENTRY_") {
-				key := strings.SplitN(env, "=", 2)[0]
-				os.Unsetenv(key)
-			}
-		}
+func TestLoadFindsEnvInParentDirectory(t *testing.T) {
+	root := t.TempDir()
+	parent := filepath.Join(root, "parent")
+	child := filepath.Join(parent, "child")
+	if err := os.MkdirAll(child, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	envFile := filepath.Join(parent, ".env.local")
+	if err := os.WriteFile(envFile, []byte("FROM_PARENT=parent-value\n"), 0o644); err != nil {
+		t.Fatalf("write env: %v", err)
+	}
 
-		// This shouldn't be possible in practice, but test edge case
-		t.Setenv("AGENTRY_", "value")
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	defer func() { _ = os.Chdir(wd) }()
 
-		// Capture stderr
-		oldStderr := os.Stderr
-		r, w, _ := os.Pipe()
-		os.Stderr = w
+	if err := os.Chdir(child); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
 
-		warned := WarnDeprecatedEnvVars()
+	unsetEnvForTest(t, "AGENTRY_ENV_FILE")
+	unsetEnvForTest(t, "FROM_PARENT")
 
-		w.Close()
-		os.Stderr = oldStderr
-		var buf bytes.Buffer
-		buf.ReadFrom(r)
-		output := buf.String()
+	Load()
 
-		// Should warn about AGENTRY_ (empty suffix)
-		if len(warned) != 1 || warned[0] != "AGENTRY_" {
-			t.Errorf("expected to warn about AGENTRY_, got: %v", warned)
-		}
-		if !strings.Contains(output, "AGENTRY_") {
-			t.Errorf("expected output to contain AGENTRY_, got: %s", output)
-		}
-	})
+	if got := os.Getenv("FROM_PARENT"); got != "parent-value" {
+		t.Fatalf("expected env loaded from parent, got %q", got)
+	}
+}
+
+func TestLoadHonorsEnvFileOverride(t *testing.T) {
+	dir := t.TempDir()
+	envPath := filepath.Join(dir, "custom.env")
+	if err := os.WriteFile(envPath, []byte("CUSTOM_ENV=value\n"), 0o644); err != nil {
+		t.Fatalf("write env: %v", err)
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	defer func() { _ = os.Chdir(wd) }()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+
+	t.Setenv("AGENTRY_ENV_FILE", "custom.env")
+	unsetEnvForTest(t, "CUSTOM_ENV")
+
+	Load()
+
+	if got := os.Getenv("CUSTOM_ENV"); got != "value" {
+		t.Fatalf("expected env override file to load, got %q", got)
+	}
+}
+
+func TestLoadWithExplicitFilename(t *testing.T) {
+	dir := t.TempDir()
+	envPath := filepath.Join(dir, "explicit.env")
+	if err := os.WriteFile(envPath, []byte("EXPLICIT=1\n"), 0o644); err != nil {
+		t.Fatalf("write env: %v", err)
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	defer func() { _ = os.Chdir(wd) }()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+
+	unsetEnvForTest(t, "EXPLICIT")
+
+	Load("explicit.env")
+
+	if got := os.Getenv("EXPLICIT"); got != "1" {
+		t.Fatalf("expected explicit env file to load, got %q", got)
+	}
+}
+
+func TestIntBoolFloatHelpers(t *testing.T) {
+	t.Setenv("TEST_INT", "42")
+	if got := Int("TEST_INT", 0); got != 42 {
+		t.Fatalf("expected int helper to parse value, got %d", got)
+	}
+
+	t.Setenv("TEST_INT", "not-a-number")
+	if got := Int("TEST_INT", 7); got != 7 {
+		t.Fatalf("expected default for invalid int, got %d", got)
+	}
+
+	t.Setenv("TEST_BOOL", "YES")
+	if got := Bool("TEST_BOOL", false); !got {
+		t.Fatalf("expected bool helper to understand YES")
+	}
+	t.Setenv("TEST_BOOL", "off")
+	if got := Bool("TEST_BOOL", true); got {
+		t.Fatalf("expected bool helper to understand off")
+	}
+	t.Setenv("TEST_BOOL", "unknown")
+	if got := Bool("TEST_BOOL", true); !got {
+		t.Fatalf("expected default bool when value unrecognized")
+	}
+
+	t.Setenv("TEST_FLOAT", "3.14")
+	if got := Float("TEST_FLOAT", 0); got != 3.14 {
+		t.Fatalf("expected float helper to parse value, got %f", got)
+	}
+	t.Setenv("TEST_FLOAT", "bad")
+	if got := Float("TEST_FLOAT", 2.5); got != 2.5 {
+		t.Fatalf("expected default for invalid float, got %f", got)
+	}
 }

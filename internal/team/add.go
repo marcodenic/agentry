@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memory"
-	runtime "github.com/marcodenic/agentry/internal/team/runtime"
+	teamruntime "github.com/marcodenic/agentry/internal/teamruntime"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
@@ -18,7 +18,7 @@ import (
 func (t *Team) AddAgent(name string) (*core.Agent, string) {
 	spawned, err := t.SpawnAgent(context.Background(), name, name)
 	if err != nil {
-		runtime.DebugPrintf("AddAgent fallback: failed to SpawnAgent(%s): %v", name, err)
+		teamruntime.Debugf("AddAgent fallback: failed to SpawnAgent(%s): %v", name, err)
 		registry := tool.DefaultRegistry()
 		delete(registry, "agent")
 		coreAgent := core.New(t.parent.Client, t.parent.ModelName, registry, memory.NewInMemory(), memory.NewInMemoryVector(), t.parent.Tracer)
@@ -86,7 +86,7 @@ func (t *Team) Add(name string, ag *core.Agent) *Agent {
 	t.agents[teamAgent.ID] = teamAgent
 	t.agentsByName[assigned] = teamAgent
 
-	runtime.DebugPrintf("👥 Added agent %s (%s) to team", assigned, role)
+	teamruntime.Debugf("👥 Added agent %s (%s) to team", assigned, role)
 
 	return teamAgent
 }

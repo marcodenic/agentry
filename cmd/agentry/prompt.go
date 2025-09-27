@@ -94,9 +94,6 @@ func runPromptWithOpts(prompt string, opts *commonOpts) {
 	debug.Printf("After agent_0 config: agent has %d tools", len(ag.Tools))
 
 	// No iteration cap
-	if opts.resumeID != "" {
-		_ = ag.LoadState(context.Background(), opts.resumeID)
-	}
 	col := trace.NewCollector(nil)
 	ag.Tracer = col
 
@@ -140,8 +137,5 @@ func runPromptWithOpts(prompt string, opts *commonOpts) {
 	if sum.TotalTokens > 0 {
 		fmt.Fprintf(os.Stderr, "📊 Usage: %d input + %d output = %d total tokens, cost: $%.6f\n",
 			sum.InputTokens, sum.OutputTokens, sum.TotalTokens, sum.Cost)
-	}
-	if opts.saveID != "" {
-		_ = ag.SaveState(context.Background(), opts.saveID)
 	}
 }

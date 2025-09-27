@@ -58,10 +58,10 @@ The current tool set focuses on:
 - **Usage**: Unit tests for agent delegation
 
 ### `persistent-config.yaml`
-- **Purpose**: Tests persistent agent functionality
+- **Purpose**: Tests legacy persistent agent functionality
 - **Model**: Claude Opus (for advanced testing)
 - **Tools**: Core tools plus agent delegation
-- **Features**: Enables persistent agents with port configuration
+- **Features**: Legacy persistent-agent knobs (port settings now removed in runtime)
 - **Usage**: Tests for persistent agent sessions
 
 ### `smart-config.yaml`

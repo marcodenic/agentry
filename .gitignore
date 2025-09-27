@@ -8,7 +8,7 @@ node_modules/
 # Go build artifacts
 *.exe
 *.exe~
-agentry
+/agentry
 agentry.exe
 agentry-optimized
 agentry-optimized.exe

@@ -178,7 +178,6 @@ func (s *conversationSession) handleCompletion(res model.Completion, responseID 
 			return fmt.Sprintf("Agent completed task but output validation failed: %v", err), true, nil
 		}
 
-		_ = agent.Checkpoint(s.ctx)
 		agent.Trace(s.ctx, trace.EventFinal, res.Content)
 		s.tracer.Finalised(res.Content)
 		return res.Content, true, nil
@@ -198,7 +197,6 @@ func (s *conversationSession) handleCompletion(res model.Completion, responseID 
 	if !hadErrors && agent.allToolCallsTerminal(res.ToolCalls) && len(toolMsgs) > 0 {
 		if out := aggregateToolOutputs(toolMsgs); out != "" {
 			recordStep()
-			_ = agent.Checkpoint(s.ctx)
 			agent.Trace(s.ctx, trace.EventFinal, out)
 			s.tracer.Finalised(out)
 			return out, true, nil
@@ -212,7 +210,6 @@ func (s *conversationSession) handleCompletion(res model.Completion, responseID 
 	}
 	s.msgs = append(s.msgs, toolMsgs...)
 	recordStep()
-	_ = agent.Checkpoint(s.ctx)
 	s.tracer.ToolResultsAppended(len(s.msgs))
 
 	if hadErrors {

@@ -1,40 +1,19 @@
 package tui
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/marcodenic/agentry/internal/glyphs"
-	"github.com/marcodenic/agentry/internal/memstore"
+	"github.com/marcodenic/agentry/internal/todo"
 )
 
-// TodoItem represents a single TODO item for display
-type TodoItem struct {
-	ID          string    `json:"id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Status      string    `json:"status"`
-	Priority    string    `json:"priority"`
-	AgentID     string    `json:"agent_id"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	Tags        []string  `json:"tags"`
-}
-
-// Implement list.Item interface
-func (t TodoItem) FilterValue() string { return t.Title }
-
 // TodoBoard manages the TODO board view
+// Uses the shared todo.Service so both TUI and tool builtins stay in sync.
 type TodoBoard struct {
 	list     list.Model
 	width    int
@@ -44,7 +23,7 @@ type TodoBoard struct {
 
 // todoMsg is sent when TODO items are updated
 type todoMsg struct {
-	items []TodoItem
+	items []todo.Item
 }
 
 // NewTodoBoard creates a new TODO board component
@@ -72,7 +51,7 @@ func (d todoItemDelegate) Height() int                               { return 3 
 func (d todoItemDelegate) Spacing() int                              { return 1 }
 func (d todoItemDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd { return nil }
 func (d todoItemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	item, ok := listItem.(TodoItem)
+	item, ok := listItem.(todo.Item)
 	if !ok {
 		return
 	}
@@ -111,7 +90,7 @@ func (d todoItemDelegate) Render(w io.Writer, m list.Model, index int, listItem 
 	// Agent indicator
 	agentInfo := ""
 	if item.AgentID != "" {
-		agentInfo = fmt.Sprintf(" [%s]", item.AgentID[:8])
+		agentInfo = fmt.Sprintf(" [%s]", trimTo(item.AgentID, 8))
 	}
 
 	// Selected styling
@@ -140,7 +119,7 @@ func (d todoItemDelegate) Render(w io.Writer, m list.Model, index int, listItem 
 	}
 
 	meta := fmt.Sprintf("ID: %s | Updated: %s%s",
-		item.ID[:8],
+		trimTo(item.ID, 8),
 		item.UpdatedAt.Format("15:04"),
 		tagStr)
 
@@ -189,45 +168,28 @@ func (tb *TodoBoard) SetSelected(selected bool) {
 	tb.selected = selected
 }
 
-// LoadTodos fetches TODO items from the memstore
+// LoadTodos fetches TODO items using the shared service
 func LoadTodos() tea.Cmd {
 	return func() tea.Msg {
-		// Get TODO namespace (same logic as in todo_builtins.go)
-		ns := todoNamespace()
-
-		// List all TODO items
-		keys, err := memstore.Get().Keys(ns)
+		svc, err := todo.NewService(nil, "")
 		if err != nil {
-			return todoMsg{items: []TodoItem{}}
+			return todoMsg{items: []todo.Item{}}
 		}
 
-		var items []TodoItem
-		for _, key := range keys {
-			if !strings.HasPrefix(key, "item:") {
-				continue
-			}
-
-			data, ok, err := memstore.Get().Get(ns, key)
-			if err != nil || !ok {
-				continue
-			}
-
-			var item TodoItem
-			if err := json.Unmarshal(data, &item); err != nil {
-				continue
-			}
-
-			items = append(items, item)
+		items, err := svc.List(todo.Filter{})
+		if err != nil {
+			return todoMsg{items: []todo.Item{}}
 		}
 
 		return todoMsg{items: items}
 	}
 }
 
-// Helper function to get TODO namespace (mirrors todo_builtins.go)
-func todoNamespace() string {
-	cwd, _ := os.Getwd()
-	abs, _ := filepath.Abs(cwd)
-	h := sha1.Sum([]byte(abs))
-	return "todo:project:" + hex.EncodeToString(h[:8])
+func trimTo(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n]
 }
+
+var _ list.Item = todo.Item{}

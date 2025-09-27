@@ -9,7 +9,7 @@ import (
 	"github.com/marcodenic/agentry/internal/contracts"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memstore"
-	runtime "github.com/marcodenic/agentry/internal/team/runtime"
+	teamruntime "github.com/marcodenic/agentry/internal/teamruntime"
 )
 
 // Compile-time check to ensure Team implements contracts.TeamService
@@ -75,8 +75,8 @@ func NewTeamWithRoles(parent *core.Agent, maxTurns int, name string, includePath
 		// Add loaded roles to team
 		for name, role := range roles {
 			team.roles[name] = role
-			if !runtime.IsTUI() {
-				if runtime.IsDebug() {
+			if !teamruntime.IsTUI() {
+				if teamruntime.IsDebug() {
 					fmt.Fprintf(os.Stderr, "📋 Team role loaded: %s\n", name)
 				}
 			}
@@ -96,4 +96,3 @@ func (t *Team) GetRoles() map[string]*RoleConfig {
 	}
 	return out
 }
-

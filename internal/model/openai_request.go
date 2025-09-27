@@ -53,7 +53,7 @@ func (b *oaRequestBuilder) Build(ctx context.Context, stream bool) (*http.Reques
 			body["stream"] = true
 		}
 		if o.previousResponseID == "" {
-			debug.Printf("OpenAI.buildRequest: No previous response ID available, starting new conversation")
+			debug.Printf("OpenAIConversation.buildRequest: No previous response ID available, starting new conversation")
 		}
 	}
 	if o.Temperature != nil && supportsTemperature(o.model) {
@@ -61,7 +61,7 @@ func (b *oaRequestBuilder) Build(ctx context.Context, stream bool) (*http.Reques
 	}
 
 	payload, _ := json.Marshal(body)
-	debug.Printf("OpenAI.buildRequest: Request body: %s", string(payload))
+	debug.Printf("OpenAIConversation.buildRequest: Request body: %s", string(payload))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(payload))
 	if err != nil {

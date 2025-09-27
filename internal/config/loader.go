@@ -40,22 +40,15 @@ type VectorManifest struct {
 }
 
 type File struct {
-	Models      []ModelManifest              `yaml:"models"`
-	Tools       []ToolManifest               `yaml:"tools"`
-	Include     []string                     `yaml:"include"` // Add include support for role files
-	Memory      string                       `yaml:"memory"`
-	Store       string                       `yaml:"store"`
-	Vector      VectorManifest               `yaml:"vector_store"`
-	Theme       string                       `yaml:"theme"`
-	Themes      map[string]string            `yaml:"themes"`
-	Keybinds    map[string]string            `yaml:"keybinds"`
-	Credentials map[string]map[string]string `yaml:"credentials"`
-	MCPServers  map[string]string            `yaml:"mcp_servers"`
-	Collector   string                       `yaml:"collector"`
-	Port        string                       `yaml:"port"`
-	Sandbox     Sandbox                      `yaml:"sandbox"`
-	Permissions Permissions                  `yaml:"permissions"`
-	Budget      Budget                       `yaml:"budget"`
+	Models      []ModelManifest `yaml:"models"`
+	Tools       []ToolManifest  `yaml:"tools"`
+	Include     []string        `yaml:"include"` // Add include support for role files
+	Memory      string          `yaml:"memory"`
+	Store       string          `yaml:"store"`
+	Vector      VectorManifest  `yaml:"vector_store"`
+	Sandbox     Sandbox         `yaml:"sandbox"`
+	Permissions Permissions     `yaml:"permissions"`
+	Budget      Budget          `yaml:"budget"`
 }
 
 type Sandbox struct {
@@ -95,39 +88,6 @@ func merge(dst *File, src File) {
 	}
 	if src.Vector.Type != "" {
 		dst.Vector = src.Vector
-	}
-	if src.Theme != "" {
-		dst.Theme = src.Theme
-	}
-	if dst.Themes == nil {
-		dst.Themes = map[string]string{}
-	}
-	for k, v := range src.Themes {
-		dst.Themes[k] = v
-	}
-	if dst.Keybinds == nil {
-		dst.Keybinds = map[string]string{}
-	}
-	for k, v := range src.Keybinds {
-		dst.Keybinds[k] = v
-	}
-	if dst.Credentials == nil {
-		dst.Credentials = map[string]map[string]string{}
-	}
-	for k, v := range src.Credentials {
-		dst.Credentials[k] = v
-	}
-	if dst.MCPServers == nil {
-		dst.MCPServers = map[string]string{}
-	}
-	for k, v := range src.MCPServers {
-		dst.MCPServers[k] = v
-	}
-	if src.Collector != "" {
-		dst.Collector = src.Collector
-	}
-	if src.Port != "" {
-		dst.Port = src.Port
 	}
 	if src.Sandbox.Engine != "" {
 		dst.Sandbox = src.Sandbox
@@ -184,12 +144,5 @@ func Load(path string) (*File, error) {
 	merge(&out, yamlFile)
 
 	// Apply environment variable overrides
-	if v := os.Getenv("AGENTRY_COLLECTOR"); v != "" {
-		out.Collector = v
-	}
-	if v := os.Getenv("AGENTRY_PORT"); v != "" {
-		out.Port = v
-	}
-
 	return &out, nil
 }

@@ -2,84 +2,18 @@ package tool
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
 	"strings"
-	"time"
+	"sync"
 
-	"github.com/marcodenic/agentry/internal/memstore"
+	"github.com/marcodenic/agentry/internal/todo"
 )
 
-type todoItem struct {
-	ID          string    `json:"id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description,omitempty"`
-	Priority    string    `json:"priority,omitempty"`
-	Tags        []string  `json:"tags,omitempty"`
-	AgentID     string    `json:"agent_id,omitempty"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	Source      string    `json:"source,omitempty"`
-}
-
-func todoNamespace() string {
-	cwd, _ := os.Getwd()
-	abs, _ := filepath.Abs(cwd)
-	h := sha1.Sum([]byte(abs))
-	return "todo:project:" + hex.EncodeToString(h[:8])
-}
-
-func todoKey(id string) string { return "item:" + id }
-
-func putTodo(ns string, it todoItem) error {
-	b, err := json.Marshal(it)
-	if err != nil {
-		return err
-	}
-	return memstore.Get().Set(ns, todoKey(it.ID), b, 0)
-}
-
-func getTodo(ns, id string) (todoItem, bool, error) {
-	b, ok, err := memstore.Get().Get(ns, todoKey(id))
-	if err != nil || !ok {
-		return todoItem{}, false, err
-	}
-	var it todoItem
-	if err := json.Unmarshal(b, &it); err != nil {
-		return todoItem{}, false, err
-	}
-	return it, true, nil
-}
-
-func listTodos(ns string) ([]todoItem, error) {
-	keys, err := memstore.Get().Keys(ns)
-	if err != nil {
-		return nil, err
-	}
-	var items []todoItem
-	for _, k := range keys {
-		if !strings.HasPrefix(k, "item:") {
-			continue
-		}
-		b, ok, err := memstore.Get().Get(ns, k)
-		if err != nil || !ok {
-			continue
-		}
-		var it todoItem
-		if json.Unmarshal(b, &it) == nil {
-			items = append(items, it)
-		}
-	}
-	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.Before(items[j].CreatedAt) })
-	return items, nil
-}
+var (
+	todoOnce sync.Once
+	todoSvc  *todo.Service
+	todoErr  error
+)
 
 func todoTools() map[string]builtinSpec {
 	return map[string]builtinSpec{
@@ -99,6 +33,13 @@ func registerTodoBuiltins(reg *builtinRegistry) {
 	reg.addAll(getTodoBuiltins())
 }
 
+func acquireTodoService() (*todo.Service, error) {
+	todoOnce.Do(func() {
+		todoSvc, todoErr = todo.NewService(nil, "")
+	})
+	return todoSvc, todoErr
+}
+
 func todoAddSpec() builtinSpec {
 	return builtinSpec{
 		Desc: "Add a TODO item to the project planning list",
@@ -111,6 +52,7 @@ func todoAddSpec() builtinSpec {
 				"tags":        map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 				"agent_id":    map[string]any{"type": "string"},
 				"source":      map[string]any{"type": "string"},
+				"status":      map[string]any{"type": "string"},
 			},
 			"required": []string{"title"},
 		},
@@ -123,25 +65,26 @@ func todoAddExec(ctx context.Context, args map[string]any) (string, error) {
 	if strings.TrimSpace(title) == "" {
 		return "", errors.New("title is required")
 	}
-	now := time.Now()
-	id := fmt.Sprintf("%d", now.UnixNano())
-	it := todoItem{
-		ID:          id,
+
+	svc, err := acquireTodoService()
+	if err != nil {
+		return "", err
+	}
+
+	item, err := svc.Create(todo.CreateParams{
 		Title:       title,
 		Description: strArg(args, "description"),
 		Priority:    strArg(args, "priority"),
 		Tags:        strSlice(args, "tags"),
 		AgentID:     strArg(args, "agent_id"),
-		Status:      "pending",
-		CreatedAt:   now,
-		UpdatedAt:   now,
 		Source:      strArg(args, "source"),
-	}
-	ns := todoNamespace()
-	if err := putTodo(ns, it); err != nil {
+		Status:      strArg(args, "status"),
+	})
+	if err != nil {
 		return "", err
 	}
-	return marshal(map[string]any{"ok": true, "id": it.ID, "item": it})
+
+	return marshal(map[string]any{"ok": true, "id": item.ID, "item": item})
 }
 
 func todoListSpec() builtinSpec {
@@ -160,29 +103,23 @@ func todoListSpec() builtinSpec {
 }
 
 func todoListExec(ctx context.Context, args map[string]any) (string, error) {
-	ns := todoNamespace()
-	items, err := listTodos(ns)
+	svc, err := acquireTodoService()
 	if err != nil {
 		return "", err
 	}
-	status := strings.TrimSpace(strArg(args, "status"))
-	priority := strings.TrimSpace(strArg(args, "priority"))
-	tags := strSlice(args, "tags")
-	var out []todoItem
-next:
-	for _, it := range items {
-		if status != "" && it.Status != status {
-			continue next
-		}
-		if priority != "" && it.Priority != priority {
-			continue next
-		}
-		if len(tags) > 0 && !hasAllTags(it.Tags, tags) {
-			continue next
-		}
-		out = append(out, it)
+
+	filter := todo.Filter{
+		Status:   strArg(args, "status"),
+		Priority: strArg(args, "priority"),
+		Tags:     strSlice(args, "tags"),
 	}
-	return marshal(map[string]any{"ok": true, "count": len(out), "items": out})
+
+	items, err := svc.List(filter)
+	if err != nil {
+		return "", err
+	}
+
+	return marshal(map[string]any{"ok": true, "count": len(items), "items": items})
 }
 
 func todoGetSpec() builtinSpec {
@@ -202,15 +139,20 @@ func todoGetExec(ctx context.Context, args map[string]any) (string, error) {
 	if id == "" {
 		return "", errors.New("id is required")
 	}
-	ns := todoNamespace()
-	it, ok, err := getTodo(ns, id)
+
+	svc, err := acquireTodoService()
+	if err != nil {
+		return "", err
+	}
+
+	item, ok, err := svc.Get(id)
 	if err != nil {
 		return "", err
 	}
 	if !ok {
 		return marshal(map[string]any{"ok": false, "error": "not found"})
 	}
-	return marshal(map[string]any{"ok": true, "item": it})
+	return marshal(map[string]any{"ok": true, "item": item})
 }
 
 func todoUpdateSpec() builtinSpec {
@@ -238,37 +180,42 @@ func todoUpdateExec(ctx context.Context, args map[string]any) (string, error) {
 	if id == "" {
 		return "", errors.New("id is required")
 	}
-	ns := todoNamespace()
-	it, ok, err := getTodo(ns, id)
+
+	svc, err := acquireTodoService()
 	if err != nil {
 		return "", err
 	}
-	if !ok {
-		return "", errors.New("todo not found")
-	}
+
+	updates := todo.UpdateParams{}
 	if v := strArg(args, "title"); v != "" {
-		it.Title = v
+		updates.Title = ptr(v)
 	}
 	if v := strArg(args, "description"); v != "" {
-		it.Description = v
+		updates.Description = ptr(v)
 	}
 	if v := strArg(args, "priority"); v != "" {
-		it.Priority = v
+		updates.Priority = ptr(v)
 	}
 	if v := strArg(args, "agent_id"); v != "" {
-		it.AgentID = v
+		updates.AgentID = ptr(v)
 	}
 	if v := strArg(args, "status"); v != "" {
-		it.Status = v
+		updates.Status = ptr(v)
 	}
-	if _, ok := args["tags"].([]any); ok {
-		it.Tags = strSlice(args, "tags")
+	if raw, ok := args["tags"].([]any); ok {
+		tags := strSlice(map[string]any{"tags": raw}, "tags")
+		updates.Tags = &tags
 	}
-	it.UpdatedAt = time.Now()
-	if err := putTodo(ns, it); err != nil {
+
+	item, err := svc.Update(id, updates)
+	if err != nil {
+		if errors.Is(err, todo.ErrNotFound) {
+			return "", errors.New("todo not found")
+		}
 		return "", err
 	}
-	return marshal(map[string]any{"ok": true, "item": it})
+
+	return marshal(map[string]any{"ok": true, "item": item})
 }
 
 func todoDeleteSpec() builtinSpec {
@@ -288,8 +235,13 @@ func todoDeleteExec(ctx context.Context, args map[string]any) (string, error) {
 	if id == "" {
 		return "", errors.New("id is required")
 	}
-	ns := todoNamespace()
-	if err := memstore.Get().Delete(ns, todoKey(id)); err != nil {
+
+	svc, err := acquireTodoService()
+	if err != nil {
+		return "", err
+	}
+
+	if err := svc.Delete(id); err != nil {
 		return "", err
 	}
 	return marshal(map[string]any{"ok": true, "deleted": id})
@@ -311,24 +263,15 @@ func strSlice(args map[string]any, key string) []string {
 	out := make([]string, 0, len(arr))
 	for _, it := range arr {
 		if s, ok := it.(string); ok {
-			out = append(out, s)
+			trimmed := strings.TrimSpace(s)
+			if trimmed != "" {
+				out = append(out, trimmed)
+			}
 		}
 	}
 	return out
 }
 
-func hasAllTags(have, want []string) bool {
-	if len(want) == 0 {
-		return true
-	}
-	set := map[string]struct{}{}
-	for _, t := range have {
-		set[strings.ToLower(t)] = struct{}{}
-	}
-	for _, t := range want {
-		if _, ok := set[strings.ToLower(t)]; !ok {
-			return false
-		}
-	}
-	return true
+func ptr[T any](v T) *T {
+	return &v
 }

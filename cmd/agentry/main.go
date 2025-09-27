@@ -93,29 +93,19 @@ COMMANDS:
 
 FLAGS:
   --config PATH          Path to .agentry.yaml config file
-  --theme THEME          Theme override (dark|light|auto)  
   --debug                Enable debug output
-  --max_iter N           Limit agent iterations (0=unlimited)
-  --http_timeout SEC     HTTP timeout in seconds (default 300)
-  --keybinds PATH        Path to custom keybindings JSON file
-  --creds PATH           Path to credentials JSON file
-  --mcp SERVERS          Comma-separated MCP server list
-  --save-id ID           Save conversation state to this ID
-  --resume-id ID         Load conversation state from this ID  
-  --checkpoint-id ID     Checkpoint session ID
-  --port PORT            HTTP server port
+  --max-iter N           Limit agent iterations (0=unlimited)
+  --http-timeout SEC     HTTP timeout in seconds (default 300)
   --disable-tools        Disable tool filtering entirely (allow all tools)
   --allow-tools TOOLS    Restrict to only specified tools (comma-separated)
   --deny-tools TOOLS     Remove specific tools from available set (comma-separated)
-  --disable-context      Disable context pipeline
-  --audit-log PATH       Path to audit log file
 
 EXAMPLES:
   agentry                                  # Start TUI (default)
   agentry fix the auth tests               # Direct prompt (no quotes needed)
   agentry "complex prompt with & symbols"  # Quotes for special characters
   agentry --debug analyze code             # Debug mode with direct prompt
-  agentry --resume-id my-session           # Resume TUI session
+  agentry --max-iter 3 fix tests           # Limit agent iteration count
   agentry refresh-models                   # Update model data
   
   Tool filtering examples:

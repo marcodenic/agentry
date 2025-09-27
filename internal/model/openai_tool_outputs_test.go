@@ -16,7 +16,8 @@ func TestBuildRequestWithToolOutputs(t *testing.T) {
 		{Role: "tool", ToolCallID: "call_test_123", Content: "Tool result"},
 	}
 
-	req, err := client.buildRequest(context.Background(), msgs, nil, true)
+	conv := newOpenAIConversation(client, msgs, nil)
+	req, err := conv.buildRequest(context.Background())
 	if err != nil {
 		t.Fatalf("buildRequest failed: %v", err)
 	}
@@ -77,7 +78,8 @@ func TestBuildRequestWithoutToolOutputs(t *testing.T) {
 		{Role: "user", Content: "Test message"},
 	}
 
-	req, err := client.buildRequest(context.Background(), msgs, nil, true)
+	conv := newOpenAIConversation(client, msgs, nil)
+	req, err := conv.buildRequest(context.Background())
 	if err != nil {
 		t.Fatalf("buildRequest failed: %v", err)
 	}
@@ -153,7 +155,8 @@ func TestBuildRequestSkipsStaleToolOutputs(t *testing.T) {
 		{Role: "tool", ToolCallID: "call_test_new", Content: "New result"},
 	}
 
-	req, err := client.buildRequest(context.Background(), msgs, nil, true)
+	conv := newOpenAIConversation(client, msgs, nil)
+	req, err := conv.buildRequest(context.Background())
 	if err != nil {
 		t.Fatalf("buildRequest failed: %v", err)
 	}

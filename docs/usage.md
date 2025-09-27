@@ -20,7 +20,6 @@ Agentry now uses a streamlined architecture focused on:
 
 ## Core Commands
 
-Use `--port 9090` or set `AGENTRY_PORT` to change the HTTP server port.
 Agents run until they produce a final answer; there is no built-in iteration cap.
  
 Examples:
@@ -44,9 +43,6 @@ agentry team call --agent coder --input "print hello world"
 agentry memory export --out mem.json
 agentry memory import --in mem.json
 ```
-
-Pass `--resume-id name` to load a saved session and `--save-id name` to persist after each run.
-Use `--checkpoint-id name` to continuously snapshot the run loop and resume after a crash.
 
 ### Terminal UI with TODO Board
 
@@ -195,25 +191,10 @@ Set `AGENTRY_CONFIRM=1` to require confirmation before overwriting files. Tool e
 
 ## Observability
 
-Enable Prometheus metrics and OTLP traces in your config:
-
-```yaml
-metrics: true
-collector: localhost:4318
-```
-
-You can override the collector address via the `AGENTRY_COLLECTOR` environment
-variable:
-
-```bash
-export AGENTRY_COLLECTOR=collector.example.com:4318
-```
-
-The server then exposes `/metrics` and streams spans to the specified collector.
-
-Metrics include HTTP request counts (`agentry_http_requests_total`),
-token usage (`agentry_tokens_total`) and tool execution latency
-(`agentry_tool_latency_seconds`).
+Tracing is enabled via the CLI `--trace` flag to write JSONL events. The
+older `metrics` / `collector` configuration knobs were removed during the
+cleanup; new observability wiring will land alongside the updated trace
+pipeline.
 
 ### Cost Analysis
 

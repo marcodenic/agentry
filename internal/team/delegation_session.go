@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	runtime "github.com/marcodenic/agentry/internal/team/runtime"
+	teamruntime "github.com/marcodenic/agentry/internal/teamruntime"
 )
 
 type delegationSession struct {
@@ -22,7 +22,8 @@ type delegationSession struct {
 	agent            *Agent
 	workspaceContext string
 	timeout          time.Duration
-	notifier         runtime.TeamNotifier
+	notifier         teamruntime.Notifier
+	telemetry        teamruntime.DelegationTelemetry
 
 	ctx    context.Context
 	runCtx context.Context
@@ -30,7 +31,7 @@ type delegationSession struct {
 }
 
 func newDelegationSession(team *Team, agentID, input string) *delegationSession {
-	return &delegationSession{team: team, agentID: agentID, input: input, notifier: runtime.NewNotifier()}
+	return &delegationSession{team: team, agentID: agentID, input: input, notifier: teamruntime.NewNotifier()}
 }
 
 func (s *delegationSession) Run(ctx context.Context) (string, error) {
@@ -38,15 +39,22 @@ func (s *delegationSession) Run(ctx context.Context) (string, error) {
 	s.timer = StartTimer(fmt.Sprintf("Call(%s)", s.agentID))
 	defer s.timer.Stop()
 
-	s.logDelegationStart()
+	s.telemetry = teamruntime.NewDelegationTelemetry(s.agentID, s.input, s.team, s.notifier, s.timer)
+	s.telemetry.Start()
+
 	if err := s.ensureAgent(); err != nil {
 		return "", err
 	}
 
 	s.agent.SetStatus("working")
-	s.logWorkStart()
-	s.logDelegationFile()
-	s.prepareWorkspaceContext()
+	s.telemetry.WorkStart()
+	s.telemetry.LogTaskFile()
+
+	events := s.team.GetWorkspaceEvents(5)
+	s.timer.Checkpoint("inbox processing completed")
+	s.workspaceContext = teamruntime.BuildWorkspaceContext(convertWorkspaceEvents(events))
+	s.timer.Checkpoint("context and events prepared")
+
 	s.configureTimeout()
 	if s.cancel != nil {
 		defer s.cancel()
@@ -54,29 +62,15 @@ func (s *delegationSession) Run(ctx context.Context) (string, error) {
 	s.publishStartEvent()
 
 	s.startTime = time.Now()
-	runtime.DebugPrintf("🔧 Call: About to call runAgent for %s", s.agentID)
+	s.telemetry.RunAgentStart()
 	result, err := runAgent(s.runCtx, s.agent.Agent, s.augmentedInput(), s.agentID, s.team.GetAgents())
 	duration := time.Since(s.startTime)
 	s.timer.Checkpoint("runAgent completed")
-	runtime.DebugPrintf("🔧 Call: runAgent completed for %s in %s", s.agentID, duration)
+	s.telemetry.RunAgentComplete(duration)
 
 	outcome, outcomeErr := s.processOutcome(result, err)
 	s.timer.Checkpoint("cleanup completed")
 	return outcome, outcomeErr
-}
-
-func (s *delegationSession) logDelegationStart() {
-	runtime.DebugPrintf("\n🔄 AGENT DELEGATION: Agent 0 -> %s\n", s.agentID)
-	runtime.DebugPrintf("📝 Task: %s\n", s.input)
-	runtime.DebugPrintf("⏰ Timestamp: %s\n", time.Now().Format("15:04:05"))
-
-	s.notifier.User("🔄 Delegating to %s agent...\n", s.agentID)
-
-	s.team.LogCoordinationEvent("delegation", "agent_0", s.agentID, s.input, map[string]interface{}{
-		"task_length": len(s.input),
-		"agent_type":  s.agentID,
-	})
-	s.timer.Checkpoint("coordination logged")
 }
 
 func (s *delegationSession) ensureAgent() error {
@@ -86,69 +80,26 @@ func (s *delegationSession) ensureAgent() error {
 	s.timer.Checkpoint("agent lookup completed")
 
 	if !exists {
-		runtime.DebugPrintf("🆕 Creating new agent: %s\n", s.agentID)
+		teamruntime.Debugf("🆕 Creating new agent: %s\n", s.agentID)
 		s.notifier.User("🆕 Creating %s agent...\n", s.agentID)
 
 		spawnedAgent, err := s.team.SpawnAgent(s.ctx, s.agentID, s.agentID)
 		if err != nil {
-			runtime.DebugPrintf("❌ Failed to spawn agent %s: %v\n", s.agentID, err)
+			teamruntime.Debugf("❌ Failed to spawn agent %s: %v\n", s.agentID, err)
 			return fmt.Errorf("failed to spawn agent %s: %w", s.agentID, err)
 		}
 
 		s.timer.Checkpoint("new agent spawned")
 		agent = spawnedAgent
-		runtime.DebugPrintf("✅ Agent %s created and ready\n", s.agentID)
+		teamruntime.Debugf("✅ Agent %s created and ready\n", s.agentID)
 		s.notifier.User("✅ %s agent ready\n", s.agentID)
 	} else {
 		s.timer.Checkpoint("existing agent found")
-		runtime.DebugPrintf("♻️  Using existing agent: %s (Status: %s)\n", s.agentID, agent.Status)
+		teamruntime.Debugf("♻️  Using existing agent: %s (Status: %s)\n", s.agentID, agent.Status)
 	}
 
 	s.agent = agent
 	return nil
-}
-
-func (s *delegationSession) logWorkStart() {
-	runtime.DebugPrintf("🚀 Starting task execution on agent %s...\n", s.agentID)
-	s.notifier.User("🚀 %s agent working on task...\n", s.agentID)
-}
-
-func (s *delegationSession) logDelegationFile() {
-	s.notifier.File("DELEGATION: Agent 0 -> %s | Task: %s", s.agentID, s.input)
-	s.timer.Checkpoint("logging completed")
-}
-
-func (s *delegationSession) prepareWorkspaceContext() {
-	events := s.team.GetWorkspaceEvents(5)
-	s.timer.Checkpoint("inbox processing completed")
-	if len(events) == 0 {
-		s.workspaceContext = ""
-		s.timer.Checkpoint("context and events prepared")
-		return
-	}
-
-	var sb strings.Builder
-	sb.WriteString("\n\nRECENT WORKSPACE EVENTS:\n")
-	for _, e := range events {
-		ts := ""
-		if !e.Timestamp.IsZero() {
-			ts = e.Timestamp.Format("15:04:05")
-		}
-		sb.WriteString("- ")
-		if ts != "" {
-			sb.WriteString("[" + ts + "] ")
-		}
-		if e.AgentID != "" {
-			sb.WriteString(e.AgentID + " | ")
-		}
-		sb.WriteString(e.Type)
-		if e.Description != "" {
-			sb.WriteString(": " + e.Description)
-		}
-		sb.WriteString("\n")
-	}
-	s.workspaceContext = sb.String()
-	s.timer.Checkpoint("context and events prepared")
 }
 
 func (s *delegationSession) configureTimeout() {
@@ -160,12 +111,25 @@ func (s *delegationSession) configureTimeout() {
 	}
 
 	s.timeout = timeout
-	runtime.DebugPrintf("🔧 Call: Creating context with timeout %s for agent %s", timeout, s.agentID)
+	teamruntime.Debugf("🔧 Call: Creating context with timeout %s for agent %s", timeout, s.agentID)
 	s.runCtx, s.cancel = context.WithTimeout(s.ctx, timeout)
 }
 
+func convertWorkspaceEvents(events []WorkspaceEvent) []teamruntime.WorkspaceEvent {
+	out := make([]teamruntime.WorkspaceEvent, 0, len(events))
+	for _, e := range events {
+		out = append(out, teamruntime.WorkspaceEvent{
+			AgentID:     e.AgentID,
+			Type:        e.Type,
+			Description: e.Description,
+			Timestamp:   e.Timestamp,
+		})
+	}
+	return out
+}
+
 func (s *delegationSession) publishStartEvent() {
-	if runtime.IsTUI() {
+	if teamruntime.IsTUI() {
 		return
 	}
 
@@ -192,40 +156,30 @@ func (s *delegationSession) processOutcome(result string, runErr error) (string,
 }
 
 func (s *delegationSession) handleError(runErr error) (string, error) {
-	runtime.DebugPrintf("❌ Call: runAgent failed for %s: %v", s.agentID, runErr)
+	teamruntime.Debugf("❌ Call: runAgent failed for %s: %v", s.agentID, runErr)
 	if errors.Is(runErr, context.DeadlineExceeded) || errors.Is(runErr, context.Canceled) {
 		if s.team.checkWorkCompleted(s.agentID, s.input) {
-			msg := fmt.Sprintf("✅ %s agent completed the work successfully (response generation timed out after %s but files were created)", s.agentID, s.timeout)
-			s.notifier.User("✅ %s agent completed work successfully (response timed out)\n", s.agentID)
-			s.team.LogCoordinationEvent("delegation_success_timeout", s.agentID, "agent_0", msg, map[string]interface{}{"timeout": s.timeout.String()})
+			msg := s.telemetry.TimeoutWithWork(s.timeout)
 			return msg, nil
 		}
 
-		msg := fmt.Sprintf("⏳ Delegation to '%s' timed out after %s without completing work. Consider simplifying the task, choosing a different agent, or increasing AGENTRY_DELEGATION_TIMEOUT.", s.agentID, s.timeout)
-		s.notifier.User("⏳ %s agent timed out without completing work\n", s.agentID)
-		if !runtime.IsTUI() {
+		msg := s.telemetry.TimeoutWithoutWork(s.timeout)
+		if !teamruntime.IsTUI() {
 			s.team.PublishWorkspaceEvent("agent_0", "delegation_timeout", msg, map[string]interface{}{"agent": s.agentID})
 		}
-		s.team.LogCoordinationEvent("delegation_timeout", s.agentID, "agent_0", msg, map[string]interface{}{"timeout": s.timeout.String()})
 		return "", errors.New(msg)
 	}
 
 	s.agent.SetStatus("error")
-	runtime.DebugPrintf("❌ Agent %s failed: %v\n", s.agentID, runErr)
-	runtime.LogToFile(fmt.Sprintf("DELEGATION FAILED: %s | Error: %v", s.agentID, runErr))
-	s.team.LogCoordinationEvent("delegation_failed", s.agentID, "agent_0", runErr.Error(), map[string]interface{}{"error": runErr.Error()})
+	s.telemetry.RecordFailure(runErr)
 	errorFeedback := fmt.Sprintf("❌ Agent '%s' encountered an error: %v\n\nSuggestions:\n- Try a different approach\n- Simplify the request\n- Use alternative tools\n- Break the task into smaller steps", s.agentID, runErr)
 	return "", errors.New(errorFeedback)
 }
 
 func (s *delegationSession) handleSuccess(result string) string {
 	s.agent.SetStatus("ready")
-	runtime.DebugPrintf("✅ Agent %s completed successfully\n", s.agentID)
-	s.notifier.User("✅ %s agent completed task\n", s.agentID)
-	runtime.DebugPrintf("📤 Result length: %d characters\n", len(result))
-	s.team.LogCoordinationEvent("delegation_success", s.agentID, "agent_0", "Task completed", map[string]interface{}{"result_length": len(result), "agent_type": s.agentID})
+	s.telemetry.RecordSuccess(result)
 	s.team.SetSharedData(fmt.Sprintf("last_result_%s", s.agentID), result)
 	s.team.SetSharedData(fmt.Sprintf("last_task_%s", s.agentID), s.input)
-	runtime.DebugPrintf("🏁 Delegation complete: Agent 0 <- %s\n\n", s.agentID)
 	return result
 }

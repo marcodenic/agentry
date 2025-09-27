@@ -2,8 +2,6 @@ package model
 
 import (
 	"context"
-	"errors"
-	"io"
 	"net/http"
 	"sort"
 	"strings"
@@ -121,96 +119,9 @@ func buildOAInput(msgs []ChatMessage) []oaInputItem {
 	return out
 }
 
-func (o *OpenAI) buildRequest(ctx context.Context, msgs []ChatMessage, tools []ToolSpec, stream bool) (*http.Request, error) {
-	builder := newOARequestBuilder(o, msgs, tools)
-	return builder.Build(ctx, stream)
-}
-
 func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpec) (<-chan StreamChunk, error) {
-	startTime := time.Now()
-	debug.Printf("OpenAI.Stream: START msgs=%d tools=%d", len(msgs), len(tools))
-
-	// Log detailed model interaction start
-	debug.LogModelInteraction("openai", o.model, len(msgs), map[string]int{"input_estimated": estimateTokens(msgs)}, 0)
-
-	// Always use the create endpoint; when continuing, buildRequest will include previous_response_id
-	var req *http.Request
-	var err error
-	req, err = o.buildRequest(ctx, msgs, tools, true)
-	debug.Printf("OpenAI.Stream: buildRequest err=%v elapsed=%v", err, time.Since(startTime))
-	if err != nil {
-		debug.Printf("OpenAI.Stream: buildRequest failed: %v", err)
-		debug.LogEvent("MODEL", "request_build_failed", map[string]interface{}{
-			"provider": "openai",
-			"model":    o.model,
-			"error":    err.Error(),
-		})
-		return nil, err
-	}
-
-	// Check context timeout settings
-	if deadline, ok := ctx.Deadline(); ok {
-		timeoutDur := time.Until(deadline)
-		debug.Printf("OpenAI.Stream: context timeout set to %v", timeoutDur)
-	} else {
-		debug.Printf("OpenAI.Stream: no context timeout set")
-	}
-
-	debug.Printf("OpenAI.Stream: starting HTTP request goroutine, elapsed=%v", time.Since(startTime))
-	out := make(chan StreamChunk, 32)
-	go func() {
-		defer close(out)
-		reqStartTime := time.Now()
-		debug.Printf("OpenAI.Stream: HTTP request starting... elapsed=%v", time.Since(startTime))
-
-		resp, err := o.client.Do(req)
-		reqEndTime := time.Now()
-		debug.Printf("OpenAI.Stream: HTTP response received err=%v request_duration=%v total_elapsed=%v", err, reqEndTime.Sub(reqStartTime), reqEndTime.Sub(startTime))
-
-		if err != nil {
-			debug.Printf("OpenAI.Stream: HTTP request failed: %v", err)
-			debug.LogEvent("MODEL", "http_request_failed", map[string]interface{}{
-				"provider": "openai",
-				"model":    o.model,
-				"error":    err.Error(),
-				"duration": reqEndTime.Sub(reqStartTime).String(),
-			})
-			out <- StreamChunk{Err: err}
-			return
-		}
-		defer resp.Body.Close()
-		debug.Printf("OpenAI.Stream: status=%d headers=%v", resp.StatusCode, resp.Header)
-		if resp.StatusCode >= 300 {
-			body, _ := io.ReadAll(resp.Body)
-			debug.LogEvent("MODEL", "api_error", map[string]interface{}{
-				"provider": "openai",
-				"model":    o.model,
-				"status":   resp.StatusCode,
-				"response": string(body),
-			})
-			out <- StreamChunk{Err: errors.New(string(body))}
-			return
-		}
-
-		reader := newOpenAIStreamReader(o.model, len(msgs), startTime)
-		result, readErr := reader.Read(ctx, resp.Body, func(chunk StreamChunk) {
-			out <- chunk
-		})
-		if readErr != nil {
-			return
-		}
-		if result.responseID != "" {
-			o.previousResponseID = result.responseID
-			debug.Printf("OpenAI.Stream: Persisting response ID for next request: %s", result.responseID)
-		}
-		switch result.mode {
-		case finalizeModeLegacy:
-			finalizeOpenAI(result.partials, out, result.inputTokens, result.outputTokens, o.model, result.responseID)
-		default:
-			finalizeWithResponses(result.partials, result.responseCalls, out, result.inputTokens, result.outputTokens, o.model, result.responseID)
-		}
-	}()
-	return out, nil
+	conv := newOpenAIConversation(o, msgs, tools)
+	return conv.Stream(ctx)
 }
 
 // estimateTokens provides a rough token count estimate for logging
