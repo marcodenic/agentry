@@ -27,18 +27,18 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	info.Spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(uiColorAIAccentHex))
 
 	// Clear initial logo on first user input
-	if m.showInitialLogo {
+	if m.view.Chat.ShowInitialLogo() {
 		info.History = ""                       // Clear the logo content
 		info.LastContentType = ContentTypeEmpty // Reset content type
-		m.showInitialLogo = false
+		m.view.Chat.SetShowInitialLogo(false)
 	}
 
 	// Add user input with proper spacing logic
-	userMessage := m.formatUserInput(m.userBar(), input, m.vp.Width)
+	userMessage := m.formatUserInput(m.userBar(), input, m.view.Chat.Main.Width)
 	info.addContentWithSpacing(userMessage, ContentTypeUserInput)
 
-	m.vp.SetContent(info.History)
-	m.vp.GotoBottom()
+	m.view.Chat.Main.SetContent(info.History)
+	m.view.Chat.Main.GotoBottom()
 
 	pr, pw := io.Pipe()
 	errCh := make(chan error, 1)
@@ -67,12 +67,17 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 		}
 	}()
 	m.infos[id] = info
-	return m, tea.Batch(m.readCmd(id), waitErr(errCh), waitComplete(id, completeCh), startThinkingAnimation(id))
+	return m, tea.Batch(
+		m.runtime.ReadCmd(&m, id),
+		m.runtime.WaitErr(errCh),
+		m.runtime.WaitComplete(id, completeCh),
+		m.runtime.StartThinkingAnimation(id),
+	)
 }
 
 // handleDiagnostics triggers lsp_diagnostics tool and parses results
 func (m Model) handleDiagnostics() (Model, tea.Cmd) {
-	if m.diagRunning {
+	if m.view.Diagnostics.Running {
 		return m, nil
 	}
 	info := m.infos[m.active]
@@ -82,9 +87,9 @@ func (m Model) handleDiagnostics() (Model, tea.Cmd) {
 	// show status start
 	info.startProgressiveStatusUpdate("Running diagnostics", m)
 	m.infos[m.active] = info
-	m.vp.SetContent(info.History)
-	m.vp.GotoBottom()
-	m.diagRunning = true
+	m.view.Chat.Main.SetContent(info.History)
+	m.view.Chat.Main.GotoBottom()
+	m.view.Diagnostics.Running = true
 
 	return m, func() tea.Msg {
 		// Execute tool directly on Agent 0
@@ -128,7 +133,7 @@ func (m Model) cycleActive(delta int) Model {
 	idx = (idx + delta + len(m.order)) % len(m.order)
 	m.active = m.order[idx]
 	if info, ok := m.infos[m.active]; ok {
-		m.vp.SetContent(info.History)
+		m.view.Chat.Main.SetContent(info.History)
 	}
 	return m
 }
@@ -146,7 +151,7 @@ func (m Model) jumpToAgent(index int) Model {
 	}
 	m.active = m.order[index]
 	if info, ok := m.infos[m.active]; ok {
-		m.vp.SetContent(info.History)
+		m.view.Chat.Main.SetContent(info.History)
 	}
 	return m
 }

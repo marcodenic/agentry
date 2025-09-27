@@ -203,26 +203,6 @@ func (m *Model) formatToolAction(toolName string, args map[string]any) string {
 	}
 }
 
-func (m *Model) readCmd(id uuid.UUID) tea.Cmd {
-	return func() tea.Msg { return m.readEvent(id) }
-}
-
-func waitErr(ch <-chan error) tea.Cmd {
-	return func() tea.Msg {
-		if err := <-ch; err != nil {
-			return errMsg{err}
-		}
-		return nil
-	}
-}
-
-func waitComplete(id uuid.UUID, ch <-chan string) tea.Cmd {
-	return func() tea.Msg {
-		result := <-ch
-		return agentCompleteMsg{id: id, result: result}
-	}
-}
-
 func (m Model) Init() tea.Cmd {
 	var cmds []tea.Cmd
 
@@ -238,14 +218,6 @@ func (m Model) Init() tea.Cmd {
 
 	return tea.Batch(cmds...)
 }
-
-func startThinkingAnimation(id uuid.UUID) tea.Cmd {
-	return tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
-		frame := int(t.UnixMilli()/100) % len(spinnerFrames)
-		return thinkingAnimationMsg{id: id, frame: frame}
-	})
-}
-
 func truncateString(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
@@ -376,9 +348,9 @@ func (m *Model) addDebugTraceEvent(id uuid.UUID, ev trace.Event) {
 
 	info.DebugTrace = append(info.DebugTrace, debugEvent)
 
-	if id == m.active && m.activeTab == 1 {
+	if id == m.active && m.layout.activeTab == 1 {
 		debugContent := m.renderDetailedMemory(info.Agent)
-		m.debugVp.SetContent(debugContent)
-		m.debugVp.GotoBottom()
+		m.view.Chat.Debug.SetContent(debugContent)
+		m.view.Chat.Debug.GotoBottom()
 	}
 }

@@ -9,18 +9,18 @@ import (
 
 func (m Model) View() string {
 	var chatContent string
-	if m.activeTab == 0 {
+	if m.layout.activeTab == 0 {
 		// Use viewport content directly for proper scrolling
-		chatContent = m.vp.View()
+		chatContent = m.view.Chat.Main.View()
 
 		// Special handling for centered logo
-		if m.showInitialLogo {
+		if m.view.Chat.ShowInitialLogo() {
 			if info, ok := m.infos[m.active]; ok {
 				// Apply centering to the logo content
 				logoStyle := lipgloss.NewStyle().
 					Foreground(lipgloss.Color(uiColorForegroundHex)).
-					Width(m.vp.Width).
-					Height(m.vp.Height).
+					Width(m.view.Chat.Main.Width).
+					Height(m.view.Chat.Main.Height).
 					Align(lipgloss.Center, lipgloss.Center)
 				chatContent = logoStyle.Render(info.History)
 			}
@@ -29,12 +29,12 @@ func (m Model) View() string {
 		// Use debug viewport for proper scrolling in debug mode
 		if info, ok := m.infos[m.active]; ok {
 			// Update debug viewport content if not already set
-			if m.debugVp.TotalLineCount() == 0 {
+			if m.view.Chat.Debug.TotalLineCount() == 0 {
 				debugContent := m.renderDetailedMemory(info.Agent)
-				m.debugVp.SetContent(debugContent)
+				m.view.Chat.Debug.SetContent(debugContent)
 			}
 		}
-		chatContent = m.debugVp.View()
+		chatContent = m.view.Chat.Debug.View()
 	}
 
 	base := lipgloss.NewStyle().
@@ -42,22 +42,22 @@ func (m Model) View() string {
 
 	// Create top section with chat (left) and agents (right)
 	// Don't apply extra width constraints to chatContent - let viewport handle it
-	left := base.Width(int(float64(m.width) * 0.75)).Render(chatContent)
-	rightWidth := int(float64(m.width) * 0.25)
+	left := base.Width(int(float64(m.layout.width) * 0.75)).Render(chatContent)
+	rightWidth := int(float64(m.layout.width) * 0.25)
 	right := base.Width(rightWidth).Render(m.agentPanel(rightWidth))
 	topSection := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 
 	// Add full-width horizontal line
-	horizontalLine := strings.Repeat("─", m.width)
-	if m.width < 0 {
+	horizontalLine := strings.Repeat("─", m.layout.width)
+	if m.layout.width < 0 {
 		horizontalLine = ""
 	}
 
 	// Update dynamic input height based on visual rows (wrap-aware auto-grow)
 	rows := 1
-	if v := m.input.Value(); v != "" {
+	if v := m.view.Input.Value(); v != "" {
 		// Use the textarea's actual width to match its internal wrapping
-		w := m.width - 3
+		w := m.layout.width - 3
 		if w < 1 {
 			w = 1
 		}
@@ -78,13 +78,13 @@ func (m Model) View() string {
 
 	// Ensure the input doesn't push the rest of the UI off-screen.
 	// Reserve a minimum viewport height for the chat/agents section.
-	minChatRows := m.height / 2
+	minChatRows := m.layout.height / 2
 	if minChatRows < 8 {
 		minChatRows = 8
 	}
 	// Reserve rows for: horizontal line, spacer line, and the status bar
 	reservedRows := 1 + 1 + 1
-	maxInputRows := m.height - (reservedRows + minChatRows)
+	maxInputRows := m.layout.height - (reservedRows + minChatRows)
 	// Hard cap input to 10 visual rows per requirement
 	if maxInputRows > 10 {
 		maxInputRows = 10
@@ -97,16 +97,16 @@ func (m Model) View() string {
 	}
 
 	// Keep input height exactly equal to calculated row count (no cushion) to avoid blank lines
-	if rows != m.input.Height() {
-		m.input.SetHeight(rows)
+	if rows != m.view.Input.Height() {
+		m.view.Input.SetHeight(rows)
 	}
 
 	// Dynamically update viewport heights based on current input height so layout adapts as you type
 	// Subtract: horizontal line (1) + input rows + spacer line (1) + status bar (1)
-	viewportHeight := m.height - (1 + rows + 1 + 1)
+	viewportHeight := m.layout.height - (1 + rows + 1 + 1)
 	if viewportHeight < minChatRows {
 		// Keep at least the minimum chat rows when possible
-		if m.height > (reservedRows + minChatRows) {
+		if m.layout.height > (reservedRows + minChatRows) {
 			viewportHeight = minChatRows
 		} else if viewportHeight < 3 {
 			viewportHeight = 3
@@ -116,13 +116,13 @@ func (m Model) View() string {
 		viewportHeight = 3
 	}
 	// Apply only if changed to avoid unnecessary churn
-	if m.vp.Height != viewportHeight {
-		m.vp.Height = viewportHeight
-		m.debugVp.Height = viewportHeight
+	if m.view.Chat.Main.Height != viewportHeight {
+		m.view.Chat.Main.Height = viewportHeight
+		m.view.Chat.Debug.Height = viewportHeight
 	}
 
 	// Render input and scrub any ANSI sequences that force a black background/foreground
-	rawInput := sanitizeInputANSI(m.input.View())
+	rawInput := sanitizeInputANSI(m.view.Input.View())
 	// Wrap the input with a neutral style so placeholder colouring remains intact
 	inputStyle := lipgloss.NewStyle().UnsetBackground()
 	inputSection := inputStyle.Render(rawInput)
@@ -180,9 +180,9 @@ func (m Model) View() string {
 			costDisplay += " ⚠"
 		}
 	}
-	m.statusBarModel.SetSize(m.width)
-	m.statusBarModel.SetContent(agentsDisplay, cwdDisplay, tokensDisplay, costDisplay)
-	footer := m.statusBarModel.View()
+	m.view.Status.SetSize(m.layout.width)
+	m.view.Status.SetContent(agentsDisplay, cwdDisplay, tokensDisplay, costDisplay)
+	footer := m.view.Status.View()
 
 	// Restore: input section, single blank line, then status bar flush at the bottom
 	return lipgloss.JoinVertical(lipgloss.Left, content, "", footer)

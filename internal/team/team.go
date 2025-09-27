@@ -9,6 +9,7 @@ import (
 	"github.com/marcodenic/agentry/internal/contracts"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/memstore"
+	runtime "github.com/marcodenic/agentry/internal/team/runtime"
 )
 
 // Compile-time check to ensure Team implements contracts.TeamService
@@ -50,7 +51,7 @@ func NewTeam(parent *core.Agent, maxTurns int, name string) (*Team, error) {
 	// Kick off default GC for the store (once-per-process)
 	memstore.StartDefaultGC(60 * time.Second)
 
-	// Best-effort: load persisted coordination events for this team
+	// Best-effort: load persisted coordination events for the team
 	team.loadCoordinationFromStore()
 
 	return team, nil
@@ -74,8 +75,8 @@ func NewTeamWithRoles(parent *core.Agent, maxTurns int, name string, includePath
 		// Add loaded roles to team
 		for name, role := range roles {
 			team.roles[name] = role
-			if !isTUI() {
-				if isDebug() {
+			if !runtime.IsTUI() {
+				if runtime.IsDebug() {
 					fmt.Fprintf(os.Stderr, "📋 Team role loaded: %s\n", name)
 				}
 			}
@@ -96,26 +97,3 @@ func (t *Team) GetRoles() map[string]*RoleConfig {
 	return out
 }
 
-// Tool curation helpers moved to registry.go
-
-// Add and AddAgent moved to add.go
-
-// Call implements the Caller interface for compatibility with existing code.
-// It delegates work to the named agent with enhanced communication logging.
-// Call moved to delegation.go
-
-// runAgent and minimal context builder moved to runtime.go
-
-// Service wrappers moved to service.go
-
-// Logging helpers moved to logging.go
-
-// Shared memory helpers moved to shared.go
-
-// Coordination event helpers moved to events.go
-
-// Direct agent-to-agent communication methods moved to messaging.go
-
-// Workspace events moved to events.go
-
-// Help and completion heuristics moved to help.go

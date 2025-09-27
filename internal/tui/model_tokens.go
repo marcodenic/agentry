@@ -95,7 +95,7 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 			displayHistory := info.History
 			if info.StreamingResponse != "" {
 				// Apply proper spacing logic for streaming AI response
-				formattedStreamingResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
+				formattedStreamingResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.view.Chat.Main.Width)
 
 				// Determine spacing based on last content type (same logic as addContentWithSpacing)
 				spacing := ""
@@ -116,15 +116,15 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 			// If the bubbles version lacks AtBottom(), fall back to always autoscroll.
 			wasAtBottom := false
 			type atBottomCap interface{ AtBottom() bool }
-			if ab, ok := interface{}(m.vp).(atBottomCap); ok {
+			if ab, ok := interface{}(m.view.Chat.Main).(atBottomCap); ok {
 				wasAtBottom = ab.AtBottom()
 			} else {
 				// Fallback behavior: assume at bottom (maintains previous behavior)
 				wasAtBottom = true
 			}
-			m.vp.SetContent(displayHistory)
+			m.view.Chat.Main.SetContent(displayHistory)
 			if wasAtBottom {
-				m.vp.GotoBottom()
+				m.view.Chat.Main.GotoBottom()
 			}
 		}
 	}
@@ -149,7 +149,7 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 
 	// Continue reading trace stream for more events (including EventFinal)
 	var cmds []tea.Cmd
-	cmds = append(cmds, m.readCmd(msg.id))
+	cmds = append(cmds, m.runtime.ReadCmd(&m, msg.id))
 	if progressCmd != nil {
 		cmds = append(cmds, progressCmd)
 	}
@@ -188,11 +188,11 @@ func (m Model) handleFinalMessage(msg finalMsg) (Model, tea.Cmd) {
 
 	// Add the final AI response using proper content tracking
 	if info.StreamingResponse != "" {
-		formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
+		formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.view.Chat.Main.Width)
 		info.addContentWithSpacing(formattedResponse, ContentTypeAIResponse)
 	} else if msg.text != "" {
 		// Fallback to final message text if no streaming occurred
-		formattedResponse := m.formatWithBar(m.aiBar(), msg.text, m.vp.Width)
+		formattedResponse := m.formatWithBar(m.aiBar(), msg.text, m.view.Chat.Main.Width)
 		info.addContentWithSpacing(formattedResponse, ContentTypeAIResponse)
 	}
 	info.StreamingResponse = "" // Clear streaming response
@@ -226,8 +226,8 @@ func (m Model) handleFinalMessage(msg finalMsg) (Model, tea.Cmd) {
 	}
 
 	if msg.id == m.active {
-		m.vp.SetContent(info.History)
-		m.vp.GotoBottom()
+		m.view.Chat.Main.SetContent(info.History)
+		m.view.Chat.Main.GotoBottom()
 	}
 	m.infos[msg.id] = info
 	return m, nil

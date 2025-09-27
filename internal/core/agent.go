@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
-	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -14,8 +13,6 @@ import (
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
-	promptpkg "github.com/marcodenic/agentry/internal/prompt"
-	"github.com/marcodenic/agentry/internal/tokens"
 	"github.com/marcodenic/agentry/internal/tool"
 	"github.com/marcodenic/agentry/internal/trace"
 )
@@ -85,173 +82,12 @@ func getToolNames(reg tool.Registry) []string {
 
 // buildMessages creates the message chain for the agent (replaces context package)
 func (a *Agent) buildMessages(prompt, input string, history []memory.Step) []model.ChatMessage {
-	debug.Printf("=== buildMessages START ===")
-	debug.Printf("History length: %d steps", len(history))
-	for i, step := range history {
-		debug.Printf("  HISTORY[%d]: Output=%.100s..., ToolCalls=%d, ToolResults=%d",
-			i, step.Output, len(step.ToolCalls), len(step.ToolResults))
-	}
-	debug.Printf("=== buildMessages processing ===")
-
-	// Always wrap the system prompt into simple sections using sectionizer
-	// Build extras sections for the prompt envelope
-	extras := map[string]string{}
-	if a.Vars != nil {
-		if s, ok := a.Vars["AGENTS_SECTION"]; ok {
-			extras["agents"] = s
-		}
-	}
-
-	// Add OS/platform guidance as part of tools section
-	// Compose allowedBuiltins from registry and a standard set of command examples.
-	{
-		names := make([]string, 0, len(a.Tools))
-		for n := range a.Tools {
-			names = append(names, n)
-		}
-		sort.Strings(names)
-		allowedCommands := []string{"list", "view", "write", "run", "search", "find", "cwd", "env"}
-		guidance := GetPlatformContext(allowedCommands, names)
-		if strings.TrimSpace(guidance) != "" {
-			extras["tool_guidance"] = guidance
-		}
-	}
-	// Placeholders for optional sections users might want to see; keep minimal by default
-	// extras["output-format"] = "" // left empty unless explicitly provided by templates/config
-
-	// Use default prompt if none provided
-	if strings.TrimSpace(prompt) == "" {
-		prompt = defaultPrompt()
-	}
-
-	prompt = promptpkg.Sectionize(prompt, a.Tools, extras)
-
-	msgs := []model.ChatMessage{{Role: "system", Content: prompt}}
-
-	// Include only the most recent history step to maintain context
-	if len(history) > 0 {
-		lastStep := history[len(history)-1]
-		debug.Printf("Including LAST history step in messages:")
-		debug.Printf("  Input: %.200s...", lastStep.Input)
-		debug.Printf("  Output: %.200s...", lastStep.Output)
-		debug.Printf("  ToolCalls: %d", len(lastStep.ToolCalls))
-		debug.Printf("  ToolResults: %d", len(lastStep.ToolResults))
-
-		if strings.TrimSpace(lastStep.Input) != "" {
-			msgs = append(msgs, model.ChatMessage{Role: "user", Content: lastStep.Input})
-		}
-		if strings.TrimSpace(lastStep.Output) != "" || len(lastStep.ToolCalls) > 0 {
-			msgs = append(msgs, model.ChatMessage{Role: "assistant", Content: lastStep.Output, ToolCalls: lastStep.ToolCalls})
-		}
-		for id, res := range lastStep.ToolResults {
-			truncatedRes := res
-			if len(res) > 2048 {
-				truncatedRes = res[:2048] + "...\n[TRUNCATED: originally " + fmt.Sprintf("%d", len(res)) + " bytes]"
-				debug.Printf("  TRUNCATED tool result %s: %d -> %d chars", id, len(res), len(truncatedRes))
-			}
-			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: id, Content: truncatedRes})
-		}
-	} else {
-		debug.Printf("No history to include in messages")
-	}
-
-	msgs = append(msgs, model.ChatMessage{Role: "user", Content: input})
-	return msgs
+	return newPromptEnvelope(a).Build(prompt, input, history)
 }
 
 // applyBudget trims messages to fit within the model's context window budget
 func (a *Agent) applyBudget(msgs []model.ChatMessage, specs []model.ToolSpec) []model.ChatMessage {
-	maxContextTokens := env.Int("AGENTRY_CONTEXT_MAX_TOKENS", 0)
-	if maxContextTokens == 0 {
-		pt := cost.NewPricingTable()
-		limit := pt.GetContextLimit(a.ModelName)
-		if limit <= 0 {
-			limit = 120000
-		}
-		headroom := int(float64(limit) * 0.85)
-		if headroom < 4000 {
-			headroom = limit - 2000
-		}
-		if headroom < 2000 {
-			headroom = limit - 1000
-		}
-		maxContextTokens = headroom
-	}
-	// Additional safeguard: for very large Anthropic windows, keep budget moderate
-	if strings.Contains(strings.ToLower(a.ModelName), "claude") && maxContextTokens > 60000 {
-		maxContextTokens = 60000
-	}
-	reserveForOutput := env.Int("AGENTRY_CONTEXT_RESERVE_OUTPUT", 1024)
-	if reserveForOutput < 256 {
-		reserveForOutput = 256
-	}
-	targetBudget := maxContextTokens - reserveForOutput
-	if targetBudget < 1000 {
-		targetBudget = maxContextTokens - 500
-	}
-
-	totalTokens := 0
-	for _, m := range msgs {
-		totalTokens += tokens.Count(m.Content, a.ModelName)
-		for _, tc := range m.ToolCalls {
-			totalTokens += tokens.Count(tc.Name, a.ModelName)
-			totalTokens += tokens.Count(string(tc.Arguments), a.ModelName)
-		}
-	}
-	// Include tool schema tokens (names, descriptions, parameter JSON) so trimming considers them
-	toolSchemaTokens := 0
-	if len(specs) > 0 {
-		for _, s := range specs {
-			toolSchemaTokens += tokens.Count(s.Name, a.ModelName)
-			toolSchemaTokens += tokens.Count(s.Description, a.ModelName)
-			// crude JSON size counting – convert map to string naïvely
-			if len(s.Parameters) > 0 {
-				// Quick approximation: join keys
-				for k, v := range s.Parameters {
-					toolSchemaTokens += tokens.Count(k, a.ModelName)
-					// parameter value structure size approximation
-					toolSchemaTokens += tokens.Count(fmt.Sprintf("%v", v), a.ModelName)
-				}
-			}
-		}
-	}
-	totalWithTools := totalTokens + toolSchemaTokens
-	if totalWithTools <= targetBudget {
-		return msgs
-	}
-	// Guard: need at least system + user to do mid trimming safely
-	if len(msgs) < 2 {
-		debug.Printf("applyBudget: only %d messages available; skipping mid-trim", len(msgs))
-		return msgs
-	}
-
-	debug.Printf("Context trimming: initial=%d (msgs=%d + tools≈%d) budget=%d reserve=%d model=%s", totalWithTools, totalTokens, toolSchemaTokens, targetBudget, reserveForOutput, a.ModelName)
-	systemMsg := msgs[0]
-	userMsg := msgs[len(msgs)-1]
-	mid := msgs[1 : len(msgs)-1]
-	idx := 0
-	for (totalTokens+toolSchemaTokens) > targetBudget && idx < len(mid) {
-		removed := tokens.Count(mid[idx].Content, a.ModelName)
-		for _, tc := range mid[idx].ToolCalls {
-			removed += tokens.Count(tc.Name, a.ModelName)
-			removed += tokens.Count(string(tc.Arguments), a.ModelName)
-		}
-		totalTokens -= removed
-		mid[idx].Content = ""
-		mid[idx].ToolCalls = nil
-		idx++
-	}
-	newMid := make([]model.ChatMessage, 0, len(mid))
-	for _, m := range mid {
-		if strings.TrimSpace(m.Content) == "" && m.Role != "system" {
-			continue
-		}
-		newMid = append(newMid, m)
-	}
-	msgs = append([]model.ChatMessage{systemMsg}, append(newMid, userMsg)...)
-	debug.Printf("Context trimmed: finalTokens≈%d (msgs) + tools≈%d removedMessages=%d", totalTokens, toolSchemaTokens, idx)
-
-	return msgs
+	return newContextBudgetManager(a.ModelName, specs).Trim(msgs)
 }
 
 // toolNames returns cached tool names for this agent (compute once)

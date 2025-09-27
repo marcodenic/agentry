@@ -28,8 +28,8 @@ func (m Model) handleAgentStart(msg agentStartMsg) (Model, tea.Cmd) {
 
 		// If this is the active agent, update the viewport
 		if msg.id == m.active {
-			m.vp.SetContent(info.History)
-			m.vp.GotoBottom()
+			m.view.Chat.Main.SetContent(info.History)
+			m.view.Chat.Main.GotoBottom()
 		}
 	}
 	return m, nil
@@ -42,8 +42,8 @@ func (m Model) handleThinkingAnimation(msg thinkingAnimationMsg) (Model, tea.Cmd
 	if info.Status != StatusRunning || info.TokensStarted {
 		// When stopping thinking animation, just refresh display with clean history
 		if msg.id == m.active {
-			m.vp.SetContent(info.History)
-			m.vp.GotoBottom()
+			m.view.Chat.Main.SetContent(info.History)
+			m.view.Chat.Main.GotoBottom()
 		}
 		return m, nil
 	}
@@ -71,10 +71,10 @@ func (m Model) handleThinkingAnimation(msg thinkingAnimationMsg) (Model, tea.Cmd
 	}
 
 	if msg.id == m.active {
-		m.vp.SetContent(displayHistory)
-		m.vp.GotoBottom()
+		m.view.Chat.Main.SetContent(displayHistory)
+		m.view.Chat.Main.GotoBottom()
 	}
 
 	// Continue the animation if still running and no tokens have started
-	return m, startThinkingAnimation(msg.id)
+	return m, m.runtime.StartThinkingAnimation(msg.id)
 }

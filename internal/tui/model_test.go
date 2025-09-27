@@ -29,7 +29,7 @@ func TestModelBasicInteraction(t *testing.T) {
 	m := New(ag)
 
 	// Test that we can send a message to the agent
-	m.input.SetValue("test message")
+	m.view.Input.SetValue("test message")
 	nm, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	m = nm.(Model)
 
@@ -68,7 +68,7 @@ func TestWindowSizing(t *testing.T) {
 	m = nm.(Model)
 
 	// Simulate entering text and pressing enter
-	m.input.SetValue("ping")
+	m.view.Input.SetValue("ping")
 	nm, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	m = nm.(Model)
 

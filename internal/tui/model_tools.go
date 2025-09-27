@@ -16,7 +16,7 @@ func (m Model) handleToolUseMessage(msg toolUseMsg) (Model, tea.Cmd) {
 	if msg.name == "lsp_diagnostics" {
 		if r, ok := msg.args["result"].(map[string]any); ok {
 			// reset list
-			m.diags = nil
+			m.view.Diagnostics.Entries = nil
 			if arr, ok := r["diagnostics"].([]any); ok {
 				for _, it := range arr {
 					if m2, ok := it.(map[string]any); ok {
@@ -28,20 +28,20 @@ func (m Model) handleToolUseMessage(msg toolUseMsg) (Model, tea.Cmd) {
 							Severity: strVal(m2["severity"]),
 							Message:  strVal(m2["message"]),
 						}
-						m.diags = append(m.diags, d)
+						m.view.Diagnostics.Entries = append(m.view.Diagnostics.Entries, d)
 					}
 				}
 			}
 		}
-		m.diagRunning = false
+		m.view.Diagnostics.Running = false
 	}
 
 	if msg.id == m.active {
-		m.vp.SetContent(info.History)
-		m.vp.GotoBottom()
+		m.view.Chat.Main.SetContent(info.History)
+		m.view.Chat.Main.GotoBottom()
 	}
 	m.infos[msg.id] = info
-	return m, m.readCmd(msg.id)
+	return m, m.runtime.ReadCmd(&m, msg.id)
 }
 
 // handleActionMessage processes action notification messages (tool start)
@@ -55,7 +55,7 @@ func (m Model) handleActionMessage(msg actionMsg) (Model, tea.Cmd) {
 	// the first tool action, giving the illusion that the assistant "thought" text
 	// disappeared. Persisting it here preserves the initial plan exactly as shown.
 	if info.StreamingResponse != "" {
-		formatted := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
+		formatted := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.view.Chat.Main.Width)
 		info.addContentWithSpacing(formatted, ContentTypeAIResponse)
 		info.StreamingResponse = "" // mark as committed
 		info.TokensStarted = false  // reset so future streaming cycles behave normally
@@ -65,11 +65,11 @@ func (m Model) handleActionMessage(msg actionMsg) (Model, tea.Cmd) {
 	info.startProgressiveStatusUpdate(msg.text, m)
 
 	if msg.id == m.active {
-		m.vp.SetContent(info.History)
-		m.vp.GotoBottom()
+		m.view.Chat.Main.SetContent(info.History)
+		m.view.Chat.Main.GotoBottom()
 	}
 	m.infos[msg.id] = info
-	return m, m.readCmd(msg.id)
+	return m, m.runtime.ReadCmd(&m, msg.id)
 }
 
 // handleModelMessage processes model information messages
@@ -82,7 +82,7 @@ func (m Model) handleModelMessage(msg modelMsg) (Model, tea.Cmd) {
 	}
 
 	m.infos[msg.id] = info
-	return m, m.readCmd(msg.id)
+	return m, m.runtime.ReadCmd(&m, msg.id)
 }
 
 // Helpers to decode numbers/strings from any

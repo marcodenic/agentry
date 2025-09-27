@@ -37,39 +37,16 @@ type Model struct {
 
 	team *team.Team
 
-	vp      viewport.Model
-	debugVp viewport.Model // Separate viewport for debug/memory view
-	input   inputManager
-	tools   list.Model
+	view   viewState
+	layout layoutState
+
+	runtime runtimeService
 
 	cwd string
 
-	activeTab int
-	width     int
-	height    int
-	lastWidth int // Track width changes to avoid expensive reformatting
-
-	// Splash screen state
-	showInitialLogo bool
-
-	// Robot companion for Agent 0
-	robot *RobotFace
-
-	// Status bar
-	statusBarModel statusbar.Model
-
 	pricing *cost.PricingTable
-
-	err error
-
-	keys Keybinds
-
-	// Diagnostics
-	diags       []Diag
-	diagRunning bool
-
-	// TODO Board
-	todoBoard TodoBoard
+	err     error
+	keys    Keybinds
 }
 
 type AgentStatus int
@@ -254,24 +231,26 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	tm.RegisterAgentTool(ag.Tools)
 
 	statusBarModel := newStatusBarModel()
-
+	view := viewState{
+		Chat:        newChatPane(vp, debugVp, true),
+		Tools:       l,
+		Input:       inputMgr,
+		Diagnostics: diagnosticsView{Entries: nil, Running: false},
+		Todo:        NewTodoBoard(),
+		Robot:       NewRobotFace(),
+		Status:      statusBarModel,
+	}
 	m := Model{
-		agents:          []*core.Agent{ag},
-		infos:           infos,
-		order:           []uuid.UUID{ag.ID},
-		active:          ag.ID,
-		team:            tm,
-		vp:              vp,
-		debugVp:         debugVp,
-		input:           inputMgr,
-		tools:           l,
-		cwd:             cwd,
-		keys:            DefaultKeybinds(),
-		showInitialLogo: true,
-		robot:           NewRobotFace(),
-		statusBarModel:  statusBarModel,
-		pricing:         cost.NewPricingTable(),
-		todoBoard:       NewTodoBoard(),
+		agents:  []*core.Agent{ag},
+		infos:   infos,
+		order:   []uuid.UUID{ag.ID},
+		active:  ag.ID,
+		team:    tm,
+		view:    view,
+		cwd:     cwd,
+		pricing: cost.NewPricingTable(),
+		keys:    DefaultKeybinds(),
+		runtime: newRuntimeService(),
 	}
 	return m
 }

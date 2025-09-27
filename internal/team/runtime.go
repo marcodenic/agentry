@@ -6,6 +6,7 @@ import (
 
 	"github.com/marcodenic/agentry/internal/contracts"
 	"github.com/marcodenic/agentry/internal/core"
+	runtime "github.com/marcodenic/agentry/internal/team/runtime"
 )
 
 // runAgent executes an agent with the given input, similar to converse.runAgent
@@ -20,16 +21,16 @@ func runAgent(ctx context.Context, ag *core.Agent, input, name string, peers []s
 	result, err := ag.Run(ctx, input)
 	timer.Checkpoint("agent.Run completed")
 
-	debugPrintf("🏁 runAgent: ag.Run completed for agent %s", name)
-	debugPrintf("🏁 runAgent: Result length: %d", len(result))
-	debugPrintf("🏁 runAgent: Error: %v", err)
-	debugPrintf("🏁 runAgent: Agent %s tokens after: %d", name, func() int {
+	runtime.DebugPrintf("🏁 runAgent: ag.Run completed for agent %s", name)
+	runtime.DebugPrintf("🏁 runAgent: Result length: %d", len(result))
+	runtime.DebugPrintf("🏁 runAgent: Error: %v", err)
+	runtime.DebugPrintf("🏁 runAgent: Agent %s tokens after: %d", name, func() int {
 		if ag.Cost != nil {
 			return ag.Cost.TotalTokens()
 		}
 		return 0
 	}())
-	debugPrintf("🏁 runAgent: Agent %s context final state: %v", name, ctx.Err())
+	runtime.DebugPrintf("🏁 runAgent: Agent %s context final state: %v", name, ctx.Err())
 
 	return result, err
 }

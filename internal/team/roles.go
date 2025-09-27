@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	runtime "github.com/marcodenic/agentry/internal/team/runtime"
 	"gopkg.in/yaml.v3"
 )
 
@@ -46,8 +47,8 @@ func LoadRolesFromIncludePaths(includePaths []string, configDir string) (map[str
 		}
 
 		roles[role.Name] = role
-		if !isTUI() {
-			if isDebug() {
+		if !runtime.IsTUI() {
+			if runtime.IsDebug() {
 				fmt.Fprintf(os.Stderr, "✅ Loaded role: %s (model: %v)\n", role.Name, role.Model)
 			}
 		}

@@ -12,6 +12,7 @@ import (
 	"github.com/marcodenic/agentry/internal/env"
 	"github.com/marcodenic/agentry/internal/memory"
 	"github.com/marcodenic/agentry/internal/model"
+	runtime "github.com/marcodenic/agentry/internal/team/runtime"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
@@ -70,7 +71,7 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 		for _, restrictedTool := range roleConfig.RestrictedTools {
 			delete(registry, restrictedTool)
 		}
-		if !isTUI() {
+		if !runtime.IsTUI() {
 			fmt.Fprintf(os.Stderr, "🚫 SpawnAgent: Restricted %d tools for role %s: %v\n",
 				len(roleConfig.RestrictedTools), role, roleConfig.RestrictedTools)
 		}
@@ -82,12 +83,12 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 
 	if roleConfig.Model != nil {
 		// Use role-specific model configuration
-		if !isTUI() {
+		if !runtime.IsTUI() {
 			fmt.Fprintf(os.Stderr, "🔧 SpawnAgent: Attempting to create model client for role %s with provider %s\n", role, roleConfig.Model.Provider)
 		}
 		c, err := model.FromManifest(*roleConfig.Model)
 		if err != nil {
-			if !isTUI() {
+			if !runtime.IsTUI() {
 				fmt.Fprintf(os.Stderr, "❌ SpawnAgent: failed to create model client for role %s: %v, falling back to mock\n", role, err)
 			}
 			client = model.NewMock()
@@ -95,7 +96,7 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 		} else {
 			client = c
 			modelName = fmt.Sprintf("%s/%s", roleConfig.Model.Provider, roleConfig.Model.Options["model"])
-			if !isTUI() {
+			if !runtime.IsTUI() {
 				fmt.Fprintf(os.Stderr, "✅ SpawnAgent: Successfully created %s model client for role %s\n", modelName, role)
 			}
 		}
@@ -114,7 +115,7 @@ func (t *Team) SpawnAgent(ctx context.Context, name, role string) (*Agent, error
 				modelName = "mock"
 			}
 		}
-		if !isTUI() {
+		if !runtime.IsTUI() {
 			fmt.Fprintf(os.Stderr, "⚠️  SpawnAgent: No model config for role %s, using isolated client (%s)\n", role, modelName)
 		}
 	}

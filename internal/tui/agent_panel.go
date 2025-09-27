@@ -13,8 +13,8 @@ func (m Model) agentPanel(panelWidth int) string {
 
 	// Use our cute robot for the title instead of triangle
 	var titleGlyph string
-	if m.robot != nil {
-		titleGlyph = m.robot.GetStyledFace()
+	if m.view.Robot != nil {
+		titleGlyph = m.view.Robot.GetStyledFace()
 	} else {
 		titleGlyph = glyphs.OrangeTriangle()
 	}
@@ -138,21 +138,21 @@ func (m Model) agentPanel(panelWidth int) string {
 	}
 
 	// Diagnostics summary block
-	if len(m.diags) > 0 || m.diagRunning {
+	if len(m.view.Diagnostics.Entries) > 0 || m.view.Diagnostics.Running {
 		title := lipgloss.NewStyle().
 			Foreground(lipgloss.Color(uiColorPanelTitleHex)).
 			Bold(true).
 			Render("🩺 DIAGNOSTICS")
 		lines = append(lines, title)
-		if m.diagRunning {
+		if m.view.Diagnostics.Running {
 			lines = append(lines, "  running...")
 		}
-		if len(m.diags) > 0 {
+		if len(m.view.Diagnostics.Entries) > 0 {
 			// Aggregate counts
 			errs := 0
 			warns := 0
 			perFile := map[string]int{}
-			for _, d := range m.diags {
+			for _, d := range m.view.Diagnostics.Entries {
 				if d.Severity == "warning" {
 					warns++
 				} else {
@@ -171,7 +171,7 @@ func (m Model) agentPanel(panelWidth int) string {
 				}
 			}
 			// Show first diagnostic preview
-			d := m.diags[0]
+			d := m.view.Diagnostics.Entries[0]
 			preview := fmt.Sprintf("  %s %s:%d:%d %s", severityGlyph(d.Severity), d.File, d.Line, d.Col, d.Message)
 			lines = append(lines, lipgloss.NewStyle().Faint(true).Render(preview))
 		}

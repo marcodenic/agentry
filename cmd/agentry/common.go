@@ -64,10 +64,8 @@ func (o *commonOpts) bindFlags(fs *flag.FlagSet) {
 	fs.StringVar(&o.denyTools, "deny-tools", "", "comma-separated list of tools to exclude")
 	fs.BoolVar(&o.disableContext, "disable-context", false, "disable context pipeline")
 	fs.StringVar(&o.auditLog, "audit-log", "", "path to audit log file")
-	fs.IntVar(&o.maxIter, "max_iter", 0, "limit agent iterations (0=unlimited)")
-	fs.IntVar(&o.maxIter, "max-iter", 0, "limit agent iterations (0=unlimited)")
-	fs.IntVar(&o.httpTimeout, "http_timeout", 300, "HTTP client timeout in seconds")
-	fs.IntVar(&o.httpTimeout, "http-timeout", 300, "HTTP client timeout in seconds")
+	bindIntWithAliases(fs, &o.maxIter, 0, "limit agent iterations (0=unlimited)", "max-iter", "max_iter")
+	bindIntWithAliases(fs, &o.httpTimeout, 300, "HTTP client timeout in seconds", "http-timeout", "http_timeout")
 }
 
 func resolveConfigPath(cmd string, explicit string, fs *flag.FlagSet) string {
@@ -101,14 +99,15 @@ func discoverConfigPath(candidate string) (string, bool) {
 }
 
 func applyOverrides(cfg *config.File, o *commonOpts) {
-	// Handle debug flag by enabling debug output dynamically
+	applyOverridesWithEnv(cfg, o, config.OSEnv())
+}
+
+func applyOverridesWithEnv(cfg *config.File, o *commonOpts, env config.RuntimeEnv) {
 	if o.debug {
 		debug.EnableDebug()
 	}
 
-	// Handle tool filtering flags by modifying config directly
 	if o.disableTools {
-		// Clear tool permissions to allow all tools
 		cfg.Permissions.Tools = nil
 	}
 	if allow := parseCSV(o.allowTools); len(allow) > 0 {
@@ -118,24 +117,45 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 		applyToolDenyList(cfg, deny)
 	}
 
-	// Handle context and audit flags
-	if o.disableContext {
-		os.Setenv("AGENTRY_DISABLE_CONTEXT", "1")
-	}
-	if o.auditLog != "" {
-		os.Setenv("AGENTRY_AUDIT_LOG", o.auditLog)
-	}
+	mutator := config.NewRuntimeMutator(env)
+	envProvider := mutator.Env()
 
+	finalTheme := strings.TrimSpace(cfg.Theme)
+	if envTheme := strings.TrimSpace(envProvider.Getenv("AGENTRY_THEME")); envTheme != "" {
+		finalTheme = envTheme
+	}
 	if o.theme != "" {
+		finalTheme = o.theme
+	}
+	if finalTheme != "" {
 		if cfg.Themes == nil {
 			cfg.Themes = map[string]string{}
 		}
-		cfg.Themes["active"] = o.theme
-		cfg.Theme = o.theme
+		cfg.Themes["active"] = finalTheme
+		cfg.Theme = finalTheme
 	}
-	if cfg.Theme != "" {
-		os.Setenv("AGENTRY_THEME", cfg.Theme)
+
+	auditLog := strings.TrimSpace(envProvider.Getenv("AGENTRY_AUDIT_LOG"))
+	if o.auditLog != "" {
+		auditLog = o.auditLog
 	}
+
+	disableContext, disableWasSet := parseEnvBool(envProvider.Getenv("AGENTRY_DISABLE_CONTEXT"))
+	if !disableWasSet {
+		disableContext = false
+	}
+	if o.disableContext {
+		disableContext = true
+	}
+
+	if err := mutator.Apply(config.RuntimeSettings{
+		Theme:          cfg.Theme,
+		AuditLogPath:   auditLog,
+		DisableContext: disableContext,
+	}); err != nil {
+		debug.Printf("applyOverrides: failed to apply runtime overrides: %v", err)
+	}
+
 	if o.keybindsPath != "" {
 		if b, err := os.ReadFile(o.keybindsPath); err == nil {
 			_ = json.Unmarshal(b, &cfg.Keybinds)
@@ -156,10 +176,23 @@ func applyOverrides(cfg *config.File, o *commonOpts) {
 		}
 	}
 
-	// Apply model HTTP timeout (flags take precedence over env)
 	if o.httpTimeout > 0 {
 		model.SetHTTPTimeout(o.httpTimeout)
 	}
+}
+
+func parseEnvBool(raw string) (bool, bool) {
+	trimmed := strings.TrimSpace(strings.ToLower(raw))
+	if trimmed == "" {
+		return false, false
+	}
+	switch trimmed {
+	case "1", "true", "yes", "y", "on":
+		return true, true
+	case "0", "false", "no", "n", "off":
+		return false, true
+	}
+	return true, true
 }
 
 func parseCSV(raw string) []string {

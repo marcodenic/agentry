@@ -246,7 +246,7 @@ func (r *RobotFace) GetStyledMoodText() string {
 
 // updateRobotState updates the robot's emotional state based on Agent 0's status
 func (m *Model) updateRobotState() {
-	if m.robot == nil {
+	if m.view.Robot == nil {
 		return
 	}
 
@@ -257,16 +257,16 @@ func (m *Model) updateRobotState() {
 			switch info.Status {
 			case StatusRunning:
 				if info.TokensStarted {
-					m.robot.SetState(RobotThinking)
+					m.view.Robot.SetState(RobotThinking)
 				} else {
-					m.robot.SetState(RobotActive)
+					m.view.Robot.SetState(RobotActive)
 				}
 			case StatusError:
-				m.robot.SetState(RobotError)
+				m.view.Robot.SetState(RobotError)
 			case StatusStopped:
-				m.robot.SetState(RobotSleeping)
+				m.view.Robot.SetState(RobotSleeping)
 			default:
-				m.robot.SetState(RobotIdle)
+				m.view.Robot.SetState(RobotIdle)
 			}
 		}
 	}

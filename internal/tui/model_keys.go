@@ -21,13 +21,13 @@ func (m Model) handleKeyMessages(msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 
 	// Input history navigation when input is focused
-	if m.input.Focused() {
+	if m.view.Input.Focused() {
 		switch msg.String() {
 		case "up":
-			m.input.HistoryUp()
+			m.view.Input.HistoryUp()
 			return m, nil
 		case "down":
-			m.input.HistoryDown()
+			m.view.Input.HistoryDown()
 			return m, nil
 		}
 	}
@@ -65,13 +65,13 @@ func (m Model) handleQuit() (Model, tea.Cmd) {
 
 // handleToggleTab switches between chat and debug tabs
 func (m Model) handleToggleTab() (Model, tea.Cmd) {
-	m.activeTab = 1 - m.activeTab
+	m.layout.activeTab = 1 - m.layout.activeTab
 	// When switching to debug tab, update debug viewport content
-	if m.activeTab == 1 {
+	if m.layout.activeTab == 1 {
 		if info, ok := m.infos[m.active]; ok {
 			debugContent := m.renderDetailedMemory(info.Agent)
-			m.debugVp.SetContent(debugContent)
-			m.debugVp.GotoBottom() // Start at bottom to see latest events
+			m.view.Chat.Debug.SetContent(debugContent)
+			m.view.Chat.Debug.GotoBottom() // Start at bottom to see latest events
 		}
 	}
 	return m, nil
@@ -88,7 +88,7 @@ func (m Model) handlePause() (Model, tea.Cmd) {
 		// Clean up streaming response if in progress
 		if info.StreamingResponse != "" {
 			// Add the partial streaming response to history before stopping
-			formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.vp.Width)
+			formattedResponse := m.formatWithBar(m.aiBar(), info.StreamingResponse, m.view.Chat.Main.Width)
 			info.addContentWithSpacing(formattedResponse, ContentTypeAIResponse)
 			info.StreamingResponse = ""
 		}
@@ -100,27 +100,27 @@ func (m Model) handlePause() (Model, tea.Cmd) {
 		m.infos[m.active] = info
 
 		// Update viewport to show the stop message
-		m.vp.SetContent(info.History)
-		m.vp.GotoBottom()
+		m.view.Chat.Main.SetContent(info.History)
+		m.view.Chat.Main.GotoBottom()
 	}
 	return m, nil
 }
 
 // handleSubmit processes input submission
 func (m Model) handleSubmit() (Model, tea.Cmd) {
-	if m.input.Focused() {
+	if m.view.Input.Focused() {
 		// Check if the active agent is running before accepting new input
 		if info, ok := m.infos[m.active]; ok && info.Status == StatusRunning {
 			// Agent is busy, ignore input
 			return m, nil
 		}
 
-		txt := strings.TrimSpace(m.input.Value())
+		txt := strings.TrimSpace(m.view.Input.Value())
 		if txt == "" {
 			return m, nil
 		}
-		m.input.PushHistory(txt)
-		m.input.ResetAfterSend()
+		m.view.Input.PushHistory(txt)
+		m.view.Input.ResetAfterSend()
 		// ALL input goes through Agent 0's natural language processing
 		// No slash commands - everything is handled by delegation
 		return m.startAgent(m.active, txt)

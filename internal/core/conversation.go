@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/env"
@@ -116,91 +115,7 @@ func (s *conversationSession) loop() (string, error) {
 }
 
 func (s *conversationSession) streamOnce() (model.Completion, string, error) {
-	agent := s.agent
-	s.tracer.StreamInvocation(s.msgs)
-
-	streamStartTime := time.Now()
-	streamCh, sErr := agent.Client.Stream(s.ctx, s.msgs, s.specs)
-	streamCallDuration := time.Since(streamStartTime)
-	debug.Printf("Agent.Run: MODEL CLIENT RETURNED - AFTER STREAM, err=%v, call_duration=%v", sErr, streamCallDuration)
-	if sErr != nil {
-		return model.Completion{}, "", sErr
-	}
-	if streamCh == nil {
-		return model.Completion{}, "", fmt.Errorf("streaming client returned nil channel")
-	}
-
-	var (
-		assembled          string
-		finalToolCalls     []model.ToolCall
-		inputTokensUsed    int
-		outputTokensUsed   int
-		modelNameUsed      string
-		responseIDUsed     string
-		firstTokenRecorded bool
-		sb                 strings.Builder
-	)
-
-	chunkCount := 0
-	streamReadStartTime := time.Now()
-	for chunk := range streamCh {
-		chunkCount++
-		s.tracer.StreamChunk(chunkCount)
-		if chunk.Err != nil {
-			debug.Printf("Agent.Run: Chunk error: %v", chunk.Err)
-			return model.Completion{}, "", chunk.Err
-		}
-		if chunk.ContentDelta != "" {
-			sb.WriteString(chunk.ContentDelta)
-			if !firstTokenRecorded {
-				firstTokenRecorded = true
-				debug.Printf("Agent.Run: First token received")
-			}
-			agent.Trace(s.ctx, trace.EventToken, chunk.ContentDelta)
-		}
-		if chunk.Done {
-			debug.Printf("Agent.Run: Received final chunk (Done=true)")
-			finalToolCalls = chunk.ToolCalls
-			if chunk.InputTokens > 0 {
-				inputTokensUsed = chunk.InputTokens
-			}
-			if chunk.OutputTokens > 0 {
-				outputTokensUsed = chunk.OutputTokens
-			}
-			if chunk.ModelName != "" {
-				modelNameUsed = chunk.ModelName
-			}
-			if chunk.ResponseID != "" {
-				responseIDUsed = chunk.ResponseID
-			}
-		}
-	}
-
-	s.tracer.StreamCompleted(chunkCount, time.Since(streamReadStartTime))
-	assembled = sb.String()
-	debug.Printf("Agent.Run: Assembled response length: %d chars", len(assembled))
-
-	completion := model.Completion{
-		Content:      assembled,
-		ToolCalls:    finalToolCalls,
-		InputTokens:  inputTokensUsed,
-		OutputTokens: outputTokensUsed,
-		ModelName: func() string {
-			if modelNameUsed != "" {
-				return modelNameUsed
-			}
-			return agent.ModelName
-		}(),
-	}
-
-	s.tracer.CompletionReady(completion)
-
-	agent.Trace(s.ctx, trace.EventStepStart, completion)
-	if responseIDUsed != "" {
-		agent.Trace(s.ctx, trace.EventSummary, map[string]any{"response_id": responseIDUsed})
-	}
-
-	return completion, responseIDUsed, nil
+	return newStreamExecutor(s).Execute()
 }
 
 func (s *conversationSession) handleCompletion(res model.Completion, responseID string) (string, bool, error) {

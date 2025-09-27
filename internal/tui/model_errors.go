@@ -69,8 +69,8 @@ func (m Model) handleErrorMessage(msg errMsg) (Model, tea.Cmd) {
 
 		// Update viewport if this is the active agent
 		if m.active == info.Agent.ID {
-			m.vp.SetContent(info.History)
-			m.vp.GotoBottom()
+			m.view.Chat.Main.SetContent(info.History)
+			m.view.Chat.Main.GotoBottom()
 		}
 
 		m.infos[m.active] = info

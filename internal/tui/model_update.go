@@ -10,8 +10,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	// Update robot animation
-	if m.robot != nil {
-		m.robot.Update()
+	if m.view.Robot != nil {
+		m.view.Robot.Update()
 		m.updateRobotState()
 	}
 
@@ -70,21 +70,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Handle viewport scrolling based on active tab
-	if m.activeTab == 0 {
-		m.vp, _ = m.vp.Update(msg)
+	if m.layout.activeTab == 0 {
+		m.view.Chat.Main, _ = m.view.Chat.Main.Update(msg)
 		// Only auto-scroll to bottom when new content is being added, not on every update
 		// This allows users to scroll through chat history without being forced to bottom
 	} else {
-		m.debugVp, _ = m.debugVp.Update(msg)
+		m.view.Chat.Debug, _ = m.view.Chat.Debug.Update(msg)
 		// Only auto-scroll to bottom when new content is being added, not on every update
 		// This allows users to scroll through debug history without being forced to bottom
 	}
 
-	if cmd := m.input.Update(msg); cmd != nil {
+	if cmd := m.view.Input.Update(msg); cmd != nil {
 		cmds = append(cmds, cmd)
 	}
-	m.tools, _ = m.tools.Update(msg)
-	m.statusBarModel, _ = m.statusBarModel.Update(msg)
+	m.view.Tools, _ = m.view.Tools.Update(msg)
+	m.view.Status, _ = m.view.Status.Update(msg)
 
 	return m, tea.Batch(cmds...)
 }

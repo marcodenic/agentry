@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	runtime "github.com/marcodenic/agentry/internal/team/runtime"
 )
 
 // LogCoordinationEvent adds a coordination event to the log and persists it.
@@ -31,8 +33,8 @@ func (t *Team) LogCoordinationEvent(eventType, from, to, content string, metadat
 	}
 
 	// Enhanced console logging
-	debugPrintf("📝 COORDINATION EVENT: %s -> %s | %s: %s\n", from, to, eventType, content)
-	logToFile(fmt.Sprintf("COORDINATION: %s -> %s | %s: %s", from, to, eventType, content))
+	runtime.DebugPrintf("📝 COORDINATION EVENT: %s -> %s | %s: %s\n", from, to, eventType, content)
+	runtime.LogToFile(fmt.Sprintf("COORDINATION: %s -> %s | %s: %s", from, to, eventType, content))
 }
 
 // loadCoordinationFromStore loads persisted coordination events at startup.
@@ -147,7 +149,7 @@ func (t *Team) PublishWorkspaceEvent(agentID, eventType, description string, dat
 	t.SetSharedData(eventsKey, eventList)
 
 	// Only log to stderr in non-TUI mode to avoid console interference
-	if !isTUI() {
+	if !runtime.IsTUI() {
 		fmt.Fprintf(os.Stderr, "📡 WORKSPACE EVENT: %s | %s: %s\n", agentID, eventType, description)
 	}
 

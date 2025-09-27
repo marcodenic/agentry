@@ -64,7 +64,7 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 				}
 
 				// Set proper token progress bar width based on current panel width
-				panelWidth := int(float64(m.width) * 0.25)
+				panelWidth := int(float64(m.layout.width) * 0.25)
 				barWidth := panelWidth - 8 // Same calculation as layout and activity chart
 				if barWidth < 10 {
 					barWidth = 10
@@ -116,7 +116,7 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 				})
 
 				// Schedule readCmd for the new agent to listen to its trace events
-				newAgentCmds = append(newAgentCmds, m.readCmd(teamAgent.Agent.ID))
+				newAgentCmds = append(newAgentCmds, m.runtime.ReadCmd(&m, teamAgent.Agent.ID))
 			}
 		}
 	}
