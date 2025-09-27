@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-func init() {
-	builtinMap["view"] = builtinSpec{
+func viewSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "View file contents with line numbers and optional syntax highlighting information",
 		Schema: map[string]any{
 			"type": "object",
@@ -52,6 +52,10 @@ func init() {
 		},
 		Exec: viewFileExec,
 	}
+}
+
+func registerViewBuiltins(reg *builtinRegistry) {
+	reg.add("view", viewSpec())
 }
 
 func viewFileExec(ctx context.Context, args map[string]any) (string, error) {

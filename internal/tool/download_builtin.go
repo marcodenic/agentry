@@ -13,8 +13,8 @@ import (
 	"time"
 )
 
-func init() {
-	builtinMap["download"] = builtinSpec{
+func downloadSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Download files from URLs to local filesystem",
 		Schema: map[string]any{
 			"type": "object",
@@ -50,6 +50,10 @@ func init() {
 		},
 		Exec: downloadFileExec,
 	}
+}
+
+func registerDownloadBuiltins(reg *builtinRegistry) {
+	reg.add("download", downloadSpec())
 }
 
 func downloadFileExec(ctx context.Context, args map[string]any) (string, error) {

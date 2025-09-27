@@ -10,9 +10,8 @@ import (
 	"time"
 )
 
-func init() {
-	// Register simple write builtin
-	builtinMap["write"] = builtinSpec{
+func writeBuiltinSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Write full content to a file (create or overwrite)",
 		Schema: map[string]any{
 			"type": "object",
@@ -27,9 +26,10 @@ func init() {
 		},
 		Exec: writeFileExec,
 	}
+}
 
-	// Register simple edit builtin
-	builtinMap["edit"] = builtinSpec{
+func editBuiltinSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Edit (overwrite) a file's content; requires prior view and unchanged file",
 		Schema: map[string]any{
 			"type": "object",
@@ -44,6 +44,11 @@ func init() {
 		},
 		Exec: editFileExec,
 	}
+}
+
+func registerWriteEditBuiltins(reg *builtinRegistry) {
+	reg.add("write", writeBuiltinSpec())
+	reg.add("edit", editBuiltinSpec())
 }
 
 func getPathAndContent(args map[string]any) (path string, content string) {

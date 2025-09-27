@@ -156,3 +156,7 @@ func getSystemBuiltins() map[string]builtinSpec {
 		},
 	}
 }
+
+func registerSystemBuiltins(reg *builtinRegistry) {
+	reg.addAll(getSystemBuiltins())
+}

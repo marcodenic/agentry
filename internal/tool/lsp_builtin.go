@@ -12,9 +12,8 @@ import (
 	"github.com/marcodenic/agentry/internal/lsp"
 )
 
-// Register a simple LSP diagnostics builtin that shells out to language-specific checkers
-func init() {
-	builtinMap["lsp_diagnostics"] = builtinSpec{
+func lspDiagnosticsSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Run language diagnostics (Go: gopls check, TypeScript: tsc --noEmit, Python: pyright, Rust: cargo check, JavaScript: eslint)",
 		Schema: map[string]any{
 			"type": "object",
@@ -81,6 +80,10 @@ func init() {
 			return marshal(res)
 		},
 	}
+}
+
+func registerLSPBuiltins(reg *builtinRegistry) {
+	reg.add("lsp_diagnostics", lspDiagnosticsSpec())
 }
 
 func expandPaths(v any) ([]string, error) {

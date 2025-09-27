@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-func init() {
-	builtinMap["edit_range"] = builtinSpec{
+func editRangeSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Replace a range of lines in a file with new content atomically",
 		Schema: map[string]any{
 			"type": "object",
@@ -45,6 +45,10 @@ func init() {
 		},
 		Exec: editRangeExec,
 	}
+}
+
+func registerEditRangeBuiltins(reg *builtinRegistry) {
+	reg.add("edit_range", editRangeSpec())
 }
 
 func editRangeExec(ctx context.Context, args map[string]any) (string, error) {

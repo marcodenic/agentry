@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-func init() {
-	builtinMap["insert_at"] = builtinSpec{
+func insertAtSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Insert new lines at a specific line position in a file",
 		Schema: map[string]any{
 			"type": "object",
@@ -39,6 +39,10 @@ func init() {
 		},
 		Exec: insertAtExec,
 	}
+}
+
+func registerInsertAtBuiltins(reg *builtinRegistry) {
+	reg.add("insert_at", insertAtSpec())
 }
 
 func insertAtExec(ctx context.Context, args map[string]any) (string, error) {

@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-func init() {
-	builtinMap["api"] = builtinSpec{
+func apiSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Make HTTP/REST API requests",
 		Schema: map[string]any{
 			"type": "object",
@@ -55,6 +55,10 @@ func init() {
 		},
 		Exec: apiRequestExec,
 	}
+}
+
+func registerAPIBuiltins(reg *builtinRegistry) {
+	reg.add("api", apiSpec())
 }
 
 func apiRequestExec(ctx context.Context, args map[string]any) (string, error) {

@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-func init() {
-	builtinMap["web_search"] = builtinSpec{
+func webSearchSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Search the web using various search engines",
 		Schema: map[string]any{
 			"type": "object",
@@ -43,6 +43,10 @@ func init() {
 		},
 		Exec: webSearchExec,
 	}
+}
+
+func registerWebSearchBuiltins(reg *builtinRegistry) {
+	reg.add("web_search", webSearchSpec())
 }
 
 func webSearchExec(ctx context.Context, args map[string]any) (string, error) {

@@ -11,8 +11,8 @@ import (
 	"unicode/utf8"
 )
 
-func init() {
-	builtinMap["fileinfo"] = builtinSpec{
+func fileInfoSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Get comprehensive information about a file (size, lines, encoding, etc.)",
 		Schema: map[string]any{
 			"type": "object",
@@ -29,6 +29,10 @@ func init() {
 		},
 		Exec: getFileInfoExec,
 	}
+}
+
+func registerFileInfoBuiltins(reg *builtinRegistry) {
+	reg.add("fileinfo", fileInfoSpec())
 }
 
 func getFileInfoExec(ctx context.Context, args map[string]any) (string, error) {

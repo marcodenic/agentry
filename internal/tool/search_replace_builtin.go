@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-func init() {
-	builtinMap["search_replace"] = builtinSpec{
+func searchReplaceSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Search and replace text in a file with optional regex support",
 		Schema: map[string]any{
 			"type": "object",
@@ -48,6 +48,10 @@ func init() {
 		},
 		Exec: searchReplaceExec,
 	}
+}
+
+func registerSearchReplaceBuiltins(reg *builtinRegistry) {
+	reg.add("search_replace", searchReplaceSpec())
 }
 
 func searchReplaceExec(ctx context.Context, args map[string]any) (string, error) {

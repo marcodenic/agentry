@@ -95,6 +95,10 @@ func getTodoBuiltins() map[string]builtinSpec {
 	return todoTools()
 }
 
+func registerTodoBuiltins(reg *builtinRegistry) {
+	reg.addAll(getTodoBuiltins())
+}
+
 func todoAddSpec() builtinSpec {
 	return builtinSpec{
 		Desc: "Add a TODO item to the project planning list",

@@ -20,7 +20,7 @@
 ## Team Tool Registry / Builtins (internal/tool)
 - [x] Replace literal builtin registries by splitting into domain-focused files/modules (coordination, discovery, todo, etc.).
 - [x] Add shared schema helpers (alias resolution) reused by agent delegation tools.
-- [ ] Introduce a thin registry assembly layer so the root map only aggregates module exports.
+- [x] Introduce a thin registry assembly layer so the root map only aggregates module exports.
 
 ## File Discovery & Todo Tooling (`internal/tool/file_discovery_builtins.go`, `internal/tool/todo_builtins.go`)
 - [x] Split discovery/todo tool registration into smaller modules organised by capability (search, listing, todo CRUD) to keep each file manageable.
@@ -28,7 +28,7 @@
 
 ## Model Client (`internal/model/openai.go`)
 - [x] Break request construction, HTTP transport, streaming parsing, and telemetry into distinct structs/functions to isolate Responses API quirks from the generic `Client` interface (request building extracted).
-- [ ] Provide a reusable streaming reader that can be unit-tested without hitting the network, reducing the mental load for agents editing the client.
+- [x] Provide a reusable streaming reader that can be unit-tested without hitting the network, reducing the mental load for agents editing the client.
 
 ## CLI Entry Points (`cmd/agentry/common.go`)
 - [x] Move flag parsing into reusable helpers so each command consumes a typed config struct; keep environment mutation in a narrow layer for clarity.

@@ -9,9 +9,13 @@ func newBuiltinRegistry() *builtinRegistry {
 	return &builtinRegistry{specs: make(map[string]builtinSpec)}
 }
 
+func (r *builtinRegistry) add(name string, spec builtinSpec) {
+	r.specs[name] = spec
+}
+
 func (r *builtinRegistry) addAll(src map[string]builtinSpec) {
 	for name, spec := range src {
-		r.specs[name] = spec
+		r.add(name, spec)
 	}
 }
 

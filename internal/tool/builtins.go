@@ -19,28 +19,41 @@ type builtinSpec struct {
 	Exec   ExecFn
 }
 
-// builtinMap holds safe builtin tools keyed by name.
-var builtinMap = map[string]builtinSpec{}
+// builtinModule registers builtin specs with the provided registry.
+type builtinModule func(*builtinRegistry)
 
-// init initializes the builtin map by merging all builtin tool categories
-func init() {
-	// Merge all builtin tool categories
-	for name, spec := range getUtilityBuiltins() {
-		builtinMap[name] = spec
+// builtinModules enumerates all builtin providers in deterministic assembly order.
+var builtinModules = []builtinModule{
+	registerUtilityBuiltins,
+	registerNetworkBuiltins,
+	registerWebSearchBuiltins,
+	registerTeamBuiltins,
+	registerSystemBuiltins,
+	registerFileDiscoveryBuiltins,
+	registerTodoBuiltins,
+	registerAPIBuiltins,
+	registerCreateBuiltins,
+	registerDownloadBuiltins,
+	registerEditRangeBuiltins,
+	registerFileInfoBuiltins,
+	registerInsertAtBuiltins,
+	registerLSPBuiltins,
+	registerReadLinesBuiltins,
+	registerReadWebpageBuiltins,
+	registerSearchReplaceBuiltins,
+	registerShellBuiltins,
+	registerViewBuiltins,
+	registerWriteEditBuiltins,
+}
+
+// builtinMap holds safe builtin tools keyed by name.
+var builtinMap = assembleBuiltinRegistry()
+
+// assembleBuiltinRegistry collects builtin specs from each module.
+func assembleBuiltinRegistry() map[string]builtinSpec {
+	reg := newBuiltinRegistry()
+	for _, module := range builtinModules {
+		module(reg)
 	}
-	for name, spec := range getNetworkBuiltins() {
-		builtinMap[name] = spec
-	}
-	for name, spec := range getTeamBuiltins() {
-		builtinMap[name] = spec
-	}
-	for name, spec := range getSystemBuiltins() {
-		builtinMap[name] = spec
-	}
-	for name, spec := range getFileDiscoveryBuiltins() {
-		builtinMap[name] = spec
-	}
-	for name, spec := range getTodoBuiltins() {
-		builtinMap[name] = spec
-	}
+	return reg.finalize()
 }

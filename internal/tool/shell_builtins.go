@@ -9,9 +9,8 @@ import (
 	"github.com/marcodenic/agentry/internal/patch"
 )
 
-func init() {
-	// Add patch tool
-	builtinMap["patch"] = builtinSpec{
+func patchSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Apply a unified diff patch",
 		Schema: map[string]any{
 			"type":       "object",
@@ -31,97 +30,66 @@ func init() {
 			return patch.MarshalResult(res)
 		},
 	}
+}
 
-	// Add OS-specific shell tools
-	if runtime.GOOS == "windows" {
-		builtinMap["powershell"] = builtinSpec{
-			Desc: "Execute PowerShell commands on Windows",
-			Schema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"command": map[string]any{
-						"type":        "string",
-						"description": "PowerShell command to execute (e.g., 'Get-ChildItem', 'Get-Content file.txt')",
-					},
+func windowsShellSpec(name, desc, example string) builtinSpec {
+	return builtinSpec{
+		Desc: desc,
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"command": map[string]any{
+					"type":        "string",
+					"description": "Command to execute",
 				},
-				"required": []string{"command"},
-				"example":  map[string]any{"command": "Get-ChildItem -Name '*.go'"},
 			},
-			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				cmd, _ := args["command"].(string)
-				if cmd == "" {
-					return "", errors.New("missing command")
-				}
-				return ExecDirect(ctx, cmd)
-			},
-		}
-
-		builtinMap["cmd"] = builtinSpec{
-			Desc: "Execute cmd.exe commands on Windows",
-			Schema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"command": map[string]any{
-						"type":        "string",
-						"description": "Command prompt command to execute",
-					},
-				},
-				"required": []string{"command"},
-				"example":  map[string]any{"command": "dir *.go"},
-			},
-			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				cmd, _ := args["command"].(string)
-				if cmd == "" {
-					return "", errors.New("missing command")
-				}
-				// Execute using cmd.exe
-				cmdLine := fmt.Sprintf("cmd /c %s", cmd)
-				return ExecDirect(ctx, cmdLine)
-			},
-		}
-	} else {
-		builtinMap["bash"] = builtinSpec{
-			Desc: "Execute bash commands on Unix/Linux/macOS",
-			Schema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"command": map[string]any{
-						"type":        "string",
-						"description": "Bash command to execute (e.g., 'ls -la', 'cat file.txt')",
-					},
-				},
-				"required": []string{"command"},
-				"example":  map[string]any{"command": "ls -la *.go"},
-			},
-			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				cmd, _ := args["command"].(string)
-				if cmd == "" {
-					return "", errors.New("missing command")
-				}
-				return ExecDirect(ctx, cmd)
-			},
-		}
-
-		builtinMap["sh"] = builtinSpec{
-			Desc: "Execute sh commands on Unix/Linux/macOS",
-			Schema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"command": map[string]any{
-						"type":        "string",
-						"description": "Shell command to execute",
-					},
-				},
-				"required": []string{"command"},
-				"example":  map[string]any{"command": "find . -name '*.go'"},
-			},
-			Exec: func(ctx context.Context, args map[string]any) (string, error) {
-				cmd, _ := args["command"].(string)
-				if cmd == "" {
-					return "", errors.New("missing command")
-				}
-				return ExecDirect(ctx, cmd)
-			},
-		}
+			"required": []string{"command"},
+			"example":  map[string]any{"command": example},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			cmd, _ := args["command"].(string)
+			if cmd == "" {
+				return "", errors.New("missing command")
+			}
+			if name == "cmd" {
+				return ExecDirect(ctx, fmt.Sprintf("cmd /c %s", cmd))
+			}
+			return ExecDirect(ctx, cmd)
+		},
 	}
+}
+
+func unixShellSpec(desc string) builtinSpec {
+	return builtinSpec{
+		Desc: desc,
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"command": map[string]any{
+					"type":        "string",
+					"description": "Command to execute",
+				},
+			},
+			"required": []string{"command"},
+			"example":  map[string]any{"command": "ls -la"},
+		},
+		Exec: func(ctx context.Context, args map[string]any) (string, error) {
+			cmd, _ := args["command"].(string)
+			if cmd == "" {
+				return "", errors.New("missing command")
+			}
+			return ExecDirect(ctx, cmd)
+		},
+	}
+}
+
+func registerShellBuiltins(reg *builtinRegistry) {
+	reg.add("patch", patchSpec())
+	if runtime.GOOS == "windows" {
+		reg.add("powershell", windowsShellSpec("powershell", "Execute PowerShell commands on Windows", "Get-ChildItem -Name '*.go'"))
+		reg.add("cmd", windowsShellSpec("cmd", "Execute cmd.exe commands on Windows", "dir *.go"))
+		return
+	}
+	reg.add("bash", unixShellSpec("Execute bash commands on Unix/Linux/macOS"))
+	reg.add("sh", unixShellSpec("Execute sh commands on Unix/Linux/macOS"))
 }

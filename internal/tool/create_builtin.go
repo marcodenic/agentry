@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-func init() {
-	builtinMap["create"] = builtinSpec{
+func createFileSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Create a new file with specified content",
 		Schema: map[string]any{
 			"type": "object",
@@ -38,6 +38,10 @@ func init() {
 		},
 		Exec: createFileExec,
 	}
+}
+
+func registerCreateBuiltins(reg *builtinRegistry) {
+	reg.add("create", createFileSpec())
 }
 
 func createFileExec(ctx context.Context, args map[string]any) (string, error) {

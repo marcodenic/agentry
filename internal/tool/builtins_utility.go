@@ -48,3 +48,7 @@ func getUtilityBuiltins() map[string]builtinSpec {
 		},
 	}
 }
+
+func registerUtilityBuiltins(reg *builtinRegistry) {
+	reg.addAll(getUtilityBuiltins())
+}

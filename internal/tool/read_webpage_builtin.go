@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-func init() {
-	builtinMap["read_webpage"] = builtinSpec{
+func readWebpageSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Read and extract content from web pages",
 		Schema: map[string]any{
 			"type": "object",
@@ -44,6 +44,10 @@ func init() {
 		},
 		Exec: readWebpageExec,
 	}
+}
+
+func registerReadWebpageBuiltins(reg *builtinRegistry) {
+	reg.add("read_webpage", readWebpageSpec())
 }
 
 func readWebpageExec(ctx context.Context, args map[string]any) (string, error) {

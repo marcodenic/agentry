@@ -32,3 +32,7 @@ func getTeamBuiltins() map[string]builtinSpec {
 	}
 	return specs
 }
+
+func registerTeamBuiltins(reg *builtinRegistry) {
+	reg.addAll(getTeamBuiltins())
+}

@@ -78,3 +78,7 @@ func getNetworkBuiltins() map[string]builtinSpec {
 		},
 	}
 }
+
+func registerNetworkBuiltins(reg *builtinRegistry) {
+	reg.addAll(getNetworkBuiltins())
+}

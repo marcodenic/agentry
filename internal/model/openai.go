@@ -1,9 +1,7 @@
 package model
 
 import (
-	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -193,202 +191,23 @@ func (o *OpenAI) Stream(ctx context.Context, msgs []ChatMessage, tools []ToolSpe
 			out <- StreamChunk{Err: errors.New(string(body))}
 			return
 		}
-		scanner := bufio.NewScanner(resp.Body)
-		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-		partials := map[int]*partial{}
-		responseCalls := map[string]*partial{} // Track Responses API function calls by item_id
-		var inTok, outTok int
-		var responseID string
-		scanStartTime := time.Now()
-		lineCount := 0
-		debug.Printf("OpenAI.Stream: starting stream scan, elapsed=%v", time.Since(startTime))
 
-		for scanner.Scan() {
-			lineCount++
-			if lineCount%100 == 0 {
-				debug.Printf("OpenAI.Stream: processed %d lines, elapsed=%v", lineCount, time.Since(startTime))
-			}
-
-			if ctx.Err() != nil {
-				debug.Printf("OpenAI.Stream: context error during scan: %v, elapsed=%v", ctx.Err(), time.Since(startTime))
-				debug.LogEvent("MODEL", "context_error", map[string]interface{}{
-					"provider":        "openai",
-					"model":           o.model,
-					"error":           ctx.Err().Error(),
-					"lines_processed": lineCount,
-				})
-				out <- StreamChunk{Err: ctx.Err()}
-				return
-			}
-			line := scanner.Text()
-			if !strings.HasPrefix(line, "data:") {
-				continue
-			}
-			payload := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
-			// debug.Printf("OpenAI.Stream: payload=%q", payload) // Disabled: too verbose
-			if payload == "[DONE]" {
-				debug.Printf("OpenAI.Stream: [DONE], finalize (partials=%d responseCalls=%d) scan_duration=%v total_elapsed=%v lines=%d", len(partials), len(responseCalls), time.Since(scanStartTime), time.Since(startTime), lineCount)
-				if responseID != "" {
-					o.previousResponseID = responseID
-					debug.Printf("OpenAI.Stream: Persisting response ID for next request: %s", responseID)
-				}
-				// Log successful completion
-				debug.LogModelInteraction("openai", o.model, len(msgs), map[string]int{
-					"input_tokens":  inTok,
-					"output_tokens": outTok,
-				}, time.Since(startTime))
-				finalizeOpenAI(partials, out, inTok, outTok, o.model, responseID)
-				return
-			}
-			if payload == "" {
-				continue
-			}
-			var env map[string]any
-			if err := json.Unmarshal([]byte(payload), &env); err != nil {
-				continue
-			}
-			// Try to capture response identifier from any event that carries it
-			if v, ok := env["response_id"].(string); ok && v != "" {
-				responseID = v
-				debug.Printf("OpenAI.Stream: Captured response_id: %s", responseID)
-			}
-			if respObj, ok := env["response"].(map[string]any); ok {
-				if v, ok := respObj["id"].(string); ok && v != "" {
-					responseID = v
-					debug.Printf("OpenAI.Stream: Captured response.id: %s", responseID)
-				}
-			}
-			t, _ := env["type"].(string)
-			switch {
-			case strings.HasSuffix(t, ".delta") && strings.Contains(t, "output_text"):
-				if d, ok := env["delta"].(string); ok && d != "" {
-					out <- StreamChunk{ContentDelta: d}
-				}
-			case strings.HasSuffix(t, ".delta") && strings.Contains(t, "tool_calls"):
-				if arr, ok := env["tool_calls"].([]any); ok {
-					for _, v := range arr {
-						if m, ok := v.(map[string]any); ok {
-							idx := 0
-							if iv, ok := m["index"].(float64); ok {
-								idx = int(iv)
-							}
-							p := partials[idx]
-							if p == nil {
-								p = &partial{index: idx}
-								partials[idx] = p
-							}
-							if id, _ := m["id"].(string); id != "" {
-								p.ID = id
-							}
-							// flattened fields
-							if name, _ := m["name"].(string); name != "" {
-								p.Name = name
-							}
-							if args, _ := m["arguments"].(string); args != "" {
-								p.Arguments = append(p.Arguments, []byte(args)...)
-							}
-							// nested legacy fallback
-							if fn, ok := m["function"].(map[string]any); ok {
-								if name, _ := fn["name"].(string); name != "" {
-									p.Name = name
-								}
-								if args, _ := fn["arguments"].(string); args != "" {
-									p.Arguments = append(p.Arguments, []byte(args)...)
-								}
-							}
-						}
-					}
-				}
-				// Responses API: Handle function call start
-			case t == "response.output_item.added":
-				if item, ok := env["item"].(map[string]any); ok {
-					if itemType, _ := item["type"].(string); itemType == "function_call" {
-						if itemID, _ := item["id"].(string); itemID != "" {
-							if name, _ := item["name"].(string); name != "" {
-								callID, _ := item["call_id"].(string)
-								p := &partial{ToolCall: ToolCall{ID: callID, Name: name}, index: 0}
-								responseCalls[itemID] = p
-								debug.Printf("OpenAI.Stream: Added function call %s/%s", itemID, name)
-								debug.LogEvent("MODEL", "tool_call_start", map[string]interface{}{
-									"provider":  "openai",
-									"model":     o.model,
-									"item_id":   itemID,
-									"call_id":   callID,
-									"tool_name": name,
-								})
-							}
-						}
-					}
-				}
-			// Responses API: Handle function call argument deltas
-			case t == "response.function_call_arguments.delta":
-				if itemID, _ := env["item_id"].(string); itemID != "" {
-					if p, exists := responseCalls[itemID]; exists {
-						if delta, _ := env["delta"].(string); delta != "" {
-							// Always include deltas - whitespace may be important for JSON formatting
-							p.Arguments = append(p.Arguments, []byte(delta)...)
-						}
-					}
-				}
-			// Responses API: Handle final arguments
-			case t == "response.function_call_arguments.done":
-				if itemID, _ := env["item_id"].(string); itemID != "" {
-					if p, exists := responseCalls[itemID]; exists {
-						if args, _ := env["arguments"].(string); args != "" {
-							p.Arguments = []byte(args)
-						}
-						debug.Printf("OpenAI.Stream: Function call args done for %s, args length: %d", itemID, len(p.Arguments))
-						debug.LogEvent("MODEL", "tool_call_complete", map[string]interface{}{
-							"provider":    "openai",
-							"model":       o.model,
-							"item_id":     itemID,
-							"tool_name":   p.Name,
-							"args_length": len(p.Arguments),
-						})
-					}
-				}
-			case t == "response.completed":
-				debug.Printf("OpenAI.Stream: response completed, elapsed=%v", time.Since(startTime))
-				if u, ok := env["usage"].(map[string]any); ok {
-					if iv, ok := u["input_tokens"].(float64); ok {
-						inTok = int(iv)
-					}
-					if ov, ok := u["output_tokens"].(float64); ok {
-						outTok = int(ov)
-					}
-				}
-				// Persist response ID for subsequent requests if present
-				if responseID != "" {
-					o.previousResponseID = responseID
-					debug.Printf("OpenAI.Stream: Persisting response ID for next request: %s", responseID)
-				}
-				// Log successful completion
-				debug.LogModelInteraction("openai", o.model, len(msgs), map[string]int{
-					"input_tokens":  inTok,
-					"output_tokens": outTok,
-				}, time.Since(startTime))
-				finalizeWithResponses(partials, responseCalls, out, inTok, outTok, o.model, responseID)
-				return
-			default: /* ignore */
-			}
+		reader := newOpenAIStreamReader(o.model, len(msgs), startTime)
+		result, readErr := reader.Read(ctx, resp.Body, func(chunk StreamChunk) {
+			out <- chunk
+		})
+		if readErr != nil {
+			return
 		}
-		scanEndTime := time.Now()
-		if err := scanner.Err(); err != nil {
-			debug.Printf("OpenAI.Stream: scanner error: %v scan_duration=%v total_elapsed=%v lines=%d", err, scanEndTime.Sub(scanStartTime), scanEndTime.Sub(startTime), lineCount)
-			debug.LogEvent("MODEL", "scanner_error", map[string]interface{}{
-				"provider":        "openai",
-				"model":           o.model,
-				"error":           err.Error(),
-				"lines_processed": lineCount,
-			})
-			out <- StreamChunk{Err: err}
-		} else {
-			debug.Printf("OpenAI.Stream: scanner ended normally, finalize (partials=%d responseCalls=%d) scan_duration=%v total_elapsed=%v lines=%d", len(partials), len(responseCalls), scanEndTime.Sub(scanStartTime), scanEndTime.Sub(startTime), lineCount)
-			if responseID != "" {
-				o.previousResponseID = responseID
-				debug.Printf("OpenAI.Stream: Persisting response ID for next request: %s", responseID)
-			}
-			finalizeWithResponses(partials, responseCalls, out, inTok, outTok, o.model, responseID)
+		if result.responseID != "" {
+			o.previousResponseID = result.responseID
+			debug.Printf("OpenAI.Stream: Persisting response ID for next request: %s", result.responseID)
+		}
+		switch result.mode {
+		case finalizeModeLegacy:
+			finalizeOpenAI(result.partials, out, result.inputTokens, result.outputTokens, o.model, result.responseID)
+		default:
+			finalizeWithResponses(result.partials, result.responseCalls, out, result.inputTokens, result.outputTokens, o.model, result.responseID)
 		}
 	}()
 	return out, nil

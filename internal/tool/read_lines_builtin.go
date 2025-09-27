@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-func init() {
-	builtinMap["read_lines"] = builtinSpec{
+func readLinesSpec() builtinSpec {
+	return builtinSpec{
 		Desc: "Read specific lines from a file with line-precise access",
 		Schema: map[string]any{
 			"type": "object",
@@ -46,6 +46,10 @@ func init() {
 		},
 		Exec: readLinesExec,
 	}
+}
+
+func registerReadLinesBuiltins(reg *builtinRegistry) {
+	reg.add("read_lines", readLinesSpec())
 }
 
 func readLinesExec(ctx context.Context, args map[string]any) (string, error) {
