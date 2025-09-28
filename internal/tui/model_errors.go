@@ -15,6 +15,8 @@ func (m Model) handleErrorMessage(msg errMsg) (Model, tea.Cmd) {
 		// Immediately clear spinner and set error status
 		info.Status = StatusError
 		info.TokensStarted = false
+		info.InputActive = false
+		info.OutputActive = false
 
 		// No spinner cleanup needed since spinners are display-only now!
 

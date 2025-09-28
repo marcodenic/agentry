@@ -116,6 +116,8 @@ type AgentInfo struct {
 	InputTokensTotal      int
 	OutputTokensTotal     int
 	HasUsageTotals        bool
+	InputActive           bool
+	OutputActive          bool
 
 	// Debug and trace fields
 	DebugTrace             []DebugTraceEvent // Debug trace events

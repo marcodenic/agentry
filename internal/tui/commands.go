@@ -22,6 +22,9 @@ func (m Model) startAgent(id uuid.UUID, input string) (Model, tea.Cmd) {
 	// NOTE: Token counts are now handled by the agent's cost manager
 	info.TokensStarted = false  // Reset tokens started flag
 	info.StreamingResponse = "" // Reset streaming response
+	info.InputActive = true
+	info.OutputActive = false
+	info.CurrentInputActivity = 5
 	// Don't recreate the spinner - keep the configured one
 	info.Spinner.Spinner = spinner.Dot
 	info.Spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(uiColorAIAccentHex))

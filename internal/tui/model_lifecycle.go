@@ -14,6 +14,9 @@ func (m Model) handleAgentComplete(msg agentCompleteMsg) (Model, tea.Cmd) {
 		info.Status = StatusIdle
 		m.infos[msg.id] = info
 	}
+	info.InputActive = false
+	info.OutputActive = false
+	m.infos[msg.id] = info
 	return m, nil
 }
 

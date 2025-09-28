@@ -167,8 +167,8 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 			info.OutputActivityData = append(info.OutputActivityData, outputLevel)
 			info.InputActivityData = append(info.InputActivityData, inputLevel)
 			info.ActivityTimes = append(info.ActivityTimes, now)
-			info.CurrentOutputActivity = 0
 			info.CurrentInputActivity = 0
+			info.CurrentOutputActivity = 0
 
 			// Only clean up activity data every 5 seconds to reduce overhead
 			if len(info.ActivityTimes)%5 == 0 {
@@ -193,6 +193,8 @@ func (m Model) handleActivityTick(_ activityTickMsg) (Model, tea.Cmd) {
 			}
 
 			info.LastActivity = now
+			m.infos[id] = info
+		} else {
 			m.infos[id] = info
 		}
 	}

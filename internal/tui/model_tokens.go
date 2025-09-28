@@ -32,11 +32,17 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 		// No need to clean up spinners since they were never added to history!
 	}
 
+	// Input streaming completes once the model starts returning tokens
+	if info.InputActive {
+		info.InputActive = false
+	}
+
 	// Add token to streaming response
 	info.StreamingResponse += msg.token
 	// Count tokens live during streaming for responsive UI
 	info.StreamingTokenCount++
 	info.CurrentOutputActivity++ // Track output-side activity for sparkline updates
+	info.OutputActive = true
 
 	// Save updated info back to map
 	m.infos[msg.id] = info
@@ -194,6 +200,7 @@ func (m Model) handleFinalMessage(msg finalMsg) (Model, tea.Cmd) {
 	}
 
 	progressCmd := m.updateTokenProgress(info, info.LiveTokenCount())
+	info.OutputActive = false
 
 	if msg.id == m.active {
 		m.view.Chat.Main.SetContent(info.History)
@@ -214,9 +221,7 @@ func (m Model) handleTokenUsageMessage(msg tokenUsageMsg) (Model, tea.Cmd) {
 	info.OutputTokensTotal = msg.totalOutput
 	info.HasUsageTotals = true
 	info.StreamingTokenCount = msg.totalTokens
-	if msg.inputTokens > 0 {
-		info.CurrentInputActivity += msg.inputTokens
-	}
+	info.InputActive = false
 	info.LastActivity = time.Now()
 
 	progressCmd := m.updateTokenProgress(info, info.LiveTokenCount())
