@@ -50,15 +50,16 @@ func (e *toolExecutor) execute(ctx context.Context, calls []model.ToolCall, step
 			hadErrors = true
 			return msgs, hadErrors, err
 		}
+		sanitized := ensureToolContent(res)
 		if softFailure {
 			hadErrors = true
-			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: res})
-			step.ToolResults[tc.ID] = res
+			msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: sanitized})
+			step.ToolResults[tc.ID] = sanitized
 			continue
 		}
 
-		step.ToolResults[tc.ID] = res
-		msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: res})
+		step.ToolResults[tc.ID] = sanitized
+		msgs = append(msgs, model.ChatMessage{Role: "tool", ToolCallID: tc.ID, Content: sanitized})
 	}
 
 	return msgs, hadErrors, nil
@@ -171,6 +172,13 @@ func (e *toolExecutor) normalizeResult(name string, args map[string]any, result 
 	default:
 		return "Operation completed successfully."
 	}
+}
+
+func ensureToolContent(result string) string {
+	if strings.TrimSpace(result) != "" {
+		return result
+	}
+	return "[no output]"
 }
 
 type toolUserNotifier interface {

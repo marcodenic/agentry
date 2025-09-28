@@ -27,14 +27,17 @@ func (b *oaRequestBuilder) Build(ctx context.Context, stream bool) (*http.Reques
 		return nil, errors.New("missing api key")
 	}
 
-	hasPrev := o.previousResponseID != ""
 	body := map[string]any{}
 	endpoint := "https://api.openai.com/v1/responses"
 
 	fnOutputs := b.functionOutputs()
 	if len(fnOutputs) > 0 {
 		body["model"] = o.model
-		body["previous_response_id"] = o.previousResponseID
+		if o.previousResponseID != "" {
+			body["previous_response_id"] = o.previousResponseID
+		} else {
+			debug.Printf("OpenAIConversation.buildRequest: missing previous_response_id for tool outputs; proceeding without linkage")
+		}
 		body["input"] = fnOutputs
 		if stream {
 			body["stream"] = true
@@ -45,9 +48,6 @@ func (b *oaRequestBuilder) Build(ctx context.Context, stream bool) (*http.Reques
 		if len(b.tools) > 0 {
 			body["tools"] = buildOATools(b.tools)
 			body["tool_choice"] = "auto"
-		}
-		if hasPrev {
-			body["previous_response_id"] = o.previousResponseID
 		}
 		if stream {
 			body["stream"] = true
