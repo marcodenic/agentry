@@ -1,31 +1,33 @@
-# Delegated Agent Visibility Plan
+# TUI Delegation Cheatsheet
 
-## Goals
-- Surface delegated agent activity alongside Agent 0 so operators stay informed about background work.
-- Present live tool usage (name + relevant arguments) in a compact, modern Bubble Tea component.
-- Preserve existing Agent 0 flow while introducing a scalable layout that handles multiple concurrent workers.
+This UI keeps the conversation readable while still tracking what every delegated worker is doing.
 
-## 1. Multi-Agent State Tracking (`internal/tui/model.go`, `internal/team/delegation_session.go`)
-- [ ] Add delegation hooks that emit spawn/teardown events (e.g., from `newDelegationSession` in `internal/team/delegation_session.go:26`) so the TUI knows when workers start/finish.
-- [ ] Extend the TUI model to append `AgentInfo` entries when new agent IDs appear, including spinner/token progress initialization (`internal/tui/model.go:107`).
-- [ ] Ensure trace pipes are opened for delegated agents so `trace.EventToolStart` / `EventToolEnd` fire for every worker (`internal/tui/runtime_helpers.go:322`).
+## What Goes Where
 
-## 2. Shared Activity Feed Component (`internal/tui/components/activity_feed.go` new)
-- [ ] Create a Bubble Tea list/table component that renders tool actions with columns for time, agent, tool, and summarized args (derived from `formatToolAction` in `internal/tui/runtime_helpers.go:14`).
-- [ ] Persist the last N events (per agent + global feed) to support quick scrolling and filtering.
-- [ ] Add styling consistent with existing gradient/branding (reuse lipgloss palette and glyphs from `internal/tui/theme.go` and `internal/tui/runtime_helpers.go`).
+- **Main chat (left)** – always shows the canonical stream of events. You will see:
+  - Agent 0’s narration.
+  - The delegation notice (`Delegating to coder…`).
+  - Every tool call from Agent 0 and from any spawned agent, rendered inline just like the screenshot you shared (e.g. `✔ View ~/src/.../sidebar.go`). Those entries update in place while the tool runs so you can watch progress without changing focus.
+- **Sidebar (right)** – one card per agent. Each card only carries a single status line that mirrors the latest tool event, so you can glance at what each worker is currently doing without clutter.
 
-## 3. Tool Telemetry & Args Capture (`internal/team/events.go`, `internal/tui/runtime_helpers.go`)
-- [ ] Emit workspace/coordination events even when `AGENTRY_TUI_MODE=1` so delegated agent tool usage reaches the front-end (`internal/team/events.go:70`).
-- [ ] Normalize argument payloads (convert JSON → map) before sending to the TUI to avoid ad-hoc string formats.
-- [ ] Update `formatToolAction` to handle multi-agent context: include agent badge, highlight destructive commands, and gracefully truncate long args.
+## Workflow
 
-## 4. Layout & Navigation (`internal/tui/model.go`, `internal/tui/view.go`)
-- [ ] Introduce a split-pane layout: left = Agent 0 stream, right = activity feed / delegated agent tabs (Bubble Tea `viewport` + `list`).
-- [ ] Provide keybinds to focus the activity feed, jump between agents, and collapse/expand delegated panels (extend `Model.keys` + `model_keys.go`).
-- [ ] Display per-agent headers with status badges (idle/working/error) and last tool invocation underneath.
+1. You instruct Agent 0.
+2. If it delegates, the chat shows the delegation block immediately.
+3. When the delegated agent calls a tool, the chat displays the tool line and keeps it updated (duration, path, etc.). The sidebar line for that agent mirrors the same text.
+4. Once a tool finishes, both the chat entry and the sidebar line flip to `DONE` (or `ERROR` for failures). The agent card resets to idle when the final response comes back.
 
-## 5. Testing & Telemetry (`internal/tui`, `tests`)
-- [ ] Add smoke tests that simulate trace/tool events for two agents and assert feed updates (can leverage go test with fake trace emitter).
-- [ ] Validate performance with many events; add configurable cap + GC for activity entries.
-- [ ] Document new UX in `docs/tui.md` (screenshots + usage) once implemented.
+## Navigation Aids
+
+- `ctrl+n` / `ctrl+p` – cycle through agent cards.
+- `home` / `end` – jump to first/last agent.
+- `ctrl+f` – focus/unfocus the activity log if you want to scroll through older tool entries (it stays hidden until there’s history).
+- `ctrl+h` – collapse/expand the agent list for more room when needed.
+
+## Tips
+
+- The chat is the source of truth for tool output—use the sidebar as a quick status glance.
+- Because every agent writes into the chat, you can copy the execution history straight from one place.
+- When an agent seems stuck, look at its sidebar line: it shows the exact tool + target it’s busy with and updates as soon as something changes.
+
+That’s the intended flow: chat-first visibility, with the sidebar acting as a lightweight dashboard so you never miss what the delegated workers are doing.
