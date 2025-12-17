@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
+	"github.com/marcodenic/agentry/internal/team"
 )
 
 type runtimeService struct{}
@@ -40,4 +41,14 @@ func (runtimeService) StartThinkingAnimation(id uuid.UUID) tea.Cmd {
 		frame := int(t.UnixMilli()/100) % len(spinnerFrames)
 		return thinkingAnimationMsg{id: id, frame: frame}
 	})
+}
+
+func (runtimeService) WaitDelegationEvent(ch <-chan team.DelegationEvent) tea.Cmd {
+	return func() tea.Msg {
+		event, ok := <-ch
+		if !ok {
+			return nil
+		}
+		return delegationLifecycleMsg{event: event}
+	}
 }

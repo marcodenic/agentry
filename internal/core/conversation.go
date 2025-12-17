@@ -186,6 +186,12 @@ func (s *conversationSession) handleCompletion(res model.Completion, responseID 
 			return "", false, nil
 		}
 
+		// Heuristic: If the agent outputs a lot of text but no tool calls, it might be hallucinating an action.
+		// Log this for debugging/observability.
+		if len(res.Content) > 1000 {
+			debug.Printf("WARNING: Agent output large text response (%d chars) without tool calls. Possible hallucination of action?", len(res.Content))
+		}
+
 		if err := agent.JSONValidator.ValidateAgentOutput(res.Content); err != nil {
 			debug.Printf("Agent.Run: Agent output validation failed: %v", err)
 			return fmt.Sprintf("Agent completed task but output validation failed: %v", err), true, nil

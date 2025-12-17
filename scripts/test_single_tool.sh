@@ -33,7 +33,7 @@ test_tool() {
     fi
     
     # Run the test
-    echo "$prompt" | ./agentry chat -c "$AGENTRY_CONFIG" -f -
+    ./agentry --config "$AGENTRY_CONFIG" "$prompt"
     
     echo ""
     echo -e "${GREEN}Test completed for $tool_name${NC}"

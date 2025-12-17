@@ -172,7 +172,36 @@ func (s *delegationSession) handleError(runErr error) (string, error) {
 
 	s.agent.SetStatus("error")
 	s.telemetry.RecordFailure(runErr)
-	errorFeedback := fmt.Sprintf("❌ Agent '%s' encountered an error: %v\n\nSuggestions:\n- Try a different approach\n- Simplify the request\n- Use alternative tools\n- Break the task into smaller steps", s.agentID, runErr)
+
+	// Enhanced error analysis
+	errStr := runErr.Error()
+	suggestions := []string{
+		"- Try a different approach",
+		"- Simplify the request",
+		"- Use alternative tools",
+		"- Break the task into smaller steps",
+	}
+
+	if strings.Contains(errStr, "authentication_error") || strings.Contains(errStr, "invalid x-api-key") || strings.Contains(errStr, "invalid_api_key") {
+		suggestions = []string{
+			"- Check your API key configuration (env vars or config file)",
+			"- Verify the provider (openai/anthropic/google) matches the key",
+			"- Ensure the key has access to the requested model",
+		}
+	} else if strings.Contains(errStr, "context_length_exceeded") || strings.Contains(errStr, "token limit") {
+		suggestions = []string{
+			"- The input or history is too long for this model",
+			"- Try summarizing previous context",
+			"- Use a model with a larger context window",
+		}
+	}
+
+	suggestionText := ""
+	for _, s := range suggestions {
+		suggestionText += s + "\n"
+	}
+
+	errorFeedback := fmt.Sprintf("❌ Agent '%s' encountered an error: %v\n\nSuggestions:\n%s", s.agentID, runErr, suggestionText)
 	return "", errors.New(errorFeedback)
 }
 

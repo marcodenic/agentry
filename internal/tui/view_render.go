@@ -9,7 +9,10 @@ import (
 
 func (m Model) View() string {
 	var chatContent string
-	if m.layout.activeTab == 0 {
+	if m.layout.feedFocused && m.view.ActivityFeed != nil {
+		// Render activity feed if focused
+		chatContent = m.view.ActivityFeed.View()
+	} else if m.layout.activeTab == 0 {
 		// Use viewport content directly for proper scrolling
 		chatContent = m.view.Chat.Main.View()
 

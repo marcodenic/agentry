@@ -8,6 +8,10 @@ import (
 	"github.com/marcodenic/agentry/internal/team"
 )
 
+type delegationLifecycleMsg struct {
+	event team.DelegationEvent
+}
+
 func (m Model) handleDelegationLifecycle(msg delegationLifecycleMsg) (Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	ev := msg.event
@@ -72,4 +76,22 @@ func (m Model) handleDelegationLifecycle(msg delegationLifecycleMsg) (Model, tea
 		return m, nil
 	}
 	return m, tea.Batch(cmds...)
+}
+
+func (m Model) attachTeamAgent(teamAgent *team.Agent) (Model, []tea.Cmd, bool) {
+	// Check if already attached
+	if _, exists := m.infos[teamAgent.Agent.ID]; exists {
+		return m, nil, false
+	}
+
+	// Create new info
+	info := newAgentInfo(teamAgent.Agent, "", m.layout.width)
+	info.Name = teamAgent.Name
+	info.Role = teamAgent.Role
+
+	m.infos[teamAgent.Agent.ID] = info
+	m.order = append(m.order, teamAgent.Agent.ID)
+
+	// Start spinner
+	return m, []tea.Cmd{info.Spinner.Tick}, true
 }

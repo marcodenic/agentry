@@ -26,6 +26,7 @@ import (
 	"github.com/marcodenic/agentry/internal/glyphs"
 	"github.com/marcodenic/agentry/internal/statusbar"
 	"github.com/marcodenic/agentry/internal/team"
+	"github.com/marcodenic/agentry/internal/tui/components"
 )
 
 // Model is the root TUI model.
@@ -47,6 +48,8 @@ type Model struct {
 	pricing *cost.PricingTable
 	err     error
 	keys    Keybinds
+
+	delegationEvents chan team.DelegationEvent
 }
 
 type AgentStatus int
@@ -238,14 +241,29 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	tm.RegisterAgentTool(ag.Tools)
 
 	statusBarModel := newStatusBarModel()
+	
+	// Initialize ActivityFeed with default style
+	feedStyle := components.ActivityFeedStyle{
+		BorderColor:        uiColorBorderHex,
+		BorderFocusedColor: uiColorAIAccentHex,
+		HeaderColor:        uiColorAIAccentHex,
+		TimeColor:          "#6B7280", // Gray
+		AgentColor:         uiColorUserAccentHex,
+		ToolColor:          uiColorAIAccentHex,
+		SummaryColor:       uiColorForegroundHex,
+		TitleColor:         uiColorForegroundHex,
+	}
+	activityFeed := components.NewActivityFeed(100, feedStyle)
+
 	view := viewState{
-		Chat:        newChatPane(vp, debugVp, true),
-		Tools:       l,
-		Input:       inputMgr,
-		Diagnostics: diagnosticsView{Entries: nil, Running: false},
-		Todo:        NewTodoBoard(),
-		Robot:       NewRobotFace(),
-		Status:      statusBarModel,
+		Chat:         newChatPane(vp, debugVp, true),
+		Tools:        l,
+		Input:        inputMgr,
+		Diagnostics:  diagnosticsView{Entries: nil, Running: false},
+		Todo:         NewTodoBoard(),
+		Robot:        NewRobotFace(),
+		Status:       statusBarModel,
+		ActivityFeed: activityFeed,
 	}
 	m := Model{
 		agents:  []*core.Agent{ag},

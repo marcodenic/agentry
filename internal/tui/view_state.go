@@ -5,22 +5,25 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/marcodenic/agentry/internal/statusbar"
+	"github.com/marcodenic/agentry/internal/tui/components"
 )
 
 type viewState struct {
-	Chat        chatPane
-	Tools       list.Model
-	Input       inputManager
-	Diagnostics diagnosticsView
-	Todo        TodoBoard
-	Robot       *RobotFace
-	Status      statusbar.Model
+	Chat         chatPane
+	Tools        list.Model
+	Input        inputManager
+	Diagnostics  diagnosticsView
+	Todo         TodoBoard
+	Robot        *RobotFace
+	Status       statusbar.Model
+	ActivityFeed *components.ActivityFeed
 }
 
 type layoutState struct {
-	width     int
-	height    int
-	activeTab int
+	width       int
+	height      int
+	activeTab   int
+	feedFocused bool
 }
 
 type chatPane struct {
