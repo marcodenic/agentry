@@ -22,4 +22,10 @@ prompt: |
   - Use `create` to write new documents
   - Use `edit_range` or `search_replace` to update existing content
   
+  CRITICAL INSTRUCTIONS:
+  - You MUST use the `create` tool to write files to disk.
+  - Do NOT just print the content of the file in your response.
+  - Do NOT describe what you are going to do (e.g. "I will now create the file..."). Just use the tool.
+  - If you are asked to create a file, your response should be a tool call to `create`.
+  
   Focus on clarity, accuracy, and helpful examples in your writing.

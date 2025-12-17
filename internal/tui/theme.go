@@ -9,6 +9,7 @@ type Keybinds struct {
 	PrevPane    string `json:"prevPane"`
 	Pause       string `json:"pause"`
 	Diagnostics string `json:"diagnostics"`
+	ToggleFeed  string `json:"toggleFeed"`
 }
 
 var defaultKeybinds = Keybinds{
@@ -19,6 +20,7 @@ var defaultKeybinds = Keybinds{
 	PrevPane:    "ctrl+p",
 	Pause:       "ctrl+s",
 	Diagnostics: "ctrl+d",
+	ToggleFeed:  "ctrl+f",
 }
 
 // DefaultKeybinds returns the static keybindings used by the TUI.
@@ -30,6 +32,7 @@ func DefaultKeybinds() Keybinds {
 const (
 	uiColorForegroundHex  = "#FFFFFF"
 	uiColorPanelTitleHex  = "#9CA3AF"
+	uiColorBorderHex      = "#374151" // Gray-700
 	uiColorUserAccentHex  = "#8B5CF6"
 	uiColorRoleAccentHex  = "#10B981"
 	uiColorToolAccentHex  = "#8B5CF6"

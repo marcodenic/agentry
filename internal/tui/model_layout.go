@@ -4,14 +4,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// abs returns the absolute value of an integer
-func abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
-
 // handleWindowResize processes window resize messages and updates layout
 func (m Model) handleWindowResize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 	m.layout.width = msg.Width

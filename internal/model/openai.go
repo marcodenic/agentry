@@ -225,3 +225,9 @@ func supportsTemperature(model string) bool {
 	}
 	return true
 }
+
+// isReasoningModel returns true for models that support reasoning summaries (gpt-5, o1, o3, o4)
+func isReasoningModel(model string) bool {
+	m := strings.ToLower(model)
+	return strings.HasPrefix(m, "gpt-5") || strings.HasPrefix(m, "o1") || strings.HasPrefix(m, "o3") || strings.HasPrefix(m, "o4")
+}

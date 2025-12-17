@@ -7,6 +7,8 @@ type StreamChunk struct {
 	ContentDelta string
 	Done         bool
 	Err          error
+	// IsReasoning indicates this chunk is from a reasoning/thinking phase (o1, o3, gpt-5)
+	IsReasoning bool
 	// Populated only on final chunk when available
 	InputTokens  int
 	OutputTokens int

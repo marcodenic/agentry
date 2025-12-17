@@ -39,6 +39,14 @@ func (b *oaRequestBuilder) Build(ctx context.Context, stream bool) (*http.Reques
 			debug.Printf("OpenAIConversation.buildRequest: missing previous_response_id for tool outputs; proceeding without linkage")
 		}
 		body["input"] = fnOutputs
+		// Important: include tool definitions on continuation requests too.
+		// Without this, the model may be unable to emit further tool calls after
+		// receiving tool outputs (it may only produce narrative text describing
+		// what it would do next).
+		if len(b.tools) > 0 {
+			body["tools"] = buildOATools(b.tools)
+			body["tool_choice"] = "auto"
+		}
 		if stream {
 			body["stream"] = true
 		}
@@ -58,6 +66,11 @@ func (b *oaRequestBuilder) Build(ctx context.Context, stream bool) (*http.Reques
 	}
 	if o.Temperature != nil && supportsTemperature(o.model) {
 		body["temperature"] = *o.Temperature
+	}
+
+	// Enable reasoning summary streaming for reasoning models (gpt-5, o1, o3)
+	if isReasoningModel(o.model) {
+		body["reasoning"] = map[string]any{"summary": "auto"}
 	}
 
 	payload, _ := json.Marshal(body)

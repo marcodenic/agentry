@@ -19,10 +19,11 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 
 	// ENABLED: Real-time token streaming for smooth UX
 
-	// Stop thinking animation on first token
+	// Stop thinking animation on first token and clear thinking content
 	if !info.TokensStarted {
 		info.TokensStarted = true
 		info.StreamingResponse = "" // Initialize streaming response
+		info.ThinkingContent = ""   // Clear thinking/reasoning marquee
 		// Initialize live token count based on agent's current count
 		if info.Agent != nil && info.Agent.Cost != nil {
 			info.StreamingTokenCount = info.Agent.Cost.TotalTokens()

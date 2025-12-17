@@ -51,6 +51,22 @@ func FromManifest(m config.ModelManifest) (Client, error) {
 			}
 		}
 		return c, nil
+	case "google":
+		key := m.Options["key"]
+		if key == "" {
+			key = os.Getenv("GOOGLE_API_KEY")
+		}
+		modelName := m.Options["model"]
+		if modelName == "" {
+			return nil, fmt.Errorf("model name is required for Google provider")
+		}
+		c := NewGoogle(key, modelName)
+		if tStr := m.Options["temperature"]; tStr != "" {
+			if t, err := strconv.ParseFloat(tStr, 64); err == nil {
+				c.Temperature = &t
+			}
+		}
+		return c, nil
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", m.Provider)
 	}

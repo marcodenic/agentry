@@ -31,21 +31,27 @@ type Team struct {
 	sharedMemory map[string]interface{} // Shared data between agents
 	store        memstore.SharedStore   // Durable-backed store (in-memory by default)
 	coordination []CoordinationEvent    // Log of coordination events
+
+	// Delegation event subscription
+	delegationSubscribers map[int]chan DelegationEvent
+	nextDelegationSubID   int
 }
 
 // NewTeam creates a new team with the given parent agent.
 func NewTeam(parent *core.Agent, maxTurns int, name string) (*Team, error) {
 	team := &Team{
-		parent:       parent,
-		maxTurns:     maxTurns,
-		name:         name,
-		agents:       make(map[string]*Agent),
-		agentsByName: make(map[string]*Agent),
-		tasks:        make(map[string]*Task),
-		roles:        make(map[string]*RoleConfig),
-		sharedMemory: make(map[string]interface{}),
-		store:        memstore.Get(),
-		coordination: make([]CoordinationEvent, 0),
+		parent:                parent,
+		maxTurns:              maxTurns,
+		name:                  name,
+		agents:                make(map[string]*Agent),
+		agentsByName:          make(map[string]*Agent),
+		tasks:                 make(map[string]*Task),
+		roles:                 make(map[string]*RoleConfig),
+		sharedMemory:          make(map[string]interface{}),
+		store:                 memstore.Get(),
+		coordination:          make([]CoordinationEvent, 0),
+		delegationSubscribers: make(map[int]chan DelegationEvent),
+		nextDelegationSubID:   1,
 	}
 
 	// Kick off default GC for the store (once-per-process)

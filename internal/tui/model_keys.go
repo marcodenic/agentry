@@ -41,10 +41,36 @@ func (m Model) handleKeyMessages(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.handlePause()
 	case m.keys.Diagnostics:
 		return m.handleDiagnostics()
+	case m.keys.ToggleFeed:
+		return m.handleToggleFeed()
 	case m.keys.Submit:
 		return m.handleSubmit()
 	}
 
+	return m, nil
+}
+
+// handleToggleFeed toggles the activity feed view
+func (m Model) handleToggleFeed() (Model, tea.Cmd) {
+	m.layout.feedFocused = !m.layout.feedFocused
+	if m.view.ActivityFeed != nil {
+		m.view.ActivityFeed.SetFocused(m.layout.feedFocused)
+		// Ensure feed has correct size
+		if m.layout.feedFocused {
+			// Use chat area dimensions
+			chatWidth := int(float64(m.layout.width)*0.75) - 2
+			// Calculate viewport height (same as chat)
+			inputRows := m.view.Input.Height()
+			if inputRows < 1 {
+				inputRows = 1
+			}
+			viewportHeight := m.layout.height - (1 + inputRows + 1 + 1)
+			if viewportHeight < 3 {
+				viewportHeight = 3
+			}
+			m.view.ActivityFeed.SetSize(chatWidth, viewportHeight)
+		}
+	}
 	return m, nil
 }
 
