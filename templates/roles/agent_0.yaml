@@ -2,7 +2,7 @@ name: agent_0
 model:
   provider: openai
   options:
-    model: gpt-5-mini
+    model: gpt-5
 # Essential tools for the main agent
 tools:
   - agent          # spawn read-only sub-agents for parallel search
