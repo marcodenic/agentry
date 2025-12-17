@@ -60,6 +60,11 @@ func (b *oaRequestBuilder) Build(ctx context.Context, stream bool) (*http.Reques
 		body["temperature"] = *o.Temperature
 	}
 
+	// Enable reasoning summary streaming for reasoning models (gpt-5, o1, o3)
+	if isReasoningModel(o.model) {
+		body["reasoning"] = map[string]any{"summary": "auto"}
+	}
+
 	payload, _ := json.Marshal(body)
 	debug.Printf("OpenAIConversation.buildRequest: Request body: %s", string(payload))
 

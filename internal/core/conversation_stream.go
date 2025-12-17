@@ -88,6 +88,12 @@ func (a *chunkAggregator) handleChunk(chunk model.StreamChunk) error {
 		return chunk.Err
 	}
 	if delta := chunk.ContentDelta; delta != "" {
+		// Reasoning/thinking content gets traced separately for marquee display
+		// Reasoning models (o1, o3, gpt-5) stream their thinking process first
+		if chunk.IsReasoning {
+			a.session.agent.Trace(a.session.ctx, trace.EventThinking, delta)
+			return nil
+		}
 		a.assembled.WriteString(delta)
 		if !a.firstTokenRecorded {
 			a.firstTokenRecorded = true

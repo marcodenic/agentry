@@ -112,6 +112,13 @@ func (r *openAIStreamReader) Read(ctx context.Context, src io.Reader, emit func(
 			if d, ok := env["delta"].(string); ok && d != "" {
 				emit(StreamChunk{ContentDelta: d})
 			}
+		case strings.HasSuffix(t, ".delta") && strings.Contains(t, "reasoning"):
+			// Handle reasoning/thinking content from reasoning models (o1, o3, gpt-5)
+			// We emit this as content delta so users can see the thinking process
+			if d, ok := env["delta"].(string); ok && d != "" {
+				// Prefix with a subtle indicator that this is thinking
+				emit(StreamChunk{ContentDelta: d, IsReasoning: true})
+			}
 		case strings.HasSuffix(t, ".delta") && strings.Contains(t, "tool_calls"):
 			if arr, ok := env["tool_calls"].([]any); ok {
 				for _, v := range arr {

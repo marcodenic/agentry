@@ -22,6 +22,8 @@ const (
 	EventModelStart EventType = "model_start"
 	// EventToken represents a streaming token from the AI response
 	EventToken EventType = "token"
+	// EventThinking represents reasoning/thinking content from reasoning models (o1, o3, gpt-5)
+	EventThinking EventType = "thinking"
 	// EventYield is reserved; not used by default since agents run without iteration caps.
 	EventYield EventType = "yield"
 	// EventSummary indicates a run summary with token and cost statistics.

@@ -115,6 +115,8 @@ type AgentInfo struct {
 	TokensStarted         bool   // Flag to stop thinking animation when tokens start
 	StreamingResponse     string // Current AI response being streamed (unformatted)
 	StreamingTokenCount   int    // Live token count during streaming (reconciled on completion)
+	ThinkingContent       string // Reasoning/thinking content (displayed as marquee)
+	LastThinkingUpdate    time.Time // Last time thinking display was updated (for throttling)
 	InputTokensTotal      int
 	OutputTokensTotal     int
 	HasUsageTotals        bool
