@@ -5,79 +5,91 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/tool"
 )
 
 // RegisterAgentTool registers the "agent" tool with the given tool registry.
-// This must be called after creating the team to avoid import cycles.
+// This is a simplified version that uses read-only sub-agents for search tasks.
 func (t *Team) RegisterAgentTool(registry tool.Registry) {
-	// Wrap delegation tool as terminal: its result is typically the final answer.
-	registry["agent"] = tool.MarkTerminal(tool.NewWithSchema(
-		"agent",
-		"Delegate work to another agent",
-		agentToolSchema(),
-		agentDelegationExec(t),
-	))
-
+	// Create the sub-agent tool using the parent agent's client
+	subAgent := tool.NewSubAgentTool(t.parent.Client)
+	registry["agent"] = subAgent
 }
 
-// GetAgentToolSpec returns the tool specification for the agent tool
-// This can be used to register the tool without creating a team instance
+// GetAgentToolSpec returns the tool specification for the agent tool.
+// This requires a Team to be present in the context at execution time.
 func GetAgentToolSpec() tool.Tool {
-	// Provide the same permissive schema and alias handling used by RegisterAgentTool.
-	// Requires a Team in context at execution time.
-	return tool.MarkTerminal(tool.NewWithSchema(
+	return tool.NewWithSchema(
 		"agent",
-		"Delegate work to another agent",
-		agentToolSchema(),
-		agentDelegationExec(nil),
-	))
+		subAgentDescription(),
+		subAgentSchema(),
+		func(ctx context.Context, args map[string]any) (string, error) {
+			teamInstance := TeamFromContext(ctx)
+			if teamInstance == nil {
+				return "", errors.New("no team found in context")
+			}
+
+			prompt := resolveStringArg(args, "prompt", "input", "task", "query", "instructions")
+			if prompt == "" {
+				return "", errors.New("prompt is required")
+			}
+
+			debug.Printf("SubAgent: Starting search task: %s", truncateStr(prompt, 100))
+
+			subAgent := tool.NewSubAgentTool(teamInstance.parent.Client)
+			return subAgent.Execute(ctx, map[string]any{"prompt": prompt})
+		},
+	)
 }
 
-// agentToolSchema returns a permissive schema accepting common alias keys.
-func agentToolSchema() map[string]any {
+// subAgentDescription provides the tool description for the sub-agent.
+func subAgentDescription() string {
+	return `Launch a read-only sub-agent to search the codebase. Use for parallel research tasks.
+
+CAPABILITIES:
+- Search files with glob patterns  
+- Search file contents with grep
+- Read file contents with view
+- List directories
+
+LIMITATIONS:
+- Cannot modify files
+- Cannot run shell commands  
+- Cannot spawn further agents
+- Stateless - each invocation starts fresh
+
+WHEN TO USE:
+- "Find all usages of function X" → spawn sub-agent
+- "Which files handle authentication?" → spawn sub-agent
+- Searching multiple patterns → spawn multiple sub-agents in parallel
+
+WHEN NOT TO USE:
+- Reading a specific known file → use view directly
+- Modifying files → do it yourself
+- Running commands → do it yourself
+
+PARALLEL EXECUTION:
+Launch multiple sub-agents concurrently by making multiple tool calls in one response.
+Each sub-agent returns a text summary of its findings.`
+}
+
+// subAgentSchema returns the schema for the sub-agent tool.
+func subAgentSchema() map[string]any {
 	return map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"agent": map[string]any{"type": "string", "description": "Name of the agent to delegate to"},
-			"input": map[string]any{"type": "string", "description": "Task description or input for the agent"},
-			// Accept common aliases the model may produce
-			"role":         map[string]any{"type": "string", "description": "Alias for agent"},
-			"task":         map[string]any{"type": "string", "description": "Alias for input"},
-			"message":      map[string]any{"type": "string", "description": "Alias for input"},
-			"query":        map[string]any{"type": "string", "description": "Alias for input"},
-			"instructions": map[string]any{"type": "string", "description": "Alias for input"},
+			"prompt": map[string]any{
+				"type":        "string",
+				"description": "The search/research task for the sub-agent to perform",
+			},
+			// Keep legacy aliases for backward compatibility
+			"input":        map[string]any{"type": "string", "description": "Alias for prompt"},
+			"task":         map[string]any{"type": "string", "description": "Alias for prompt"},
+			"query":        map[string]any{"type": "string", "description": "Alias for prompt"},
+			"instructions": map[string]any{"type": "string", "description": "Alias for prompt"},
 		},
-		// Keep schema permissive; runtime resolves aliases
 		"required": []string{},
-	}
-}
-
-// agentDelegationExec returns the Exec function used by the agent delegation tool.
-// If t is nil, the function requires a Team present in the context.
-func agentDelegationExec(t *Team) func(ctx context.Context, args map[string]any) (string, error) {
-	return func(ctx context.Context, args map[string]any) (string, error) {
-		name := resolveStringArg(args, "agent", "role")
-		if name == "" {
-			return "", errors.New("agent name is required (use 'agent' or 'role')")
-		}
-
-		input := resolveStringArg(args, "input", "task", "message", "query", "instructions")
-		if input == "" {
-			return "", errors.New("input is required (use 'input', 'task', 'message', 'query', or 'instructions')")
-		}
-
-		// Use the team from the context if available, or use provided team instance
-		var teamInstance *Team
-		if contextTeam := TeamFromContext(ctx); contextTeam != nil {
-			teamInstance = contextTeam
-		} else {
-			teamInstance = t
-		}
-		if teamInstance == nil {
-			return "", errors.New("no team found in context")
-		}
-		return teamInstance.Call(ctx, name, input)
 	}
 }
 
@@ -94,4 +106,9 @@ func resolveStringArg(args map[string]any, primary string, aliases ...string) st
 	return ""
 }
 
-// parallelAgentsToolSpec defines a reusable spec for executing multiple agents in parallel.
+func truncateStr(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
