@@ -13,6 +13,11 @@ type tokenMsg struct {
 	token string
 }
 
+type thinkingMsg struct {
+	id    uuid.UUID
+	delta string
+}
+
 type tokenUsageMsg struct {
 	id           uuid.UUID
 	model        string
@@ -113,6 +118,10 @@ func (m *Model) readEvent(id uuid.UUID) tea.Msg {
 		case trace.EventToken:
 			if s, ok2 := ev.Data.(string); ok2 {
 				return tokenMsg{id: id, token: s}
+			}
+		case trace.EventThinking:
+			if s, ok2 := ev.Data.(string); ok2 {
+				return thinkingMsg{id: id, delta: s}
 			}
 		case trace.EventFinal:
 			if s, ok := ev.Data.(string); ok {

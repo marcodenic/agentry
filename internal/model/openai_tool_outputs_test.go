@@ -71,6 +71,51 @@ func TestBuildRequestWithToolOutputs(t *testing.T) {
 	}
 }
 
+func TestBuildRequestWithToolOutputsIncludesToolsForFollowUpCalls(t *testing.T) {
+	client := NewOpenAI("test-key", "gpt-5")
+	client.previousResponseID = "resp_test_abc"
+
+	msgs := []ChatMessage{
+		{Role: "user", Content: "Test message"},
+		{Role: "tool", ToolCallID: "call_test_1", Content: "Tool result"},
+	}
+
+	tools := []ToolSpec{{
+		Name:        "ls",
+		Description: "list directory",
+		Parameters:  map[string]any{"type": "object", "properties": map[string]any{}},
+	}}
+
+	conv := newOpenAIConversation(client, msgs, tools)
+	req, err := conv.buildRequest(context.Background())
+	if err != nil {
+		t.Fatalf("buildRequest failed: %v", err)
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		t.Fatalf("failed to read request body: %v", err)
+	}
+
+	var bodyData map[string]any
+	if err := json.Unmarshal(body, &bodyData); err != nil {
+		t.Fatalf("failed to unmarshal request body: %v", err)
+	}
+
+	if bodyData["tool_choice"] != "auto" {
+		tsuggest := bodyData["tool_choice"]
+		t.Fatalf("expected tool_choice=auto on continuation request, got %#v", tsuggest)
+	}
+
+	rawTools, ok := bodyData["tools"].([]any)
+	if !ok {
+		t.Fatalf("expected tools array on continuation request, got %#v", bodyData["tools"])
+	}
+	if len(rawTools) != 1 {
+		t.Fatalf("expected 1 tool, got %d", len(rawTools))
+	}
+}
+
 func TestBuildRequestWithoutToolOutputs(t *testing.T) {
 	client := NewOpenAI("test-key", "gpt-4o")
 

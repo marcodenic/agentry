@@ -1,6 +1,6 @@
+# Agentry
+
 ```
-                                 
-                                 
     ████▒               ▒████    
       ▒▓███▓▒       ▒▓███▓▒      
         ▒█▒████▓▒▓████▓█▒        
@@ -15,63 +15,149 @@
         ▒█     ▒▓▒     █▒        
         ▒█     ▒▓▒     █▒        
                ▒▓▒               
-                                 
                          v0.2.0  
-   █▀█ █▀▀ █▀▀ █▀█ ▀█▀ █▀▄ █ █   
-   █▀█ █ █ █▀▀ █ █  █  █▀▄  █    
-   ▀ ▀ ▀▀▀ ▀▀▀ ▀ ▀  ▀  ▀ ▀  ▀    
- AGENT  ORCHESTRATION  FRAMEWORK 
 ```
+
+**A local-first AI agent runtime with a built-in TUI for development automation.**
 
 ![Demo](agentry.gif)
 
-Overview
-- Minimal Go binary with fast startup and no heavy dependencies
-- Built-in TUI for day-to-day coding and debugging
-- Pluggable, permission-gated tools defined in `.agentry.yaml`
-- Team/delegation helpers so Agent 0 can spawn and coordinate specialists
-- Structured tracing plus live token/cost accounting
+## Overview
 
-Install
-- Prereq: Go 1.23+
-- Install CLI: `go install github.com/marcodenic/agentry/cmd/agentry@latest`
+Agentry is a minimal Go binary that provides a single intelligent agent with parallel search capabilities. Unlike complex multi-agent orchestration systems, Agentry follows the proven model: one smart agent that does the work, with the ability to spawn ephemeral read-only sub-agents for parallel search when needed.
 
-Quick Start
-- TUI (default): `./agentry`
-- Direct prompt: `./agentry "summarize the README"`
-- Show version: `agentry --version`
+**Key Features:**
+- 🚀 Fast startup, minimal dependencies
+- 🖥️ Built-in TUI with real-time streaming and reasoning display
+- 🔧 Permission-gated tools defined in `.agentry.yaml`
+- 🤖 Multi-provider LLM support (OpenAI, Anthropic Claude, Google)
+- 📊 Live token/cost accounting with model pricing cache
+- 🔍 Structured tracing and debug logging
 
-Configuration
-- Project config: `.agentry.yaml` (shipped in the repo root)
-- Env vars: copy `.env.example` to `.env.local` and set keys (e.g., `OPENAI_API_KEY`)
-- Flags you may care about:
-  - `--config PATH`: select config file
-  - `--debug`: verbose diagnostics
-  - `--allow-tools a,b` / `--deny-tools a,b` / `--disable-tools`
-  - `--max-iter N` and `--http-timeout SEC` for runtime tuning
+## Install
 
-Usage Notes
-- TUI launches when no command is provided: just run `agentry`
-- You can also pass a direct prompt without a subcommand
-- The TUI supports spawning additional agents and shows live token/cost usage
+**Prerequisites:** Go 1.23+
 
-Built-in Tools
-- Tools are enabled by listing them in your `.agentry.yaml`
-- Core categories: file editing (`view`, `create`, `edit_range`, `search_replace`), search (`ls`, `find`, `grep`, `glob`), shell (`bash`, `sh`, `cmd`, `powershell`), networking (`fetch`, `api`, `download`), delegation (`agent`), diagnostics (`lsp_diagnostics`, `sysinfo`, `ping`)
-- Use the allow/deny flags or the config `permissions` block to gate usage for a repository
+```bash
+go install github.com/marcodenic/agentry/cmd/agentry@latest
+```
 
-Tracing & Costs
-- Every run can emit structured trace events
-- Summaries include input/output tokens and estimated cost per run
+Or build from source:
+```bash
+git clone https://github.com/marcodenic/agentry.git
+cd agentry
+make build
+```
 
-Development
-- Build: `make build` (outputs `./agentry`)
-- Tests: `go test ./...` or `./scripts/test.sh`
-- Formatting: CI enforces `gofmt -l` cleanliness
+## Quick Start
 
-Versioning & Releases
-- The internal version constant lives in `internal/version.go`
-- Release workflow publishes binaries on tag push like `v0.1.1`
+```bash
+# Start TUI (default)
+agentry
 
-License
-- MIT, see `LICENSE`
+# Direct prompt execution
+agentry "fix the failing tests"
+agentry summarize the README
+
+# Update model pricing cache
+agentry refresh-models
+
+# Show version
+agentry --version
+```
+
+## Configuration
+
+**Project config:** `.agentry.yaml` in your repo root  
+**Environment:** Copy `.env.example` to `.env.local` and set your API keys:
+
+```bash
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_API_KEY=...
+```
+
+**Useful flags:**
+| Flag | Description |
+|------|-------------|
+| `--config PATH` | Custom config file path |
+| `--debug` | Enable verbose debug logging |
+| `--max-iter N` | Limit agent iterations (0=unlimited) |
+| `--http-timeout SEC` | HTTP timeout in seconds (default 300) |
+| `--allow-tools a,b` | Restrict to only specified tools |
+| `--deny-tools a,b` | Remove specific tools from available set |
+| `--disable-tools` | Disable tool filtering (allow all) |
+
+## Built-in Tools
+
+Tools are enabled by listing them in your `.agentry.yaml`. Categories:
+
+| Category | Tools |
+|----------|-------|
+| **File Viewing** | `view`, `read_lines`, `fileinfo` |
+| **File Editing** | `create`, `write`, `edit`, `edit_range`, `insert_at`, `search_replace`, `patch` |
+| **Search** | `ls`, `find`, `grep`, `glob`, `project_tree` |
+| **Shell** | `bash`, `sh`, `cmd`, `powershell` |
+| **Networking** | `fetch`, `api`, `download`, `read_webpage`, `web_search` |
+| **Delegation** | `agent` (ephemeral sub-agents for parallel search) |
+| **TODO Management** | `todo_add`, `todo_list`, `todo_get`, `todo_update`, `todo_delete` |
+| **Diagnostics** | `lsp_diagnostics`, `sysinfo`, `ping`, `echo` |
+| **Protocol** | `mcp` (Model Context Protocol) |
+
+## TUI Navigation
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+N/P` | Navigate history |
+| `Home/End` | Jump to start/end |
+| `Ctrl+F` | Toggle follow mode |
+| `Ctrl+H` | Toggle help |
+| `Ctrl+C` | Cancel/Exit |
+
+## Tracing & Costs
+
+- Structured JSONL trace events for every run
+- Live token counting (input/output) with estimated cost
+- Model pricing automatically refreshed from models.dev
+
+## Development
+
+```bash
+# Build
+make build
+
+# Run tests
+go test ./...
+
+# Run with debug logging
+./agentry --debug
+
+# Format check
+gofmt -l .
+```
+
+## Architecture
+
+Agentry follows the **single agent + parallel search** model:
+
+```
+User Request
+     ↓
+┌─────────────────────────────────────┐
+│           Main Agent                │
+│  - reads/writes files               │
+│  - runs commands                    │
+│  - plans and iterates               │
+└─────────────┬───────────────────────┘
+              │ "agent" tool (parallel search)
+    ┌─────────┼─────────┐
+    ↓         ↓         ↓
+┌───────┐ ┌───────┐ ┌───────┐
+│search │ │search │ │search │  ← Ephemeral, stateless
+│agent  │ │agent  │ │agent  │  ← Read-only tools only
+└───────┘ └───────┘ └───────┘
+```
+
+## License
+
+MIT - see [LICENSE](LICENSE)
