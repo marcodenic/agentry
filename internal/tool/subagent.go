@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -19,8 +20,10 @@ import (
 // - Can run in parallel
 // - Return simple text results
 type SubAgentTool struct {
-	client model.Client
-	tools  Registry
+	// clientFactory creates fresh clients for each sub-agent invocation
+	// to avoid sharing conversation state with the parent agent
+	clientFactory func() model.Client
+	tools         Registry
 }
 
 // ReadOnlyBuiltins lists the tools available to sub-agents.
@@ -28,6 +31,8 @@ type SubAgentTool struct {
 var ReadOnlyBuiltins = []string{"glob", "grep", "view", "ls"}
 
 // NewSubAgentTool creates a new sub-agent tool with read-only capabilities.
+// It uses the provided client to determine model provider/name and creates
+// fresh clients for each invocation to avoid state sharing.
 func NewSubAgentTool(client model.Client) Tool {
 	// Create a registry with only read-only tools from builtinMap
 	readOnlyTools := Registry{}
@@ -38,9 +43,31 @@ func NewSubAgentTool(client model.Client) Tool {
 		}
 	}
 
+	// Determine the client factory based on the client type
+	// We create fresh clients to avoid sharing previousResponseID state
+	var clientFactory func() model.Client
+	switch c := client.(type) {
+	case *model.OpenAI:
+		// Get the key from environment since we can't access it directly
+		key := os.Getenv("OPENAI_API_KEY")
+		modelName := c.ModelName()
+		clientFactory = func() model.Client {
+			return model.NewOpenAI(key, modelName)
+		}
+	case *model.Anthropic:
+		key := os.Getenv("ANTHROPIC_API_KEY")
+		modelName := c.ModelName()
+		clientFactory = func() model.Client {
+			return model.NewAnthropic(key, modelName)
+		}
+	default:
+		// Fallback: reuse the client (may cause issues with stateful APIs)
+		clientFactory = func() model.Client { return client }
+	}
+
 	sat := &SubAgentTool{
-		client: client,
-		tools:  readOnlyTools,
+		clientFactory: clientFactory,
+		tools:         readOnlyTools,
 	}
 
 	return sat
@@ -114,6 +141,10 @@ func (sat *SubAgentTool) Execute(ctx context.Context, args map[string]any) (stri
 func (sat *SubAgentTool) Run(ctx context.Context, prompt string) (string, error) {
 	debug.Printf("SubAgent: Starting with prompt: %s", truncate(prompt, 100))
 
+	// Create a fresh client for this sub-agent invocation
+	// to avoid sharing conversation state with the parent agent
+	client := sat.clientFactory()
+
 	specs := BuildSpecs(sat.tools)
 
 	systemPrompt := `You are a search agent. Your task is to find information in the codebase.
@@ -142,7 +173,7 @@ After finding the information, provide a clear summary of your findings.`
 		default:
 		}
 
-		ch, err := sat.client.Stream(ctx, msgs, specs)
+		ch, err := client.Stream(ctx, msgs, specs)
 		if err != nil {
 			return "", fmt.Errorf("sub-agent stream error: %w", err)
 		}
@@ -191,17 +222,18 @@ func aggregateStreamChunks(ch <-chan model.StreamChunk) model.Completion {
 			continue
 		}
 		content.WriteString(chunk.ContentDelta)
-		if len(chunk.ToolCalls) > 0 {
-			toolCalls = append(toolCalls, chunk.ToolCalls...)
-		}
-		if chunk.InputTokens > 0 {
-			inputTokens = chunk.InputTokens
-		}
-		if chunk.OutputTokens > 0 {
-			outputTokens = chunk.OutputTokens
-		}
-		if chunk.ModelName != "" {
-			modelName = chunk.ModelName
+		// Tool calls come in the final Done chunk
+		if chunk.Done {
+			toolCalls = chunk.ToolCalls
+			if chunk.InputTokens > 0 {
+				inputTokens = chunk.InputTokens
+			}
+			if chunk.OutputTokens > 0 {
+				outputTokens = chunk.OutputTokens
+			}
+			if chunk.ModelName != "" {
+				modelName = chunk.ModelName
+			}
 		}
 	}
 
