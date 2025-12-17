@@ -39,6 +39,14 @@ func (b *oaRequestBuilder) Build(ctx context.Context, stream bool) (*http.Reques
 			debug.Printf("OpenAIConversation.buildRequest: missing previous_response_id for tool outputs; proceeding without linkage")
 		}
 		body["input"] = fnOutputs
+		// Important: include tool definitions on continuation requests too.
+		// Without this, the model may be unable to emit further tool calls after
+		// receiving tool outputs (it may only produce narrative text describing
+		// what it would do next).
+		if len(b.tools) > 0 {
+			body["tools"] = buildOATools(b.tools)
+			body["tool_choice"] = "auto"
+		}
 		if stream {
 			body["stream"] = true
 		}
