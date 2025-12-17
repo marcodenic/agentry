@@ -47,8 +47,6 @@ type Model struct {
 	pricing *cost.PricingTable
 	err     error
 	keys    Keybinds
-
-	delegationEvents chan team.DelegationEvent
 }
 
 type AgentStatus int

@@ -220,7 +220,7 @@ func (r *openAIStreamReader) Read(ctx context.Context, src io.Reader, emit func(
 				model:         r.model,
 			}, nil
 		case t == "response.error":
-			errVal, metadata := parseResponseError(env)
+			metadata, errVal := parseResponseError(env)
 			metadata["provider"] = "openai"
 			metadata["model"] = r.model
 			metadata["error"] = errVal.Error()
@@ -279,7 +279,7 @@ func (r *oaStreamResult) ResponseID() string {
 	return r.responseID
 }
 
-func parseResponseError(env map[string]any) (error, map[string]interface{}) {
+func parseResponseError(env map[string]any) (map[string]interface{}, error) {
 	meta := map[string]interface{}{}
 	if errObj, ok := env["error"].(map[string]any); ok {
 		code, _ := errObj["code"].(string)
@@ -291,18 +291,18 @@ func parseResponseError(env map[string]any) (error, map[string]interface{}) {
 			meta["message"] = message
 		}
 		if code != "" && message != "" {
-			return fmt.Errorf("%s: %s", code, message), meta
+			return meta, fmt.Errorf("%s: %s", code, message)
 		}
 		if message != "" {
-			return errors.New(message), meta
+			return meta, errors.New(message)
 		}
 		if code != "" {
-			return fmt.Errorf("response_error code=%s", code), meta
+			return meta, fmt.Errorf("response_error code=%s", code)
 		}
 	}
 	if msg, ok := env["error"].(string); ok && msg != "" {
 		meta["message"] = msg
-		return errors.New(msg), meta
+		return meta, errors.New(msg)
 	}
-	return errors.New("unknown response error"), meta
+	return meta, errors.New("unknown response error")
 }

@@ -42,14 +42,17 @@ tools:
 
 ### Tool Categories
 
-| Category         | Tools (examples)                              |
-| ---------------- | ---------------------------------------------- |
-| File operations  | `view`, `create`, `edit_range`, `search_replace` |
-| Search           | `ls`, `find`, `grep`, `glob`                   |
-| Networking       | `fetch`, `api`, `download`                     |
-| Shell            | `bash`, `sh`, `powershell`, `cmd`              |
-| Diagnostics      | `lsp_diagnostics`, `sysinfo`, `ping`           |
-| Delegation       | `agent`                                        |
+| Category | Tools |
+|----------|-------|
+| File viewing | `view`, `read_lines`, `fileinfo` |
+| File editing | `create`, `write`, `edit`, `edit_range`, `insert_at`, `search_replace`, `patch` |
+| Search | `ls`, `find`, `grep`, `glob`, `project_tree` |
+| Networking | `fetch`, `api`, `download`, `read_webpage`, `web_search` |
+| Shell | `bash`, `sh`, `powershell`, `cmd` |
+| Diagnostics | `lsp_diagnostics`, `sysinfo`, `ping`, `echo` |
+| TODO management | `todo_add`, `todo_list`, `todo_get`, `todo_update`, `todo_delete` |
+| Delegation | `agent` (ephemeral sub-agents for parallel search) |
+| Protocol | `mcp` (Model Context Protocol) |
 
 Include only the tools you trust for a repository. Use runtime flags (`--allow-tools`, `--deny-tools`, `--disable-tools`) for temporary overrides during a session.
 
@@ -57,8 +60,9 @@ Include only the tools you trust for a repository. Use runtime flags (`--allow-t
 
 Copy `.env.example` to `.env.local` and set relevant keys:
 
-- `OPENAI_API_KEY` for OpenAI-backed models (required for non-mock runs)
-- `ANTHROPIC_API_KEY` if you opt into Anthropic models
+- `OPENAI_API_KEY` for OpenAI-backed models
+- `ANTHROPIC_API_KEY` for Anthropic/Claude models
+- `GOOGLE_API_KEY` for Google models
 
 `.env.local` is loaded automatically at startup.
 

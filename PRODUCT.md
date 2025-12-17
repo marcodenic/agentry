@@ -1,15 +1,24 @@
 # Agentry Product Brief
 
-_Last updated: September 2025_
+_Last updated: December 2025_
 
-Agentry is a local-first agent runtime with a built-in TUI, structured tracing, and a curated set of tools for day-to-day development automation.
+Agentry is a local-first AI agent runtime with a built-in TUI, structured tracing, and a curated set of tools for day-to-day development automation.
+
+## Architecture
+
+Agentry follows the **single agent + parallel search** model. One intelligent agent handles all the work, with the ability to spawn ephemeral read-only sub-agents for parallel search when needed.
+
+```
+User Request → Main Agent (does ALL work) → Optional parallel search agents
+```
 
 ## Scope
 
 - **Runtime:** streaming loop, tool execution, budgeting, error handling
-- **TUI:** conversational view, tool output log, TODO board, token/cost footer
-- **Configuration:** single `.agentry.yaml` drives models, tools, and role templates
-- **Tooling:** safe-by-default builtin tools for files, search, shell, networking, and delegation
+- **TUI:** conversational view with real-time streaming and reasoning display
+- **LLM Providers:** OpenAI (gpt-4, gpt-5, o1, o3), Anthropic Claude, Google
+- **Configuration:** single `.agentry.yaml` drives models, tools, and permissions
+- **Tooling:** safe-by-default builtin tools for files, search, shell, networking
 - **Observability:** JSONL traces, rolling debug logs, model pricing cache
 
 ## Vision
@@ -19,26 +28,21 @@ Deliver a dependable assistant that can plan and execute development tasks in a 
 ## What Exists Today
 
 - Core conversation loop with streaming responses and structured tracing
+- Multi-provider LLM support (OpenAI, Anthropic, Google)
+- Reasoning model support with throttled thinking display
 - Cost manager backed by a refreshable pricing cache
-- Delegation via the `agent` tool and SOP-backed role templates
-- Builtin TODO store surfaced in the TUI
-- Debug wrappers (`scripts/debug-agentry.sh`) and logging smoke tests
-- Go 1.25 feature adoption where it improves concurrency/readability
-
-## Near-Term Priorities
-
-1. Ship the Context-Lite prompt compiler with golden tests
-2. Expand unit coverage for tool execution error paths and budgeting
-3. Polish the TUI TODO board (filters, clearer status updates)
-4. Refresh SOP/role templates to match the trimmed tool set
-5. Keep documentation in sync with the simplified CLI/TUI surface
+- Ephemeral sub-agent delegation via the `agent` tool
+- Builtin TODO store with full CRUD operations
+- Debug wrappers and logging infrastructure
 
 ## Recently Completed
 
-- Removed legacy features: persistent sessions, NATS queues, Kubernetes deployment, eval system, examples folder
-- Simplified CLI to `tui`, direct prompt execution, and `refresh-models`
-- Relocated helper scripts/log docs into `scripts/` and `docs/`
-- Added regression tests for streaming aggregation and tool executor behaviour
+- Simplified to single-agent architecture (removed complex multi-agent orchestration)
+- Added reasoning model support with thinking content display
+- Multi-provider LLM support (OpenAI, Anthropic Claude, Google)
+- Removed legacy features: persistent sessions, NATS queues, Kubernetes deployment
+- Comprehensive code cleanup with staticcheck analysis
+- Updated documentation to reflect current architecture
 
 ## Principles
 

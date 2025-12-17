@@ -91,8 +91,3 @@ func (m *Model) updateThinkingDisplay(info *AgentInfo) {
 	m.view.Chat.Main.SetContent(displayHistory)
 	m.view.Chat.Main.GotoBottom()
 }
-
-// clearThinkingContent clears the thinking content when real response starts
-func (m *Model) clearThinkingContent(info *AgentInfo) {
-	info.ThinkingContent = ""
-}

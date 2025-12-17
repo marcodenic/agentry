@@ -1,33 +1,38 @@
-# TUI Delegation Cheatsheet
+# TUI Guide
 
-This UI keeps the conversation readable while still tracking what every delegated worker is doing.
+The terminal UI provides a focused interface for interacting with the main agent.
 
-## What Goes Where
+## Layout
 
-- **Main chat (left)** – always shows the canonical stream of events. You will see:
-  - Agent 0’s narration.
-  - The delegation notice (`Delegating to coder…`).
-  - Every tool call from Agent 0 and from any spawned agent, rendered inline just like the screenshot you shared (e.g. `✔ View ~/src/.../sidebar.go`). Those entries update in place while the tool runs so you can watch progress without changing focus.
-- **Sidebar (right)** – one card per agent. Each card only carries a single status line that mirrors the latest tool event, so you can glance at what each worker is currently doing without clutter.
+- **Chat pane** – The main conversation stream showing agent narration, tool calls, and responses. Tool entries update in place while running so you can watch progress.
+- **Status bar** – Shows token usage, cost tracking, and elapsed time at a glance.
+- **Input area** – Type prompts and commands.
 
 ## Workflow
 
-1. You instruct Agent 0.
-2. If it delegates, the chat shows the delegation block immediately.
-3. When the delegated agent calls a tool, the chat displays the tool line and keeps it updated (duration, path, etc.). The sidebar line for that agent mirrors the same text.
-4. Once a tool finishes, both the chat entry and the sidebar line flip to `DONE` (or `ERROR` for failures). The agent card resets to idle when the final response comes back.
+1. Type your request in the input area.
+2. The agent streams its response and any tool calls appear inline.
+3. Tool calls show status (running/done/error), duration, and target paths.
+4. Reasoning content from models like o1/o3 appears with a 💭 indicator.
 
-## Navigation Aids
+## Navigation Keys
 
-- `ctrl+n` / `ctrl+p` – cycle through agent cards.
-- `home` / `end` – jump to first/last agent.
-- `ctrl+f` – focus/unfocus the activity log if you want to scroll through older tool entries (it stays hidden until there’s history).
-- `ctrl+h` – collapse/expand the agent list for more room when needed.
+| Key | Action |
+|-----|--------|
+| `Ctrl+N` / `Ctrl+P` | Navigate through history |
+| `Home` / `End` | Jump to start/end of chat |
+| `Ctrl+F` | Toggle follow mode (auto-scroll) |
+| `Ctrl+H` | Toggle help display |
+| `Ctrl+C` | Cancel current operation / Exit |
+| `Tab` | Switch between panes |
+
+## Slash Commands
+
+Type `/help` inside the chat for available commands.
 
 ## Tips
 
-- The chat is the source of truth for tool output—use the sidebar as a quick status glance.
-- Because every agent writes into the chat, you can copy the execution history straight from one place.
-- When an agent seems stuck, look at its sidebar line: it shows the exact tool + target it’s busy with and updates as soon as something changes.
-
-That’s the intended flow: chat-first visibility, with the sidebar acting as a lightweight dashboard so you never miss what the delegated workers are doing.
+- The chat is the source of truth for all tool output and execution history.
+- Watch the status bar for token/cost tracking during long operations.
+- Use `--debug` flag when launching to see verbose logging.
+- For reasoning models, thinking content is throttled to prevent terminal overload.

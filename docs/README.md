@@ -5,8 +5,9 @@ Welcome to the Agentry documentation! This directory contains comprehensive docu
 ## Structure
 
 ### Core Documentation
+- [`TUI.md`](TUI.md) - Terminal UI guide and navigation
 - [`CONFIG_GUIDE.md`](CONFIG_GUIDE.md) - Configuration guide and options
-- [`api.md`](api.md) - API documentation
+- [`api.md`](api.md) - API and tool documentation
 - [`install.md`](install.md) - Installation instructions
 - [`testing.md`](testing.md) - Testing guidelines
 - [`usage.md`](usage.md) - Usage examples and guides
@@ -17,9 +18,7 @@ Welcome to the Agentry documentation! This directory contains comprehensive docu
 
 ### Project Documentation
 - [`project/`](project/) - Project planning and management
-  - [`PLAN.md`](project/PLAN.md) - Project plan
   - [`ROADMAP.md`](project/ROADMAP.md) - Project roadmap
-  - [`TODO.md`](project/TODO.md) - Todo items
   - [`ISSUES.md`](project/ISSUES.md) - Known issues
 
 ## Getting Started

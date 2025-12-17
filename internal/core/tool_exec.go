@@ -68,18 +68,18 @@ func (e *toolExecutor) execute(ctx context.Context, calls []model.ToolCall, step
 func (e *toolExecutor) prepareCall(tc model.ToolCall) (tool.Tool, map[string]any, error) {
 	toolInstance, ok := e.agent.Tools.Use(tc.Name)
 	if !ok {
-		errMsg := fmt.Sprintf("Error: Unknown tool '%s'. Available tools: %v", tc.Name, getToolNames(e.agent.Tools))
+		errMsg := fmt.Sprintf("unknown tool '%s'. Available tools: %v", tc.Name, getToolNames(e.agent.Tools))
 		return nil, nil, errors.New(errMsg)
 	}
 
 	var args map[string]any
 	if err := json.Unmarshal(tc.Arguments, &args); err != nil {
-		return nil, nil, fmt.Errorf("Error: Invalid tool arguments for '%s': %w", tc.Name, err)
+		return nil, nil, fmt.Errorf("invalid tool arguments for '%s': %w", tc.Name, err)
 	}
 
 	applyVarsMap(args, e.agent.Vars)
 	if err := e.agent.JSONValidator.ValidateToolArgs(args); err != nil {
-		return nil, nil, fmt.Errorf("Error: Invalid tool arguments for '%s': %w", tc.Name, err)
+		return nil, nil, fmt.Errorf("invalid tool arguments for '%s': %w", tc.Name, err)
 	}
 
 	return toolInstance, args, nil
@@ -120,7 +120,7 @@ func (e *toolExecutor) runTool(ctx context.Context, tc model.ToolCall, toolInsta
 	e.note.Success(e.agent.ID.String(), tc.Name)
 
 	if err := e.agent.JSONValidator.ValidateToolResponse(result); err != nil {
-		return "", false, fmt.Errorf("Error: Tool '%s' produced invalid response: %v", tc.Name, err)
+		return "", false, fmt.Errorf("tool '%s' produced invalid response: %v", tc.Name, err)
 	}
 
 	return e.normalizeResult(tc.Name, args, result), false, nil

@@ -1,31 +1,33 @@
 # Roadmap
 
-_Last updated: September 2025_
+_Last updated: December 2025_
 
 ## Now (in flight)
 
-- Finalise Context-Lite prompt compiler and associated tests
-- Harden tool execution error-handling (`TreatErrorsAsResults`, budgeting)
-- Audit documentation to match the trimmed CLI/TUI surface
+- Polish TUI experience and navigation
+- Expand test coverage for tool execution paths
+- Performance tuning for reasoning model streaming
 
 ## Next (upcoming)
 
-- TUI improvements: TODO board filters, clearer agent status indicators
-- Role/SOP refresh: standardise templates for Agent 0, Coder, Tester, Critic
-- Expand integration coverage for delegation plus `AGENTRY_DELEGATION_TIMEOUT`
+- Additional LLM provider integrations
+- Enhanced TODO board with filtering
+- Workflow presets for common repo setups (Go, JS/TS, Python)
 
 ## Later (nice to have)
 
-- Optional telemetry export that builds on the JSONL trace pipeline
+- Optional telemetry export building on JSONL trace pipeline
 - Library mode for embedding the runtime in other Go projects
-- Workflow presets for common repo setups (Go, JS/TS, Python)
+- MCP server implementations for tool extensibility
 
 ## Completed
 
-- Removed persistent session infrastructure, NATS queueing, and autoscaler code
-- Retired `examples/` configs in favour of a single root `.agentry.yaml`
-- Simplified CLI to `tui`, direct prompts, and pricing refresh command
-- Added regression tests for streaming aggregator and tool executor behaviour
+- Simplified to single-agent + parallel search architecture
+- Multi-provider LLM support (OpenAI, Anthropic, Google)
+- Reasoning model support with throttled thinking display
+- Removed legacy multi-agent orchestration complexity
+- Comprehensive code cleanup with staticcheck
+- Updated all documentation to reflect current architecture
 
 ## Principles
 
