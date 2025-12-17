@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
+	"github.com/marcodenic/agentry/internal/team"
 	"github.com/marcodenic/agentry/internal/trace"
 )
 
@@ -84,6 +85,10 @@ type agentStartMsg struct {
 type finalMsg struct {
 	id   uuid.UUID
 	text string
+}
+
+type delegationLifecycleMsg struct {
+	event team.DelegationEvent
 }
 
 // ASCII spinner frames for thinking animation
