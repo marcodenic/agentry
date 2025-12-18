@@ -13,11 +13,8 @@ func (m Model) View() string {
 		// Render activity feed if focused
 		chatContent = m.view.ActivityFeed.View()
 	} else if m.layout.activeTab == 0 {
-		// Update viewport content with thinking box if needed
-		if info, ok := m.infos[m.active]; ok {
-			displayContent := m.getDisplayContent(info)
-			m.view.Chat.Main.SetContent(displayContent)
-		}
+		// Don't update viewport content here - let the message handlers do it
+		// This prevents overwriting streaming content or spinner animations
 		
 		// Use viewport for proper scrolling
 		chatContent = m.view.Chat.Main.View()

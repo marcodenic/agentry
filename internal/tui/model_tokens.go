@@ -31,7 +31,10 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 		} else {
 			info.StreamingTokenCount = 0
 		}
-		// Viewport will update on next render cycle to show just history
+		// Keep viewport at bottom when thinking box collapses
+		if msg.id == m.active {
+			m.view.Chat.Main.GotoBottom()
+		}
 		// No need to clean up spinners since they were never added to history!
 	}
 

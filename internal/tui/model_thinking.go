@@ -20,48 +20,49 @@ func (m Model) handleThinkingMessage(msg thinkingMsg) (Model, tea.Cmd) {
 	
 	// Show the thinking viewport and update its content
 	info.ShowThinking = true
-	info.ThinkingViewport.SetContent(info.ThinkingContent)
-	info.ThinkingViewport.GotoBottom() // Auto-scroll thinking viewport to bottom
+	
+	// Only wrap and update display every ~100 characters to reduce CPU usage
+	if len(info.ThinkingContent)%100 == 0 || len(msg.delta) > 10 {
+		thinkingWidth := m.view.Chat.Main.Width - 8 // Account for border and padding
+		if thinkingWidth < 20 {
+			thinkingWidth = 20
+		}
+		wrappedContent := lipgloss.NewStyle().Width(thinkingWidth).Render(info.ThinkingContent)
+		info.ThinkingViewport.SetContent(wrappedContent)
+		info.ThinkingViewport.GotoBottom()
+		
+		// Update main viewport with thinking box (inline to avoid repeated expensive calls)
+		if msg.id == m.active {
+			// Create thinking section with border
+			thinkingStyle := lipgloss.NewStyle().
+				BorderStyle(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#9370DB")).
+				Padding(0, 1)
+			
+			thinkingHeader := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#9370DB")).
+				Bold(true).
+				Render("💭 Thinking...")
+			
+			thinkingBody := info.ThinkingViewport.View()
+			thinkingBox := thinkingStyle.Render(thinkingHeader + "\n" + thinkingBody)
+			
+			// Combine history with thinking box
+			displayContent := info.History
+			if displayContent != "" && !strings.HasSuffix(displayContent, "\n") {
+				displayContent += "\n"
+			}
+			displayContent += "\n" + thinkingBox
+			
+			m.view.Chat.Main.SetContent(displayContent)
+		}
+	}
 
 	// Save updated info
 	m.infos[msg.id] = info
 
-	// Don't update main viewport on every delta to prevent flashing
-	// The thinking content will be visible through the next render cycle
-
 	// Continue reading events
 	return m, m.runtime.ReadCmd(&m, msg.id)
-}
-
-// getDisplayContent returns the content to display in the main viewport
-// including history and optional thinking box (for rendering only)
-func (m *Model) getDisplayContent(info *AgentInfo) string {
-	if !info.ShowThinking || info.ThinkingContent == "" {
-		return info.History
-	}
-	
-	// Create thinking section with border
-	thinkingStyle := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#9370DB")). // Purple for thinking
-		Padding(0, 1)
-	
-	thinkingHeader := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#9370DB")).
-		Bold(true).
-		Render("💭 Thinking...")
-	
-	thinkingBody := info.ThinkingViewport.View()
-	thinkingBox := thinkingStyle.Render(thinkingHeader + "\n" + thinkingBody)
-	
-	// Combine history with thinking box
-	displayContent := info.History
-	if displayContent != "" && !strings.HasSuffix(displayContent, "\n") {
-		displayContent += "\n"
-	}
-	displayContent += "\n" + thinkingBox
-	
-	return displayContent
 }
 
 

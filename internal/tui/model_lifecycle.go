@@ -41,13 +41,9 @@ func (m Model) handleAgentStart(msg agentStartMsg) (Model, tea.Cmd) {
 // handleThinkingAnimation processes thinking animation messages
 func (m Model) handleThinkingAnimation(msg thinkingAnimationMsg) (Model, tea.Cmd) {
 	info := m.infos[msg.id]
-	// Stop thinking animation if tokens have started or agent is not running
-	if info.Status != StatusRunning || info.TokensStarted {
-		// When stopping thinking animation, just refresh display with clean history
-		if msg.id == m.active {
-			m.view.Chat.Main.SetContent(info.History)
-			m.view.Chat.Main.GotoBottom()
-		}
+	// Stop thinking animation if tokens have started, agent is not running, or showing thinking box
+	if info.Status != StatusRunning || info.TokensStarted || info.ShowThinking {
+		// Animation stopped - viewport will show current content
 		return m, nil
 	}
 

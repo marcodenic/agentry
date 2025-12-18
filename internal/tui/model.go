@@ -21,7 +21,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/marcodenic/agentry/internal/core"
 	"github.com/marcodenic/agentry/internal/cost"
-	"github.com/marcodenic/agentry/internal/debug"
 	"github.com/marcodenic/agentry/internal/glyphs"
 	"github.com/marcodenic/agentry/internal/statusbar"
 	"github.com/marcodenic/agentry/internal/team"
@@ -214,12 +213,11 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	// Load base prompt from templates
 	ag.Prompt = core.GetDefaultPrompt()
 	if strings.TrimSpace(ag.Prompt) == "" {
-		debug.Printf("Warning: No default prompt found. Set AGENTRY_DEFAULT_PROMPT or install templates (see docs). Proceeding without a system prompt.")
+		// Warning: No default prompt found. Set AGENTRY_DEFAULT_PROMPT or install templates (see docs).
 	}
 
 	// Register sub-agent tool for parallel search operations
 	tm.RegisterAgentTool(ag.Tools)
-	debug.Printf("Sub-agent tool registered for parallel search")
 
 	// Subscribe to delegation events to show subagents in TUI
 	delegationCh, _ := tm.SubscribeDelegationEvents()
