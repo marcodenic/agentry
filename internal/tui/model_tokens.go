@@ -19,17 +19,19 @@ func (m Model) handleTokenMessages(msg tokenMsg) (Model, tea.Cmd) {
 
 	// ENABLED: Real-time token streaming for smooth UX
 
-	// Stop thinking animation on first token and clear thinking content
+	// Stop thinking animation on first token and collapse thinking viewport
 	if !info.TokensStarted {
 		info.TokensStarted = true
 		info.StreamingResponse = "" // Initialize streaming response
-		info.ThinkingContent = ""   // Clear thinking/reasoning marquee
+		info.ShowThinking = false   // Collapse the thinking viewport
+		info.ThinkingContent = ""   // Clear thinking content
 		// Initialize live token count based on agent's current count
 		if info.Agent != nil && info.Agent.Cost != nil {
 			info.StreamingTokenCount = info.Agent.Cost.TotalTokens()
 		} else {
 			info.StreamingTokenCount = 0
 		}
+		// Viewport will update on next render cycle to show just history
 		// No need to clean up spinners since they were never added to history!
 	}
 

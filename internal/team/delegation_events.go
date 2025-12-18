@@ -59,3 +59,17 @@ func (t *Team) SubscribeDelegationEvents() (<-chan DelegationEvent, func()) {
 		})
 	}
 }
+
+// publishDelegationEvent sends an event to all subscribers (non-blocking).
+func (t *Team) publishDelegationEvent(event DelegationEvent) {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	
+	for _, ch := range t.delegationSubscribers {
+		select {
+		case ch <- event:
+		default:
+			// Don't block if subscriber is slow
+		}
+	}
+}

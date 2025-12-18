@@ -61,6 +61,17 @@ func (s *delegationSession) Run(ctx context.Context) (string, error) {
 	}
 	s.publishStartEvent()
 
+	// Publish session start event for TUI
+	s.team.publishDelegationEvent(DelegationEvent{
+		Type:        DelegationEventSessionStart,
+		TeamAgentID: s.agent.ID,
+		CoreAgentID: s.agent.Agent.ID.String(),
+		AgentName:   s.agentID,
+		Role:        s.agent.Role,
+		Input:       s.input,
+		Timestamp:   time.Now(),
+	})
+
 	s.startTime = time.Now()
 	s.telemetry.RunAgentStart()
 	result, err := runAgentFn(s.runCtx, s.agent.Agent, s.augmentedInput(), s.agentID, s.team.GetAgents())
@@ -69,6 +80,30 @@ func (s *delegationSession) Run(ctx context.Context) (string, error) {
 	s.telemetry.RunAgentComplete(duration)
 
 	outcome, outcomeErr := s.processOutcome(result, err)
+	
+	// Publish session complete/error event
+	if outcomeErr != nil {
+		s.team.publishDelegationEvent(DelegationEvent{
+			Type:        DelegationEventSessionError,
+			TeamAgentID: s.agent.ID,
+			CoreAgentID: s.agent.Agent.ID.String(),
+			AgentName:   s.agentID,
+			Role:        s.agent.Role,
+			Err:         outcomeErr.Error(),
+			Timestamp:   time.Now(),
+		})
+	} else {
+		s.team.publishDelegationEvent(DelegationEvent{
+			Type:        DelegationEventSessionComplete,
+			TeamAgentID: s.agent.ID,
+			CoreAgentID: s.agent.Agent.ID.String(),
+			AgentName:   s.agentID,
+			Role:        s.agent.Role,
+			Result:      outcome,
+			Timestamp:   time.Now(),
+		})
+	}
+	
 	s.timer.Checkpoint("cleanup completed")
 	return outcome, outcomeErr
 }
@@ -93,6 +128,17 @@ func (s *delegationSession) ensureAgent() error {
 		agent = spawnedAgent
 		teamruntime.Debugf("✅ Agent %s created and ready\n", s.agentID)
 		s.notifier.User("✅ %s agent ready\n", s.agentID)
+		
+		// Publish spawn event
+		s.team.publishDelegationEvent(DelegationEvent{
+			Type:        DelegationEventSpawn,
+			TeamAgentID: agent.ID,
+			CoreAgentID: agent.Agent.ID.String(),
+			AgentName:   s.agentID,
+			Role:        agent.Role,
+			Input:       s.input,
+			Timestamp:   time.Now(),
+		})
 	} else {
 		s.timer.Checkpoint("existing agent found")
 		teamruntime.Debugf("♻️  Using existing agent: %s (Status: %s)\n", s.agentID, agent.Status)

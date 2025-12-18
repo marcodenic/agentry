@@ -216,6 +216,11 @@ func (m Model) Init() tea.Cmd {
 		cmds = append(cmds, info.Spinner.Tick)
 	}
 
+	// Start listening for delegation events
+	if m.delegationEvents != nil {
+		cmds = append(cmds, m.runtime.WaitDelegationEvent(m.delegationEvents))
+	}
+
 	return tea.Batch(cmds...)
 }
 func truncateString(s string, maxLen int) string {

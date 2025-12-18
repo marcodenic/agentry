@@ -106,30 +106,15 @@ tools:
     type: builtin
     description: Delete all local Git branches except the current one
 
-  # Team coordination tools
+  # Project navigation
   - name: project_tree
     type: builtin
     description: Get intelligent project structure with smart filtering
-  - name: team_status
-    type: builtin
-    description: Get current status of all team agents
-  - name: assign_task
-    type: builtin
-    description: Formally assign tasks with priority levels
-  - name: check_agent
-    type: builtin
-    description: Check if a specific agent is available
 
 # Disable sandbox to avoid cri-shim dependencies for now
 sandbox:
   engine: disabled
 
-# Include all agent role definitions
+# Main agent role
 include:
   - templates/roles/agent_0.yaml
-  - templates/roles/coder.yaml
-  - templates/roles/tester.yaml
-  - templates/roles/writer.yaml
-  - templates/roles/researcher.yaml
-  - templates/roles/team_planner.yaml
-  - templates/roles/critic.yaml

@@ -81,3 +81,82 @@ func (m Model) handleThinkingAnimation(msg thinkingAnimationMsg) (Model, tea.Cmd
 	// Continue the animation if still running and no tokens have started
 	return m, m.runtime.StartThinkingAnimation(msg.id)
 }
+
+// handleDelegationLifecycle processes delegation lifecycle events from subagents
+func (m Model) handleDelegationLifecycle(msg delegationLifecycleMsg) (Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	
+	event := msg.event
+	
+	switch event.Type {
+	case "spawn":
+		// Create a new agent entry when a subagent is spawned
+		if m.team != nil {
+			teamAgents := m.team.GetTeamAgents()
+			for _, teamAgent := range teamAgents {
+				if teamAgent.Name == event.AgentName {
+					// Create AgentInfo for this subagent
+					info := newAgentInfo(teamAgent.Agent, "", m.layout.width)
+					info.History = fmt.Sprintf("🚀 Subagent **%s** spawned for: %s\n", event.AgentName, event.Input)
+					info.Status = StatusIdle
+					info.LastContentType = ContentTypeStatusMessage
+					info.Role = event.Role
+					info.Name = event.AgentName
+					info.ModelName = teamAgent.Agent.ModelName
+					
+					m.infos[teamAgent.Agent.ID] = info
+					m.order = append(m.order, teamAgent.Agent.ID)
+					cmds = append(cmds, info.Spinner.Tick)
+					break
+				}
+			}
+		}
+		
+	case "session_start":
+		// Find the agent and mark it as running
+		for id, info := range m.infos {
+			if info.Name == event.AgentName {
+				info.Status = StatusRunning
+				info.History += fmt.Sprintf("\n▶️  Working on: %s\n", event.Input)
+				m.infos[id] = info
+				
+				// Start thinking animation for this agent
+				cmds = append(cmds, m.runtime.StartThinkingAnimation(id))
+				break
+			}
+		}
+		
+	case "session_complete":
+		// Mark agent as idle and show result
+		for id, info := range m.infos {
+			if info.Name == event.AgentName {
+				info.Status = StatusIdle
+				resultPreview := event.Result
+				if len(resultPreview) > 100 {
+					resultPreview = resultPreview[:100] + "..."
+				}
+				info.History += fmt.Sprintf("\n✅ Completed: %s\n", resultPreview)
+				m.infos[id] = info
+				break
+			}
+		}
+		
+	case "session_error":
+		// Mark agent as error state
+		for id, info := range m.infos {
+			if info.Name == event.AgentName {
+				info.Status = StatusError
+				info.History += fmt.Sprintf("\n❌ Error: %s\n", event.Err)
+				m.infos[id] = info
+				break
+			}
+		}
+	}
+	
+	// Continue listening for delegation events
+	if m.delegationEvents != nil {
+		cmds = append(cmds, m.runtime.WaitDelegationEvent(m.delegationEvents))
+	}
+	
+	return m, tea.Batch(cmds...)
+}

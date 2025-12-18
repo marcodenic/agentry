@@ -2,14 +2,13 @@ package tui
 
 import (
 	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
 // handleThinkingMessage processes reasoning/thinking content from reasoning models
-// Displays as a marquee-style scrolling line that disappears when real response starts
+// Displays in a dedicated scrolling viewport that collapses when real response starts
 func (m Model) handleThinkingMessage(msg thinkingMsg) (Model, tea.Cmd) {
 	info := m.infos[msg.id]
 	if info.Status == StatusStopped {
@@ -18,76 +17,51 @@ func (m Model) handleThinkingMessage(msg thinkingMsg) (Model, tea.Cmd) {
 
 	// Accumulate thinking content
 	info.ThinkingContent += msg.delta
-
-	// Throttle display updates to prevent overwhelming the terminal
-	// Only update every 50ms (20 fps max) or every 10 characters
-	now := time.Now()
-	shouldUpdate := len(info.ThinkingContent)%10 == 0 ||
-		info.LastThinkingUpdate.IsZero() ||
-		now.Sub(info.LastThinkingUpdate) > 50*time.Millisecond
-
-	if shouldUpdate {
-		info.LastThinkingUpdate = now
-		// Update display if this is the active agent
-		if msg.id == m.active {
-			m.updateThinkingDisplay(info)
-		}
-	}
+	
+	// Show the thinking viewport and update its content
+	info.ShowThinking = true
+	info.ThinkingViewport.SetContent(info.ThinkingContent)
+	info.ThinkingViewport.GotoBottom() // Auto-scroll thinking viewport to bottom
 
 	// Save updated info
 	m.infos[msg.id] = info
+
+	// Don't update main viewport on every delta to prevent flashing
+	// The thinking content will be visible through the next render cycle
 
 	// Continue reading events
 	return m, m.runtime.ReadCmd(&m, msg.id)
 }
 
-// updateThinkingDisplay renders the marquee-style thinking line
-func (m *Model) updateThinkingDisplay(info *AgentInfo) {
-	if info.ThinkingContent == "" {
-		return
+// getDisplayContent returns the content to display in the main viewport
+// including history and optional thinking box (for rendering only)
+func (m *Model) getDisplayContent(info *AgentInfo) string {
+	if !info.ShowThinking || info.ThinkingContent == "" {
+		return info.History
 	}
-
-	// Clean up the thinking content - remove newlines, collapse spaces
-	clean := strings.ReplaceAll(info.ThinkingContent, "\n", " ")
-	clean = strings.ReplaceAll(clean, "\r", "")
-	clean = strings.Join(strings.Fields(clean), " ")
-
-	// Use thinking bar (same as AI bar but with thinking emoji prefix)
-	thinkingBar := lipgloss.NewStyle().Foreground(lipgloss.Color("#9370DB")).Bold(true).Render("┃") // Purple for thinking
-	prefix := thinkingBar + " 💭 "
-	prefixLen := 6 // bar + space + emoji + space
-
-	// Calculate available width for marquee (accounting for bar and prefix)
-	maxWidth := m.view.Chat.Main.Width - prefixLen - 4
-
-	if maxWidth < 20 {
-		maxWidth = 40 // minimum reasonable width
-	}
-
-	// Marquee effect: show the last N characters, scrolling left
-	var displayText string
-	runeContent := []rune(clean)
-	if len(runeContent) > maxWidth {
-		// Show the last maxWidth characters (scrolling effect)
-		displayText = string(runeContent[len(runeContent)-maxWidth:])
-	} else {
-		displayText = clean
-	}
-
-	// Style the thinking line (dimmed, italic)
+	
+	// Create thinking section with border
 	thinkingStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")). // dim gray
-		Italic(true)
-
-	thinkingLine := prefix + thinkingStyle.Render(displayText)
-
-	// Update viewport with thinking line at the bottom
-	displayHistory := info.History
-	if displayHistory != "" {
-		displayHistory += "\n"
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#9370DB")). // Purple for thinking
+		Padding(0, 1)
+	
+	thinkingHeader := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#9370DB")).
+		Bold(true).
+		Render("💭 Thinking...")
+	
+	thinkingBody := info.ThinkingViewport.View()
+	thinkingBox := thinkingStyle.Render(thinkingHeader + "\n" + thinkingBody)
+	
+	// Combine history with thinking box
+	displayContent := info.History
+	if displayContent != "" && !strings.HasSuffix(displayContent, "\n") {
+		displayContent += "\n"
 	}
-	displayHistory += thinkingLine
-
-	m.view.Chat.Main.SetContent(displayHistory)
-	m.view.Chat.Main.GotoBottom()
+	displayContent += "\n" + thinkingBox
+	
+	return displayContent
 }
+
+

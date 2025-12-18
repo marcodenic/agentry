@@ -48,7 +48,7 @@ type Model struct {
 	err     error
 	keys    Keybinds
 
-	delegationEvents chan team.DelegationEvent
+	delegationEvents <-chan team.DelegationEvent
 }
 
 type AgentStatus int
@@ -115,8 +115,9 @@ type AgentInfo struct {
 	TokensStarted         bool   // Flag to stop thinking animation when tokens start
 	StreamingResponse     string // Current AI response being streamed (unformatted)
 	StreamingTokenCount   int    // Live token count during streaming (reconciled on completion)
-	ThinkingContent       string // Reasoning/thinking content (displayed as marquee)
-	LastThinkingUpdate    time.Time // Last time thinking display was updated (for throttling)
+	ThinkingContent       string // Reasoning/thinking content (full accumulated text)
+	ThinkingViewport      viewport.Model // Dedicated viewport for thinking content
+	ShowThinking          bool // Whether to show the thinking viewport
 	InputTokensTotal      int
 	OutputTokensTotal     int
 	HasUsageTotals        bool
@@ -220,6 +221,9 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 	tm.RegisterAgentTool(ag.Tools)
 	debug.Printf("Sub-agent tool registered for parallel search")
 
+	// Subscribe to delegation events to show subagents in TUI
+	delegationCh, _ := tm.SubscribeDelegationEvents()
+
 	statusBarModel := newStatusBarModel()
 	
 	// Initialize ActivityFeed with default style
@@ -246,16 +250,17 @@ func NewWithConfig(ag *core.Agent, includePaths []string, configDir string) Mode
 		ActivityFeed: activityFeed,
 	}
 	m := Model{
-		agents:  []*core.Agent{ag},
-		infos:   infos,
-		order:   []uuid.UUID{ag.ID},
-		active:  ag.ID,
-		team:    tm,
-		view:    view,
-		cwd:     cwd,
-		pricing: cost.NewPricingTable(),
-		keys:    DefaultKeybinds(),
-		runtime: newRuntimeService(),
+		agents:           []*core.Agent{ag},
+		infos:            infos,
+		order:            []uuid.UUID{ag.ID},
+		active:           ag.ID,
+		team:             tm,
+		view:             view,
+		cwd:              cwd,
+		pricing:          cost.NewPricingTable(),
+		keys:             DefaultKeybinds(),
+		runtime:          newRuntimeService(),
+		delegationEvents: delegationCh,
 	}
 	return m
 }
@@ -335,6 +340,9 @@ func newAgentInfo(ag *core.Agent, history string, defaultWindowWidth int) *Agent
 	sp.Spinner = spinner.Dot
 	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(uiColorAIAccentHex))
 
+	// Create a small thinking viewport (5 lines height, expandable)
+	thinkingVp := viewport.New(defaultWindowWidth-4, 5)
+
 	info := &AgentInfo{
 		Agent:               ag,
 		Status:              StatusIdle,
@@ -350,6 +358,8 @@ func newAgentInfo(ag *core.Agent, history string, defaultWindowWidth int) *Agent
 		ActivityTimes:       make([]time.Time, 0),
 		TokenHistory:        []int{},
 		DebugTrace:          make([]DebugTraceEvent, 0),
+		ThinkingViewport:    thinkingVp,
+		ShowThinking:        false,
 	}
 
 	info.ModelName = ag.ModelName

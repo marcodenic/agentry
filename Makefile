@@ -7,6 +7,8 @@ GOEXPERIMENT ?= jsonv2,greenteagc
 GOENV := GOEXPERIMENT=$(GOEXPERIMENT)
 
 build: ## Build the TUI binary with Go experiments enabled
+	@echo "🔍 checking for running agentry processes..."
+	@pkill -9 agentry 2>/dev/null || true
 	@echo "🚀 building agentry ($(GOEXPERIMENT))"
 	$(GOENV) $(GO) build -o $(BINARY) ./cmd/agentry
 	@echo "✅ output: $(BINARY)"

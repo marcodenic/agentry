@@ -29,6 +29,7 @@ ts-sdk/dist/
 *.log
 agent_communication.log
 debug/*.log
+debug_output.txt
 
 # Archive files
 *.tar.gz

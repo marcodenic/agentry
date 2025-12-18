@@ -13,7 +13,13 @@ func (m Model) View() string {
 		// Render activity feed if focused
 		chatContent = m.view.ActivityFeed.View()
 	} else if m.layout.activeTab == 0 {
-		// Use viewport content directly for proper scrolling
+		// Update viewport content with thinking box if needed
+		if info, ok := m.infos[m.active]; ok {
+			displayContent := m.getDisplayContent(info)
+			m.view.Chat.Main.SetContent(displayContent)
+		}
+		
+		// Use viewport for proper scrolling
 		chatContent = m.view.Chat.Main.View()
 
 		// Special handling for centered logo

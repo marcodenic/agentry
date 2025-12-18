@@ -39,7 +39,7 @@ func (m Model) handleWindowResize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 	// Update status bar size
 	m.view.Status.SetSize(msg.Width)
 
-	// Update progress bar widths for all agents when window resizes
+	// Update progress bar widths and thinking viewport for all agents when window resizes
 	panelWidth := int(float64(msg.Width) * 0.25)
 	for _, info := range m.infos {
 		// Use same width calculation as activity chart: panelWidth - 8
@@ -52,6 +52,9 @@ func (m Model) handleWindowResize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 			barWidth = 50 // Maximum reasonable width
 		}
 		info.TokenProgress.Width = barWidth
+		
+		// Resize thinking viewport
+		info.ThinkingViewport.Width = chatWidth - 4 // Account for border padding
 	}
 
 	// Refresh the viewport content with proper sizing.
